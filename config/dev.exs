@@ -24,10 +24,8 @@ config :d20, D20Web.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "RZXzxEVZl4aXp2UuKUMw7ZSOmHInhs9ucNJFcFA9+BAd7TbNNq9Ek82JYcygjlfW",
-  watchers: [
-    esbuild: {Esbuild, :install_and_run, [:d20, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:d20, ~w(--watch)]}
-  ]
+  watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}],
+  static_url: [host: "localhost", port: 5173]
 
 # ## SSL Support
 #
@@ -57,7 +55,6 @@ config :d20, D20Web.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
-      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/d20_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]

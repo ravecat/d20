@@ -65,7 +65,8 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    cache_static_manifest_latest: PhoenixVite.cache_static_manifest_latest(:d20)
 
   # ## SSL Support
   #
