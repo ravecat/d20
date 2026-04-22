@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "workspaceLayout": {
+    "appsDir": "apps",
+    "libsDir": "packages"
+  },
+  "tui": {
+    "enabled": false
+  },
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*"
+    ]
+  },
+  "targetDefaults": {
+    "serve": {
+      "cache": false
+    },
+    "build": {
+      "cache": true
+    },
+    "test": {
+      "cache": true
+    },
+    "typecheck": {
+      "cache": true
+    },
+    "format.check": {
+      "cache": true
+    }
+  },
+  "parallel": 2
+}

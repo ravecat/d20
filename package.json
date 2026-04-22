@@ -1,0 +1,11 @@
+{
+  "name": "2dice",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "nx": "nx"
+  },
+  "devDependencies": {
+    "nx": "^22.0.3"
+  }
+}
