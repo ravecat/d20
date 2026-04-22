@@ -21,9 +21,11 @@
             beam.elixir_1_19
             pkgs.git
             pkgs.glibcLocales
-            # Keep the JS toolchain in the shell for the workspace-managed assets package.
+            # Keep the JS toolchain in the shell for the Nx workspace tooling.
             pkgs.nodejs_22
             pkgs.pnpm
+            # Phoenix uses PostgreSQL locally by default.
+            pkgs.postgresql
           ];
 
           shellHook = ''
