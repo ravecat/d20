@@ -24,6 +24,7 @@ $RECYCLE.BIN/
 *.err
 *.pid
 *.pid.lock
+.pg_data/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
