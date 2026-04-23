@@ -31,6 +31,16 @@
           shellHook = ''
             # Elixir expects a locale archive on Nix-based shells.
             export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
+            export PGDATA="$PWD/.pg_data"
+            export PGHOST="$PGDATA"
+
+            if [ ! -d "$PGDATA" ]; then
+              initdb --pgdata "$PGDATA" --username postgres --auth-local=trust --auth-host=trust >/dev/null
+              echo "unix_socket_directories = '$PGDATA'" >> "$PGDATA/postgresql.conf"
+              pg_ctl start -D "$PGDATA" -l "$PGDATA/log" -s
+            else
+              pg_ctl status -D "$PGDATA" -s >/dev/null 2>&1 || pg_ctl start -D "$PGDATA" -l "$PGDATA/log" -s
+            fi
           '';
         };
       });
