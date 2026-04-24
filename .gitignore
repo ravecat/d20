@@ -32,6 +32,7 @@ pnpm-debug.log*
 lerna-debug.log*
 logs/
 **/logs/
+.plans/
 
 # Local environment and secrets
 .env

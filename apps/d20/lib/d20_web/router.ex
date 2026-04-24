@@ -1,6 +1,16 @@
 defmodule D20Web.Router do
   use D20Web, :router
 
+  pipeline :inertia do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {D20Web.Layouts, :inertia_root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug Inertia.Plug
+  end
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -15,7 +25,7 @@ defmodule D20Web.Router do
   end
 
   scope "/", D20Web do
-    pipe_through :browser
+    pipe_through :inertia
 
     get "/", PageController, :home
   end
