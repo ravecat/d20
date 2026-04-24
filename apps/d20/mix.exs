@@ -78,13 +78,22 @@ defmodule D20.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
+      serve: ["phx.server"],
+      start: ["serve"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      "format.check": ["format --check-formatted"],
       "assets.setup": ["bun.install --if-missing", "bun assets install"],
       "assets.build": ["bun vite build"],
       "assets.deploy": [
         "assets.build"
+      ],
+      deploy: [
+        "deps.get --only prod",
+        "compile",
+        "assets.setup",
+        "assets.deploy"
       ],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
     ]

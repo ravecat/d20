@@ -1,0 +1,130 @@
+{
+  "name": "d20",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/d20/lib",
+  "projectType": "application",
+  "namedInputs": {
+    "production": [
+      "default",
+      "!{projectRoot}/**/*_test.exs",
+      "!{projectRoot}/**/*.spec.exs",
+      "!{projectRoot}/test/**/*"
+    ]
+  },
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "iex --sname ${D20_NODE_NAME:-d20} --erl \"-proto_dist inet6_tcp\" -S mix serve",
+        "cwd": "apps/d20",
+        "color": true
+      },
+      "continuous": true
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "iex --sname ${D20_NODE_NAME:-d20} --erl \"-proto_dist inet6_tcp\" -S mix serve",
+        "cwd": "apps/d20",
+        "color": true
+      },
+      "continuous": true
+    },
+    "setup": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix setup",
+        "cwd": "apps/d20"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix deploy",
+        "cwd": "apps/d20"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/lib/**/*.ex",
+        "{projectRoot}/lib/**/*.exs",
+        "{projectRoot}/mix.exs",
+        "{projectRoot}/mix.lock",
+        "{projectRoot}/config/**/*.exs",
+        "{projectRoot}/assets/**/*",
+        "!{projectRoot}/assets/node_modules/**/*"
+      ],
+      "outputs": ["{projectRoot}/_build", "{projectRoot}/priv/static"]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix test",
+        "cwd": "apps/d20"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/lib/**/*.ex",
+        "{projectRoot}/lib/**/*.exs",
+        "{projectRoot}/test/**/*.exs"
+      ]
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix format",
+        "cwd": "apps/d20"
+      }
+    },
+    "format.check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix format.check",
+        "cwd": "apps/d20"
+      },
+      "cache": true
+    },
+    "precommit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix precommit",
+        "cwd": "apps/d20"
+      },
+      "cache": true
+    },
+    "db:create": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix ecto.create",
+        "cwd": "apps/d20"
+      }
+    },
+    "db:migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix ecto.migrate",
+        "cwd": "apps/d20"
+      }
+    },
+    "db:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix ecto.reset",
+        "cwd": "apps/d20"
+      }
+    },
+    "assets-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mix assets.build",
+        "cwd": "apps/d20"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/assets/**/*",
+        "!{projectRoot}/assets/node_modules/**/*"
+      ],
+      "outputs": ["{projectRoot}/priv/static"]
+    }
+  },
+  "tags": ["phoenix", "elixir", "backend"]
+}

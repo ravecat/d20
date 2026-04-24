@@ -29,5 +29,6 @@
       "cache": true
     }
   },
-  "parallel": 2
+  "parallel": 2,
+  "analytics": false
 }
