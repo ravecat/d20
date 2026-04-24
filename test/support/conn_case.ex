@@ -28,6 +28,7 @@ defmodule D20Web.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import D20Web.ConnCase
+      import Inertia.Testing
     end
   end
 

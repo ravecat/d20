@@ -40,6 +40,15 @@ config :d20, D20Web.Endpoint,
 # at the `config/runtime.exs`.
 config :d20, D20.Mailer, adapter: Swoosh.Adapters.Local
 
+config :inertia,
+  endpoint: D20Web.Endpoint,
+  static_paths: ["/assets/js/app.js"],
+  default_version: "1",
+  camelize_props: true,
+  history: [encrypt: false],
+  ssr: false,
+  raise_on_ssr_failure: config_env() != :prod
+
 # Configures Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",

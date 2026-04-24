@@ -20,10 +20,12 @@ import "vite/modulepreload-polyfill";
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
+import {createInertiaApp} from "@inertiajs/svelte"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/d20"
+import {mount} from "svelte"
 import topbar from "topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
@@ -46,6 +48,28 @@ liveSocket.connect()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
+
+const inertiaRoot = document.getElementById("app")
+
+if (inertiaRoot) {
+  const pages = import.meta.glob("./pages/**/*.svelte", {eager: true})
+
+  createInertiaApp({
+    title: (title) => (title ? `${title} · D20` : "D20"),
+    progress: {
+      delay: 250,
+      color: "#29d",
+    },
+    resolve: (name) => {
+      const page = pages[`./pages/${name}.svelte`]
+      if (!page) throw new Error(`Page not found: ${name}`)
+      return page
+    },
+    setup({el, App, props}) {
+      mount(App, {target: el, props})
+    },
+  })
+}
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:
