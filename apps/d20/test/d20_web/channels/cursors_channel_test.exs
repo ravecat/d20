@@ -1,0 +1,69 @@
+defmodule D20Web.CursorsChannelTest do
+  use D20Web.ChannelCase, async: false
+
+  alias D20Web.CursorsChannel
+  alias D20Web.Presence
+  alias D20Web.UserSocket
+
+  defp join_cursors_channel(actor_id) do
+    UserSocket
+    |> socket(actor_id, %{actor: %{id: actor_id, type: :anonymous}})
+    |> subscribe_and_join(CursorsChannel, "cursors", %{})
+  end
+
+  test "socket accepts a signed actor token" do
+    actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+    token = D20.ActorToken.sign(D20Web.Endpoint, actor)
+
+    assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token})
+
+    assert socket.assigns.actor == actor
+  end
+
+  test "socket rejects missing or invalid actor tokens" do
+    assert :error = connect(UserSocket, %{})
+    assert :error = connect(UserSocket, %{}, connect_info: %{auth_token: "invalid"})
+  end
+
+  test "after_join tracks actor presence without pushing raw presence state or join events" do
+    actor_id = Ecto.UUID.generate()
+
+    :ok = Presence.subscribe("cursors")
+    assert {:ok, %{cursors: []}, socket} = join_cursors_channel(actor_id)
+    assert_receive {:join, ^actor_id}
+
+    refute_push "presence_state", _
+    refute_push "join", _
+
+    assert %{
+             ^actor_id => %{metas: [%{online_at: online_at}]}
+           } = Presence.list(socket)
+
+    assert is_integer(online_at)
+  end
+
+  test "move pushes a full cursor projection" do
+    sender_id = Ecto.UUID.generate()
+    receiver_id = Ecto.UUID.generate()
+
+    :ok = Presence.subscribe("cursors")
+    assert {:ok, %{cursors: []}, sender} = join_cursors_channel(sender_id)
+    assert {:ok, %{cursors: []}, _receiver} = join_cursors_channel(receiver_id)
+    assert_receive {:join, ^sender_id}
+    assert_receive {:join, ^receiver_id}
+
+    refute sender_id == receiver_id
+
+    push(sender, "move", %{"x" => 12.4, "y" => 34})
+
+    assert_push "projection", %{cursors: first_projection}
+    assert_push "projection", %{cursors: second_projection}
+
+    assert Enum.any?([first_projection, second_projection], fn
+             [%{id: ^sender_id, x: 12, y: 34}] -> true
+             _ -> false
+           end)
+
+    refute_push "move", _
+  end
+end

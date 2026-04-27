@@ -25,7 +25,7 @@ config :d20, D20Web.Endpoint,
   debug_errors: true,
   secret_key_base: "RZXzxEVZl4aXp2UuKUMw7ZSOmHInhs9ucNJFcFA9+BAd7TbNNq9Ek82JYcygjlfW",
   watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}],
-  static_url: [host: "localhost", port: 5173]
+  static_url: [host: "localhost", port: String.to_integer(System.get_env("VITE_PORT") || "5173")]
 
 # ## SSL Support
 #

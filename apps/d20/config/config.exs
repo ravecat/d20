@@ -7,6 +7,19 @@
 # General application configuration
 import Config
 
+config :d20, :scopes,
+  user: [
+    default: true,
+    module: D20.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :id,
+    schema_table: :users,
+    test_data_fixture: D20.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
 config :bun,
   version: "1.2.16",
   assets: [args: [], cd: Path.expand("../assets", __DIR__)],
@@ -18,7 +31,11 @@ config :bun,
 
 config :d20,
   ecto_repos: [D20.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  actor_token: [
+    salt: "actor socket",
+    max_age: 1_209_600
+  ]
 
 # Configures the endpoint
 config :d20, D20Web.Endpoint,
