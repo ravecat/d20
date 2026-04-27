@@ -4,4 +4,8 @@ defmodule D20Web.PageController do
   def home(conn, _params) do
     render_inertia(conn, "home")
   end
+
+  def cursors(conn, _params) do
+    render_inertia(conn, "cursors")
+  end
 end

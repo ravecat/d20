@@ -14,6 +14,7 @@ defmodule D20.Application do
       {Phoenix.PubSub, name: D20.PubSub},
       # Start a worker by calling: D20.Worker.start_link(arg)
       # {D20.Worker, arg},
+      D20Web.Presence,
       # Start to serve requests, typically the last entry
       D20Web.Endpoint
     ]

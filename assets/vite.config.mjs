@@ -3,11 +3,14 @@ import { phoenixVitePlugin } from 'phoenix_vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from "@tailwindcss/vite";
 
+const phoenixPort = process.env.PHOENIX_PORT || process.env.PORT || "5000"
+const vitePort = Number(process.env.VITE_PORT || "5173")
+
 export default defineConfig({
   server: {
-    port: 5173,
+    port: vitePort,
     strictPort: true,
-    cors: { origin: "http://localhost:5000" },
+    cors: { origin: `http://localhost:${phoenixPort}` },
   },
   optimizeDeps: {
     // https://vitejs.dev/guide/dep-pre-bundling#monorepos-and-linked-dependencies

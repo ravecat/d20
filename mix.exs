@@ -40,6 +40,7 @@ defmodule D20.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:bcrypt_elixir, "~> 3.0"},
       {:inertia, "~> 2.6"},
       {:phoenix_vite, "~> 0.4"},
       {:phoenix, "~> 1.8.1"},
