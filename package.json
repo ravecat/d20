@@ -6,6 +6,9 @@
     "nx": "nx"
   },
   "devDependencies": {
+    "@nx/docker": "22.6.5",
+    "@nx/js": "22.6.5",
     "nx": "^22.0.3"
-  }
+  },
+  "version": "1.0.0-beta.0"
 }

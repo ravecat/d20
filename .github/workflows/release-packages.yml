@@ -1,0 +1,93 @@
+name: release packages
+run-name: release packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    name: Collect package metadata
+    runs-on: ubuntu-latest
+    outputs:
+      affected_packages: ${{ steps.affected.outputs.packages }}
+    defaults:
+      run:
+        shell: nix develop --command bash --noprofile --norc -eo pipefail {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: tree:0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v17
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@v13
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set SHAs for affected detection
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Detect affected packages
+        id: affected
+        run: |
+          PACKAGES=$(pnpm exec nx show projects --type lib --affected --json | jq -c '.')
+          echo "packages=$PACKAGES" >> "$GITHUB_OUTPUT"
+          echo "Found affected packages: $PACKAGES"
+
+  release-packages:
+    name: Release packages
+    runs-on: ubuntu-latest
+    needs: [ metadata ]
+    if: |-
+      github.ref_name == github.event.repository.default_branch &&
+      needs.metadata.outputs.affected_packages != '[]'
+    concurrency:
+      group: release-packages-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+      pull-requests: read
+      id-token: write
+    defaults:
+      run:
+        shell: nix develop --command bash --noprofile --norc -eo pipefail {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: tree:0
+          persist-credentials: true
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v17
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@v13
+
+      - name: Set Git user
+        run: |
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git config user.name "${{ github.actor }}"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Release packages
+        env:
+          NPM_CONFIG_PROVENANCE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pnpm exec nx release --projects=${{ join(fromJson(needs.metadata.outputs.affected_packages), ',') }} --skip-publish
+          git push --atomic --no-verify --follow-tags origin "HEAD:${{ github.ref_name }}"
+          pnpm exec nx release publish --projects=${{ join(fromJson(needs.metadata.outputs.affected_packages), ',') }}

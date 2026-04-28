@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "master",
   "workspaceLayout": {
     "appsDir": "apps",
     "libsDir": "packages"
@@ -27,8 +28,46 @@
     },
     "format.check": {
       "cache": true
+    },
+    "nx-release-publish": {
+      "options": {
+        "access": "public"
+      }
     }
   },
   "parallel": 2,
-  "analytics": false
+  "analytics": false,
+  "release": {
+    "projects": [
+      "apps/*",
+      "packages/*"
+    ],
+    "projectsRelationship": "independent",
+    "releaseTag": {
+      "requireSemver": true
+    },
+    "git": {
+      "commitMessage": "chore(release): {projectName}@{version}"
+    },
+    "version": {
+      "conventionalCommits": true,
+      "fallbackCurrentVersionResolver": "disk",
+      "updateDependents": "never",
+      "versionActionsOptions": {
+        "preserveMatchingDependencyRanges": false,
+        "skipLockFileUpdate": true
+      }
+    },
+    "changelog": {
+      "automaticFromRef": true,
+      "projectChangelogs": {
+        "file": "{projectRoot}/CHANGELOG.md",
+        "replaceExistingContents": false,
+        "renderOptions": {
+          "authors": false
+        }
+      },
+      "workspaceChangelog": false
+    }
+  }
 }
