@@ -1,38 +1,33 @@
 <script>
-  import {cursors} from "../stores/cursor"
+  import { cursors } from "../stores/cursor";
 
-  let localCursor = $state(null)
+  let localCursor = $state(null);
 
-  const remoteCursors = $derived($cursors.value ?? [])
+  const remoteCursors = $derived($cursors.value ?? []);
 
   function handlePointerMove(event) {
     localCursor = {
       x: Math.round(event.offsetX),
       y: Math.round(event.offsetY),
-    }
+    };
 
-    cursors.move(localCursor)
+    cursors.move(localCursor);
   }
 
   function cursorColor(id) {
-    let hash = 0
+    let hash = 0;
 
     for (let index = 0; index < id.length; index += 1) {
-      hash = (hash * 31 + id.charCodeAt(index)) >>> 0
+      hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
     }
 
-    return `hsl(${hash % 360} 80% 50%)`
+    return `hsl(${hash % 360} 80% 50%)`;
   }
 </script>
 
 <svg class="cursors-page" onpointermove={handlePointerMove} role="presentation">
   {#if localCursor}
-    <circle
-      class="local-cursor"
-      cx={localCursor.x}
-      cy={localCursor.y}
-      r="10"
-    />
+    <circle class="local-cursor" cx={localCursor.x} cy={localCursor.y} r="10" />
   {/if}
 
   {#each remoteCursors as cursor (cursor.id)}

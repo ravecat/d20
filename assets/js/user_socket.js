@@ -1,6 +1,6 @@
-import {Socket} from "phoenix"
+import { Socket } from "phoenix";
 
-const socket = new Socket("/socket", {authToken: window.userToken})
-socket.connect()
+const socket = new Socket("/socket", { authToken: window.userToken });
+socket.connect();
 
-export default socket
+export default socket;

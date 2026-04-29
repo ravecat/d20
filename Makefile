@@ -1,27 +1,32 @@
-.PHONY: setup start serve test build format format.check precommit
+.PHONY: setup start serve test build lint format format.check check
+
+NX := pnpm exec nx
 
 setup:
 	pnpm install --recursive
-	npx nx run-many -t setup --all
+	$(NX) run-many -t setup --all
 
 start:
-	npx nx run-many -t start --all --tui
+	$(NX) run-many -t start --all --tui
 
 serve:
 	$(MAKE) setup
 	$(MAKE) start
 
 test:
-	npx nx run-many -t test --all --outputStyle=stream
+	$(NX) run-many -t test --all --outputStyle=stream-without-prefixes
 
 build:
-	npx nx run-many -t build --all --outputStyle=stream
+	$(NX) run-many -t build --all --outputStyle=stream-without-prefixes
+
+lint:
+	$(NX) run-many -t lint --all --outputStyle=stream-without-prefixes
 
 format:
-	npx nx run-many -t format --all --outputStyle=stream
+	$(NX) run-many -t format --all --outputStyle=stream-without-prefixes
 
 format.check:
-	npx nx run-many -t format.check --all --outputStyle=stream
+	$(NX) run-many -t format.check --all --outputStyle=stream-without-prefixes
 
-precommit:
-	npx nx run-many -t precommit --all --outputStyle=stream
+check:
+	$(NX) run-many -t format.check lint test --all --outputStyle=stream-without-prefixes
