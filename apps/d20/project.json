@@ -76,25 +76,29 @@
     "format": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "mix format",
+        "command": "mix format && mix assets.format",
         "cwd": "apps/d20"
       }
     },
     "format.check": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "mix format.check",
+        "command": "mix format.check && mix assets.format.check",
         "cwd": "apps/d20"
       },
       "cache": true
     },
-    "precommit": {
+    "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "mix precommit",
+        "command": "mix assets.lint",
         "cwd": "apps/d20"
       },
-      "cache": true
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/assets/**/*",
+        "!{projectRoot}/assets/node_modules/**/*"
+      ]
     },
     "db:create": {
       "executor": "nx:run-commands",

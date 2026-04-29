@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "check": "biome ci .",
+    "format": "biome check --write .",
+    "format.check": "biome ci .",
+    "lint": "biome lint ."
+  },
   "dependencies": {
     "@inertiajs/svelte": "2.3.21",
     "@rvct/phoenix": "1.0.0-beta.0",

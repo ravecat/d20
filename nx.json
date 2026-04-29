@@ -9,9 +9,7 @@
     "enabled": false
   },
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*"
-    ]
+    "default": ["{projectRoot}/**/*"]
   },
   "targetDefaults": {
     "serve": {
@@ -26,6 +24,9 @@
     "typecheck": {
       "cache": true
     },
+    "lint": {
+      "cache": true
+    },
     "format.check": {
       "cache": true
     },
@@ -38,10 +39,7 @@
   "parallel": 2,
   "analytics": false,
   "release": {
-    "projects": [
-      "apps/*",
-      "packages/*"
-    ],
+    "projects": ["apps/*", "packages/*"],
     "projectsRelationship": "independent",
     "releaseTag": {
       "requireSemver": true

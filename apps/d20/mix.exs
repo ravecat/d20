@@ -27,12 +27,6 @@ defmodule D20.MixProject do
     ]
   end
 
-  def cli do
-    [
-      preferred_envs: [precommit: :test]
-    ]
-  end
-
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
@@ -89,6 +83,10 @@ defmodule D20.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "format.check": ["format --check-formatted"],
       "assets.setup": ["bun.install --if-missing", "bun assets install"],
+      "assets.format": ["bun assets run format"],
+      "assets.format.check": ["bun assets run format.check"],
+      "assets.lint": ["bun assets run lint"],
+      "assets.check": ["bun assets run check"],
       "assets.build": ["bun vite build"],
       "assets.deploy": [
         "assets.build"
@@ -98,8 +96,7 @@ defmodule D20.MixProject do
         "compile",
         "assets.setup",
         "assets.deploy"
-      ],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
+      ]
     ]
   end
 end

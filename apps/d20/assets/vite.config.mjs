@@ -1,10 +1,10 @@
-import { defineConfig } from 'vite'
-import { phoenixVitePlugin } from 'phoenix_vite'
-import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
+import { phoenixVitePlugin } from "phoenix_vite";
+import { defineConfig } from "vite";
 
-const phoenixPort = process.env.PHOENIX_PORT || process.env.PORT || "5000"
-const vitePort = Number(process.env.VITE_PORT || "5173")
+const phoenixPort = process.env.PHOENIX_PORT || process.env.PORT || "5000";
+const vitePort = Number(process.env.VITE_PORT || "5173");
 
 export default defineConfig({
   server: {
@@ -37,7 +37,7 @@ export default defineConfig({
     tailwindcss(),
     svelte(),
     phoenixVitePlugin({
-      pattern: /\.(ex|heex)$/
-    })
-  ]
+      pattern: /\.(ex|heex)$/,
+    }),
+  ],
 });
