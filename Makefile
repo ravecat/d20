@@ -1,32 +1,43 @@
-.PHONY: setup start serve test build lint format format.check check
-
-NX := pnpm exec nx
+.PHONY: setup start serve test build lint format format.check check db.create db.migrate db.reset
 
 setup:
-	pnpm install --recursive
-	$(NX) run-many -t setup --all
+	mix setup
 
 start:
-	$(NX) run-many -t start --all --tui
+	iex --sname $${D20_NODE_NAME:-d20} --erl "-proto_dist inet6_tcp" -S mix serve
 
 serve:
 	$(MAKE) setup
 	$(MAKE) start
 
 test:
-	$(NX) run-many -t test --all --outputStyle=stream-without-prefixes
+	mix test
 
 build:
-	$(NX) run-many -t build --all --outputStyle=stream-without-prefixes
+	mix deploy
 
 lint:
-	$(NX) run-many -t lint --all --outputStyle=stream-without-prefixes
+	mix assets.lint
 
 format:
-	$(NX) run-many -t format --all --outputStyle=stream-without-prefixes
+	mix format
+	mix assets.format
 
 format.check:
-	$(NX) run-many -t format.check --all --outputStyle=stream-without-prefixes
+	mix format.check
+	mix assets.format.check
 
 check:
-	$(NX) run-many -t format.check lint test --all --outputStyle=stream-without-prefixes
+	mix format.check
+	mix assets.format.check
+	mix assets.lint
+	mix test
+
+db.create:
+	mix ecto.create
+
+db.migrate:
+	mix ecto.migrate
+
+db.reset:
+	mix ecto.reset

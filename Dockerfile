@@ -11,18 +11,15 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: docker.io/hexpm/elixir:1.19.5-erlang-28.3.3-debian-bookworm-20260223-slim
 #
-# NOTE: Keep in sync with the BEAM versions in ../../flake.nix.
+# NOTE: Keep in sync with the BEAM versions in flake.nix.
 ARG ELIXIR_VERSION=1.19.5
 ARG OTP_VERSION=28.3.3
 ARG DEBIAN_VERSION=bookworm-20260223-slim
 
 ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
-ARG APP_DIR=.
 
 FROM ${BUILDER_IMAGE} AS builder
-
-ARG APP_DIR
 
 # install build dependencies
 RUN apt-get update \
@@ -40,19 +37,19 @@ RUN mix local.hex --force \
 ENV MIX_ENV="prod"
 
 # install mix dependencies
-COPY ${APP_DIR}/mix.exs ${APP_DIR}/mix.lock ./
+COPY mix.exs mix.lock ./
 RUN mix deps.get --only $MIX_ENV
 RUN mkdir config
 
 # copy compile-time config files before we compile dependencies
 # to ensure any relevant config change will trigger the dependencies
 # to be re-compiled.
-COPY ${APP_DIR}/config/config.exs ${APP_DIR}/config/${MIX_ENV}.exs config/
+COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
-COPY ${APP_DIR}/priv priv
-COPY ${APP_DIR}/assets assets
-COPY ${APP_DIR}/lib lib
+COPY priv priv
+COPY assets assets
+COPY lib lib
 
 # Compile the release
 RUN mix compile
@@ -64,9 +61,9 @@ RUN mix assets.setup
 RUN mix assets.deploy
 
 # Changes to config/runtime.exs don't require recompiling the code
-COPY ${APP_DIR}/config/runtime.exs config/
+COPY config/runtime.exs config/
 
-COPY ${APP_DIR}/rel rel
+COPY rel rel
 RUN mix release
 
 # start a new build stage so that the final image will only contain

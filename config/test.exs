@@ -21,7 +21,9 @@ config :d20, D20.Repo,
 config :d20, D20Web.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "Mzij4XkWW1nq/dbTyhMn0ci6O25B16e6jX6aRZeyrA23dnzflzLhFdJYOBPOND1d",
-  server: false
+  server: false,
+  # Render Vite dev URLs in tests so controller tests do not depend on built assets.
+  watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}]
 
 # In test we don't send emails
 config :d20, D20.Mailer, adapter: Swoosh.Adapters.Test

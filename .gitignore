@@ -1,33 +1,76 @@
-# The directory Mix will write compiled artifacts to.
-/_build/
+# OS and filesystem metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100/
+.Trashes/
+._*
 
-# If you run "mix test --cover", coverage assets end up here.
-/cover/
+# Editors and IDEs
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+/.idea/
+/.codex
+.codex
+*~
+/.direnv/
+.direnv/
 
-# The directory Mix downloads your dependencies sources to.
+# Logs and runtime files
+*.log
+*.out
+*.err
+*.pid
+*.pid.lock
+.pg_data/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+**/logs/
+.plans/
+
+# Local environment and secrets
+.env
+.env.*
+.envrc
+*.local
+!/.envrc
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+
+# Dependencies
+node_modules/
+**/node_modules/
+/assets/node_modules/
 /deps/
 
-# Where 3rd-party dependencies like ExDoc output generated docs.
+# Build outputs and caches
+.cache/
+**/.cache/
+/.nx/
+coverage/
+**/coverage/
+tmp/
+**/tmp/
+temp/
+**/temp/
+*.tsbuildinfo
 /doc/
-
-# Ignore .fetch files in case you like to edit your project deps locally.
 /.fetch
+/_build/
+/cover/
+/.elixir_ls/
+/.mix/
+/priv/static/assets/
+/priv/static/.vite/
+/priv/static/cache_manifest.json
 
-# If the VM crashes, it generates a dump, let's ignore it too.
+# Build artifacts
 erl_crash.dump
-
-# Also ignore archive artifacts (built via "mix archive.build").
 *.ez
-
-# Temporary files, for example, from tests.
-/tmp/
-
-# Ignore package tarball (built via "mix hex.build").
 d20-*.tar
-
-# Ignore assets that are produced by build tools.
-/priv/static/*
-
-# In case you use Node.js/npm, you want to ignore these.
-npm-debug.log
-/assets/node_modules/
