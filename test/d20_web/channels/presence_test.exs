@@ -3,14 +3,13 @@ defmodule D20Web.PresenceTest do
 
   alias D20Web.Presence
 
-  @presence_topic "presence:any-topic"
-
   test "broadcasts join from presence joins" do
-    Phoenix.PubSub.subscribe(D20.PubSub, @presence_topic)
+    topic = unique_topic()
+    :ok = Presence.subscribe(topic)
 
     assert {:ok, %{}} =
              Presence.handle_metas(
-               "any-topic",
+               topic,
                %{joins: %{"actor-1" => %{metas: [%{}]}}, leaves: %{}},
                %{"actor-1" => %{metas: [%{}]}},
                %{}
@@ -19,13 +18,14 @@ defmodule D20Web.PresenceTest do
     assert_receive {:join, "actor-1"}
   end
 
-  test "broadcasts left only after the last meta leaves" do
-    Phoenix.PubSub.subscribe(D20.PubSub, @presence_topic)
-    Phoenix.PubSub.subscribe(D20.PubSub, "any-topic")
+  test "broadcasts left only to the presence topic after the last meta leaves" do
+    topic = unique_topic()
+    :ok = Presence.subscribe(topic)
+    Phoenix.PubSub.subscribe(D20.PubSub, topic)
 
     assert {:ok, %{}} =
              Presence.handle_metas(
-               "any-topic",
+               topic,
                %{joins: %{}, leaves: %{"actor-1" => %{metas: [%{}]}}},
                %{"actor-1" => %{metas: [%{}]}},
                %{}
@@ -36,13 +36,17 @@ defmodule D20Web.PresenceTest do
 
     assert {:ok, %{}} =
              Presence.handle_metas(
-               "any-topic",
+               topic,
                %{joins: %{}, leaves: %{"actor-1" => %{metas: [%{}]}}},
                %{},
                %{}
              )
 
     assert_receive {:left, "actor-1"}
-    assert_receive :projection
+    refute_receive :projection
+  end
+
+  defp unique_topic do
+    "presence-test:#{System.unique_integer([:positive])}"
   end
 end

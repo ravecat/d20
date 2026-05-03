@@ -5,7 +5,10 @@ defmodule D20Web.CursorsChannel do
 
   @impl true
   def join("cursors", _payload, socket) do
+    :ok = Presence.subscribe(socket.topic)
+
     send(self(), :after_join)
+
     {:ok, %{cursors: cursor_projection(socket)}, socket}
   end
 
@@ -21,6 +24,16 @@ defmodule D20Web.CursorsChannel do
 
   @impl true
   def handle_info(:projection, socket) do
+    push(socket, "projection", %{cursors: cursor_projection(socket)})
+    {:noreply, socket}
+  end
+
+  def handle_info({:join, _actor_id}, socket) do
+    push(socket, "projection", %{cursors: cursor_projection(socket)})
+    {:noreply, socket}
+  end
+
+  def handle_info({:left, _actor_id}, socket) do
     push(socket, "projection", %{cursors: cursor_projection(socket)})
     {:noreply, socket}
   end

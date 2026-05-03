@@ -1,6 +1,6 @@
 defmodule D20Web.Presence do
   @moduledoc """
-  Tracks cursor actors connected to Phoenix channels.
+  Tracks actors connected to Phoenix channel topics.
   """
 
   use Phoenix.Presence,
@@ -28,8 +28,6 @@ defmodule D20Web.Presence do
         presence_topic(topic),
         {:left, actor_id}
       )
-
-      Phoenix.PubSub.local_broadcast(D20.PubSub, topic, :projection)
     end
 
     {:ok, state}

@@ -25,12 +25,13 @@ defmodule D20Web.CursorsChannelTest do
     assert :error = connect(UserSocket, %{}, connect_info: %{auth_token: "invalid"})
   end
 
-  test "after_join tracks actor presence without pushing raw presence state or join events" do
+  test "after_join subscribes to presence changes and tracks actor presence" do
     actor_id = Ecto.UUID.generate()
 
     :ok = Presence.subscribe("cursors")
     assert {:ok, %{cursors: []}, socket} = join_cursors_channel(actor_id)
     assert_receive {:join, ^actor_id}
+    assert_push "projection", %{cursors: []}
 
     refute_push "presence_state", _
     refute_push "join", _
@@ -56,14 +57,25 @@ defmodule D20Web.CursorsChannelTest do
 
     push(sender, "move", %{"x" => 12.4, "y" => 34})
 
-    assert_push "projection", %{cursors: first_projection}
-    assert_push "projection", %{cursors: second_projection}
-
-    assert Enum.any?([first_projection, second_projection], fn
-             [%{id: ^sender_id, x: 12, y: 34}] -> true
-             _ -> false
-           end)
+    assert_push "projection", %{cursors: [%{id: ^sender_id, x: 12, y: 34}]}
 
     refute_push "move", _
+  end
+
+  test "presence leave pushes a full cursor projection" do
+    actor_id = Ecto.UUID.generate()
+
+    assert {:ok, %{cursors: []}, _socket} = join_cursors_channel(actor_id)
+    assert_push "projection", %{cursors: []}
+
+    assert {:ok, %{}} =
+             Presence.handle_metas(
+               "cursors",
+               %{joins: %{}, leaves: %{"other-actor" => %{metas: [%{}]}}},
+               %{},
+               %{}
+             )
+
+    assert_push "projection", %{cursors: []}
   end
 end
