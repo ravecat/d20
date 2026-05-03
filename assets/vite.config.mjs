@@ -4,7 +4,7 @@ import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
 
 const phoenixPort = process.env.PHOENIX_PORT || process.env.PORT || "5000";
-const vitePort = Number(process.env.VITE_PORT || "5173");
+const vitePort = Number(process.env.VITE_PORT || "5174");
 
 export default defineConfig({
   server: {
