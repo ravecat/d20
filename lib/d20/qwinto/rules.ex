@@ -4,7 +4,6 @@ defmodule D20.Qwinto.Rules do
   """
 
   @colors [:orange, :yellow, :purple]
-  @phases [:waiting_for_roll, :accepting_entries, :finished]
   @player_count_range 2..4
   @dice_count_range 1..3
   @dice_value_range 1..6
@@ -32,8 +31,7 @@ defmodule D20.Qwinto.Rules do
   @bonus_columns Enum.filter(@columns, & &1.bonus)
 
   @type color :: :orange | :yellow | :purple
-  @type phase :: :waiting_for_roll | :accepting_entries | :finished
-  @type setup_error :: :invalid_player_count | :duplicate_players | :invalid_player_id
+  @type setup_error :: :invalid_player_count | :duplicate_players
   @type column :: %{
           required(:cells) => [{color(), non_neg_integer()}],
           required(:bonus) => {color(), non_neg_integer()} | nil
@@ -41,9 +39,6 @@ defmodule D20.Qwinto.Rules do
 
   @spec colors() :: [color()]
   def colors, do: @colors
-
-  @spec phases() :: [phase()]
-  def phases, do: @phases
 
   @spec player_count_range() :: Range.t()
   def player_count_range, do: @player_count_range
@@ -77,13 +72,12 @@ defmodule D20.Qwinto.Rules do
     cond do
       length(player_ids) not in @player_count_range -> {:error, :invalid_player_count}
       Enum.uniq(player_ids) != player_ids -> {:error, :duplicate_players}
-      Enum.any?(player_ids, &(&1 in [nil, ""])) -> {:error, :invalid_player_id}
       true -> :ok
     end
   end
 
   @spec can_roll?(D20.Qwinto.Game.t(), D20.Qwinto.Command.Roll.t()) ::
-          :ok | {:error, :not_active_player | {:invalid_phase, phase(), phase()}}
+          :ok | {:error, :not_active_player | :invalid_phase}
   def can_roll?(game, command) do
     with :ok <- require_phase(game, :waiting_for_roll),
          :ok <- require_active_player(game, command.player_id) do
@@ -101,7 +95,7 @@ defmodule D20.Qwinto.Rules do
              | :occupied
              | :row_order
              | :column_duplicate
-             | {:invalid_phase, phase(), phase()}}
+             | :invalid_phase}
   def can_write?(game, command) do
     with :ok <- require_phase(game, :accepting_entries),
          :ok <- require_player(game, command.player_id),
@@ -124,8 +118,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   @spec can_skip?(D20.Qwinto.Game.t(), D20.Qwinto.Command.Skip.t()) ::
-          :ok
-          | {:error, :unknown_player | :already_responded | {:invalid_phase, phase(), phase()}}
+          :ok | {:error, :unknown_player | :already_responded | :invalid_phase}
   def can_skip?(game, command) do
     with :ok <- require_phase(game, :accepting_entries),
          :ok <- require_player(game, command.player_id),
@@ -145,7 +138,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_phase(%{phase: phase}, phase), do: :ok
-  defp require_phase(%{phase: phase}, expected), do: {:error, {:invalid_phase, phase, expected}}
+  defp require_phase(%{phase: _phase}, _expected), do: {:error, :invalid_phase}
 
   defp require_active_player(game, player_id) do
     if game.active_player_id == player_id, do: :ok, else: {:error, :not_active_player}
