@@ -52,6 +52,7 @@ defmodule D20.SessionTest do
       assert {:error, :invalid_engine} = Session.new("not a module", "p1")
       assert {:error, :invalid_owner_id} = Session.new(TestGame, nil)
       assert {:error, :invalid_owner_id} = Session.new(TestGame, "")
+      assert {:error, :invalid_owner_id} = Session.new(nil, "")
     end
   end
 

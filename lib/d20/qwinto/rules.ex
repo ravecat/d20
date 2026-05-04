@@ -76,6 +76,15 @@ defmodule D20.Qwinto.Rules do
     end
   end
 
+  @spec can_start?(D20.Qwinto.Game.t(), D20.Qwinto.Command.Start.t()) ::
+          :ok | {:error, setup_error() | :invalid_phase}
+  def can_start?(game, %D20.Qwinto.Command.Start{}) do
+    with :ok <- require_phase(game, :setup),
+         :ok <- validate_player_count(game.order) do
+      :ok
+    end
+  end
+
   @spec can_roll?(D20.Qwinto.Game.t(), D20.Qwinto.Command.Roll.t()) ::
           :ok | {:error, :not_active_player | :invalid_phase}
   def can_roll?(game, command) do

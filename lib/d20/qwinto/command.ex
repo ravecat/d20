@@ -4,14 +4,39 @@ defmodule D20.Qwinto.Command do
   """
 
   alias Ecto.Changeset
-  alias __MODULE__.{Roll, Skip, Write}
+  alias __MODULE__.{Roll, Skip, Start, Write}
 
-  @type kind :: :roll | :write | :skip
+  @type kind :: :start | :roll | :write | :skip
 
-  @spec build(kind(), map()) :: {:ok, Roll.t() | Write.t() | Skip.t()} | {:error, Changeset.t()}
+  @spec build(kind(), map()) ::
+          {:ok, Start.t() | Roll.t() | Write.t() | Skip.t()} | {:error, Changeset.t()}
+  def build(:start, attrs), do: Changeset.apply_action(Start.changeset(attrs), :start)
   def build(:roll, attrs), do: Changeset.apply_action(Roll.changeset(attrs), :roll)
   def build(:write, attrs), do: Changeset.apply_action(Write.changeset(attrs), :write)
   def build(:skip, attrs), do: Changeset.apply_action(Skip.changeset(attrs), :skip)
+
+  defmodule Start do
+    @moduledoc """
+    Command for starting a valid Qwinto setup.
+    """
+
+    use Ecto.Schema
+
+    import Ecto.Changeset
+
+    @primary_key false
+
+    embedded_schema do
+    end
+
+    @type t :: %__MODULE__{}
+
+    @spec changeset(map()) :: Ecto.Changeset.t()
+    def changeset(attrs) do
+      %__MODULE__{}
+      |> cast(attrs, [])
+    end
+  end
 
   defmodule Roll do
     @moduledoc """

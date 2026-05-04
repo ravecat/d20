@@ -13,15 +13,14 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok,
               %Game{phase: :waiting_for_roll, active_player_id: "p1", order: ["p1", "p2"]} =
                 game} =
-               Game.dispatch(game, :start, %{})
+               Game.dispatch(game, :start, %{"player_id" => "p1"})
 
       assert {:ok, ^game} = Game.dispatch(game, :join, %{player_id: "p1"})
-      assert {:error, :join_closed} = Game.dispatch(game, :join, %{player_id: "p3"})
+      assert {:ok, ^game} = Game.dispatch(game, :join, %{player_id: "p3"})
     end
 
-    test "validates player identity and count on start" do
+    test "validates player count on start" do
       assert {:ok, game} = Game.init()
-      assert {:error, :invalid_player_id} = Game.dispatch(game, :join, %{player_id: ""})
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
       assert {:error, :invalid_player_count} = Game.dispatch(game, :start, %{})
 
@@ -79,6 +78,7 @@ defmodule D20.Qwinto.GameTest do
       {:ok, game} = Game.dispatch(game, :join, %{player_id: "p2"})
       {:ok, game} = Game.dispatch(game, :start, %{})
 
+      assert {:error, :invalid_phase} = Game.dispatch(game, :start, %{})
       assert {:error, :invalid_phase} = Game.dispatch(game, :write, %{})
 
       assert {:ok, game} =

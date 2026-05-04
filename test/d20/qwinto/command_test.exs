@@ -4,6 +4,11 @@ defmodule D20.Qwinto.CommandTest do
   alias D20.Qwinto.Command
 
   describe "build/2" do
+    test "builds a start command from raw attrs" do
+      assert {:ok, %Command.Start{}} = Command.build(:start, %{})
+      assert {:ok, %Command.Start{}} = Command.build(:start, %{"player_id" => "p1"})
+    end
+
     test "builds a roll command from raw attrs" do
       assert {:ok, %Command.Roll{player_id: "p1", colors: [:orange, :purple], values: [4, 5]}} =
                Command.build(:roll, %{

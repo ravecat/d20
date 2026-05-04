@@ -7,8 +7,6 @@ defmodule D20.Qwinto.Game do
 
   use Ecto.Schema
 
-  import D20.Guards, only: [is_player_id: 1]
-
   alias D20.Qwinto.Command
   alias D20.Qwinto.Rules
 
@@ -66,20 +64,17 @@ defmodule D20.Qwinto.Game do
           | :occupied
           | :row_order
           | :column_duplicate
-          | :join_closed
           | :invalid_phase
-          | :invalid_player_id
 
   @impl D20.Game
   @spec init() :: {:ok, t()}
-  def init, do: {:ok, %__MODULE__{phase: :setup}}
+  def init, do: {:ok, %__MODULE__{}}
 
   @impl D20.Game
-  @spec dispatch(t(), Command.kind() | :join | :leave | :start, map()) ::
+  @spec dispatch(t(), Command.kind() | :join | :leave, map()) ::
           {:ok, t()}
           | {:error, Ecto.Changeset.t() | Rules.setup_error() | reason()}
-  def dispatch(%__MODULE__{phase: :setup} = game, :join, %{player_id: player_id})
-      when is_player_id(player_id) do
+  def dispatch(%__MODULE__{phase: :setup} = game, :join, %{player_id: player_id}) do
     if Map.has_key?(game.players, player_id) do
       {:ok, game}
     else
@@ -97,57 +92,38 @@ defmodule D20.Qwinto.Game do
     end
   end
 
-  def dispatch(%__MODULE__{phase: :setup}, :join, _attrs), do: {:error, :invalid_player_id}
+  def dispatch(%__MODULE__{phase: :setup} = game, :leave, _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :setup} = game, :leave, %{player_id: _player_id}) do
-    {:ok, game}
-  end
+  def dispatch(%__MODULE__{phase: :setup} = game, :start, attrs), do: reduce(game, :start, attrs)
 
-  def dispatch(%__MODULE__{phase: :setup} = game, :start, _attrs) do
-    with :ok <- Rules.validate_player_count(game.order) do
-      {:ok, %{game | phase: :waiting_for_roll, active_player_id: List.first(game.order)}}
-    end
-  end
+  def dispatch(%__MODULE__{phase: :setup}, _kind, _attrs), do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{} = game, :join, %{player_id: player_id})
-      when is_player_id(player_id) do
-    if Map.has_key?(game.players, player_id) do
-      {:ok, game}
-    else
-      {:error, :join_closed}
-    end
-  end
+  def dispatch(%__MODULE__{phase: :waiting_for_roll} = game, :join, _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{}, :join, _attrs), do: {:error, :invalid_player_id}
-
-  def dispatch(%__MODULE__{} = game, :leave, _attrs), do: {:ok, game}
-
-  def dispatch(%__MODULE__{phase: :setup}, :roll, _attrs),
-    do: {:error, :invalid_phase}
-
-  def dispatch(%__MODULE__{phase: :setup}, :write, _attrs),
-    do: {:error, :invalid_phase}
-
-  def dispatch(%__MODULE__{phase: :setup}, :skip, _attrs),
-    do: {:error, :invalid_phase}
+  def dispatch(%__MODULE__{phase: :waiting_for_roll} = game, :leave, _attrs), do: {:ok, game}
 
   def dispatch(%__MODULE__{phase: :waiting_for_roll} = game, :roll, attrs),
     do: reduce(game, :roll, attrs)
 
-  def dispatch(%__MODULE__{phase: :waiting_for_roll}, :write, _attrs),
+  def dispatch(%__MODULE__{phase: :waiting_for_roll}, _kind, _attrs),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :waiting_for_roll}, :skip, _attrs),
-    do: {:error, :invalid_phase}
+  def dispatch(%__MODULE__{phase: :accepting_entries} = game, :join, _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :accepting_entries}, :roll, _attrs),
-    do: {:error, :invalid_phase}
+  def dispatch(%__MODULE__{phase: :accepting_entries} = game, :leave, _attrs), do: {:ok, game}
 
   def dispatch(%__MODULE__{phase: :accepting_entries} = game, :write, attrs),
     do: reduce(game, :write, attrs)
 
   def dispatch(%__MODULE__{phase: :accepting_entries} = game, :skip, attrs),
     do: reduce(game, :skip, attrs)
+
+  def dispatch(%__MODULE__{phase: :accepting_entries}, _kind, _attrs),
+    do: {:error, :invalid_phase}
+
+  def dispatch(%__MODULE__{phase: :finished} = game, :join, _attrs), do: {:ok, game}
+
+  def dispatch(%__MODULE__{phase: :finished} = game, :leave, _attrs), do: {:ok, game}
 
   def dispatch(%__MODULE__{phase: :finished} = game, :roll, attrs), do: reduce(game, :roll, attrs)
 
@@ -162,6 +138,12 @@ defmodule D20.Qwinto.Game do
     with {:ok, command} <- Command.build(kind, attrs),
          {:ok, game} <- reduce(game, command) do
       {:ok, game}
+    end
+  end
+
+  defp reduce(%__MODULE__{phase: :setup} = game, %Command.Start{} = command) do
+    with :ok <- Rules.can_start?(game, command) do
+      {:ok, %{game | phase: :waiting_for_roll, active_player_id: List.first(game.order)}}
     end
   end
 

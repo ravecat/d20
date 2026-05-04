@@ -33,9 +33,8 @@ defmodule D20.Session do
         }
 
   @spec new(module(), player_id()) :: {:ok, t()} | {:error, reason()}
-  def new(engine, owner_id) do
-    with :ok <- require_owner_id(owner_id),
-         :ok <- require_engine(engine),
+  def new(engine, owner_id) when is_player_id(owner_id) do
+    with :ok <- require_engine(engine),
          {:ok, game} <- engine.init(),
          {:ok, game} <- engine.dispatch(game, :join, %{player_id: owner_id}) do
       {:ok,
@@ -47,6 +46,8 @@ defmodule D20.Session do
        }}
     end
   end
+
+  def new(_engine, _owner_id), do: {:error, :invalid_owner_id}
 
   @spec dispatch(t(), atom(), map()) :: {:ok, t()} | {:error, reason()}
   def dispatch(%__MODULE__{phase: phase} = session, :join, %{player_id: player_id})
@@ -138,9 +139,6 @@ defmodule D20.Session do
       session
     end
   end
-
-  defp require_owner_id(owner_id) when is_player_id(owner_id), do: :ok
-  defp require_owner_id(_owner_id), do: {:error, :invalid_owner_id}
 
   defp require_engine(engine) when is_atom(engine) do
     if Code.ensure_loaded?(engine) and
