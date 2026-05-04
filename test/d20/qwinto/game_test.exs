@@ -10,9 +10,7 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p2"})
 
-      assert {:ok,
-              %Game{phase: :waiting_for_roll, active_player_id: "p1", order: ["p1", "p2"]} =
-                game} =
+      assert {:ok, %Game{phase: :waiting_for_roll, order: ["p1", "p2"], cursor: 0} = game} =
                Game.dispatch(game, :start, %{"player_id" => "p1"})
 
       assert {:ok, ^game} = Game.dispatch(game, :join, %{player_id: "p1"})
@@ -51,8 +49,8 @@ defmodule D20.Qwinto.GameTest do
                  "values" => [4, 5]
                })
 
-      assert game.players["p1"].responded == false
-      assert game.players["p2"].responded == false
+      assert game.players["p1"].status == :ready
+      assert game.players["p2"].status == :ready
       assert game.scores == %{}
     end
 
@@ -108,7 +106,7 @@ defmodule D20.Qwinto.GameTest do
                })
 
       assert game.phase == :waiting_for_roll
-      assert game.active_player_id == "p1"
+      assert game.cursor == 0
     end
 
     test "players write or skip once, then turn advances" do
@@ -132,12 +130,12 @@ defmodule D20.Qwinto.GameTest do
                })
 
       assert game.players["p1"].rows.orange[0] == 4
-      assert game.players["p1"].responded == true
+      assert game.players["p1"].status == :wrote
       assert game.phase == :accepting_entries
 
       assert {:ok, game} = Game.dispatch(game, :skip, %{"player_id" => "p2"})
       assert game.phase == :waiting_for_roll
-      assert game.active_player_id == "p2"
+      assert game.cursor == 1
       assert game.roll == nil
     end
 
@@ -264,7 +262,6 @@ defmodule D20.Qwinto.GameTest do
       assert game.phase == :finished
       assert map_size(game.scores) == 2
       assert game.scores["p1"].penalties == -20
-      assert [%{player_id: "p2"}, %{player_id: "p1"}] = Game.scoreboard(game)
     end
 
     test "finishes after the turn where any player completes a second colored row" do
@@ -345,16 +342,7 @@ defmodule D20.Qwinto.GameTest do
     end
   end
 
-  describe "scoreboard/1" do
-    test "returns empty standings before finish" do
-      {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, :join, %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, :start, %{})
-
-      assert Game.scoreboard(game) == []
-    end
-
+  describe "scores" do
     test "stores row, bonus, penalty, and total scores in finished game state" do
       {:ok, game} = Game.init()
       {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
@@ -363,7 +351,7 @@ defmodule D20.Qwinto.GameTest do
 
       game =
         game
-        |> put_in([Access.key!(:active_player_id)], "p2")
+        |> put_in([Access.key!(:cursor)], 1)
         |> put_in([Access.key!(:players), "p1"], %{
           rows: %{
             orange: %{0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5, 5 => 6, 6 => 7, 7 => 8, 8 => 9},
@@ -371,7 +359,7 @@ defmodule D20.Qwinto.GameTest do
             purple: %{0 => 1}
           },
           penalties: 1,
-          responded: false
+          status: :ready
         })
         |> put_in([Access.key!(:players), "p2", Access.key!(:penalties)], 3)
 
@@ -396,8 +384,6 @@ defmodule D20.Qwinto.GameTest do
                penalties: -5,
                total: 8
              }
-
-      assert [%{player_id: "p1"}, %{player_id: "p2"}] = Game.scoreboard(game)
     end
   end
 end
