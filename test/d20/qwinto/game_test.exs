@@ -23,14 +23,17 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, game} = Game.init()
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
       assert {:error, :invalid_player_count} = Game.dispatch(game, :start, %{})
+    end
 
+    test "rejects joining beyond max player count during setup" do
       assert {:ok, game} = Game.init()
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p2"})
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p3"})
       assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p4"})
-      assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p5"})
-      assert {:error, :invalid_player_count} = Game.dispatch(game, :start, %{})
+
+      assert {:error, :invalid_player_count} = Game.dispatch(game, :join, %{player_id: "p5"})
+      assert game.order == ["p1", "p2", "p3", "p4"]
     end
   end
 

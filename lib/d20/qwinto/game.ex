@@ -71,26 +71,10 @@ defmodule D20.Qwinto.Game do
   def init, do: {:ok, %__MODULE__{}}
 
   @impl D20.Game
-  @spec dispatch(t(), Command.kind() | :join | :leave, map()) ::
+  @spec dispatch(t(), Command.kind() | :leave, map()) ::
           {:ok, t()}
           | {:error, Ecto.Changeset.t() | Rules.setup_error() | reason()}
-  def dispatch(%__MODULE__{phase: :setup} = game, :join, %{player_id: player_id}) do
-    if Map.has_key?(game.players, player_id) do
-      {:ok, game}
-    else
-      {:ok,
-       %{
-         game
-         | order: game.order ++ [player_id],
-           players:
-             Map.put(game.players, player_id, %{
-               rows: Map.new(Rules.colors(), &{&1, %{}}),
-               penalties: 0,
-               responded: false
-             })
-       }}
-    end
-  end
+  def dispatch(%__MODULE__{phase: :setup} = game, :join, attrs), do: reduce(game, :join, attrs)
 
   def dispatch(%__MODULE__{phase: :setup} = game, :leave, _attrs), do: {:ok, game}
 
@@ -138,6 +122,12 @@ defmodule D20.Qwinto.Game do
     with {:ok, command} <- Command.build(kind, attrs),
          {:ok, game} <- reduce(game, command) do
       {:ok, game}
+    end
+  end
+
+  defp reduce(%__MODULE__{phase: :setup} = game, %Command.Join{} = command) do
+    with :ok <- Rules.can_join?(game, command) do
+      {:ok, join_player(game, command.player_id)}
     end
   end
 
@@ -197,6 +187,23 @@ defmodule D20.Qwinto.Game do
     scores
     |> Map.values()
     |> Enum.sort_by(& &1.total, :desc)
+  end
+
+  defp join_player(game, player_id) do
+    if Map.has_key?(game.players, player_id) do
+      game
+    else
+      %{
+        game
+        | order: game.order ++ [player_id],
+          players:
+            Map.put(game.players, player_id, %{
+              rows: Map.new(Rules.colors(), &{&1, %{}}),
+              penalties: 0,
+              responded: false
+            })
+      }
+    end
   end
 
   defp reset_responses(players) do

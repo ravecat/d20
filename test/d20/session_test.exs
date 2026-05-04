@@ -1,6 +1,7 @@
 defmodule D20.SessionTest do
   use ExUnit.Case, async: true
 
+  alias D20.Qwinto.Game, as: QwintoGame
   alias D20.Session
 
   defmodule TestGame do
@@ -70,15 +71,17 @@ defmodule D20.SessionTest do
       assert {:error, :invalid_identity} = Session.dispatch(session, :join, %{player_id: ""})
     end
 
-    test "defers player count validation to game start" do
-      {:ok, session} = Session.new(TestGame, "p1")
+    test "propagates game join capacity errors without adding session members" do
+      {:ok, session} = Session.new(QwintoGame, "p1")
       {:ok, session} = Session.dispatch(session, :join, %{player_id: "p2"})
       {:ok, session} = Session.dispatch(session, :join, %{player_id: "p3"})
-
-      assert Enum.sort(Map.keys(session.members)) == ["p1", "p2", "p3"]
+      {:ok, session} = Session.dispatch(session, :join, %{player_id: "p4"})
 
       assert {:error, :invalid_player_count} =
-               Session.dispatch(session, :start, %{player_id: "p1"})
+               Session.dispatch(session, :join, %{player_id: "p5"})
+
+      assert Enum.sort(Map.keys(session.members)) == ["p1", "p2", "p3", "p4"]
+      refute Map.has_key?(session.game.players, "p5")
     end
 
     test "requires the owner to start the session" do
@@ -89,13 +92,17 @@ defmodule D20.SessionTest do
       assert {:error, :invalid_identity} = Session.dispatch(session, :start, %{player_id: ""})
     end
 
-    test "routes in-progress joins through the game engine" do
+    test "routes in-progress joins for existing members through the game engine" do
       {:ok, session} = Session.new(TestGame, "p1")
+      {:ok, session} = Session.dispatch(session, :join, %{player_id: "p2"})
+      {:ok, session} = Session.dispatch(session, :leave, %{player_id: "p2"})
       {:ok, session} = Session.dispatch(session, :start, %{player_id: "p1"})
 
       assert {:ok, session} = Session.dispatch(session, :join, %{player_id: "p2"})
       assert session.members["p2"] == :online
       assert session.game.players == ["p1", "p2"]
+
+      assert {:error, :invalid_phase} = Session.dispatch(session, :join, %{player_id: "p3"})
     end
 
     test "leaves mark existing members offline and are forwarded to the game" do

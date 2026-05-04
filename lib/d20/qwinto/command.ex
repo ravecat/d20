@@ -4,16 +4,43 @@ defmodule D20.Qwinto.Command do
   """
 
   alias Ecto.Changeset
-  alias __MODULE__.{Roll, Skip, Start, Write}
+  alias __MODULE__.{Join, Roll, Skip, Start, Write}
 
-  @type kind :: :start | :roll | :write | :skip
+  @type kind :: :join | :start | :roll | :write | :skip
 
   @spec build(kind(), map()) ::
-          {:ok, Start.t() | Roll.t() | Write.t() | Skip.t()} | {:error, Changeset.t()}
+          {:ok, Join.t() | Start.t() | Roll.t() | Write.t() | Skip.t()}
+          | {:error, Changeset.t()}
+  def build(:join, attrs), do: Changeset.apply_action(Join.changeset(attrs), :join)
   def build(:start, attrs), do: Changeset.apply_action(Start.changeset(attrs), :start)
   def build(:roll, attrs), do: Changeset.apply_action(Roll.changeset(attrs), :roll)
   def build(:write, attrs), do: Changeset.apply_action(Write.changeset(attrs), :write)
   def build(:skip, attrs), do: Changeset.apply_action(Skip.changeset(attrs), :skip)
+
+  defmodule Join do
+    @moduledoc """
+    Command for adding a player to a Qwinto setup.
+    """
+
+    use Ecto.Schema
+
+    import Ecto.Changeset
+
+    @primary_key false
+
+    embedded_schema do
+      field :player_id, :string
+    end
+
+    @type t :: %__MODULE__{player_id: String.t() | nil}
+
+    @spec changeset(map()) :: Ecto.Changeset.t()
+    def changeset(attrs) do
+      %__MODULE__{}
+      |> cast(attrs, [:player_id])
+      |> validate_required([:player_id])
+    end
+  end
 
   defmodule Start do
     @moduledoc """

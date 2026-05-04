@@ -103,15 +103,17 @@ defmodule D20.Session do
   def dispatch(%__MODULE__{}, _event, _attrs), do: {:error, :invalid_phase}
 
   defp join(%__MODULE__{} = session, player_id) do
-    members =
-      case Map.fetch(session.members, player_id) do
-        {:ok, _status} -> %{session.members | player_id => :online}
-        :error -> Map.put(session.members, player_id, :online)
-      end
+    with {:ok, members} <- join_members(session, player_id),
+         {:ok, game} <- session.engine.dispatch(session.game, :join, %{player_id: player_id}) do
+      {:ok, maybe_finish(%{session | game: game, members: members})}
+    end
+  end
 
-    case session.engine.dispatch(session.game, :join, %{player_id: player_id}) do
-      {:ok, game} -> {:ok, maybe_finish(%{session | game: game, members: members})}
-      {:error, reason} -> {:error, reason}
+  defp join_members(%__MODULE__{} = session, player_id) do
+    case {session.phase, Map.fetch(session.members, player_id)} do
+      {_phase, {:ok, _status}} -> {:ok, %{session.members | player_id => :online}}
+      {:waiting_for_players, :error} -> {:ok, Map.put(session.members, player_id, :online)}
+      {:in_progress, :error} -> {:error, :invalid_phase}
     end
   end
 

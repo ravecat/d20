@@ -76,6 +76,15 @@ defmodule D20.Qwinto.Rules do
     end
   end
 
+  @spec can_join?(D20.Qwinto.Game.t(), D20.Qwinto.Command.Join.t()) ::
+          :ok | {:error, :invalid_player_count | :invalid_phase}
+  def can_join?(game, %D20.Qwinto.Command.Join{} = command) do
+    with :ok <- require_phase(game, :setup),
+         :ok <- require_player_capacity(game, command.player_id) do
+      :ok
+    end
+  end
+
   @spec can_start?(D20.Qwinto.Game.t(), D20.Qwinto.Command.Start.t()) ::
           :ok | {:error, setup_error() | :invalid_phase}
   def can_start?(game, %D20.Qwinto.Command.Start{}) do
@@ -148,6 +157,14 @@ defmodule D20.Qwinto.Rules do
 
   defp require_phase(%{phase: phase}, phase), do: :ok
   defp require_phase(%{phase: _phase}, _expected), do: {:error, :invalid_phase}
+
+  defp require_player_capacity(game, player_id) do
+    cond do
+      Map.has_key?(game.players, player_id) -> :ok
+      length(game.order) < Enum.max(@player_count_range) -> :ok
+      true -> {:error, :invalid_player_count}
+    end
+  end
 
   defp require_active_player(game, player_id) do
     if game.active_player_id == player_id, do: :ok, else: {:error, :not_active_player}

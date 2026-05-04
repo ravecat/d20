@@ -4,6 +4,19 @@ defmodule D20.Qwinto.CommandTest do
   alias D20.Qwinto.Command
 
   describe "build/2" do
+    test "builds a join command from raw attrs" do
+      assert {:ok, %Command.Join{player_id: "p1"}} =
+               Command.build(:join, %{"player_id" => "p1"})
+    end
+
+    test "rejects malformed join commands" do
+      assert {:error, changeset} = Command.build(:join, %{})
+
+      refute changeset.valid?
+      assert changeset.action == :join
+      assert Keyword.has_key?(changeset.errors, :player_id)
+    end
+
     test "builds a start command from raw attrs" do
       assert {:ok, %Command.Start{}} = Command.build(:start, %{})
       assert {:ok, %Command.Start{}} = Command.build(:start, %{"player_id" => "p1"})
