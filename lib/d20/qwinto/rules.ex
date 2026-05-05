@@ -1,135 +1,86 @@
 defmodule D20.Qwinto.Rules do
   @moduledoc """
-  Static Qwinto constraints and command precondition checks.
+  Qwinto command precondition checks.
   """
 
-  @colors [:orange, :yellow, :purple]
-  @player_count_range 2..4
-  @dice_count_range 1..3
-  @dice_value_range 1..6
-  @slot_range 0..8
-  @penalty_limit 4
-  @completed_rows_to_end 2
-  @penalty_points -5
+  alias D20.Qwinto.Command
+  alias D20.Qwinto.Constants
 
-  @row_slots Map.new(@colors, &{&1, Enum.to_list(@slot_range)})
+  @type setup_error :: :invalid_player_count
+  @type reason ::
+          setup_error()
+          | :not_active_player
+          | :unknown_player
+          | :already_responded
+          | :row_not_in_roll
+          | :invalid_slot
+          | :occupied
+          | :row_order
+          | :column_duplicate
+          | :invalid_attempt
+          | :invalid_phase
 
-  @columns [
-    %{cells: [{:orange, 0}, {:yellow, 0}], bonus: nil},
-    %{cells: [{:orange, 1}, {:yellow, 1}, {:purple, 0}], bonus: {:orange, 1}},
-    %{cells: [{:orange, 2}, {:yellow, 2}, {:purple, 1}], bonus: nil},
-    %{cells: [{:yellow, 3}, {:purple, 2}], bonus: {:purple, 2}},
-    %{cells: [{:orange, 3}, {:yellow, 4}], bonus: nil},
-    %{cells: [{:orange, 4}, {:purple, 3}], bonus: {:orange, 4}},
-    %{cells: [{:orange, 5}, {:yellow, 5}, {:purple, 4}], bonus: nil},
-    %{cells: [{:orange, 6}, {:yellow, 6}, {:purple, 5}], bonus: {:yellow, 6}},
-    %{cells: [{:orange, 7}, {:yellow, 7}, {:purple, 6}], bonus: nil},
-    %{cells: [{:orange, 8}, {:yellow, 8}, {:purple, 7}], bonus: nil},
-    %{cells: [{:purple, 8}], bonus: {:purple, 8}}
-  ]
-
-  @bonus_columns Enum.filter(@columns, & &1.bonus)
-
-  @type color :: :orange | :yellow | :purple
-  @type setup_error :: :invalid_player_count | :duplicate_players
-  @type column :: %{
-          required(:cells) => [{color(), non_neg_integer()}],
-          required(:bonus) => {color(), non_neg_integer()} | nil
-        }
-
-  @spec colors() :: [color()]
-  def colors, do: @colors
-
-  @spec player_count_range() :: Range.t()
-  def player_count_range, do: @player_count_range
-
-  @spec dice_count_range() :: Range.t()
-  def dice_count_range, do: @dice_count_range
-
-  @spec dice_value_range() :: Range.t()
-  def dice_value_range, do: @dice_value_range
-
-  @spec slot_range() :: Range.t()
-  def slot_range, do: @slot_range
-
-  @spec penalty_limit() :: pos_integer()
-  def penalty_limit, do: @penalty_limit
-
-  @spec completed_rows_to_end() :: pos_integer()
-  def completed_rows_to_end, do: @completed_rows_to_end
-
-  @spec penalty_points() :: neg_integer()
-  def penalty_points, do: @penalty_points
-
-  @spec row_slots(color()) :: [non_neg_integer()]
-  def row_slots(row), do: Map.fetch!(@row_slots, row)
-
-  @spec bonus_columns() :: [column()]
-  def bonus_columns, do: @bonus_columns
-
-  @spec validate_join(D20.Qwinto.Game.t(), D20.Qwinto.Command.Join.t()) ::
-          :ok | {:error, :invalid_player_count | :invalid_phase}
-  def validate_join(game, %D20.Qwinto.Command.Join{} = command) do
-    with :ok <- require_phase(game, :setup),
+  @spec validate(D20.Qwinto.Game.t(), D20.Qwinto.Command.command()) ::
+          :ok | {:error, reason()}
+  def validate(game, %Command.Join{} = command) do
+    with :ok <- require_phase(game, [:setup, :ready]),
          :ok <- require_player_capacity(game, command.player_id) do
       :ok
     end
   end
 
-  @spec validate_start(D20.Qwinto.Game.t(), D20.Qwinto.Command.Start.t()) ::
-          :ok | {:error, setup_error() | :invalid_phase}
-  def validate_start(game, %D20.Qwinto.Command.Start{}) do
-    with :ok <- require_phase(game, :setup),
+  def validate(game, %Command.Start{}) do
+    with :ok <- require_phase(game, :ready),
          :ok <- require_player_count(game) do
       :ok
     end
   end
 
-  @spec validate_roll(D20.Qwinto.Game.t(), D20.Qwinto.Command.Roll.t()) ::
-          :ok | {:error, :not_active_player | :invalid_phase}
-  def validate_roll(game, command) do
-    with :ok <- require_phase(game, :waiting_for_roll),
+  def validate(game, %Command.Roll{} = command) do
+    with :ok <- require_phase(game, :turn),
          :ok <- require_active_player(game, command.player_id) do
       :ok
     end
   end
 
-  @spec validate_write(D20.Qwinto.Game.t(), D20.Qwinto.Command.Write.t()) ::
-          :ok
-          | {:error,
-             :unknown_player
-             | :already_responded
-             | :row_not_in_roll
-             | :invalid_slot
-             | :occupied
-             | :row_order
-             | :column_duplicate
-             | :invalid_phase}
-  def validate_write(game, command) do
-    with :ok <- require_phase(game, :accepting_entries),
+  def validate(game, %Command.Keep{} = command) do
+    with :ok <- require_phase(game, :decision),
+         :ok <- require_active_player(game, command.player_id),
+         :ok <- require_attempt(game, 1) do
+      :ok
+    end
+  end
+
+  def validate(game, %Command.Reroll{} = command) do
+    with :ok <- require_phase(game, :decision),
+         :ok <- require_active_player(game, command.player_id),
+         :ok <- require_attempt(game, 1) do
+      :ok
+    end
+  end
+
+  def validate(game, %Command.Write{} = command) do
+    with :ok <- require_phase(game, :result),
          :ok <- require_player(game, command.player_id),
          :ok <- require_ready(game, command.player_id),
          :ok <- require_row_in_roll(game, command.row),
          :ok <- require_slot(command.row, command.slot),
          :ok <- require_empty(game, command.player_id, command.row, command.slot),
-         :ok <-
-           require_row_order(game, command.player_id, command.row, command.slot, game.roll.sum),
+         :ok <- require_row_order(game, command.player_id, command.row, command.slot, game.sum),
          :ok <-
            require_column_unique(
              game,
              command.player_id,
              command.row,
              command.slot,
-             game.roll.sum
+             game.sum
            ) do
       :ok
     end
   end
 
-  @spec validate_skip(D20.Qwinto.Game.t(), D20.Qwinto.Command.Skip.t()) ::
-          :ok | {:error, :unknown_player | :already_responded | :invalid_phase}
-  def validate_skip(game, command) do
-    with :ok <- require_phase(game, :accepting_entries),
+  def validate(game, %Command.Skip{} = command) do
+    with :ok <- require_phase(game, :result),
          :ok <- require_player(game, command.player_id),
          :ok <- require_ready(game, command.player_id) do
       :ok
@@ -141,26 +92,36 @@ defmodule D20.Qwinto.Rules do
     Enum.all?(game.players, fn {_player_id, player} -> player.status != :ready end)
   end
 
+  @spec ready_to_start?(D20.Qwinto.Game.t()) :: boolean()
+  def ready_to_start?(game), do: player_count_result(game) == :ok
+
   @spec finished?(D20.Qwinto.Game.t()) :: boolean()
   def finished?(game) do
     completed_rows_limit_reached?(game) or penalty_limit_reached?(game)
   end
 
+  defp require_phase(%{phase: phase}, expected) when is_list(expected) do
+    if phase in expected, do: :ok, else: {:error, :invalid_phase}
+  end
+
   defp require_phase(%{phase: phase}, phase), do: :ok
   defp require_phase(%{phase: _phase}, _expected), do: {:error, :invalid_phase}
 
-  defp require_player_count(%{order: player_ids}) do
-    cond do
-      length(player_ids) not in @player_count_range -> {:error, :invalid_player_count}
-      Enum.uniq(player_ids) != player_ids -> {:error, :duplicate_players}
-      true -> :ok
-    end
+  defp require_attempt(%{attempt: attempt}, attempt), do: :ok
+  defp require_attempt(%{attempt: _attempt}, _expected), do: {:error, :invalid_attempt}
+
+  defp require_player_count(game), do: player_count_result(game)
+
+  defp player_count_result(%{order: player_ids}) do
+    if length(player_ids) in Constants.player_count_range(),
+      do: :ok,
+      else: {:error, :invalid_player_count}
   end
 
   defp require_player_capacity(game, player_id) do
     cond do
       Map.has_key?(game.players, player_id) -> :ok
-      length(game.order) < Enum.max(@player_count_range) -> :ok
+      length(game.order) < Enum.max(Constants.player_count_range()) -> :ok
       true -> {:error, :invalid_player_count}
     end
   end
@@ -178,13 +139,14 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_row_in_roll(game, row) do
-    if row in game.roll.colors, do: :ok, else: {:error, :row_not_in_roll}
+    if row in game.dice, do: :ok, else: {:error, :row_not_in_roll}
   end
 
   defp require_slot(row, slot) do
-    case Map.fetch(@row_slots, row) do
-      {:ok, slots} -> if slot in slots, do: :ok, else: {:error, :invalid_slot}
-      :error -> {:error, :invalid_slot}
+    cond do
+      row not in Constants.colors() -> {:error, :invalid_slot}
+      slot in Constants.row_slots(row) -> :ok
+      true -> {:error, :invalid_slot}
     end
   end
 
@@ -204,8 +166,13 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_column_unique(game, player_id, row, slot, sum) do
-    column = Enum.find(@columns, fn column -> {row, slot} in column.cells end)
+    case Enum.find(Constants.score_sheet_columns(), fn column -> {row, slot} in column.cells end) do
+      nil -> :ok
+      column -> require_column_value_unique(game, player_id, row, slot, sum, column)
+    end
+  end
 
+  defp require_column_value_unique(game, player_id, row, slot, sum, column) do
     duplicate? =
       Enum.any?(column.cells, fn
         {^row, ^slot} ->
@@ -220,17 +187,19 @@ defmodule D20.Qwinto.Rules do
 
   defp completed_rows_limit_reached?(game) do
     Enum.any?(game.players, fn {_player_id, player} ->
-      completed_row_count(player) >= @completed_rows_to_end
+      completed_row_count(player) >= Constants.completed_rows_to_end()
     end)
   end
 
   defp penalty_limit_reached?(game) do
-    Enum.any?(game.players, fn {_player_id, player} -> player.penalties >= @penalty_limit end)
+    Enum.any?(game.players, fn {_player_id, player} ->
+      player.penalties >= Constants.penalty_limit()
+    end)
   end
 
   defp completed_row_count(player) do
-    Enum.count(@colors, fn row ->
-      map_size(player.rows[row]) == length(row_slots(row))
+    Enum.count(Constants.colors(), fn row ->
+      map_size(player.rows[row]) == length(Constants.row_slots(row))
     end)
   end
 end

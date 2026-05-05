@@ -23,7 +23,7 @@ defmodule D20.Qwinto.CommandTest do
     end
 
     test "builds a roll command from raw attrs" do
-      assert {:ok, %Command.Roll{player_id: "p1", colors: [:orange, :purple], values: [4, 5]}} =
+      assert {:ok, %Command.Roll{player_id: "p1", colors: [:orange, :purple]}} =
                Command.build(:roll, %{
                  "player_id" => "p1",
                  "colors" => ["orange", "purple"],
@@ -42,10 +42,15 @@ defmodule D20.Qwinto.CommandTest do
       refute changeset.valid?
       assert changeset.action == :roll
       assert Keyword.has_key?(changeset.errors, :colors)
-      assert Keyword.has_key?(changeset.errors, :values)
     end
 
-    test "builds write and skip commands from raw attrs" do
+    test "builds keep, reroll, write, and skip commands from raw attrs" do
+      assert {:ok, %Command.Keep{player_id: "p1"}} =
+               Command.build(:keep, %{"player_id" => "p1"})
+
+      assert {:ok, %Command.Reroll{player_id: "p1"}} =
+               Command.build(:reroll, %{"player_id" => "p1"})
+
       assert {:ok, %Command.Write{player_id: "p1", row: :orange, slot: 0}} =
                Command.build(:write, %{"player_id" => "p1", "row" => "orange", "slot" => 0})
 

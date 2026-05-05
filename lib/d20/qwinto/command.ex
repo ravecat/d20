@@ -4,16 +4,17 @@ defmodule D20.Qwinto.Command do
   """
 
   alias Ecto.Changeset
-  alias __MODULE__.{Join, Roll, Skip, Start, Write}
+  alias __MODULE__.{Join, Keep, Reroll, Roll, Skip, Start, Write}
 
-  @type kind :: :join | :start | :roll | :write | :skip
+  @type kind :: :join | :start | :roll | :keep | :reroll | :write | :skip
+  @type command :: Join.t() | Start.t() | Roll.t() | Keep.t() | Reroll.t() | Write.t() | Skip.t()
 
-  @spec build(kind(), map()) ::
-          {:ok, Join.t() | Start.t() | Roll.t() | Write.t() | Skip.t()}
-          | {:error, Changeset.t()}
+  @spec build(kind(), map()) :: {:ok, command()} | {:error, Changeset.t()}
   def build(:join, attrs), do: Changeset.apply_action(Join.changeset(attrs), :join)
   def build(:start, attrs), do: Changeset.apply_action(Start.changeset(attrs), :start)
   def build(:roll, attrs), do: Changeset.apply_action(Roll.changeset(attrs), :roll)
+  def build(:keep, attrs), do: Changeset.apply_action(Keep.changeset(attrs), :keep)
+  def build(:reroll, attrs), do: Changeset.apply_action(Reroll.changeset(attrs), :reroll)
   def build(:write, attrs), do: Changeset.apply_action(Write.changeset(attrs), :write)
   def build(:skip, attrs), do: Changeset.apply_action(Skip.changeset(attrs), :skip)
 
@@ -67,75 +68,91 @@ defmodule D20.Qwinto.Command do
 
   defmodule Roll do
     @moduledoc """
-    Command for the active player rolling one to three dice.
+    Command for the active player selecting one to three dice.
     """
 
     use Ecto.Schema
 
     import Ecto.Changeset
 
-    alias D20.Qwinto.Rules
+    alias D20.Qwinto.Constants
 
-    @colors Rules.colors()
-    @dice_count_range Rules.dice_count_range()
-    @dice_value_range Rules.dice_value_range()
+    @colors Constants.colors()
+    @dice_count_range Constants.dice_count_range()
     @primary_key false
 
     embedded_schema do
       field :player_id, :string
       field :colors, {:array, Ecto.Enum}, values: @colors
-      field :values, {:array, :integer}
     end
 
     @type t :: %__MODULE__{
             player_id: String.t() | nil,
-            colors: [Rules.color()] | nil,
-            values: [integer()] | nil
+            colors: [Constants.color()] | nil
           }
 
     @spec changeset(map()) :: Ecto.Changeset.t()
     def changeset(attrs) do
       %__MODULE__{}
-      |> cast(attrs, [:player_id, :colors, :values])
-      |> validate_required([:player_id, :colors, :values])
-      |> validate_dice_count(:colors)
-      |> validate_dice_count(:values)
-      |> validate_unique_colors(:colors)
-      |> validate_dice_values(:values)
-      |> validate_matching_lengths(:colors, :values)
-    end
-
-    defp validate_dice_count(changeset, field) do
-      validate_length(changeset, field,
+      |> cast(attrs, [:player_id, :colors])
+      |> validate_required([:player_id, :colors])
+      |> validate_length(:colors,
         min: Enum.min(@dice_count_range),
         max: Enum.max(@dice_count_range)
       )
-    end
-
-    defp validate_unique_colors(changeset, field) do
-      validate_change(changeset, field, fn ^field, colors ->
-        if Enum.uniq(colors) == colors, do: [], else: [{field, "has duplicate colors"}]
+      |> validate_change(:colors, fn :colors, colors ->
+        if Enum.uniq(colors) == colors, do: [], else: [colors: "has duplicate colors"]
       end)
     end
+  end
 
-    defp validate_dice_values(changeset, field) do
-      validate_change(changeset, field, fn ^field, values ->
-        if Enum.all?(values, &(&1 in @dice_value_range)),
-          do: [],
-          else: [{field, "has invalid dice value"}]
-      end)
+  defmodule Keep do
+    @moduledoc """
+    Command for keeping the first roll result.
+    """
+
+    use Ecto.Schema
+
+    import Ecto.Changeset
+
+    @primary_key false
+
+    embedded_schema do
+      field :player_id, :string
     end
 
-    defp validate_matching_lengths(changeset, left, right) do
-      left_values = get_field(changeset, left)
-      right_values = get_field(changeset, right)
+    @type t :: %__MODULE__{player_id: String.t() | nil}
 
-      if is_list(left_values) and is_list(right_values) and
-           length(left_values) != length(right_values) do
-        add_error(changeset, right, "must match #{left} count")
-      else
-        changeset
-      end
+    @spec changeset(map()) :: Ecto.Changeset.t()
+    def changeset(attrs) do
+      %__MODULE__{}
+      |> cast(attrs, [:player_id])
+      |> validate_required([:player_id])
+    end
+  end
+
+  defmodule Reroll do
+    @moduledoc """
+    Command for replacing the first roll with a second roll.
+    """
+
+    use Ecto.Schema
+
+    import Ecto.Changeset
+
+    @primary_key false
+
+    embedded_schema do
+      field :player_id, :string
+    end
+
+    @type t :: %__MODULE__{player_id: String.t() | nil}
+
+    @spec changeset(map()) :: Ecto.Changeset.t()
+    def changeset(attrs) do
+      %__MODULE__{}
+      |> cast(attrs, [:player_id])
+      |> validate_required([:player_id])
     end
   end
 
@@ -148,10 +165,10 @@ defmodule D20.Qwinto.Command do
 
     import Ecto.Changeset
 
-    alias D20.Qwinto.Rules
+    alias D20.Qwinto.Constants
 
-    @colors Rules.colors()
-    @slot_range Rules.slot_range()
+    @colors Constants.colors()
+    @slot_range Constants.slot_range()
     @primary_key false
 
     embedded_schema do
@@ -162,7 +179,7 @@ defmodule D20.Qwinto.Command do
 
     @type t :: %__MODULE__{
             player_id: String.t() | nil,
-            row: Rules.color() | nil,
+            row: Constants.color() | nil,
             slot: non_neg_integer() | nil
           }
 
@@ -171,11 +188,7 @@ defmodule D20.Qwinto.Command do
       %__MODULE__{}
       |> cast(attrs, [:player_id, :row, :slot])
       |> validate_required([:player_id, :row, :slot])
-      |> validate_slot(:slot)
-    end
-
-    defp validate_slot(changeset, field) do
-      validate_number(changeset, field,
+      |> validate_number(:slot,
         greater_than_or_equal_to: Enum.min(@slot_range),
         less_than_or_equal_to: Enum.max(@slot_range)
       )
