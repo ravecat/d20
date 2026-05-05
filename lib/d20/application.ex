@@ -12,6 +12,8 @@ defmodule D20.Application do
       D20.Repo,
       {DNSCluster, query: Application.get_env(:d20, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: D20.PubSub},
+      {Registry, [name: D20.Registry, keys: :unique]},
+      {DynamicSupervisor, [name: D20.SessionSupervisor, strategy: :one_for_one]},
       # Start a worker by calling: D20.Worker.start_link(arg)
       # {D20.Worker, arg},
       D20Web.Presence,
