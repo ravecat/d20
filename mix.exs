@@ -21,7 +21,7 @@ defmodule D20.MixProject do
   def application do
     [
       mod: {D20.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:crypto, :logger, :runtime_tools]
     ]
   end
 

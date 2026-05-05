@@ -7,6 +7,7 @@ defmodule D20.Qwinto.Game do
 
   use Ecto.Schema
 
+  alias D20.Dice
   alias D20.Qwinto.Command
   alias D20.Qwinto.Constants
   alias D20.Qwinto.Rules
@@ -219,13 +220,9 @@ defmodule D20.Qwinto.Game do
   end
 
   defp put_roll(game, dice, attempt) do
-    values = roll_values(dice)
+    %{sum: sum, d6: values} = Dice.roll!(d6: length(dice))
 
-    %{game | dice: dice, values: values, sum: Enum.sum(values), attempt: attempt}
-  end
-
-  defp roll_values(dice) do
-    Enum.map(dice, fn _die -> Enum.random(Constants.dice_value_range()) end)
+    %{game | dice: dice, values: values, sum: sum, attempt: attempt}
   end
 
   defp put_entry(game, command) do
