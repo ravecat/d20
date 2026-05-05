@@ -5,7 +5,7 @@ defmodule D20.MixProject do
     [
       app: :d20,
       version: "0.1.0",
-      elixir: "~> 1.15",
+      elixir: ">= 1.18.0 and < 2.0.0",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -59,6 +59,7 @@ defmodule D20.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
+      {:pathex, "~> 2.6"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:bun, "~> 1.5 and >= 1.5.1", runtime: Mix.env() == :dev}
