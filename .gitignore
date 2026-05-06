@@ -69,6 +69,7 @@ temp/
 /priv/static/assets/
 /priv/static/.vite/
 /priv/static/cache_manifest.json
+/priv/static/rules/
 
 # Build artifacts
 erl_crash.dump

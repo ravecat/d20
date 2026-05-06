@@ -37,6 +37,12 @@ config :d20,
     max_age: 1_209_600
   ]
 
+config :d20, :games,
+  qwinto: [
+    title: "Qwinto",
+    embed_url: "http://localhost:5173"
+  ]
+
 # Configures the endpoint
 config :d20, D20Web.Endpoint,
   url: [host: "localhost"],

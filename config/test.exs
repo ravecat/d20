@@ -1,5 +1,10 @@
 import Config
 
+config :d20, :games,
+  qwinto: [
+    embed_url: "http://localhost:5173"
+  ]
+
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 
@@ -23,7 +28,8 @@ config :d20, D20Web.Endpoint,
   secret_key_base: "Mzij4XkWW1nq/dbTyhMn0ci6O25B16e6jX6aRZeyrA23dnzflzLhFdJYOBPOND1d",
   server: false,
   # Render Vite dev URLs in tests so controller tests do not depend on built assets.
-  watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}]
+  watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}],
+  static_url: [host: "localhost", port: 5174]
 
 # In test we don't send emails
 config :d20, D20.Mailer, adapter: Swoosh.Adapters.Test

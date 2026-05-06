@@ -36,6 +36,7 @@ defmodule D20Web.Router do
     pipe_through :inertia
 
     get "/", PageController, :home
+    get "/dashboard", PageController, :dashboard
     get "/cursors", PageController, :cursors
   end
 
