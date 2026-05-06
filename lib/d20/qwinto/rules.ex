@@ -139,7 +139,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_row_in_roll(game, row) do
-    if row in game.dice, do: :ok, else: {:error, :row_not_in_roll}
+    if row in game.dices, do: :ok, else: {:error, :row_not_in_roll}
   end
 
   defp require_slot(row, slot) do

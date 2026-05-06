@@ -57,7 +57,7 @@ defmodule D20.Qwinto.RulesTest do
     test "rejects duplicate values in a write column" do
       game = %Game{
         phase: :result,
-        dice: [:orange],
+        dices: [:orange],
         sum: 7,
         players: %{
           "p1" => player(%{yellow: %{2 => 7}})
@@ -75,7 +75,7 @@ defmodule D20.Qwinto.RulesTest do
     test "does not compare cells that only shared the old unshifted column index" do
       game = %Game{
         phase: :result,
-        dice: [:orange],
+        dices: [:orange],
         sum: 7,
         players: %{
           "p1" => player(%{yellow: %{1 => 7}})
@@ -93,7 +93,7 @@ defmodule D20.Qwinto.RulesTest do
     test "accepts writes in single-cell edge columns" do
       game = %Game{
         phase: :result,
-        dice: [:orange],
+        dices: [:orange],
         sum: 7,
         players: %{
           "p1" => player()

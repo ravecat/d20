@@ -24,7 +24,7 @@ defmodule D20.Qwinto.Game do
     field :order, {:array, :string}, default: []
     field :cursor, :integer, default: 0
     field :players, :map, default: %{}
-    field :dice, {:array, Ecto.Enum}, values: @colors, default: []
+    field :dices, {:array, Ecto.Enum}, values: @colors, default: []
     field :values, {:array, :integer}, default: []
     field :sum, :integer
     field :attempt, :integer, default: 0
@@ -53,13 +53,13 @@ defmodule D20.Qwinto.Game do
           order: [player_id()],
           cursor: non_neg_integer(),
           players: %{optional(player_id()) => player()},
-          dice: [Constants.color()],
+          dices: [Constants.color()],
           values: [integer()],
           sum: integer() | nil,
           attempt: 0 | 1 | 2,
           scores: %{optional(player_id()) => score()}
         }
-  @type reason :: :game_finished | :invalid_phase
+  @type reason :: :finished | :invalid_phase
 
   @impl D20.Game
   @spec init() :: {:ok, t()}
@@ -73,12 +73,7 @@ defmodule D20.Qwinto.Game do
       when phase in [:setup, :ready] do
     with {:ok, command} <- Command.build(:join, attrs),
          :ok <- Rules.validate(game, command) do
-      game =
-        game
-        |> join_player(command.player_id)
-        |> maybe_mark_ready()
-
-      {:ok, game}
+      {:ok, apply_command(game, command)}
     end
   end
 
@@ -89,7 +84,7 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :ready} = game, :start, attrs) do
     with {:ok, command} <- Command.build(:start, attrs),
          :ok <- Rules.validate(game, command) do
-      {:ok, %{game | phase: :turn, cursor: 0}}
+      {:ok, apply_command(game, command)}
     end
   end
 
@@ -104,12 +99,7 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :turn} = game, :roll, attrs) do
     with {:ok, command} <- Command.build(:roll, attrs),
          :ok <- Rules.validate(game, command) do
-      game =
-        game
-        |> put_roll(command.colors, 1)
-        |> reset_responses()
-
-      {:ok, %{game | phase: :decision}}
+      {:ok, apply_command(game, command)}
     end
   end
 
@@ -123,16 +113,14 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :decision} = game, :keep, attrs) do
     with {:ok, command} <- Command.build(:keep, attrs),
          :ok <- Rules.validate(game, command) do
-      {:ok, %{game | phase: :result}}
+      {:ok, apply_command(game, command)}
     end
   end
 
   def dispatch(%__MODULE__{phase: :decision} = game, :reroll, attrs) do
     with {:ok, command} <- Command.build(:reroll, attrs),
          :ok <- Rules.validate(game, command) do
-      game = put_roll(game, game.dice, 2)
-
-      {:ok, %{game | phase: :result}}
+      {:ok, apply_command(game, command)}
     end
   end
 
@@ -146,38 +134,21 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :result} = game, :write, attrs) do
     with {:ok, command} <- Command.build(:write, attrs),
          :ok <- Rules.validate(game, command) do
-      game =
-        game
-        |> put_entry(command)
-        |> mark_player_status(command.player_id, :wrote)
-        |> resolve_turn()
-
-      {:ok, game}
+      {:ok, apply_command(game, command)}
     end
   end
 
   def dispatch(%__MODULE__{phase: :result} = game, :skip, attrs) do
     with {:ok, command} <- Command.build(:skip, attrs),
          :ok <- Rules.validate(game, command) do
-      game =
-        game
-        |> apply_skip_response(command.player_id)
-        |> resolve_turn()
-
-      {:ok, game}
+      {:ok, apply_command(game, command)}
     end
   end
 
   def dispatch(%__MODULE__{phase: :result}, _kind, _attrs),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :finished} = game, :join, _attrs), do: {:ok, game}
-
-  def dispatch(%__MODULE__{phase: :finished} = game, :leave, _attrs), do: {:ok, game}
-
-  def dispatch(%__MODULE__{phase: :finished}, kind, _attrs)
-      when kind in [:roll, :keep, :reroll, :write, :skip],
-      do: {:error, :game_finished}
+  def dispatch(%__MODULE__{phase: :finished}, _kind, _attrs), do: {:error, :finished}
 
   def dispatch(%__MODULE__{}, _kind, _attrs), do: {:error, :invalid_phase}
 
@@ -185,6 +156,48 @@ defmodule D20.Qwinto.Game do
   @spec finished?(t()) :: boolean()
   def finished?(%__MODULE__{phase: :finished}), do: true
   def finished?(%__MODULE__{}), do: false
+
+  defp apply_command(game, %Command.Join{} = command) do
+    game
+    |> join_player(command.player_id)
+    |> maybe_mark_ready()
+  end
+
+  defp apply_command(game, %Command.Start{}) do
+    %{game | phase: :turn, cursor: 0}
+  end
+
+  defp apply_command(game, %Command.Roll{} = command) do
+    game =
+      game
+      |> put_roll(command.colors, 1)
+      |> reset_responses()
+
+    %{game | phase: :decision}
+  end
+
+  defp apply_command(game, %Command.Keep{}) do
+    %{game | phase: :result}
+  end
+
+  defp apply_command(game, %Command.Reroll{}) do
+    game = put_roll(game, game.dices, 2)
+
+    %{game | phase: :result}
+  end
+
+  defp apply_command(game, %Command.Write{} = command) do
+    game
+    |> put_entry(command)
+    |> set_player_status(command.player_id, :wrote)
+    |> resolve_turn()
+  end
+
+  defp apply_command(game, %Command.Skip{} = command) do
+    game
+    |> apply_skip_response(command.player_id)
+    |> resolve_turn()
+  end
 
   defp join_player(game, player_id) do
     if Map.has_key?(game.players, player_id) do
@@ -219,10 +232,10 @@ defmodule D20.Qwinto.Game do
     end)
   end
 
-  defp put_roll(game, dice, attempt) do
-    %{sum: sum, d6: values} = Dice.roll!(d6: length(dice))
+  defp put_roll(game, dices, attempt) do
+    %{sum: sum, d6: values} = Dice.roll!(d6: length(dices))
 
-    %{game | dice: dice, values: values, sum: sum, attempt: attempt}
+    %{game | dices: dices, values: values, sum: sum, attempt: attempt}
   end
 
   defp put_entry(game, command) do
@@ -233,9 +246,9 @@ defmodule D20.Qwinto.Game do
     if active_player?(game, player_id) do
       game
       |> update_in([Access.key!(:players), player_id, Access.key!(:penalties)], &(&1 + 1))
-      |> mark_player_status(player_id, :failed)
+      |> set_player_status(player_id, :failed)
     else
-      mark_player_status(game, player_id, :passed)
+      set_player_status(game, player_id, :passed)
     end
   end
 
@@ -243,7 +256,7 @@ defmodule D20.Qwinto.Game do
     Enum.at(order, cursor) == player_id
   end
 
-  defp mark_player_status(game, player_id, status) do
+  defp set_player_status(game, player_id, status) do
     put_in(game.players[player_id][:status], status)
   end
 
@@ -260,7 +273,7 @@ defmodule D20.Qwinto.Game do
   defp advance_turn(game) do
     next_cursor = rem(game.cursor + 1, length(game.order))
 
-    %{game | phase: :turn, cursor: next_cursor, dice: [], values: [], sum: nil, attempt: 0}
+    %{game | phase: :turn, cursor: next_cursor, dices: [], values: [], sum: nil, attempt: 0}
   end
 
   defp score_players(game) do

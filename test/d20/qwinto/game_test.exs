@@ -52,7 +52,7 @@ defmodule D20.Qwinto.GameTest do
                  "colors" => ["orange", "purple"]
                })
 
-      assert game.dice == [:orange, :purple]
+      assert game.dices == [:orange, :purple]
       assert length(game.values) == 2
       assert Enum.all?(game.values, &(&1 in 1..6))
       assert game.sum == Enum.sum(game.values)
@@ -145,7 +145,7 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, game} = Game.dispatch(game, :skip, %{"player_id" => "p2"})
       assert game.phase == :turn
       assert game.cursor == 1
-      assert game.dice == []
+      assert game.dices == []
       assert game.values == []
       assert game.sum == nil
       assert game.attempt == 0
@@ -186,13 +186,13 @@ defmodule D20.Qwinto.GameTest do
 
       assert game.phase == :decision
       assert game.attempt == 1
-      assert game.dice == [:yellow, :purple]
+      assert game.dices == [:yellow, :purple]
 
       assert {:ok, game} = Game.dispatch(game, :reroll, %{"player_id" => "p1"})
 
       assert game.phase == :result
       assert game.attempt == 2
-      assert game.dice == [:yellow, :purple]
+      assert game.dices == [:yellow, :purple]
       assert length(game.values) == 2
       assert game.sum == Enum.sum(game.values)
     end
@@ -303,6 +303,9 @@ defmodule D20.Qwinto.GameTest do
       assert game.phase == :finished
       assert map_size(game.scores) == 2
       assert game.scores["p1"].penalties == -20
+      assert {:error, :finished} = Game.dispatch(game, :join, %{player_id: "p3"})
+      assert {:error, :finished} = Game.dispatch(game, :leave, %{player_id: "p1"})
+      assert {:error, :finished} = Game.dispatch(game, :roll, %{})
     end
 
     test "finishes after the turn where any player completes a second colored row" do
