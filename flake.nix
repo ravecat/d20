@@ -22,6 +22,7 @@
             pkgs.git
             pkgs.glibcLocales
             pkgs.jq
+            pkgs.just
             # Phoenix uses PostgreSQL locally by default.
             pkgs.postgresql
           ];
