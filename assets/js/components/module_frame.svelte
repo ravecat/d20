@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { ModuleEntry, ModuleReadyMessage } from "~types/module";
+  import type { ModuleConnectMessage, ModuleEntry, ModuleReadyMessage } from "~types/module";
+  import { MODULE_CONNECT_MESSAGE, MODULE_READY_MESSAGE } from "~types/module";
 
   interface Props {
     module: ModuleEntry;
@@ -14,7 +15,7 @@
       typeof data === "object" &&
       data !== null &&
       "type" in data &&
-      data.type === "d20.module.ready" &&
+      data.type === MODULE_READY_MESSAGE &&
       "moduleId" in data &&
       typeof data.moduleId === "string"
     );
@@ -29,13 +30,12 @@
     if (!isModuleReadyMessage(data)) return;
     if (data.moduleId !== module.id) return;
 
-    iframe.contentWindow.postMessage(
-      {
-        type: "d20.module.bootstrap",
-        ...module.bootstrap,
-      },
-      event.origin,
-    );
+    const message: ModuleConnectMessage = {
+      ...module.bootstrap,
+      type: MODULE_CONNECT_MESSAGE,
+    };
+
+    iframe.contentWindow.postMessage(message, event.origin);
   }
 
   $effect(() => {
