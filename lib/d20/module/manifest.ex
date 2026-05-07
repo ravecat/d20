@@ -18,6 +18,16 @@ defmodule D20.Module.Manifest do
     |> Enum.map(&normalize!/1)
   end
 
+  @spec fetch(String.t()) :: {:ok, module_entry()} | :error
+  def fetch(id) when is_binary(id) do
+    list()
+    |> Enum.find(&(&1.id == id))
+    |> case do
+      nil -> :error
+      module -> {:ok, module}
+    end
+  end
+
   @spec module_id_for_engine(module()) :: String.t() | nil
   def module_id_for_engine(engine) when is_atom(engine) do
     :engines

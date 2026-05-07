@@ -26,6 +26,24 @@ defmodule D20Web.PageControllerTest do
     assert html_response(conn, 200) =~ ~s(src="http://localhost:5174/js/app.js")
   end
 
+  test "GET /games/:game renders the selected game module", %{conn: conn} do
+    conn = get(conn, ~p"/games/qwinto")
+
+    assert inertia_component(conn) == "game"
+    assert %{module: module} = inertia_props(conn)
+    assert module[:id] == "qwinto"
+    assert module[:title] == "Qwinto"
+    assert module[:embedUrl] == "http://localhost:5173"
+    assert module[:allowedOrigins] == ["http://localhost:5173"]
+    assert "allow-scripts" in module[:sandbox]
+  end
+
+  test "GET /games/:game returns 404 for unknown games", %{conn: conn} do
+    conn = get(conn, ~p"/games/missing")
+
+    assert html_response(conn, 404) == "Not Found"
+  end
+
   test "GET /cursors exposes a channel actor token", %{conn: conn} do
     conn = get(conn, ~p"/cursors")
 

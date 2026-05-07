@@ -37,6 +37,7 @@ defmodule D20Web.Router do
 
     get "/", PageController, :home
     get "/games", PageController, :games
+    get "/games/:game", PageController, :game
     get "/cursors", PageController, :cursors
   end
 

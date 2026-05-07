@@ -12,6 +12,13 @@ defmodule D20.Module.ManifestTest do
     refute Map.has_key?(qwinto, :transport)
   end
 
+  test "fetches module entries by id" do
+    assert {:ok, qwinto} = D20.Module.Manifest.fetch("qwinto")
+    assert qwinto.title == "Qwinto"
+
+    assert D20.Module.Manifest.fetch("missing") == :error
+  end
+
   test "resolves module ids for configured game engines" do
     assert D20.Module.Manifest.module_id_for_engine(D20.Qwinto.Game) == "qwinto"
   end
