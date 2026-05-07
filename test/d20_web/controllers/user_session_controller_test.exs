@@ -15,8 +15,8 @@ defmodule D20Web.UserSessionControllerTest do
       assert response =~ "Log in"
       assert response =~ ~p"/users/register"
       assert response =~ "Log in with email"
-      assert token = conn.assigns.user_token
-      assert response =~ ~s(window.userToken = "#{token}")
+      assert token = conn.assigns.actor_token
+      assert response =~ ~s(window.actorToken = "#{token}")
 
       assert {:ok, %{id: _actor_id, type: :anonymous}} =
                D20.ActorToken.verify(D20Web.Endpoint, token)
@@ -33,8 +33,8 @@ defmodule D20Web.UserSessionControllerTest do
       assert html =~ "You need to reauthenticate"
       refute html =~ "Register"
       assert html =~ "Log in with email"
-      assert token = conn.assigns.user_token
-      assert html =~ ~s(window.userToken = "#{token}")
+      assert token = conn.assigns.actor_token
+      assert html =~ ~s(window.actorToken = "#{token}")
       assert {:ok, %{id: actor_id, type: :user}} = D20.ActorToken.verify(D20Web.Endpoint, token)
       assert actor_id == to_string(user.id)
 
@@ -222,8 +222,8 @@ defmodule D20Web.UserSessionControllerTest do
     assert response =~ ~s(id="app")
     assert inertia_component(conn) == "home"
     assert conn.assigns.current_scope.user.id == user.id
-    assert token = conn.assigns.user_token
-    assert response =~ ~s(window.userToken = "#{token}")
+    assert token = conn.assigns.actor_token
+    assert response =~ ~s(window.actorToken = "#{token}")
     assert {:ok, %{id: actor_id, type: :user}} = D20.ActorToken.verify(D20Web.Endpoint, token)
     assert actor_id == to_string(user.id)
   end

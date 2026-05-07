@@ -86,11 +86,11 @@ defmodule D20Web.UserAuth do
     })
   end
 
-  def put_user_token(conn, _opts) do
+  def put_actor_token(conn, _opts) do
     if current_actor = conn.assigns[:current_actor] do
       token = D20.ActorToken.sign(D20Web.Endpoint, current_actor)
 
-      assign(conn, :user_token, token)
+      assign(conn, :actor_token, token)
     else
       conn
     end

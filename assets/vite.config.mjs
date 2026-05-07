@@ -1,8 +1,11 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
 
+const assetsDir = fileURLToPath(new URL(".", import.meta.url));
 const phoenixPort = process.env.PHOENIX_PORT || process.env.PORT || "5000";
 const vitePort = Number(process.env.VITE_PORT || "5174");
 
@@ -30,6 +33,8 @@ export default defineConfig({
     conditions: ["svelte", "browser", "import", "default"],
     alias: {
       "@": ".",
+      "~components": path.resolve(assetsDir, "js/components"),
+      "~types": path.resolve(assetsDir, "js/types"),
       "phoenix-colocated": `${process.env.MIX_BUILD_PATH}/phoenix-colocated`,
     },
   },

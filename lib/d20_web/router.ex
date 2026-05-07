@@ -8,7 +8,7 @@ defmodule D20Web.Router do
     plug :fetch_session
     plug :fetch_current_scope_for_user
     plug :fetch_current_actor
-    plug :put_user_token
+    plug :put_actor_token
     plug :fetch_live_flash
     plug :put_root_layout, html: {D20Web.Layouts, :inertia_root}
     plug :protect_from_forgery
@@ -21,7 +21,7 @@ defmodule D20Web.Router do
     plug :fetch_session
     plug :fetch_current_scope_for_user
     plug :fetch_current_actor
-    plug :put_user_token
+    plug :put_actor_token
     plug :fetch_live_flash
     plug :put_root_layout, html: {D20Web.Layouts, :root}
     plug :protect_from_forgery

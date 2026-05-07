@@ -153,6 +153,22 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{}, _kind, _attrs), do: {:error, :invalid_phase}
 
   @impl D20.Game
+  @spec projection(t()) :: map()
+  def projection(%__MODULE__{} = game) do
+    %{
+      phase: game.phase,
+      order: game.order,
+      cursor: game.cursor,
+      players: game.players,
+      dices: game.dices,
+      values: game.values,
+      sum: game.sum,
+      attempt: game.attempt,
+      scores: game.scores
+    }
+  end
+
+  @impl D20.Game
   @spec finished?(t()) :: boolean()
   def finished?(%__MODULE__{phase: :finished}), do: true
   def finished?(%__MODULE__{}), do: false

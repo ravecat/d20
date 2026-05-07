@@ -1,6 +1,4 @@
 defmodule D20.ActorToken do
-  @config_key :actor_token
-
   def sign(context, actor) when is_map(actor) do
     Phoenix.Token.sign(context, salt(), actor)
   end
@@ -19,7 +17,7 @@ defmodule D20.ActorToken do
 
   defp config!(key) do
     :d20
-    |> Application.fetch_env!(@config_key)
+    |> Application.fetch_env!(__MODULE__)
     |> Keyword.fetch!(key)
   end
 end

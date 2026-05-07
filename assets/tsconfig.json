@@ -20,7 +20,9 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./js/*"]
+      "@/*": ["./js/*"],
+      "~components/*": ["./js/components/*"],
+      "~types/*": ["./js/types/*"]
     }
   },
   "include": ["js/**/*.ts", "js/**/*.js", "js/**/*.svelte", "vite.config.mjs"],

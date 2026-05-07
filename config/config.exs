@@ -31,17 +31,21 @@ config :bun,
 
 config :d20,
   ecto_repos: [D20.Repo],
-  generators: [timestamp_type: :utc_datetime],
-  actor_token: [
-    salt: "actor socket",
-    max_age: 1_209_600
+  generators: [timestamp_type: :utc_datetime]
+
+config :d20, D20.ActorToken,
+  salt: "actor",
+  max_age: 1_209_600
+
+config :d20, D20.Module.Manifest,
+  path: "priv/modules/#{config_env()}.json",
+  engines: [
+    qwinto: D20.Qwinto.Game
   ]
 
-config :d20, :games,
-  qwinto: [
-    title: "Qwinto",
-    embed_url: "http://localhost:5173"
-  ]
+config :d20, D20.Module.Token,
+  salt: "module",
+  max_age: 600
 
 # Configures the endpoint
 config :d20, D20Web.Endpoint,

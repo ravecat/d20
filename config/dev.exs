@@ -1,10 +1,5 @@
 import Config
 
-config :d20, :games,
-  qwinto: [
-    embed_url: System.get_env("QWINTO_EMBED_URL", "http://localhost:5173")
-  ]
-
 # Configure your database
 config :d20, D20.Repo,
   username: "postgres",

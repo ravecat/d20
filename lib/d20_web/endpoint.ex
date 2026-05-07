@@ -21,6 +21,11 @@ defmodule D20Web.Endpoint do
     longpoll: false,
     auth_token: true
 
+  socket "/module", D20Web.ModuleSocket,
+    websocket: true,
+    longpoll: false,
+    auth_token: true
+
   plug :favicon, dev_server: {PhoenixVite.Components, :has_vite_watcher?, [__MODULE__]}
 
   # Serve at "/" the static files from "priv/static" directory.

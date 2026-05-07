@@ -22,7 +22,7 @@ defmodule D20.Sessions do
   def create(engine, owner_id) do
     id = generate_id()
 
-    with {:ok, _pid} <- start_child(id, engine, owner_id),
+    with {:ok, _pid} <- start_child(id: id, engine: engine, owner_id: owner_id),
          {:ok, session} <- get(id) do
       {:ok, %{id: id, session: session}}
     end
@@ -71,10 +71,10 @@ defmodule D20.Sessions do
     end
   end
 
-  defp start_child(id, engine, owner_id) do
+  defp start_child(opts) do
     DynamicSupervisor.start_child(
       D20.SessionSupervisor,
-      {Server, [id: id, engine: engine, owner_id: owner_id]}
+      {Server, opts}
     )
   end
 

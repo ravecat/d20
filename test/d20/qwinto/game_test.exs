@@ -4,6 +4,22 @@ defmodule D20.Qwinto.GameTest do
   alias D20.Qwinto.Game
 
   describe "D20.Game behaviour" do
+    test "returns a JSON-safe projection" do
+      assert {:ok, %Game{} = game} = Game.init()
+
+      assert %{
+               phase: :setup,
+               order: [],
+               cursor: 0,
+               players: %{},
+               dices: [],
+               values: [],
+               sum: nil,
+               attempt: 0,
+               scores: %{}
+             } = Game.projection(game)
+    end
+
     test "moves from setup to ready at the minimum player count, then starts" do
       assert {:ok, %Game{phase: :setup} = game} = Game.init()
 

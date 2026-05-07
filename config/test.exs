@@ -1,10 +1,5 @@
 import Config
 
-config :d20, :games,
-  qwinto: [
-    embed_url: "http://localhost:5173"
-  ]
-
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 

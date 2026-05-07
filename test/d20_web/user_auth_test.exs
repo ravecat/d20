@@ -24,14 +24,14 @@ defmodule D20Web.UserAuthTest do
       conn =
         conn
         |> UserAuth.fetch_current_actor([])
-        |> UserAuth.put_user_token([])
+        |> UserAuth.put_actor_token([])
 
       assert %{id: anonymous_actor_id, type: :anonymous} = conn.assigns.current_actor
       assert is_binary(anonymous_actor_id)
-      assert is_binary(conn.assigns.user_token)
+      assert is_binary(conn.assigns.actor_token)
 
       assert {:ok, %{id: ^anonymous_actor_id, type: :anonymous}} =
-               D20.ActorToken.verify(D20Web.Endpoint, conn.assigns.user_token)
+               D20.ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
     end
 
     test "creates a user actor when a user is authenticated", %{conn: conn, user: user} do
@@ -39,12 +39,12 @@ defmodule D20Web.UserAuthTest do
         conn
         |> assign(:current_scope, Scope.for_user(user))
         |> UserAuth.fetch_current_actor([])
-        |> UserAuth.put_user_token([])
+        |> UserAuth.put_actor_token([])
 
       assert conn.assigns.current_actor == %{id: to_string(user.id), type: :user}
 
       assert {:ok, %{id: user_id, type: :user}} =
-               D20.ActorToken.verify(D20Web.Endpoint, conn.assigns.user_token)
+               D20.ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       assert user_id == to_string(user.id)
     end
