@@ -10,10 +10,10 @@ defmodule D20Web.PageControllerTest do
     assert html_response(conn, 200) =~ ~s(window.actorToken = "#{token}")
   end
 
-  test "GET /dashboard renders configured modules", %{conn: conn} do
-    conn = get(conn, ~p"/dashboard")
+  test "GET /games renders configured modules", %{conn: conn} do
+    conn = get(conn, ~p"/games")
 
-    assert inertia_component(conn) == "dashboard"
+    assert inertia_component(conn) == "games"
     assert %{modules: [module]} = inertia_props(conn)
     assert module[:id] == "qwinto"
     assert module[:title] == "Qwinto"
