@@ -1,5 +1,4 @@
 <script lang="ts">
-  // biome-ignore lint/correctness/noUnusedImports: Biome does not track Svelte component usage in markup.
   import Frame from "~components/module_frame.svelte";
   import type { ModuleEntry } from "~types/module";
 
