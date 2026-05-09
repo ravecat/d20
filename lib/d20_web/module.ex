@@ -32,7 +32,7 @@ defmodule D20Web.Module do
   defp socket_scheme(_conn), do: "ws"
 
   defp module_token(conn, module, session_id) do
-    actor = conn.assigns.current_actor
+    actor = conn.assigns.current_scope.actor
 
     D20.Module.Token.sign(D20Web.Endpoint, %{
       actor_id: actor.id,

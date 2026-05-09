@@ -6,6 +6,8 @@ defmodule D20Web.UserAuth do
 
   alias D20.Accounts
   alias D20.Accounts.Scope
+  alias D20.Accounts.User
+  alias D20.Actor
 
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
@@ -75,24 +77,32 @@ defmodule D20Web.UserAuth do
     end
   end
 
-  def fetch_current_actor(%{assigns: %{current_scope: %{user: %{id: user_id}}}} = conn, _opts) do
-    assign(conn, :current_actor, %{id: to_string(user_id), type: :user})
+  def assign_actor_to_scope(
+        %{assigns: %{current_scope: %Scope{user: %User{} = user} = scope}} = conn,
+        _opts
+      ) do
+    actor = Actor.new(user)
+    assign(conn, :current_scope, Scope.put_actor(scope, actor))
   end
 
-  def fetch_current_actor(conn, _opts) do
-    assign(conn, :current_actor, %{
-      id: Ecto.UUID.generate(),
-      type: :anonymous
-    })
+  def assign_actor_to_scope(%{assigns: %{current_scope: %Scope{} = scope}} = conn, _opts) do
+    actor = current_anonymous_actor(conn)
+
+    conn
+    |> put_session(:anonymous_actor_id, actor.id)
+    |> assign(:current_scope, Scope.put_actor(scope, actor))
   end
 
-  def put_actor_token(conn, _opts) do
-    if current_actor = conn.assigns[:current_actor] do
-      token = D20.ActorToken.sign(D20Web.Endpoint, current_actor)
+  def put_actor_token(%{assigns: %{current_scope: %Scope{actor: %Actor{} = actor}}} = conn, _opts) do
+    assign(conn, :actor_token, D20.ActorToken.sign(D20Web.Endpoint, actor))
+  end
 
-      assign(conn, :actor_token, token)
-    else
-      conn
+  def put_actor_token(conn, _opts), do: conn
+
+  defp current_anonymous_actor(conn) do
+    case get_session(conn, :anonymous_actor_id) do
+      nil -> Actor.new()
+      actor_id -> Actor.new(actor_id)
     end
   end
 
@@ -206,7 +216,7 @@ defmodule D20Web.UserAuth do
   Plug for routes that require the user to not be authenticated.
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns.current_scope do
+    if authenticated?(conn.assigns.current_scope) do
       conn
       |> redirect(to: signed_in_path(conn))
       |> halt()
@@ -221,7 +231,7 @@ defmodule D20Web.UserAuth do
   Plug for routes that require the user to be authenticated.
   """
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns.current_scope && conn.assigns.current_scope.user do
+    if authenticated?(conn.assigns.current_scope) do
       conn
     else
       conn
@@ -237,4 +247,7 @@ defmodule D20Web.UserAuth do
   end
 
   defp maybe_store_return_to(conn), do: conn
+
+  defp authenticated?(%Scope{user: %User{}}), do: true
+  defp authenticated?(_scope), do: false
 end

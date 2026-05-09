@@ -7,7 +7,7 @@ defmodule D20Web.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_current_scope_for_user
-    plug :fetch_current_actor
+    plug :assign_actor_to_scope
     plug :put_actor_token
     plug :fetch_live_flash
     plug :put_root_layout, html: {D20Web.Layouts, :inertia_root}
@@ -20,7 +20,7 @@ defmodule D20Web.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_current_scope_for_user
-    plug :fetch_current_actor
+    plug :assign_actor_to_scope
     plug :put_actor_token
     plug :fetch_live_flash
     plug :put_root_layout, html: {D20Web.Layouts, :root}

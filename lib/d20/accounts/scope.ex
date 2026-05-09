@@ -17,17 +17,28 @@ defmodule D20.Accounts.Scope do
   """
 
   alias D20.Accounts.User
+  alias D20.Actor
 
-  defstruct user: nil
+  defstruct actor: nil, user: nil
+
+  @type t :: %__MODULE__{
+          actor: Actor.t() | nil,
+          user: %User{} | nil
+        }
 
   @doc """
   Creates a scope for the given user.
 
-  Returns nil if no user is given.
+  Returns an anonymous-capable scope if no user is given.
   """
   def for_user(%User{} = user) do
     %__MODULE__{user: user}
   end
 
-  def for_user(nil), do: nil
+  def for_user(nil), do: %__MODULE__{user: nil}
+
+  @spec put_actor(t(), Actor.t()) :: t()
+  def put_actor(%__MODULE__{} = scope, %Actor{} = actor) do
+    %{scope | actor: actor}
+  end
 end

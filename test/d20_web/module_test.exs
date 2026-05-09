@@ -1,10 +1,19 @@
 defmodule D20Web.ModuleTest do
   use D20Web.ConnCase, async: true
 
+  alias D20.Accounts.Scope
+  alias D20.Actor
   alias D20Web.Module
 
   test "requires a session id", %{conn: conn} do
-    conn = assign(conn, :current_actor, %{id: Ecto.UUID.generate(), type: :anonymous})
+    conn =
+      assign(
+        conn,
+        :current_scope,
+        Scope.for_user(nil)
+        |> Scope.put_actor(Actor.new())
+      )
+
     module = %{id: "qwinto"}
 
     assert_raise KeyError, fn ->
@@ -16,7 +25,14 @@ defmodule D20Web.ModuleTest do
     actor_id = Ecto.UUID.generate()
     session_id = Ecto.UUID.generate()
 
-    conn = assign(conn, :current_actor, %{id: actor_id, type: :anonymous})
+    conn =
+      assign(
+        conn,
+        :current_scope,
+        Scope.for_user(nil)
+        |> Scope.put_actor(Actor.new(actor_id))
+      )
+
     module = %{id: "qwinto"}
 
     assert %{topic: "session:" <> ^session_id, token: token} =
