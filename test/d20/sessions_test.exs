@@ -1,8 +1,8 @@
 defmodule D20.SessionsTest do
   use ExUnit.Case, async: true
 
-  alias D20.Session
   alias D20.Sessions
+  alias D20.Sessions.Session
 
   defmodule TestGame do
     @behaviour D20.Game

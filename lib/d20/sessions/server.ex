@@ -1,11 +1,11 @@
-defmodule D20.Session.Server do
+defmodule D20.Sessions.Server do
   @moduledoc """
-  Process wrapper that owns one `D20.Session` state.
+  Process wrapper that owns one `D20.Sessions.Session` state.
   """
 
   use GenServer, restart: :temporary
 
-  alias D20.Session
+  alias D20.Sessions.Session
 
   @type id :: Ecto.UUID.t()
   @type start_opts :: [
@@ -13,7 +13,6 @@ defmodule D20.Session.Server do
           engine: module(),
           owner_id: Session.player_id()
         ]
-
   @spec start_link(start_opts()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :id)))

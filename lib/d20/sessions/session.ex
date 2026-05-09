@@ -1,6 +1,6 @@
-defmodule D20.Session do
+defmodule D20.Sessions.Session do
   @moduledoc """
-  Generic table-level state machine around a game-specific engine.
+  Generic game-session state machine around a game-specific engine.
   """
 
   import D20.Guards, only: [is_player_id: 1]

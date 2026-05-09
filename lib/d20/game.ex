@@ -1,6 +1,6 @@
 defmodule D20.Game do
   @moduledoc """
-  Behaviour for game modules hosted by `D20.Session`.
+  Behaviour for game modules hosted by `D20.Sessions.Session`.
 
   The session owns table lifecycle. A game module owns setup validation,
   game-specific state, and internal transitions.

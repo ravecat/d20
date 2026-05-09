@@ -1,10 +1,10 @@
 defmodule D20.Sessions do
   @moduledoc """
-  Runtime boundary for dynamically created session processes.
+  Runtime boundary for dynamically created game session processes.
   """
 
-  alias D20.Session
-  alias D20.Session.Server
+  alias D20.Sessions.Server
+  alias D20.Sessions.Session
 
   @default_timeout 5_000
 
@@ -73,7 +73,7 @@ defmodule D20.Sessions do
 
   defp start_child(opts) do
     DynamicSupervisor.start_child(
-      D20.SessionSupervisor,
+      D20.Sessions.Supervisor,
       {Server, opts}
     )
   end

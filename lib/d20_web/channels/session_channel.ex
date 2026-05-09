@@ -1,8 +1,8 @@
 defmodule D20Web.SessionChannel do
   use D20Web, :channel
 
-  alias D20.Session
   alias D20.Sessions
+  alias D20.Sessions.Session
 
   def topic(session_id), do: "session:#{session_id}"
 
