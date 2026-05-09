@@ -18,9 +18,6 @@ defmodule D20.SessionsTest do
     end
 
     @impl D20.Game
-    def projection(state), do: state
-
-    @impl D20.Game
     def finished?(_state), do: false
   end
 

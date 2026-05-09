@@ -2,7 +2,6 @@ defmodule D20Web.SessionChannel do
   use D20Web, :channel
 
   alias D20.Sessions
-  alias D20.Sessions.Session
 
   def topic(session_id), do: "session:#{session_id}"
 
@@ -12,7 +11,7 @@ defmodule D20Web.SessionChannel do
          {:ok, session} <- Sessions.get(session_id),
          :ok <- require_module(socket, session),
          :ok <- Phoenix.PubSub.subscribe(D20.PubSub, socket.topic) do
-      {:ok, %{projection: Session.projection(session)}, socket}
+      {:ok, socket}
     else
       {:error, :session_not_found} -> {:error, %{reason: "session_not_found"}}
       {:error, reason, _context} -> {:error, %{reason: format_reason(reason)}}
@@ -27,13 +26,7 @@ defmodule D20Web.SessionChannel do
     attrs = put_actor_attrs(socket, attrs)
 
     case Sessions.dispatch(session_id, String.to_existing_atom(kind), attrs) do
-      {:ok, session} ->
-        Phoenix.PubSub.broadcast(
-          D20.PubSub,
-          socket.topic,
-          {:projection, Session.projection(session)}
-        )
-
+      {:ok, _session} ->
         {:reply, :ok, socket}
 
       {:error, reason} ->
@@ -50,12 +43,6 @@ defmodule D20Web.SessionChannel do
 
   def handle_in(event, _payload, socket) do
     {:reply, {:error, %{reason: "unknown_event", event: event}}, socket}
-  end
-
-  @impl true
-  def handle_info({:projection, projection}, socket) do
-    push(socket, "projection", %{projection: projection})
-    {:noreply, socket}
   end
 
   defp require_claim(socket, key, expected) do

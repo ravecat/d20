@@ -33,9 +33,6 @@ defmodule D20.Sessions.SessionTest do
     def dispatch(_state, :fail, _attrs), do: {:error, :bad_command}
 
     @impl D20.Game
-    def projection(state), do: %{players: state.players, started?: state.started?}
-
-    @impl D20.Game
     def finished?(%{finished?: true}), do: true
     def finished?(_state), do: false
   end
@@ -57,19 +54,6 @@ defmodule D20.Sessions.SessionTest do
       assert {:error, :invalid_owner_id} = Session.new(TestGame, nil)
       assert {:error, :invalid_owner_id} = Session.new(TestGame, "")
       assert {:error, :invalid_owner_id} = Session.new(nil, "")
-    end
-  end
-
-  describe "projection/1" do
-    test "wraps session metadata and game projection" do
-      assert {:ok, session} = Session.new(TestGame, "p1")
-
-      assert %{
-               phase: :waiting_for_players,
-               owner_id: "p1",
-               members: %{"p1" => :online},
-               game: %{players: ["p1"], started?: false}
-             } = Session.projection(session)
     end
   end
 

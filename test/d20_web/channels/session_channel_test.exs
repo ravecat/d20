@@ -39,14 +39,14 @@ defmodule D20Web.SessionChannelTest do
         }
       })
 
-    assert {:ok, %{projection: %{game: %{phase: :setup}}}, _socket} =
+    assert {:ok, %{}, _socket} =
              subscribe_and_join(socket, SessionChannel, "session:#{session_id}", %{})
 
     assert {:error, %{reason: "invalid_claim"}} =
              subscribe_and_join(socket, SessionChannel, "session:#{Ecto.UUID.generate()}", %{})
   end
 
-  test "command pushes updated projection through the generic command event" do
+  test "command dispatches through the generic command event" do
     actor_id = Ecto.UUID.generate()
     assert {:ok, %{id: session_id}} = D20.Sessions.create(D20.Qwinto.Game, actor_id)
 
@@ -60,13 +60,16 @@ defmodule D20Web.SessionChannelTest do
         }
       })
 
-    assert {:ok, _reply, socket} =
+    assert {:ok, %{}, socket} =
              subscribe_and_join(socket, SessionChannel, "session:#{session_id}", %{})
 
     ref = push(socket, "command", %{"kind" => "join", "attrs" => %{}})
 
     assert_reply ref, :ok
-    assert_push "projection", %{projection: %{game: %{players: %{^actor_id => _player}}}}
+    refute_push "projection", _
+
+    assert {:ok, session} = D20.Sessions.get(session_id)
+    assert Map.has_key?(session.game.players, actor_id)
   end
 
   test "command rejects unknown commands" do
@@ -83,7 +86,7 @@ defmodule D20Web.SessionChannelTest do
         }
       })
 
-    assert {:ok, _reply, socket} =
+    assert {:ok, %{}, socket} =
              subscribe_and_join(socket, SessionChannel, "session:#{session_id}", %{})
 
     ref = push(socket, "command", %{"kind" => "not_a_command", "attrs" => %{}})

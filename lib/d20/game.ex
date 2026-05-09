@@ -11,6 +11,5 @@ defmodule D20.Game do
 
   @callback init() :: {:ok, term()} | {:error, term()}
   @callback dispatch(term(), command_kind(), command_attrs()) :: {:ok, term()} | {:error, term()}
-  @callback projection(term()) :: map()
   @callback finished?(term()) :: boolean()
 end

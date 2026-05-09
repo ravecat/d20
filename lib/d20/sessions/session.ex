@@ -32,16 +32,6 @@ defmodule D20.Sessions.Session do
           game: term()
         }
 
-  @spec projection(t()) :: map()
-  def projection(%__MODULE__{} = session) do
-    %{
-      phase: session.phase,
-      owner_id: session.owner_id,
-      members: session.members,
-      game: session.engine.projection(session.game)
-    }
-  end
-
   @spec new(module(), player_id()) :: {:ok, t()} | {:error, reason()}
   def new(engine, owner_id) when is_player_id(owner_id) do
     with :ok <- require_engine(engine),
