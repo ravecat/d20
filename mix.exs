@@ -59,6 +59,7 @@ defmodule D20.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
+      {:sweet_xml, "~> 0.7.5"},
       {:pathex, "~> 2.6"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},

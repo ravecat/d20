@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items termsofuse="https://boardgamegeek.com/xmlapi/termsofuse">
+  <item type="boardgame" id="999999">
+    <thumbnail>https://example.invalid/thumb.jpg</thumbnail>
+    <image>https://example.invalid/image.jpg</image>
+    <name type="primary" sortindex="1" value="Example Trade Game" />
+    <name type="alternate" sortindex="1" value="Example Settlers" />
+    <description>Trade, build, and settle.</description>
+    <yearpublished value="1995" />
+    <minplayers value="3" />
+    <maxplayers value="4" />
+    <playingtime value="120" />
+    <minplaytime value="60" />
+    <maxplaytime value="120" />
+    <minage value="10" />
+    <link type="boardgamecategory" id="1026" value="Negotiation" />
+    <statistics page="1">
+      <ratings>
+        <usersrated value="125000" />
+        <average value="7.42" />
+      </ratings>
+    </statistics>
+  </item>
+</items>
