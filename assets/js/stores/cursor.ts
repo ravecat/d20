@@ -1,5 +1,5 @@
 import { createSession } from "@rvct/phoenix";
-import socket from "../user_socket.js";
+import socket from "~/user_socket.js";
 
 type CursorPoint = {
   id: string;

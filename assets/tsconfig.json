@@ -20,8 +20,10 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./js/*"],
+      "~/*": ["./js/*"],
       "~components/*": ["./js/components/*"],
+      "~pages/*": ["./js/pages/*"],
+      "~stores/*": ["./js/stores/*"],
       "~types/*": ["./js/types/*"]
     }
   },

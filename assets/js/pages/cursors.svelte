@@ -1,5 +1,5 @@
 <script>
-  import { cursors } from "../stores/cursor";
+  import { cursors } from "~stores/cursor";
 
   let localCursor = $state(null);
 
