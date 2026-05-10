@@ -20,7 +20,7 @@ defmodule D20.Sessions do
   @spec create(module(), Session.player_id()) ::
           {:ok, create_result()} | {:error, reason()}
   def create(engine, owner_id) do
-    id = generate_id()
+    id = generate_session_id()
 
     with {:ok, _pid} <- start_child(id: id, engine: engine, owner_id: owner_id),
          {:ok, session} <- get(id) do
@@ -78,7 +78,7 @@ defmodule D20.Sessions do
     )
   end
 
-  defp generate_id do
+  defp generate_session_id do
     Ecto.UUID.generate()
   end
 end

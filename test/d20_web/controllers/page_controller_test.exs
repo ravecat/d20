@@ -26,22 +26,94 @@ defmodule D20Web.PageControllerTest do
     assert html_response(conn, 200) =~ ~s(src="http://localhost:5174/js/app.js")
   end
 
-  test "GET /games/:game renders the selected game module", %{conn: conn} do
+  test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do
     conn = get(conn, ~p"/games/qwinto")
 
     assert inertia_component(conn) == "game"
-    assert %{module: module} = inertia_props(conn)
+    assert %{module: module, game: game, session: nil} = inertia_props(conn)
     assert module[:id] == "qwinto"
     assert module[:title] == "Qwinto"
     assert module[:embedUrl] == "http://localhost:5173"
     assert module[:allowedOrigins] == ["http://localhost:5173"]
     assert "allow-scripts" in module[:sandbox]
+    assert game[:slug] == "qwinto"
+    assert game[:externalId] == 183_006
+    refute Map.has_key?(module, :bootstrap)
   end
 
-  test "GET /games/:game returns 404 for unknown games", %{conn: conn} do
+  test "GET /games/:slug returns 404 for unknown games", %{conn: conn} do
     conn = get(conn, ~p"/games/missing")
 
     assert html_response(conn, 404) == "Not Found"
+  end
+
+  test "POST /games/:slug/sessions creates a session and redirects to shareable URL", %{
+    conn: conn
+  } do
+    conn =
+      conn
+      |> put_req_header("x-inertia", "true")
+      |> post(~p"/games/qwinto/sessions")
+
+    assert redirected_to(conn, 303) =~ ~r"^/games/qwinto\?session="
+  end
+
+  test "POST /games/:slug/sessions redirects with errors when the engine is unavailable", %{
+    conn: conn
+  } do
+    manifest_config = Application.fetch_env!(:d20, D20.Module.Manifest)
+
+    Application.put_env(
+      :d20,
+      D20.Module.Manifest,
+      Keyword.put(manifest_config, :engines, [])
+    )
+
+    on_exit(fn ->
+      Application.put_env(:d20, D20.Module.Manifest, manifest_config)
+    end)
+
+    conn =
+      conn
+      |> put_req_header("x-inertia", "true")
+      |> post(~p"/games/qwinto/sessions")
+
+    assert redirected_to(conn, 303) == ~p"/games/qwinto"
+    assert inertia_errors(conn) == %{start_session: "Game engine is not available."}
+  end
+
+  test "GET /games/:slug with a waiting session does not attach iframe bootstrap", %{conn: conn} do
+    assert {:ok, %{id: session_id}} = D20.Sessions.create(D20.Qwinto.Game, "p1")
+
+    on_exit(fn ->
+      D20.Sessions.stop(session_id)
+    end)
+
+    conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
+
+    assert %{module: module, session: session} = inertia_props(conn)
+    assert session[:id] == session_id
+    assert session[:phase] == "waiting_for_players"
+    refute Map.has_key?(module, :bootstrap)
+  end
+
+  test "GET /games/:slug with an in-progress session attaches iframe bootstrap", %{conn: conn} do
+    assert {:ok, %{id: session_id}} = D20.Sessions.create(D20.Qwinto.Game, "p1")
+
+    on_exit(fn ->
+      D20.Sessions.stop(session_id)
+    end)
+
+    assert {:ok, _session} = D20.Sessions.dispatch(session_id, :join, %{player_id: "p2"})
+    assert {:ok, _session} = D20.Sessions.dispatch(session_id, :start, %{player_id: "p1"})
+
+    conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
+
+    assert %{module: module, session: session} = inertia_props(conn)
+    assert session[:id] == session_id
+    assert session[:phase] == "in_progress"
+    assert module[:bootstrap][:moduleId] == "qwinto"
+    assert module[:bootstrap][:topic] == "session:#{session_id}"
   end
 
   test "GET /cursors exposes a channel actor token", %{conn: conn} do

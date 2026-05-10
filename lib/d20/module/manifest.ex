@@ -18,14 +18,23 @@ defmodule D20.Module.Manifest do
     |> Enum.map(&normalize!/1)
   end
 
-  @spec fetch(String.t()) :: {:ok, module_entry()} | :error
+  @spec fetch(String.t()) :: {:ok, module_entry()} | {:error, :module_not_found}
   def fetch(id) when is_binary(id) do
     list()
     |> Enum.find(&(&1.id == id))
     |> case do
-      nil -> :error
+      nil -> {:error, :module_not_found}
       module -> {:ok, module}
     end
+  end
+
+  @spec fetch_engine(String.t()) :: {:ok, module()} | {:error, :engine_not_found}
+  def fetch_engine(module_id) when is_binary(module_id) do
+    :engines
+    |> config!()
+    |> Enum.find_value({:error, :engine_not_found}, fn {configured_module_id, engine} ->
+      if Atom.to_string(configured_module_id) == module_id, do: {:ok, engine}
+    end)
   end
 
   @spec module_id_for_engine(module()) :: String.t() | nil

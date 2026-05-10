@@ -16,10 +16,15 @@ defmodule D20.Module.ManifestTest do
     assert {:ok, qwinto} = D20.Module.Manifest.fetch("qwinto")
     assert qwinto.title == "Qwinto"
 
-    assert D20.Module.Manifest.fetch("missing") == :error
+    assert D20.Module.Manifest.fetch("missing") == {:error, :module_not_found}
   end
 
   test "resolves module ids for configured game engines" do
     assert D20.Module.Manifest.module_id_for_engine(D20.Qwinto.Game) == "qwinto"
+  end
+
+  test "fetches configured engines by module id" do
+    assert D20.Module.Manifest.fetch_engine("qwinto") == {:ok, D20.Qwinto.Game}
+    assert D20.Module.Manifest.fetch_engine("missing") == {:error, :engine_not_found}
   end
 end
