@@ -13,7 +13,7 @@ defmodule D20Web.CursorsChannelTest do
 
   test "socket accepts a signed actor token" do
     actor = %{id: Ecto.UUID.generate(), type: :anonymous}
-    token = D20.ActorToken.sign(D20Web.Endpoint, actor)
+    token = D20.Actors.ActorToken.sign(D20Web.Endpoint, actor)
 
     assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token})
 

@@ -33,7 +33,7 @@ config :d20,
   ecto_repos: [D20.Repo],
   generators: [timestamp_type: :utc_datetime]
 
-config :d20, D20.ActorToken,
+config :d20, D20.Actors.ActorToken,
   salt: "actor",
   max_age: 1_209_600
 

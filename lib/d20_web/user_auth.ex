@@ -5,9 +5,10 @@ defmodule D20Web.UserAuth do
   import Phoenix.Controller
 
   alias D20.Accounts
+  alias D20.Accounts.Anonymous
   alias D20.Accounts.Scope
   alias D20.Accounts.User
-  alias D20.Actor
+  alias D20.Actors.Actor
 
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
@@ -82,27 +83,27 @@ defmodule D20Web.UserAuth do
         _opts
       ) do
     actor = Actor.new(user)
-    assign(conn, :current_scope, Scope.put_actor(scope, actor))
+    assign(conn, :current_scope, Scope.put_actor(%{scope | anonymous: nil}, actor))
   end
 
   def assign_actor_to_scope(%{assigns: %{current_scope: %Scope{} = scope}} = conn, _opts) do
-    actor = current_anonymous_actor(conn)
+    anonymous = current_anonymous(conn)
 
     conn
-    |> put_session(:anonymous_actor_id, actor.id)
-    |> assign(:current_scope, Scope.put_actor(scope, actor))
+    |> put_session(:anonymous_user_id, anonymous.id)
+    |> assign(:current_scope, Scope.put_anonymous(scope, anonymous))
   end
 
   def put_actor_token(%{assigns: %{current_scope: %Scope{actor: %Actor{} = actor}}} = conn, _opts) do
-    assign(conn, :actor_token, D20.ActorToken.sign(D20Web.Endpoint, actor))
+    assign(conn, :actor_token, D20.Actors.ActorToken.sign(D20Web.Endpoint, actor))
   end
 
   def put_actor_token(conn, _opts), do: conn
 
-  defp current_anonymous_actor(conn) do
-    case get_session(conn, :anonymous_actor_id) do
-      nil -> Actor.new()
-      actor_id -> Actor.new(actor_id)
+  defp current_anonymous(conn) do
+    case get_session(conn, :anonymous_user_id) do
+      nil -> Anonymous.new()
+      anonymous_user_id -> Anonymous.from_id(anonymous_user_id)
     end
   end
 

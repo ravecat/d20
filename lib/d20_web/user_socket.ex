@@ -5,7 +5,7 @@ defmodule D20Web.UserSocket do
 
   @impl true
   def connect(_params, socket, %{auth_token: token}) when is_binary(token) do
-    case D20.ActorToken.verify(socket, token) do
+    case D20.Actors.ActorToken.verify(socket, token) do
       {:ok, %{id: actor_id, type: actor_type} = actor}
       when is_binary(actor_id) and actor_type in [:user, :anonymous] ->
         {:ok, assign(socket, :actor, actor)}

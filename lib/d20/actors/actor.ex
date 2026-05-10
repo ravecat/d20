@@ -1,4 +1,4 @@
-defmodule D20.Actor do
+defmodule D20.Actors.Actor do
   @moduledoc """
   Caller identity used by runtime sessions, channels, presence, and module tokens.
   """

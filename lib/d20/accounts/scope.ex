@@ -16,13 +16,15 @@ defmodule D20.Accounts.Scope do
   growing application requirements.
   """
 
+  alias D20.Accounts.Anonymous
   alias D20.Accounts.User
-  alias D20.Actor
+  alias D20.Actors.Actor
 
-  defstruct actor: nil, user: nil
+  defstruct actor: nil, anonymous: nil, user: nil
 
   @type t :: %__MODULE__{
           actor: Actor.t() | nil,
+          anonymous: Anonymous.t() | nil,
           user: %User{} | nil
         }
 
@@ -40,5 +42,15 @@ defmodule D20.Accounts.Scope do
   @spec put_actor(t(), Actor.t()) :: t()
   def put_actor(%__MODULE__{} = scope, %Actor{} = actor) do
     %{scope | actor: actor}
+  end
+
+  @spec put_anonymous(t(), Anonymous.t()) :: t()
+  def put_anonymous(%__MODULE__{} = scope, %Anonymous{} = anonymous) do
+    %{
+      scope
+      | anonymous: anonymous,
+        user: nil,
+        actor: Actor.new(anonymous.id)
+    }
   end
 end

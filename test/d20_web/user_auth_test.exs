@@ -2,7 +2,10 @@ defmodule D20Web.UserAuthTest do
   use D20Web.ConnCase, async: true
 
   alias D20.Accounts
+  alias D20.Accounts.Anonymous
   alias D20.Accounts.Scope
+  alias D20.Actors.Actor
+  alias D20.Actors.ActorToken
   alias D20Web.UserAuth
 
   import D20.AccountsFixtures
@@ -27,15 +30,20 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.assign_actor_to_scope([])
         |> UserAuth.put_actor_token([])
 
-      assert %D20.Actor{id: anonymous_actor_id, type: :anonymous} =
+      assert %Actor{id: anonymous_user_id, type: :anonymous} =
                conn.assigns.current_scope.actor
 
+      assert %Anonymous{id: ^anonymous_user_id, display_name: display_name, avatar: avatar} =
+               conn.assigns.current_scope.anonymous
+
       assert conn.assigns.current_scope.user == nil
-      assert is_binary(anonymous_actor_id)
+      assert is_binary(display_name)
+      assert is_binary(avatar)
+      assert get_session(conn, :anonymous_user_id) == anonymous_user_id
       assert is_binary(conn.assigns.actor_token)
 
-      assert {:ok, %D20.Actor{id: ^anonymous_actor_id, type: :anonymous}} =
-               D20.ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
+      assert {:ok, %Actor{id: ^anonymous_user_id, type: :anonymous}} =
+               ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       refute Map.has_key?(conn.assigns, :current_actor)
     end
@@ -47,30 +55,41 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.assign_actor_to_scope([])
         |> UserAuth.put_actor_token([])
 
-      assert conn.assigns.current_scope.actor == %D20.Actor{id: to_string(user.id), type: :user}
+      assert conn.assigns.current_scope.actor == %Actor{
+               id: to_string(user.id),
+               type: :user
+             }
 
-      assert {:ok, %D20.Actor{id: user_id, type: :user}} =
-               D20.ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
+      assert conn.assigns.current_scope.anonymous == nil
+
+      assert {:ok, %Actor{id: user_id, type: :user}} =
+               ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       assert user_id == to_string(user.id)
       refute Map.has_key?(conn.assigns, :current_actor)
     end
 
-    test "reuses anonymous actor id from session", %{conn: conn} do
+    test "reuses anonymous user id from session", %{conn: conn} do
       conn =
         conn
         |> UserAuth.fetch_current_scope_for_user([])
         |> UserAuth.assign_actor_to_scope([])
 
-      assert %D20.Actor{id: actor_id, type: :anonymous} = conn.assigns.current_scope.actor
-      assert get_session(conn, :anonymous_actor_id) == actor_id
+      assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.current_scope.actor
+      assert get_session(conn, :anonymous_user_id) == anonymous_user_id
+      assert conn.assigns.current_scope.anonymous.id == anonymous_user_id
 
       conn =
         conn
         |> UserAuth.fetch_current_scope_for_user([])
         |> UserAuth.assign_actor_to_scope([])
 
-      assert conn.assigns.current_scope.actor == %D20.Actor{id: actor_id, type: :anonymous}
+      assert conn.assigns.current_scope.actor == %Actor{
+               id: anonymous_user_id,
+               type: :anonymous
+             }
+
+      assert conn.assigns.current_scope.anonymous == Anonymous.from_id(anonymous_user_id)
     end
   end
 
@@ -210,7 +229,7 @@ defmodule D20Web.UserAuthTest do
       _ = Accounts.generate_user_session_token(user)
       conn = UserAuth.fetch_current_scope_for_user(conn, [])
       refute get_session(conn, :user_token)
-      assert conn.assigns.current_scope == %Scope{user: nil}
+      assert conn.assigns.current_scope == %Scope{user: nil, anonymous: nil}
     end
 
     test "reissues a new token after a few days and refreshes cookie", %{conn: conn, user: user} do

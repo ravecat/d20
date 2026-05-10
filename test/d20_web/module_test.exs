@@ -2,7 +2,7 @@ defmodule D20Web.ModuleTest do
   use D20Web.ConnCase, async: true
 
   alias D20.Accounts.Scope
-  alias D20.Actor
+  alias D20.Actors.Actor
   alias D20Web.Module
 
   test "requires a session id", %{conn: conn} do
