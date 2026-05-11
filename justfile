@@ -26,6 +26,9 @@ build:
 lint:
     mix assets.lint
 
+typecheck:
+    mix typecheck
+
 format:
     mix format
     mix assets.format
@@ -38,6 +41,7 @@ check:
     mix format.check
     mix assets.format.check
     mix assets.lint
+    mix typecheck
     mix test
 
 db-create:

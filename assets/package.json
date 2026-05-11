@@ -3,7 +3,8 @@
     "check": "biome ci .",
     "format": "biome check --write .",
     "format.check": "biome ci .",
-    "lint": "biome lint ."
+    "lint": "biome lint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json"
   },
   "dependencies": {
     "@inertiajs/svelte": "2.3.21",
@@ -20,6 +21,7 @@
     "@tailwindcss/vite": "^4.1.0",
     "daisyui": "^5.0.0",
     "phoenix_vite": "file:../deps/phoenix_vite",
+    "svelte-check": "^4.4.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.3",
     "vite": "^6.3.0"
