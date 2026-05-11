@@ -21,6 +21,7 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["./js/*"],
+      "~actions/*": ["./js/actions/*"],
       "~components/*": ["./js/components/*"],
       "~pages/*": ["./js/pages/*"],
       "~stores/*": ["./js/stores/*"],

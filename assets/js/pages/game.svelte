@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useForm } from "@inertiajs/svelte";
+  import { inertia, useForm } from "@inertiajs/svelte";
   import Frame from "~components/module_frame.svelte";
   import type { GameDetails, GameSession } from "~types/game";
   import type { ModuleEntry } from "~types/module";
@@ -24,12 +24,13 @@
   };
 </script>
 
-<main class="min-h-screen bg-base-100 text-base-content">
-  <section class="mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-5 py-6 sm:px-6 lg:px-8">
+<main class="bg-base-100 text-base-content">
+  <section class="mx-auto grid w-full max-w-6xl gap-6 px-5 py-6 sm:px-6 lg:px-8">
     <article class="min-w-0">
       <a
         class="rounded-sm px-2 py-1 text-sm text-base-content/70 transition-colors hover:bg-base-200 hover:text-base-content focus:outline-none focus:ring-2 focus:ring-base-content/40"
         href="/games"
+        use:inertia={{ href: "/games" }}
       >
         Games
       </a>

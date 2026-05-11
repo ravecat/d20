@@ -33,6 +33,7 @@ export default defineConfig({
     conditions: ["svelte", "browser", "import", "default"],
     alias: {
       "~": path.resolve(assetsDir, "js"),
+      "~actions": path.resolve(assetsDir, "js/actions"),
       "~components": path.resolve(assetsDir, "js/components"),
       "~pages": path.resolve(assetsDir, "js/pages"),
       "~stores": path.resolve(assetsDir, "js/stores"),

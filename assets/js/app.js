@@ -28,6 +28,7 @@ import { LiveSocket } from "phoenix_live_view";
 import { hooks as colocatedHooks } from "phoenix-colocated/d20";
 import { mount } from "svelte";
 import topbar from "topbar";
+import Layout from "~components/layout.svelte";
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 axios.defaults.headers.common["x-csrf-token"] = csrfToken;
@@ -66,7 +67,7 @@ if (inertiaRoot) {
     resolve: (name) => {
       const page = pages[`./pages/${name}.svelte`];
       if (!page) throw new Error(`Page not found: ${name}`);
-      return page;
+      return { ...page, layout: page.layout ?? Layout };
     },
     setup({ el, App, props }) {
       mount(App, { target: el, props });

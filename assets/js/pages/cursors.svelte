@@ -44,10 +44,10 @@
 <style>
   .cursors-page {
     display: block;
-    height: 100vh;
+    height: 100%;
     overflow: hidden;
     touch-action: none;
-    width: 100vw;
+    width: 100%;
   }
 
   .remote-cursor {
