@@ -39,7 +39,6 @@ defmodule D20Web.Router do
     get "/games", PageController, :games
     get "/games/:slug", PageController, :game
     post "/games/:slug/sessions", PageController, :create_game_session
-    get "/cursors", PageController, :cursors
   end
 
   # Other scopes may use custom stacks.

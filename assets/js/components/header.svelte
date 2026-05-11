@@ -2,13 +2,12 @@
   import { inertia } from "@inertiajs/svelte";
   import { current } from "~actions/current";
 
-  const links = [
-    { href: "/cursors", label: "CURSORS" },
-    { href: "/games", label: "GAMES" },
-  ] as const;
+  const links = [{ href: "/games", label: "GAMES" }] as const;
+
+  const { overlay = false }: { overlay?: boolean } = $props();
 </script>
 
-<header class="header">
+<header class={{ header: true, "header--overlay": overlay }}>
   <div class="inner">
     <a class="brand" href="/" use:inertia={{ href: "/" }}>
       <span class="icon hero-puzzle-piece" aria-hidden="true"></span>
@@ -37,6 +36,15 @@
 <style>
   .header {
     width: 100%;
+  }
+
+  .header--overlay {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: 10;
+    background: transparent;
+    pointer-events: none;
   }
 
   .inner {
@@ -74,6 +82,11 @@
 
   .nav-link {
     letter-spacing: 0.15em;
+  }
+
+  .header--overlay .brand,
+  .header--overlay .nav-link {
+    pointer-events: auto;
   }
 
   .brand:focus-visible,

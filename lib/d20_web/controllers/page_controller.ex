@@ -49,10 +49,6 @@ defmodule D20Web.PageController do
     end
   end
 
-  def cursors(conn, _params) do
-    render_inertia(conn, "cursors")
-  end
-
   defp resolve_session_view(conn, playable_context, session_id) when is_binary(session_id) do
     case D20.Sessions.get(session_id) do
       {:ok, %{engine: engine} = session} ->

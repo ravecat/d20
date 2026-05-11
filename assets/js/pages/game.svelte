@@ -25,7 +25,7 @@
 </script>
 
 <main class="bg-base-100 text-base-content">
-  <section class="mx-auto grid w-full max-w-6xl gap-6 px-5 py-6 sm:px-6 lg:px-8">
+  <section class="mx-auto grid w-full max-w-[46.25rem] gap-6 px-6 py-6 max-[34rem]:px-4">
     <article class="min-w-0">
       <a
         class="rounded-sm px-2 py-1 text-sm text-base-content/70 transition-colors hover:bg-base-200 hover:text-base-content focus:outline-none focus:ring-2 focus:ring-base-content/40"

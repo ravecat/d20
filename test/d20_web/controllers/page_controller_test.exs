@@ -116,11 +116,4 @@ defmodule D20Web.PageControllerTest do
     assert module[:bootstrap][:topic] == "session:#{session_id}"
   end
 
-  test "GET /cursors exposes a channel actor token", %{conn: conn} do
-    conn = get(conn, ~p"/cursors")
-
-    assert inertia_component(conn) == "cursors"
-    assert token = conn.assigns.actor_token
-    assert html_response(conn, 200) =~ ~s(window.actorToken = "#{token}")
-  end
 end
