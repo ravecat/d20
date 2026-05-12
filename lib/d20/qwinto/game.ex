@@ -14,6 +14,7 @@ defmodule D20.Qwinto.Game do
 
   @colors Constants.colors()
   @phases [:setup, :ready, :turn, :decision, :result, :finished]
+  @derive Jason.Encoder
   @primary_key false
 
   embedded_schema do

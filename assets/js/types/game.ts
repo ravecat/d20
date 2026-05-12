@@ -1,4 +1,4 @@
-export interface GameDetails {
+export interface GameMetadata {
   externalId?: number;
   slug: string;
   name: string;
@@ -15,7 +15,12 @@ export interface GameDetails {
   minAge?: number | null;
 }
 
-export interface GameSession {
+export type SessionMemberStatus = "online" | "offline";
+
+export interface GameSession<TGame = unknown> {
   id: string;
   phase: string;
+  owner_id: string;
+  members: Record<string, SessionMemberStatus>;
+  game: TGame;
 }

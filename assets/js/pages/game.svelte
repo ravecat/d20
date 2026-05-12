@@ -1,16 +1,19 @@
 <script lang="ts">
   import { inertia, useForm } from "@inertiajs/svelte";
-  import Frame from "~components/module_frame.svelte";
-  import type { GameDetails, GameSession } from "~types/game";
+  import GameSessionView from "~components/game_session.svelte";
+  import { createGameSession } from "~stores/session";
+  import type { GameMetadata, GameSession } from "~types/game";
   import type { ModuleEntry } from "~types/module";
 
   type Props = InertiaProps<{
-    game: GameDetails;
+    game: GameMetadata;
     module: ModuleEntry;
     session: GameSession | null;
   }>;
 
   const { game, module, session }: Props = $props();
+  const sessionId = $derived(session?.id);
+  const gameSession = $derived(sessionId ? createGameSession(sessionId) : null);
   const startSessionForm = useForm<Record<string, string>>({});
 
   const handleStartSession = () => {
@@ -25,7 +28,7 @@
 </script>
 
 <main class="bg-base-100 text-base-content">
-  <section class="mx-auto grid w-full max-w-[46.25rem] gap-6 px-6 py-6 max-[34rem]:px-4">
+  <section class="mx-auto grid w-full max-w-185 gap-6 px-6 py-6 max-[34rem]:px-4">
     <article class="min-w-0">
       <a
         class="rounded-sm px-2 py-1 text-sm text-base-content/70 transition-colors hover:bg-base-200 hover:text-base-content focus:outline-none focus:ring-2 focus:ring-base-content/40"
@@ -46,12 +49,10 @@
 
       <p class="mt-4 max-w-3xl text-sm leading-6 text-base-content/75">{game.description}</p>
 
-      {#if session && module.bootstrap}
-        <section class="mt-6 h-[34rem] min-h-0 overflow-hidden rounded-sm border border-base-300">
-          <Frame {module} />
-        </section>
-      {:else if session}
-        <p class="mt-6 text-sm text-base-content/70">Waiting for players</p>
+      {#if session && gameSession}
+        {#key sessionId}
+          <GameSessionView {module} {session} {gameSession} />
+        {/key}
       {:else}
         <div class="mt-8 border-t border-base-300 pt-5">
           <button
@@ -67,7 +68,7 @@
               ></span>
               Cancel
             {:else}
-              Start
+              Play
             {/if}
           </button>
         </div>

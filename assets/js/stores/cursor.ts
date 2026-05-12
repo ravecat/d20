@@ -1,4 +1,4 @@
-import { createSession } from "@rvct/phoenix";
+import { session } from "@rvct/phoenix";
 import socket from "~/user_socket.js";
 
 type CursorPoint = {
@@ -21,7 +21,7 @@ type CursorSessionSpec = {
   };
 };
 
-export const cursors = createSession<CursorSessionSpec>(socket, {
+export const cursors = session<CursorSessionSpec>(socket, {
   topic: "cursors",
   value: [],
   connect: {

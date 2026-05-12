@@ -3,8 +3,6 @@ defmodule D20Web.ModuleSocket do
 
   alias D20.Module.Token
 
-  channel "session:*", D20Web.SessionChannel
-
   @impl true
   @spec connect(map(), Phoenix.Socket.t(), map()) :: {:ok, Phoenix.Socket.t()} | :error
   def connect(_params, socket, %{auth_token: token}) when is_binary(token) do

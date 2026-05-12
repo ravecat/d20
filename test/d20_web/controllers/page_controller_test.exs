@@ -83,7 +83,8 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "GET /games/:slug with a waiting session does not attach iframe bootstrap", %{conn: conn} do
-    assert {:ok, %{id: session_id}} = D20.Sessions.create(D20.Qwinto.Game, "p1")
+    assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
+    session_id = session.id
 
     on_exit(fn ->
       D20.Sessions.stop(session_id)
@@ -92,13 +93,15 @@ defmodule D20Web.PageControllerTest do
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
     assert %{module: module, session: session} = inertia_props(conn)
-    assert session[:id] == session_id
-    assert session[:phase] == "waiting_for_players"
+    assert session.id == session_id
+    assert session.phase == :waiting_for_players
+    assert session.members == %{"p1" => :online}
     refute Map.has_key?(module, :bootstrap)
   end
 
   test "GET /games/:slug with an in-progress session attaches iframe bootstrap", %{conn: conn} do
-    assert {:ok, %{id: session_id}} = D20.Sessions.create(D20.Qwinto.Game, "p1")
+    assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
+    session_id = session.id
 
     on_exit(fn ->
       D20.Sessions.stop(session_id)
@@ -110,10 +113,10 @@ defmodule D20Web.PageControllerTest do
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
     assert %{module: module, session: session} = inertia_props(conn)
-    assert session[:id] == session_id
-    assert session[:phase] == "in_progress"
+    assert session.id == session_id
+    assert session.phase == :in_progress
+    assert session.members == %{"p1" => :online, "p2" => :online}
     assert module[:bootstrap][:moduleId] == "qwinto"
     assert module[:bootstrap][:topic] == "session:#{session_id}"
   end
-
 end

@@ -9,12 +9,13 @@ defmodule D20Web.Module do
 
   def bootstrap(conn, module, opts \\ []) do
     session_id = Keyword.fetch!(opts, :session_id)
+    actor = conn.assigns.current_scope.actor
 
     %{
       module_id: module.id,
       topic: SessionChannel.topic(session_id),
       socket_url: module_socket_url(conn),
-      token: module_token(conn, module, session_id)
+      token: module_token(module, session_id, actor)
     }
   end
 
@@ -31,9 +32,7 @@ defmodule D20Web.Module do
   defp socket_scheme(%{scheme: :https}), do: "wss"
   defp socket_scheme(_conn), do: "ws"
 
-  defp module_token(conn, module, session_id) do
-    actor = conn.assigns.current_scope.actor
-
+  defp module_token(module, session_id, actor) do
     D20.Module.Token.sign(D20Web.Endpoint, %{
       actor_id: actor.id,
       actor_type: actor.type,

@@ -38,14 +38,4 @@ defmodule D20.GamesTest do
 
     assert Games.fetch_playable_context_by_slug("qwinto") == {:error, :engine_not_found}
   end
-
-  test "creates a session from the resolved engine" do
-    assert {:ok, %{id: session_id, session: session}} = Games.create_session("qwinto", "p1")
-
-    on_exit(fn ->
-      D20.Sessions.stop(session_id)
-    end)
-
-    assert session.engine == D20.Qwinto.Game
-  end
 end

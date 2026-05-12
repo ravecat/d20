@@ -2,7 +2,10 @@ defmodule D20.SessionsTest do
   use ExUnit.Case, async: true
 
   alias D20.Sessions
+  alias D20.Sessions.Server
   alias D20.Sessions.Session
+  alias D20Web.Presence
+  alias D20Web.SessionChannel
 
   defmodule TestGame do
     @behaviour D20.Game
@@ -22,37 +25,33 @@ defmodule D20.SessionsTest do
   end
 
   describe "create/2" do
-    test "starts a supervised session process with a generated id" do
-      assert {:ok, %{id: id, session: %Session{} = session}} = Sessions.create(TestGame, "p1")
+    test "starts a supervised session process for a game slug" do
+      assert {:ok, %Session{} = session} = Sessions.create("qwinto", "p1")
+      id = session.id
 
       on_exit(fn ->
         Sessions.stop(id)
       end)
 
       assert {:ok, ^id} = Ecto.UUID.cast(id)
-      assert %Session{engine: TestGame, owner_id: "p1"} = session
+      assert %Session{id: ^id, engine: D20.Qwinto.Game, owner_id: "p1"} = session
       assert {:ok, pid} = Sessions.lookup(id)
       assert Process.alive?(pid)
     end
 
     test "returns invalid owner errors" do
-      assert {:error, :invalid_owner_id} = Sessions.create(TestGame, "")
+      assert {:error, :invalid_owner_id} = Sessions.create("qwinto", "")
+      assert {:error, :invalid_owner_id} = Sessions.create("qwinto", nil)
     end
 
-    test "returns invalid engine errors" do
-      assert {:error, :invalid_engine} = Sessions.create(__MODULE__, "p1")
+    test "returns playable game lookup errors" do
+      assert {:error, :game_not_found} = Sessions.create("missing", "p1")
     end
   end
 
-  describe "dispatch/4" do
+  describe "dispatch/3" do
     setup do
-      assert {:ok, %{id: id, session: session}} = Sessions.create(TestGame, "p1")
-
-      on_exit(fn ->
-        Sessions.stop(id)
-      end)
-
-      %{id: id, session: session}
+      start_test_session(TestGame, "p1")
     end
 
     test "serializes session transitions through the process", %{id: id} do
@@ -65,6 +64,37 @@ defmodule D20.SessionsTest do
       assert {:ok, before} = Sessions.get(id)
       assert {:error, :bad_command} = Sessions.dispatch(id, :fail, %{})
       assert {:ok, ^before} = Sessions.get(id)
+    end
+
+    test "keeps client state out of the server state", %{id: id} do
+      assert {:ok, %Session{id: ^id} = session} = Sessions.get(id)
+      refute Map.has_key?(session, :client_state)
+    end
+
+    test "updates members from session presence events", %{id: id} do
+      topic = SessionChannel.topic(id)
+
+      assert {:ok, %{}} =
+               Presence.handle_metas(
+                 topic,
+                 %{joins: %{"p2" => %{metas: [%{}]}}, leaves: %{}},
+                 %{"p2" => %{metas: [%{}]}},
+                 %{}
+               )
+
+      assert {:ok, session} = Sessions.get(id)
+      assert session.members["p2"] == :online
+
+      assert {:ok, %{}} =
+               Presence.handle_metas(
+                 topic,
+                 %{joins: %{}, leaves: %{"p2" => %{metas: [%{}]}}},
+                 %{},
+                 %{}
+               )
+
+      assert {:ok, session} = Sessions.get(id)
+      assert session.members["p2"] == :offline
     end
   end
 
@@ -80,13 +110,7 @@ defmodule D20.SessionsTest do
 
   describe "stop/3" do
     setup do
-      assert {:ok, %{id: id, session: session}} = Sessions.create(TestGame, "p1")
-
-      on_exit(fn ->
-        Sessions.stop(id)
-      end)
-
-      %{id: id, session: session}
+      start_test_session(TestGame, "p1")
     end
 
     test "stops an existing session process and treats missing sessions as stopped", %{id: id} do
@@ -104,5 +128,18 @@ defmodule D20.SessionsTest do
       assert_receive {:DOWN, ^ref, :process, ^pid, :killed}
       assert {:error, :session_not_found} = Sessions.get(id)
     end
+  end
+
+  defp start_test_session(engine, owner_id) do
+    assert {:ok, session} = Session.new(engine, owner_id)
+
+    assert {:ok, _pid} =
+             DynamicSupervisor.start_child(D20.Sessions.Supervisor, {Server, session: session})
+
+    on_exit(fn ->
+      Sessions.stop(session.id)
+    end)
+
+    %{id: session.id, session: session}
   end
 end

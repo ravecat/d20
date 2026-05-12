@@ -8,8 +8,6 @@ defmodule D20.Games do
 
   alias D20.Games.Game
   alias D20.Module.Manifest
-  alias D20.Sessions
-  alias D20.Sessions.Session
 
   @type playable_context :: %{
           required(:game) => Game.t(),
@@ -56,16 +54,6 @@ defmodule D20.Games do
     else
       {:error, :not_found} -> {:error, :game_not_found}
       {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @spec create_session(String.t(), Session.player_id()) ::
-          {:ok, %{required(:id) => Sessions.session_id(), required(:session) => Session.t()}}
-          | {:error, term()}
-  def create_session(slug, owner_id) when is_binary(slug) and is_binary(owner_id) do
-    with {:ok, %{engine: engine}} <- fetch_playable_context_by_slug(slug),
-         {:ok, %{id: session_id, session: session}} <- Sessions.create(engine, owner_id) do
-      {:ok, %{id: session_id, session: session}}
     end
   end
 end

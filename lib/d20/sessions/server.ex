@@ -6,39 +6,42 @@ defmodule D20.Sessions.Server do
   use GenServer, restart: :temporary
 
   alias D20.Sessions.Session
+  alias D20Web.Presence
+  alias D20Web.SessionChannel
 
-  @type id :: Ecto.UUID.t()
-  @type start_opts :: [
-          id: id(),
-          engine: module(),
-          owner_id: Session.player_id()
-        ]
+  @type id :: Session.id()
+  @type start_opts :: [session: Session.t()]
+  @type state :: Session.t()
+
   @spec start_link(start_opts()) :: GenServer.on_start()
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: via(Keyword.fetch!(opts, :id)))
+    session = Keyword.fetch!(opts, :session)
+
+    GenServer.start_link(__MODULE__, session, name: via(session.id))
   end
 
   @impl true
-  def init(opts) do
-    with {:ok, engine} <- Keyword.fetch(opts, :engine),
-         {:ok, owner_id} <- Keyword.fetch(opts, :owner_id),
-         {:ok, session} <- Session.new(engine, owner_id) do
-      {:ok, session}
-    else
-      :error -> {:stop, :badarg}
+  @spec init(Session.t()) :: {:ok, state()} | {:stop, term()}
+  def init(%Session{} = session) do
+    case Presence.subscribe(SessionChannel.topic(session.id)) do
+      :ok -> {:ok, session}
       {:error, reason} -> {:stop, reason}
     end
   end
 
-  @spec get(GenServer.server(), timeout()) :: {:ok, Session.t()}
-  def get(server, timeout) do
-    GenServer.call(server, :get, timeout)
+  def init(_session) do
+    {:stop, :badarg}
   end
 
-  @spec dispatch(GenServer.server(), atom(), map(), timeout()) ::
+  @spec get(GenServer.server()) :: {:ok, state()}
+  def get(server) do
+    GenServer.call(server, :get)
+  end
+
+  @spec dispatch(GenServer.server(), Session.event(), term()) ::
           {:ok, Session.t()} | {:error, Session.reason()}
-  def dispatch(server, event, attrs, timeout) do
-    GenServer.call(server, {:dispatch, event, attrs}, timeout)
+  def dispatch(server, event, attrs) do
+    GenServer.call(server, {:dispatch, event, attrs})
   end
 
   @impl true
@@ -47,10 +50,50 @@ defmodule D20.Sessions.Server do
   end
 
   def handle_call({:dispatch, event, attrs}, _from, session) do
-    case Session.dispatch(session, event, attrs) do
-      {:ok, session} -> {:reply, {:ok, session}, session}
-      {:error, reason} -> {:reply, {:error, reason}, session}
+    case dispatch_to_session(session, event, attrs) do
+      {:ok, session} ->
+        broadcast_state(session)
+        {:reply, {:ok, session}, session}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, session}
     end
+  end
+
+  @impl true
+  def handle_info({:join, actor_id}, session) do
+    handle_presence_event(session, :join, actor_id)
+  end
+
+  def handle_info({:left, actor_id}, session) do
+    handle_presence_event(session, :leave, actor_id)
+  end
+
+  @spec handle_presence_event(state(), :join | :leave, Session.player_id()) :: {:noreply, state()}
+  defp handle_presence_event(session, event, actor_id) do
+    case dispatch_to_session(session, event, %{player_id: actor_id}) do
+      {:ok, session} ->
+        broadcast_state(session)
+        {:noreply, session}
+
+      {:error, _reason} ->
+        {:noreply, session}
+    end
+  end
+
+  @spec dispatch_to_session(state(), Session.event(), term()) ::
+          {:ok, state()} | {:error, Session.reason()}
+  defp dispatch_to_session(%Session{} = session, event, attrs) do
+    Session.dispatch(session, event, attrs)
+  end
+
+  @spec broadcast_state(state()) :: :ok
+  defp broadcast_state(session) do
+    Phoenix.PubSub.local_broadcast(
+      D20.PubSub,
+      SessionChannel.topic(session.id),
+      {:session, session}
+    )
   end
 
   defp via(id) do

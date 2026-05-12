@@ -41,6 +41,7 @@ defmodule D20.Sessions.SessionTest do
     test "requires a callable game engine" do
       assert {:ok,
               %Session{
+                id: id,
                 phase: :waiting_for_players,
                 engine: TestGame,
                 owner_id: "p1",
@@ -48,12 +49,26 @@ defmodule D20.Sessions.SessionTest do
                 game: %{players: ["p1"]}
               }} = Session.new(TestGame, "p1")
 
+      assert {:ok, ^id} = Ecto.UUID.cast(id)
       assert {:error, :invalid_engine} = Session.new(__MODULE__, "p1")
       assert {:error, :invalid_engine} = Session.new(nil, "p1")
       assert {:error, :invalid_engine} = Session.new("not a module", "p1")
       assert {:error, :invalid_owner_id} = Session.new(TestGame, nil)
       assert {:error, :invalid_owner_id} = Session.new(TestGame, "")
       assert {:error, :invalid_owner_id} = Session.new(nil, "")
+    end
+
+    test "encodes selected public fields as JSON" do
+      assert {:ok, session} = Session.new(QwintoGame, "p1")
+
+      decoded = session |> Jason.encode!() |> Jason.decode!()
+
+      assert decoded["id"] == session.id
+      assert decoded["phase"] == "waiting_for_players"
+      assert decoded["owner_id"] == "p1"
+      assert decoded["members"] == %{"p1" => "online"}
+      assert decoded["game"]["phase"] == "setup"
+      refute Map.has_key?(decoded, "engine")
     end
   end
 
@@ -90,6 +105,26 @@ defmodule D20.Sessions.SessionTest do
 
       assert {:error, :not_owner} = Session.dispatch(session, :start, %{player_id: "p2"})
       assert {:error, :invalid_identity} = Session.dispatch(session, :start, %{player_id: ""})
+    end
+
+    test "rejects command payloads that are not maps" do
+      {:ok, session} = Session.new(TestGame, "p1")
+
+      assert {:error, :invalid_command} = Session.dispatch(session, :noop, [])
+    end
+
+    test "accepts string event names" do
+      {:ok, session} = Session.new(TestGame, "p1")
+
+      assert {:ok, session} = Session.dispatch(session, "join", %{player_id: "p2"})
+      assert session.members["p2"] == :online
+      assert session.game.players == ["p1", "p2"]
+    end
+
+    test "rejects unknown string event names" do
+      {:ok, session} = Session.new(TestGame, "p1")
+
+      assert {:error, :unknown_command} = Session.dispatch(session, "not_a_command", %{})
     end
 
     test "routes in-progress joins for existing members through the game engine" do

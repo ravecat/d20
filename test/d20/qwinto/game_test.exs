@@ -4,6 +4,41 @@ defmodule D20.Qwinto.GameTest do
   alias D20.Qwinto.Game
 
   describe "D20.Game behaviour" do
+    test "encodes the full game state as JSON" do
+      assert {:ok, game} = Game.init()
+      assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p1"})
+      assert {:ok, game} = Game.dispatch(game, :join, %{player_id: "p2"})
+      assert {:ok, game} = Game.dispatch(game, :start, %{})
+
+      assert {:ok, game} =
+               Game.dispatch(game, :roll, %{
+                 "player_id" => "p1",
+                 "colors" => ["orange"]
+               })
+
+      assert {:ok, game} = Game.dispatch(game, :keep, %{"player_id" => "p1"})
+
+      assert {:ok, game} =
+               Game.dispatch(game, :write, %{
+                 "player_id" => "p1",
+                 "row" => "orange",
+                 "slot" => 0
+               })
+
+      decoded = game |> Jason.encode!() |> Jason.decode!()
+
+      assert decoded["phase"] == "result"
+      assert decoded["order"] == ["p1", "p2"]
+      assert decoded["cursor"] == 0
+      assert decoded["dices"] == ["orange"]
+      assert decoded["values"] == game.values
+      assert decoded["sum"] == game.sum
+      assert decoded["attempt"] == 1
+      assert decoded["scores"] == %{}
+      assert decoded["players"]["p1"]["status"] == "wrote"
+      assert decoded["players"]["p1"]["rows"]["orange"]["0"] == game.sum
+    end
+
     test "moves from setup to ready at the minimum player count, then starts" do
       assert {:ok, %Game{phase: :setup} = game} = Game.init()
 

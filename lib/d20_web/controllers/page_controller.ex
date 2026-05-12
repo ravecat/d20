@@ -30,10 +30,10 @@ defmodule D20Web.PageController do
   def create_game_session(conn, %{"slug" => slug}) do
     actor = conn.assigns.current_scope.actor
 
-    with {:ok, %{id: session_id}} <- D20.Games.create_session(slug, actor.id) do
+    with {:ok, session} <- D20.Sessions.create(slug, actor.id) do
       conn
       |> put_status(303)
-      |> redirect(to: ~p"/games/#{slug}?session=#{session_id}")
+      |> redirect(to: ~p"/games/#{slug}?session=#{session.id}")
     else
       {:error, :game_not_found} ->
         send_not_found(conn)
@@ -54,8 +54,8 @@ defmodule D20Web.PageController do
       {:ok, %{engine: engine} = session} ->
         if engine == playable_context.engine do
           {
-            maybe_put_bootstrap(conn, playable_context.module_entry, session_id, session),
-            session_summary(session_id, session)
+            maybe_put_bootstrap(conn, playable_context.module_entry, session.id, session),
+            session
           }
         else
           {playable_context.module_entry, nil}
@@ -78,10 +78,6 @@ defmodule D20Web.PageController do
   end
 
   defp maybe_put_bootstrap(_conn, module_entry, _session_id, _session), do: module_entry
-
-  defp session_summary(session_id, session) do
-    %{id: session_id, phase: Atom.to_string(session.phase)}
-  end
 
   defp redirect_with_start_error(conn, slug, message) do
     conn

@@ -2,69 +2,68 @@ defmodule D20Web.SessionChannel do
   use D20Web, :channel
 
   alias D20.Sessions
+  alias D20Web.Presence
 
   def topic(session_id), do: "session:#{session_id}"
 
   @impl true
   def join("session:" <> session_id, _payload, socket) do
-    with :ok <- require_claim(socket, :session_id, session_id),
-         {:ok, session} <- Sessions.get(session_id),
-         :ok <- require_module(socket, session),
-         :ok <- Phoenix.PubSub.subscribe(D20.PubSub, socket.topic) do
-      {:ok, socket}
+    with {:ok, session} <- Sessions.get(session_id) do
+      send(self(), :after_join)
+
+      {:ok, session, socket}
     else
       {:error, :session_not_found} -> {:error, %{reason: "session_not_found"}}
-      {:error, reason, _context} -> {:error, %{reason: format_reason(reason)}}
-      {:error, reason} -> {:error, %{reason: format_reason(reason)}}
+      {:error, reason} when is_atom(reason) -> {:error, %{reason: Atom.to_string(reason)}}
+      {:error, reason} -> {:error, %{reason: inspect(reason)}}
     end
   end
 
   @impl true
-  def handle_in("command", %{"kind" => kind, "attrs" => attrs}, socket)
-      when is_binary(kind) and is_map(attrs) do
-    "session:" <> session_id = socket.topic
-    attrs = put_actor_attrs(socket, attrs)
+  def handle_info(:after_join, socket) do
+    {:ok, _} =
+      Presence.track(socket, socket.assigns.actor.id, %{
+        online_at: System.system_time(:second)
+      })
 
-    case Sessions.dispatch(session_id, String.to_existing_atom(kind), attrs) do
+    {:noreply, socket}
+  end
+
+  def handle_info({:session, session}, socket) do
+    push(socket, "projection", session)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_in(event, payload, socket) do
+    attrs = put_actor_attrs(socket, event, payload)
+
+    case Sessions.dispatch(session_id(socket), event, attrs) do
       {:ok, _session} ->
         {:reply, :ok, socket}
 
       {:error, reason} ->
         {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
-  rescue
-    ArgumentError ->
-      {:reply, {:error, %{reason: "unknown_command"}}, socket}
   end
 
-  def handle_in("command", _payload, socket) do
-    {:reply, {:error, %{reason: "invalid_command"}}, socket}
+  defp put_actor_attrs(socket, event, _payload) when event in ["join", "leave", "start"] do
+    %{player_id: actor_id(socket)}
   end
 
-  def handle_in(event, _payload, socket) do
-    {:reply, {:error, %{reason: "unknown_event", event: event}}, socket}
-  end
-
-  defp require_claim(socket, key, expected) do
-    case Map.fetch(socket.assigns.module_claims, key) do
-      {:ok, ^expected} -> :ok
-      _ -> {:error, :invalid_claim, key}
-    end
-  end
-
-  defp require_module(socket, session) do
-    case D20.Module.Manifest.module_id_for_engine(session.engine) do
-      nil -> {:error, :invalid_module}
-      module_id -> require_claim(socket, :module_id, module_id)
-    end
-  end
-
-  defp put_actor_attrs(socket, attrs) do
-    actor_id = socket.assigns.module_claims.actor_id
-
+  defp put_actor_attrs(socket, _event, attrs) when is_map(attrs) do
     attrs
-    |> Map.put("player_id", actor_id)
-    |> Map.put(:player_id, actor_id)
+    |> Map.delete(:player_id)
+    |> Map.put("player_id", actor_id(socket))
+  end
+
+  defp put_actor_attrs(_socket, _event, attrs), do: attrs
+
+  defp actor_id(%{assigns: %{actor: actor}}), do: actor.id
+
+  defp session_id(socket) do
+    "session:" <> session_id = socket.topic
+    session_id
   end
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)

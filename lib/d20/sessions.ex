@@ -3,40 +3,38 @@ defmodule D20.Sessions do
   Runtime boundary for dynamically created game session processes.
   """
 
+  alias D20.Games
   alias D20.Sessions.Server
   alias D20.Sessions.Session
 
-  @default_timeout 5_000
-
   @type session_id :: Server.id()
-  @type create_result :: %{
-          required(:id) => session_id(),
-          required(:session) => Session.t()
-        }
   @type reason ::
           :session_not_found
+          | :game_not_found
+          | :module_not_found
+          | :engine_not_found
           | Session.reason()
+  @type state :: Server.state()
 
-  @spec create(module(), Session.player_id()) ::
-          {:ok, create_result()} | {:error, reason()}
-  def create(engine, owner_id) do
-    id = generate_session_id()
-
-    with {:ok, _pid} <- start_child(id: id, engine: engine, owner_id: owner_id),
-         {:ok, session} <- get(id) do
-      {:ok, %{id: id, session: session}}
+  @spec create(String.t(), Session.player_id()) ::
+          {:ok, Session.t()} | {:error, reason()}
+  def create(game_slug, owner_id) when is_binary(game_slug) do
+    with {:ok, %{engine: engine}} <- Games.fetch_playable_context_by_slug(game_slug),
+         {:ok, session} <- Session.new(engine, owner_id),
+         {:ok, _pid} <- start_child(session) do
+      {:ok, session}
     end
   end
 
-  @spec get(session_id(), timeout()) :: {:ok, Session.t()} | {:error, reason()}
-  def get(id, timeout \\ @default_timeout) do
-    call_if_exists(id, &Server.get(&1, timeout))
+  @spec get(session_id()) :: {:ok, state()} | {:error, reason()}
+  def get(id) do
+    call_if_exists(id, &Server.get/1)
   end
 
-  @spec dispatch(session_id(), atom(), map(), timeout()) ::
+  @spec dispatch(session_id(), Session.event(), term()) ::
           {:ok, Session.t()} | {:error, reason()}
-  def dispatch(id, event, attrs, timeout \\ @default_timeout) do
-    call_if_exists(id, &Server.dispatch(&1, event, attrs, timeout))
+  def dispatch(id, event, attrs) do
+    call_if_exists(id, &Server.dispatch(&1, event, attrs))
   end
 
   @spec lookup(session_id()) :: {:ok, pid()} | {:error, :session_not_found}
@@ -71,14 +69,10 @@ defmodule D20.Sessions do
     end
   end
 
-  defp start_child(opts) do
+  defp start_child(session) do
     DynamicSupervisor.start_child(
       D20.Sessions.Supervisor,
-      {Server, opts}
+      {Server, session: session}
     )
-  end
-
-  defp generate_session_id do
-    Ecto.UUID.generate()
   end
 end

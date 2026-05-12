@@ -5,26 +5,33 @@ defmodule D20.Sessions.Session do
 
   import D20.Guards, only: [is_player_id: 1]
 
-  defstruct phase: :waiting_for_players,
+  @derive {Jason.Encoder, only: [:id, :phase, :owner_id, :members, :game]}
+  defstruct id: nil,
+            phase: :waiting_for_players,
             engine: nil,
             owner_id: nil,
             members: %{},
             game: nil
 
+  @type id :: Ecto.UUID.t()
   @type phase :: :waiting_for_players | :in_progress | :finished
   @type member_status :: :online | :offline
   @type player_id :: String.t()
   @type members :: %{optional(player_id()) => member_status()}
+  @type event :: atom() | String.t()
   @type engine_reason :: term()
   @type reason ::
           :invalid_engine
           | :invalid_owner_id
+          | :invalid_command
           | :invalid_identity
           | :not_owner
           | :invalid_phase
+          | :unknown_command
           | engine_reason()
 
   @type t :: %__MODULE__{
+          id: id(),
           phase: phase(),
           engine: module(),
           owner_id: player_id(),
@@ -39,6 +46,7 @@ defmodule D20.Sessions.Session do
          {:ok, game} <- engine.dispatch(game, :join, %{player_id: owner_id}) do
       {:ok,
        %__MODULE__{
+         id: Ecto.UUID.generate(),
          engine: engine,
          owner_id: owner_id,
          members: %{owner_id => :online},
@@ -49,7 +57,17 @@ defmodule D20.Sessions.Session do
 
   def new(_engine, _owner_id), do: {:error, :invalid_owner_id}
 
-  @spec dispatch(t(), atom(), map()) :: {:ok, t()} | {:error, reason()}
+  @spec dispatch(t(), event(), term()) :: {:ok, t()} | {:error, reason()}
+  def dispatch(%__MODULE__{} = session, event, attrs) when is_binary(event) do
+    with {:ok, event} <- parse_event(event) do
+      dispatch(session, event, attrs)
+    end
+  end
+
+  def dispatch(%__MODULE__{}, _event, attrs) when not is_map(attrs) do
+    {:error, :invalid_command}
+  end
+
   def dispatch(%__MODULE__{phase: phase} = session, :join, %{player_id: player_id})
       when phase in [:waiting_for_players, :in_progress] and is_player_id(player_id) do
     join(session, player_id)
@@ -161,4 +179,10 @@ defmodule D20.Sessions.Session do
 
   defp require_owner(%__MODULE__{owner_id: player_id}, player_id), do: :ok
   defp require_owner(%__MODULE__{}, _player_id), do: {:error, :not_owner}
+
+  defp parse_event(event) do
+    {:ok, String.to_existing_atom(event)}
+  rescue
+    ArgumentError -> {:error, :unknown_command}
+  end
 end

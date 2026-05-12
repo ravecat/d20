@@ -2,6 +2,7 @@ defmodule D20Web.UserSocket do
   use Phoenix.Socket
 
   channel "cursors", D20Web.CursorsChannel
+  channel "session:*", D20Web.SessionChannel
 
   @impl true
   def connect(_params, socket, %{auth_token: token}) when is_binary(token) do
