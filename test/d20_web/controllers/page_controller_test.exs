@@ -95,7 +95,7 @@ defmodule D20Web.PageControllerTest do
     assert %{module: module, session: session} = inertia_props(conn)
     assert session.id == session_id
     assert session.phase == :waiting_for_players
-    assert session.members == %{"p1" => :online}
+    assert session.members == %{}
     refute Map.has_key?(module, :bootstrap)
   end
 
@@ -107,7 +107,9 @@ defmodule D20Web.PageControllerTest do
       D20.Sessions.stop(session_id)
     end)
 
-    assert {:ok, _session} = D20.Sessions.dispatch(session_id, :join, %{player_id: "p2"})
+    assert {:ok, _session} =
+             D20.Sessions.dispatch(session_id, :join, %{player_id: "p2", online_at: 123})
+
     assert {:ok, _session} = D20.Sessions.dispatch(session_id, :start, %{player_id: "p1"})
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
@@ -115,7 +117,7 @@ defmodule D20Web.PageControllerTest do
     assert %{module: module, session: session} = inertia_props(conn)
     assert session.id == session_id
     assert session.phase == :in_progress
-    assert session.members == %{"p1" => :online, "p2" => :online}
+    assert session.members == %{"p2" => %{online_at: 123}}
     assert module[:bootstrap][:moduleId] == "qwinto"
     assert module[:bootstrap][:topic] == "session:#{session_id}"
   end

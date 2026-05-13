@@ -15,9 +15,9 @@ defmodule D20.Sessions.Session do
 
   @type id :: Ecto.UUID.t()
   @type phase :: :waiting_for_players | :in_progress | :finished
-  @type member_status :: :online | :offline
   @type player_id :: String.t()
-  @type members :: %{optional(player_id()) => member_status()}
+  @type member :: %{required(:online_at) => non_neg_integer()}
+  @type members :: %{optional(player_id()) => member()}
   @type event :: atom() | String.t()
   @type engine_reason :: term()
   @type reason ::
@@ -49,7 +49,7 @@ defmodule D20.Sessions.Session do
          id: Ecto.UUID.generate(),
          engine: engine,
          owner_id: owner_id,
-         members: %{owner_id => :online},
+         members: %{},
          game: game
        }}
     end
@@ -68,9 +68,19 @@ defmodule D20.Sessions.Session do
     {:error, :invalid_command}
   end
 
-  def dispatch(%__MODULE__{phase: phase} = session, :join, %{player_id: player_id})
+  def dispatch(
+        %__MODULE__{phase: phase} = session,
+        :join,
+        %{player_id: player_id, online_at: online_at}
+      )
+      when phase in [:waiting_for_players, :in_progress] and is_player_id(player_id) and
+             is_integer(online_at) and online_at >= 0 do
+    join(session, player_id, %{online_at: online_at})
+  end
+
+  def dispatch(%__MODULE__{phase: phase}, :join, %{player_id: player_id})
       when phase in [:waiting_for_players, :in_progress] and is_player_id(player_id) do
-    join(session, player_id)
+    {:error, :invalid_command}
   end
 
   def dispatch(%__MODULE__{}, :join, %{player_id: player_id})
@@ -120,27 +130,19 @@ defmodule D20.Sessions.Session do
 
   def dispatch(%__MODULE__{}, _event, _attrs), do: {:error, :invalid_phase}
 
-  defp join(%__MODULE__{} = session, player_id) do
-    with {:ok, members} <- join_members(session, player_id),
-         {:ok, game} <- session.engine.dispatch(session.game, :join, %{player_id: player_id}) do
-      {:ok, maybe_finish(%{session | game: game, members: members})}
-    end
-  end
-
-  defp join_members(%__MODULE__{} = session, player_id) do
-    case {session.phase, Map.fetch(session.members, player_id)} do
-      {_phase, {:ok, _status}} -> {:ok, %{session.members | player_id => :online}}
-      {:waiting_for_players, :error} -> {:ok, Map.put(session.members, player_id, :online)}
-      {:in_progress, :error} -> {:error, :invalid_phase}
+  defp join(%__MODULE__{} = session, player_id, member) do
+    with {:ok, game} <- session.engine.dispatch(session.game, :join, %{player_id: player_id}) do
+      {:ok,
+       maybe_finish(%{session | game: game, members: Map.put(session.members, player_id, member)})}
     end
   end
 
   defp leave(%__MODULE__{} = session, player_id) do
     case Map.fetch(session.members, player_id) do
-      {:ok, _status} ->
+      {:ok, _member} ->
         case session.engine.dispatch(session.game, :leave, %{player_id: player_id}) do
           {:ok, game} ->
-            members = %{session.members | player_id => :offline}
+            members = Map.delete(session.members, player_id)
             {:ok, maybe_finish(%{session | game: game, members: members})}
 
           {:error, reason} ->

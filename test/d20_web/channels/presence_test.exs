@@ -3,19 +3,19 @@ defmodule D20Web.PresenceTest do
 
   alias D20Web.Presence
 
-  test "broadcasts join from presence joins" do
+  test "broadcasts join from presence joins with online metadata" do
     topic = unique_topic()
     :ok = Presence.subscribe(topic)
 
     assert {:ok, %{}} =
              Presence.handle_metas(
                topic,
-               %{joins: %{"actor-1" => %{metas: [%{}]}}, leaves: %{}},
-               %{"actor-1" => %{metas: [%{}]}},
+               %{joins: %{"actor-1" => %{metas: [%{online_at: 123}]}}, leaves: %{}},
+               %{"actor-1" => %{metas: [%{online_at: 123}]}},
                %{}
              )
 
-    assert_receive {:join, "actor-1"}
+    assert_receive {:join, "actor-1", %{online_at: 123}}
   end
 
   test "broadcasts left only to the presence topic after the last meta leaves" do

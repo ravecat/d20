@@ -1,21 +1,21 @@
 import { session } from "@rvct/phoenix";
 import socket from "~/user_socket.js";
-import type { GameSession } from "~types/game";
+import type { Session } from "~types/game";
 
 type SessionChannelSpec = {
-  value: GameSession;
+  value: Session;
   connect: {
-    ok: GameSession;
+    ok: Session;
     error: { reason?: string };
   };
   events: {
-    projection: GameSession;
+    projection: Session;
   };
 };
 
-export type GameSessionStore = ReturnType<typeof createGameSession>;
+export type SessionStore = ReturnType<typeof createSession>;
 
-export function createGameSession(id: string) {
+export function createSession(id: string) {
   return session<SessionChannelSpec>(socket, {
     topic: `session:${id}`,
     connect: {

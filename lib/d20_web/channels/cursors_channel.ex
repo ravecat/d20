@@ -28,7 +28,7 @@ defmodule D20Web.CursorsChannel do
     {:noreply, socket}
   end
 
-  def handle_info({:join, _actor_id}, socket) do
+  def handle_info({:join, _actor_id, _member_attrs}, socket) do
     push(socket, "projection", %{cursors: cursor_projection(socket)})
     {:noreply, socket}
   end

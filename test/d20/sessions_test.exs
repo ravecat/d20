@@ -77,13 +77,13 @@ defmodule D20.SessionsTest do
       assert {:ok, %{}} =
                Presence.handle_metas(
                  topic,
-                 %{joins: %{"p2" => %{metas: [%{}]}}, leaves: %{}},
-                 %{"p2" => %{metas: [%{}]}},
+                 %{joins: %{"p2" => %{metas: [%{online_at: 123}]}}, leaves: %{}},
+                 %{"p2" => %{metas: [%{online_at: 123}]}},
                  %{}
                )
 
       assert {:ok, session} = Sessions.get(id)
-      assert session.members["p2"] == :online
+      assert session.members["p2"] == %{online_at: 123}
 
       assert {:ok, %{}} =
                Presence.handle_metas(
@@ -94,7 +94,7 @@ defmodule D20.SessionsTest do
                )
 
       assert {:ok, session} = Sessions.get(id)
-      assert session.members["p2"] == :offline
+      refute Map.has_key?(session.members, "p2")
     end
   end
 

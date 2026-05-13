@@ -1,24 +1,29 @@
 <script lang="ts">
-  import type { GameSessionStore } from "~stores/session";
+  import { untrack } from "svelte";
+  import Frame from "~components/module_frame.svelte";
+  import { createSession } from "~stores/session";
+  import type { Session } from "~types/game";
+  import type { ModuleEntry } from "~types/module";
 
   interface Props {
-    session: GameSessionStore;
+    module: ModuleEntry;
+    session: Session;
   }
 
-  const { session }: Props = $props();
+  const { module, session }: Props = $props();
+  const sessionStore = createSession(untrack(() => session.id));
 
   let starting = $state(false);
   let startAccepted = $state(false);
   let startError = $state<string | null>(null);
 
   const members = $derived(
-    Object.entries($session.value?.members ?? {})
-      .map(([id, status]) => ({ id, status }))
+    Object.entries($sessionStore.value?.members ?? {})
+      .map(([id]) => ({ id }))
       .sort((a, b) => a.id.localeCompare(b.id)),
   );
-  const presentMembers = $derived(members.filter((member) => member.status === "online"));
-  const status = $derived($session.status);
-  const phase = $derived($session.value?.phase);
+  const status = $derived($sessionStore.status);
+  const phase = $derived($sessionStore.value?.phase);
   const canStart = $derived(
     status === "ready" && !starting && !startAccepted && phase === "waiting_for_players",
   );
@@ -28,7 +33,7 @@
     startAccepted = false;
     startError = null;
 
-    session
+    sessionStore
       .start()
       .receive("ok", () => {
         starting = false;
@@ -51,7 +56,7 @@
   <div class="flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3">
     <div class="flex min-w-0 items-center gap-3">
       <h2 class="text-sm font-medium text-base-content">Present</h2>
-      <span class="text-xs tabular-nums text-base-content/60">{presentMembers.length}</span>
+      <span class="text-xs tabular-nums text-base-content/60">{members.length}</span>
     </div>
 
     <button
@@ -75,13 +80,15 @@
     <p class="border-b border-base-300 px-4 py-3 text-sm text-error">{startError}</p>
   {/if}
 
-  {#if status === "failed" && presentMembers.length === 0}
-    <p class="px-4 py-3 text-sm text-error">Presence unavailable</p>
-  {:else if presentMembers.length === 0}
+  {#if status === "loading"}
     <p class="px-4 py-3 text-sm text-base-content/60">Joining session...</p>
+  {:else if status === "failed" && members.length === 0}
+    <p class="px-4 py-3 text-sm text-error">Presence unavailable</p>
+  {:else if members.length === 0}
+    <p class="px-4 py-3 text-sm text-base-content/60">No players present</p>
   {:else}
     <ul class="divide-y divide-base-300">
-      {#each presentMembers as member (member.id)}
+      {#each members as member (member.id)}
         <li
           class="flex min-w-0 flex-col items-start gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
         >
@@ -93,3 +100,13 @@
     </ul>
   {/if}
 </section>
+
+{#if status === "loading"}
+  <p class="mt-6 text-sm text-base-content/70">Joining session...</p>
+{:else if phase === "in_progress" && module.bootstrap}
+  <section class="mt-6 h-136 min-h-0 overflow-hidden rounded-sm border border-base-300">
+    <Frame {module} />
+  </section>
+{:else}
+  <p class="mt-6 text-sm text-base-content/70">Waiting for players</p>
+{/if}

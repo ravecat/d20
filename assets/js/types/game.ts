@@ -15,12 +15,14 @@ export interface GameMetadata {
   minAge?: number | null;
 }
 
-export type SessionMemberStatus = "online" | "offline";
+export interface SessionMember {
+  online_at: number;
+}
 
-export interface GameSession<TGame = unknown> {
+export interface Session<TGame = unknown> {
   id: string;
   phase: string;
   owner_id: string;
-  members: Record<string, SessionMemberStatus>;
+  members: Record<string, SessionMember>;
   game: TGame;
 }

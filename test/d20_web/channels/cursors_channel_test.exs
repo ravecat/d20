@@ -30,17 +30,17 @@ defmodule D20Web.CursorsChannelTest do
 
     :ok = Presence.subscribe("cursors")
     assert {:ok, %{cursors: []}, socket} = join_cursors_channel(actor_id)
-    assert_receive {:join, ^actor_id}
+    assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
     assert_push "projection", %{cursors: []}
 
     refute_push "presence_state", _
     refute_push "join", _
 
     assert %{
-             ^actor_id => %{metas: [%{online_at: online_at}]}
+             ^actor_id => %{metas: [%{online_at: ^tracked_online_at}]}
            } = Presence.list(socket)
 
-    assert is_integer(online_at)
+    assert is_integer(tracked_online_at)
   end
 
   test "move pushes a full cursor projection" do
@@ -50,8 +50,10 @@ defmodule D20Web.CursorsChannelTest do
     :ok = Presence.subscribe("cursors")
     assert {:ok, %{cursors: []}, sender} = join_cursors_channel(sender_id)
     assert {:ok, %{cursors: []}, _receiver} = join_cursors_channel(receiver_id)
-    assert_receive {:join, ^sender_id}
-    assert_receive {:join, ^receiver_id}
+    assert_receive {:join, ^sender_id, %{online_at: sender_online_at}}
+    assert_receive {:join, ^receiver_id, %{online_at: receiver_online_at}}
+    assert is_integer(sender_online_at)
+    assert is_integer(receiver_online_at)
 
     refute sender_id == receiver_id
 
