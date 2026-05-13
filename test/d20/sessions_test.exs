@@ -14,7 +14,7 @@ defmodule D20.SessionsTest do
     def init, do: {:ok, %{events: []}}
 
     @impl D20.Game
-    def dispatch(_state, :fail, _attrs), do: {:error, :bad_command}
+    def dispatch(_state, "fail", _attrs), do: {:error, :bad_command}
 
     def dispatch(state, event, attrs) do
       {:ok, update_in(state.events, &(&1 ++ [{event, attrs}]))}
@@ -55,14 +55,14 @@ defmodule D20.SessionsTest do
     end
 
     test "serializes session transitions through the process", %{id: id} do
-      assert {:ok, %Session{} = session} = Sessions.dispatch(id, :noop, %{value: 1})
-      assert {:noop, %{value: 1}} in session.game.events
+      assert {:ok, %Session{} = session} = Sessions.dispatch(id, "noop", %{value: 1})
+      assert {"noop", %{value: 1}} in session.game.events
       assert {:ok, ^session} = Sessions.get(id)
     end
 
     test "keeps current state when a dispatch returns an error", %{id: id} do
       assert {:ok, before} = Sessions.get(id)
-      assert {:error, :bad_command} = Sessions.dispatch(id, :fail, %{})
+      assert {:error, :bad_command} = Sessions.dispatch(id, "fail", %{})
       assert {:ok, ^before} = Sessions.get(id)
     end
 
@@ -103,7 +103,7 @@ defmodule D20.SessionsTest do
       id = "missing-#{System.unique_integer([:positive])}"
 
       assert {:error, :session_not_found} = Sessions.get(id)
-      assert {:error, :session_not_found} = Sessions.dispatch(id, :join, %{player_id: "p1"})
+      assert {:error, :session_not_found} = Sessions.dispatch(id, "join", %{player_id: "p1"})
       assert {:error, :session_not_found} = Sessions.lookup("")
     end
   end

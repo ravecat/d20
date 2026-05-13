@@ -6,7 +6,7 @@ defmodule D20.Game do
   game-specific state, and internal transitions.
   """
 
-  @type command_kind :: atom()
+  @type command_kind :: String.t()
   @type command_attrs :: map()
 
   @callback init() :: {:ok, term()} | {:error, term()}

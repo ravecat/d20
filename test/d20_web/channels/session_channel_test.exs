@@ -55,7 +55,7 @@ defmodule D20Web.SessionChannelTest do
     session_id = create_runtime_session(actor.id)
 
     assert {:ok, _session} =
-             D20.Sessions.dispatch(session_id, :join, %{player_id: "p2", online_at: 123})
+             D20.Sessions.dispatch(session_id, "join", %{player_id: "p2", online_at: 123})
 
     assert {:ok,
             %Session{
@@ -80,14 +80,14 @@ defmodule D20Web.SessionChannelTest do
     assert session.phase == :in_progress
   end
 
-  test "page session command rejects unknown commands" do
+  test "page session command forwards unknown commands to the game engine" do
     actor = %{id: Ecto.UUID.generate(), type: :anonymous}
     session_id = create_runtime_session(actor.id)
     assert {:ok, _payload, socket} = join_page_session_channel(session_id, actor)
 
     ref = push(socket, "not_a_command", %{})
 
-    assert_reply ref, :error, %{reason: "unknown_command"}
+    assert_reply ref, :error, %{reason: "invalid_phase"}
   end
 
   test "page session command rejects invalid payloads" do

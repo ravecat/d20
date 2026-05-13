@@ -108,9 +108,9 @@ defmodule D20Web.PageControllerTest do
     end)
 
     assert {:ok, _session} =
-             D20.Sessions.dispatch(session_id, :join, %{player_id: "p2", online_at: 123})
+             D20.Sessions.dispatch(session_id, "join", %{player_id: "p2", online_at: 123})
 
-    assert {:ok, _session} = D20.Sessions.dispatch(session_id, :start, %{player_id: "p1"})
+    assert {:ok, _session} = D20.Sessions.dispatch(session_id, "start", %{player_id: "p1"})
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 

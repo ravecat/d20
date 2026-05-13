@@ -67,10 +67,10 @@ defmodule D20.Qwinto.Game do
   def init, do: {:ok, %__MODULE__{}}
 
   @impl D20.Game
-  @spec dispatch(t(), Command.kind() | :leave, map()) ::
+  @spec dispatch(t(), String.t(), map()) ::
           {:ok, t()}
           | {:error, Ecto.Changeset.t() | Rules.reason() | reason()}
-  def dispatch(%__MODULE__{phase: phase} = game, :join, attrs)
+  def dispatch(%__MODULE__{phase: phase} = game, "join", attrs)
       when phase in [:setup, :ready] do
     with {:ok, command} <- Command.build(:join, attrs),
          :ok <- Rules.validate(game, command) do
@@ -78,11 +78,11 @@ defmodule D20.Qwinto.Game do
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase} = game, :leave, _attrs)
+  def dispatch(%__MODULE__{phase: phase} = game, "leave", _attrs)
       when phase in [:setup, :ready],
       do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :ready} = game, :start, attrs) do
+  def dispatch(%__MODULE__{phase: :ready} = game, "start", attrs) do
     with {:ok, command} <- Command.build(:start, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -93,11 +93,11 @@ defmodule D20.Qwinto.Game do
       when phase in [:setup, :ready],
       do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, :join, _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :turn} = game, "join", _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, :leave, _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :turn} = game, "leave", _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, :roll, attrs) do
+  def dispatch(%__MODULE__{phase: :turn} = game, "roll", attrs) do
     with {:ok, command} <- Command.build(:roll, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -107,18 +107,18 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :turn}, _kind, _attrs),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, :join, _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :decision} = game, "join", _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, :leave, _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :decision} = game, "leave", _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, :keep, attrs) do
+  def dispatch(%__MODULE__{phase: :decision} = game, "keep", attrs) do
     with {:ok, command} <- Command.build(:keep, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :decision} = game, :reroll, attrs) do
+  def dispatch(%__MODULE__{phase: :decision} = game, "reroll", attrs) do
     with {:ok, command} <- Command.build(:reroll, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -128,18 +128,18 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :decision}, _kind, _attrs),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :result} = game, :join, _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :result} = game, "join", _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :result} = game, :leave, _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :result} = game, "leave", _attrs), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :result} = game, :write, attrs) do
+  def dispatch(%__MODULE__{phase: :result} = game, "write", attrs) do
     with {:ok, command} <- Command.build(:write, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :result} = game, :skip, attrs) do
+  def dispatch(%__MODULE__{phase: :result} = game, "skip", attrs) do
     with {:ok, command} <- Command.build(:skip, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}

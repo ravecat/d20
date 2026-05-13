@@ -62,14 +62,14 @@ defmodule D20.Sessions.Server do
 
   @impl true
   def handle_info({:join, actor_id, member_attrs}, session) do
-    handle_presence_event(session, :join, actor_id, member_attrs)
+    handle_presence_event(session, "join", actor_id, member_attrs)
   end
 
   def handle_info({:left, actor_id}, session) do
-    handle_presence_event(session, :leave, actor_id, %{})
+    handle_presence_event(session, "leave", actor_id, %{})
   end
 
-  @spec handle_presence_event(state(), :join | :leave, Session.player_id(), map()) ::
+  @spec handle_presence_event(state(), String.t(), Session.player_id(), map()) ::
           {:noreply, state()}
   defp handle_presence_event(session, event, actor_id, member_attrs) do
     attrs = Map.put(member_attrs, :player_id, actor_id)
