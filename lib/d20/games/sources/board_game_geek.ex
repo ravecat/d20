@@ -2,9 +2,9 @@ defmodule D20.Games.Sources.BoardGameGeek do
   @moduledoc """
   BoardGameGeek source adapter for game metadata.
 
-  Live HTTP fetching, authorization, retry behavior, and throttling are
-  intentionally out of scope for this step. The nested parser owns translation
-  from BGG XML into project game attributes.
+  Live HTTP fetching, retry behavior, and throttling are intentionally out of
+  scope for this step. This module owns runtime access to source-specific
+  configuration and XML translation into project game attributes.
   """
 
   @type game_attrs :: %{
@@ -23,6 +23,14 @@ defmodule D20.Games.Sources.BoardGameGeek do
           optional(:max_play_time) => integer(),
           optional(:min_age) => integer()
         }
+
+  @spec api_key() :: {:ok, String.t()} | {:error, :missing_api_key}
+  def api_key do
+    case :d20 |> Application.get_env(__MODULE__, []) |> Keyword.get(:api_key) do
+      api_key when is_binary(api_key) -> {:ok, api_key}
+      _api_key -> {:error, :missing_api_key}
+    end
+  end
 
   @spec parse_game_details(binary()) :: {:ok, [game_attrs()]} | {:error, term()}
   def parse_game_details(xml) when is_binary(xml) do

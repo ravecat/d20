@@ -33,6 +33,8 @@ logs/
 .plans/
 
 # Local environment and secrets
+/envs/*
+!/envs/.env.example
 .env
 .env.*
 .envrc

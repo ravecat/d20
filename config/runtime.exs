@@ -20,6 +20,8 @@ if System.get_env("PHX_SERVER") do
   config :d20, D20Web.Endpoint, server: true
 end
 
+config :d20, D20.Games.Sources.BoardGameGeek, api_key: System.get_env("BGG_API_KEY")
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
