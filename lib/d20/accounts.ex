@@ -6,7 +6,7 @@ defmodule D20.Accounts do
   import Ecto.Query, warn: false
   alias D20.Repo
 
-  alias D20.Accounts.{User, UserToken, UserNotifier}
+  alias D20.Accounts.{Anonymous, User, UserToken, UserNotifier}
 
   ## Database getters
 
@@ -60,6 +60,41 @@ defmodule D20.Accounts do
   """
   def get_user!(id), do: Repo.get!(User, id)
 
+  @doc """
+  Gets a single user by id.
+  """
+  @spec get_user(term()) :: %User{} | nil
+  def get_user(id), do: Repo.get(User, id)
+
+  @type profile :: %{
+          required(:id) => String.t(),
+          required(:actor_type) => :user | :anonymous,
+          required(:display_name) => String.t(),
+          required(:avatar) => String.t() | nil
+        }
+
+  @doc """
+  Gets public user or anonymous profile data by actor id.
+
+  Registered users are resolved from the database first. Unknown user ids fall
+  back to deterministic anonymous profile data.
+  """
+  @spec get_user_or_anonymous(String.t()) :: profile()
+  def get_user_or_anonymous(id) when is_binary(id) do
+    # Actor ids are mixed user/anonymous strings; Repo.get/2 would cast every id
+    # as a `user` TypeID and reject anonymous ids before the fallback can run.
+    user =
+      Repo.one(
+        from user in User,
+          where: fragment("? = ?", user.id, type(^id, :string))
+      )
+
+    case user do
+      %User{} = user -> user_profile(user)
+      nil -> anonymous_profile(id)
+    end
+  end
+
   ## User registration
 
   @doc """
@@ -78,6 +113,31 @@ defmodule D20.Accounts do
     %User{}
     |> User.email_changeset(attrs)
     |> Repo.insert()
+  end
+
+  defp user_profile(%User{} = user) do
+    %{
+      id: to_string(user.id),
+      actor_type: :user,
+      display_name: user.email,
+      avatar: nil
+    }
+  end
+
+  defp user_profile(%Anonymous{} = anonymous) do
+    %{
+      id: anonymous.id,
+      actor_type: :anonymous,
+      display_name: anonymous.display_name,
+      avatar: anonymous.avatar
+    }
+  end
+
+  defp anonymous_profile(id) do
+    id
+    |> to_string()
+    |> Anonymous.from_id()
+    |> user_profile()
   end
 
   ## Settings

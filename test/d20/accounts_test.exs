@@ -36,15 +36,55 @@ defmodule D20.AccountsTest do
   end
 
   describe "get_user!/1" do
-    test "raises if id is invalid" do
+    test "raises if user does not exist" do
+      user = user_fixture()
+      id = user.id
+      Repo.delete!(user)
+
       assert_raise Ecto.NoResultsError, fn ->
-        Accounts.get_user!(-1)
+        Accounts.get_user!(id)
       end
     end
 
     test "returns the user with the given id" do
       %{id: id} = user = user_fixture()
       assert %User{id: ^id} = Accounts.get_user!(user.id)
+    end
+  end
+
+  describe "get_user/1" do
+    test "returns the user with the given id" do
+      %{id: id} = user = user_fixture()
+
+      assert %User{id: ^id} = Accounts.get_user(user.id)
+      assert %User{id: ^id} = Accounts.get_user(to_string(user.id))
+    end
+
+    test "returns nil for missing ids" do
+      user = user_fixture()
+      id = user.id
+      Repo.delete!(user)
+
+      refute Accounts.get_user(id)
+    end
+
+    test "raises for ids that cannot be cast to a user primary key" do
+      assert_raise Ecto.Query.CastError, fn ->
+        Accounts.get_user("not-a-typeid")
+      end
+    end
+  end
+
+  describe "get_user_or_anonymous/1" do
+    test "returns public profile data for registered user ids" do
+      user = user_fixture()
+
+      assert Accounts.get_user_or_anonymous(to_string(user.id)) == %{
+               id: to_string(user.id),
+               actor_type: :user,
+               display_name: user.email,
+               avatar: nil
+             }
     end
   end
 
@@ -80,6 +120,7 @@ defmodule D20.AccountsTest do
     test "registers users without password" do
       email = unique_user_email()
       {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+      assert user.id
       assert user.email == email
       assert is_nil(user.hashed_password)
       assert is_nil(user.confirmed_at)

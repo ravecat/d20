@@ -39,10 +39,13 @@ defmodule D20.Accounts.Anonymous do
 
   @avatar_fallback :robohash
   @avatar_size 80
+  @prefix "anon"
 
   @spec new() :: t()
   def new do
-    Ecto.UUID.generate()
+    @prefix
+    |> TypeID.new()
+    |> TypeID.to_string()
     |> from_id()
   end
 

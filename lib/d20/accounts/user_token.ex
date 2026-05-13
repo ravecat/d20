@@ -12,12 +12,15 @@ defmodule D20.Accounts.UserToken do
   @change_email_validity_in_days 7
   @session_validity_in_days 14
 
+  @foreign_key_type TypeID
+
   schema "users_tokens" do
     field :token, :binary
     field :context, :string
     field :sent_to, :string
     field :authenticated_at, :utc_datetime
-    belongs_to :user, D20.Accounts.User
+
+    belongs_to :user, D20.Accounts.User, prefix: "user"
 
     timestamps(type: :utc_datetime, updated_at: false)
   end
