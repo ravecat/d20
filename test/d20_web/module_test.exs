@@ -1,8 +1,8 @@
 defmodule D20Web.ModuleTest do
   use D20Web.ConnCase, async: true
 
+  alias D20.Accounts.Anonymous
   alias D20.Accounts.Scope
-  alias D20.Actors.Actor
   alias D20Web.Module
 
   test "requires a session id", %{conn: conn} do
@@ -11,7 +11,7 @@ defmodule D20Web.ModuleTest do
         conn,
         :current_scope,
         Scope.for_user(nil)
-        |> Scope.put_actor(Actor.new())
+        |> Scope.put_anonymous(Anonymous.new())
       )
 
     module = %{id: "qwinto"}
@@ -30,7 +30,7 @@ defmodule D20Web.ModuleTest do
         conn,
         :current_scope,
         Scope.for_user(nil)
-        |> Scope.put_actor(Actor.new(actor_id))
+        |> Scope.put_anonymous(Anonymous.from_id(actor_id))
       )
 
     module = %{id: "qwinto"}

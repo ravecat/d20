@@ -3,18 +3,21 @@ defmodule D20.Actors.ActorTest do
 
   import D20.AccountsFixtures
 
+  alias D20.Accounts.Anonymous
+  alias D20.Actors.Actor
+
   test "builds user actor from a registered user" do
     user = user_fixture()
 
-    assert D20.Actors.Actor.new(user) == %D20.Actors.Actor{id: to_string(user.id), type: :user}
+    assert Actor.new(user) == %Actor{id: to_string(user.id), type: :user}
   end
 
-  test "builds anonymous actor from an existing id" do
-    assert D20.Actors.Actor.new("actor-1") == %D20.Actors.Actor{id: "actor-1", type: :anonymous}
-  end
+  test "builds anonymous actor from anonymous profile" do
+    anonymous = Anonymous.from_id("actor-1")
 
-  test "builds anonymous actor with a generated id" do
-    assert %D20.Actors.Actor{id: id, type: :anonymous} = D20.Actors.Actor.new()
-    assert {:ok, _} = Ecto.UUID.cast(id)
+    assert Actor.new(anonymous) == %Actor{
+             id: "actor-1",
+             type: :anonymous
+           }
   end
 end

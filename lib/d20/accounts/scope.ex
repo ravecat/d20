@@ -50,7 +50,7 @@ defmodule D20.Accounts.Scope do
       scope
       | anonymous: anonymous,
         user: nil,
-        actor: Actor.new(anonymous.id)
+        actor: Actor.new(anonymous)
     }
   end
 end
