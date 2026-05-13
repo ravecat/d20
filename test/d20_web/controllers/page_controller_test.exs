@@ -82,7 +82,7 @@ defmodule D20Web.PageControllerTest do
     assert inertia_errors(conn) == %{start_session: "Game engine is not available."}
   end
 
-  test "GET /games/:slug with a waiting session does not attach iframe bootstrap", %{conn: conn} do
+  test "GET /games/:slug with a waiting session attaches iframe bootstrap", %{conn: conn} do
     assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
     session_id = session.id
 
@@ -96,7 +96,8 @@ defmodule D20Web.PageControllerTest do
     assert session.id == session_id
     assert session.phase == :waiting_for_players
     assert session.members == %{}
-    refute Map.has_key?(module, :bootstrap)
+    assert module[:bootstrap][:moduleId] == "qwinto"
+    assert module[:bootstrap][:topic] == "session:#{session_id}"
   end
 
   test "GET /games/:slug with an in-progress session attaches iframe bootstrap", %{conn: conn} do

@@ -54,7 +54,7 @@ defmodule D20Web.PageController do
       {:ok, %{engine: engine} = session} ->
         if engine == playable_context.engine do
           {
-            maybe_put_bootstrap(conn, playable_context.module_entry, session.id, session),
+            put_bootstrap(conn, playable_context.module_entry, session.id),
             session
           }
         else
@@ -69,15 +69,13 @@ defmodule D20Web.PageController do
   defp resolve_session_view(_conn, playable_context, _session_id),
     do: {playable_context.module_entry, nil}
 
-  defp maybe_put_bootstrap(conn, module_entry, session_id, %{phase: :in_progress}) do
+  defp put_bootstrap(conn, module_entry, session_id) do
     Map.put(
       module_entry,
       :bootstrap,
       D20Web.Module.bootstrap(conn, module_entry, session_id: session_id)
     )
   end
-
-  defp maybe_put_bootstrap(_conn, module_entry, _session_id, _session), do: module_entry
 
   defp redirect_with_start_error(conn, slug, message) do
     conn

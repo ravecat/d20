@@ -48,7 +48,7 @@
 
       {#if session}
         {#key session.id}
-          <SessionPanel {module} {session} />
+          <SessionPanel {module} id={session.id} />
         {/key}
       {:else}
         <div class="mt-8 border-t border-base-300 pt-5">
