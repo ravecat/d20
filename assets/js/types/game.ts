@@ -17,6 +17,9 @@ export interface GameMetadata {
 
 export interface SessionMember {
   online_at: number;
+  actor_type?: "anonymous" | "user";
+  display_name?: string;
+  avatar?: string | null;
 }
 
 export interface Session<TGame = unknown> {

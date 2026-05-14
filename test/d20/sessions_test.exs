@@ -1,5 +1,5 @@
 defmodule D20.SessionsTest do
-  use ExUnit.Case, async: true
+  use D20.DataCase, async: false
 
   alias D20.Sessions
   alias D20.Sessions.Server
@@ -83,7 +83,16 @@ defmodule D20.SessionsTest do
                )
 
       assert {:ok, session} = Sessions.get(id)
-      assert session.members["p2"] == %{online_at: 123}
+
+      assert %{
+               online_at: 123,
+               actor_type: :anonymous,
+               display_name: display_name,
+               avatar: avatar
+             } = session.members["p2"]
+
+      assert is_binary(display_name)
+      assert is_binary(avatar)
 
       assert {:ok, %{}} =
                Presence.handle_metas(

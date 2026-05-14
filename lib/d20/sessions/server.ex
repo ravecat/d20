@@ -5,6 +5,7 @@ defmodule D20.Sessions.Server do
 
   use GenServer, restart: :temporary
 
+  alias D20.Accounts
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
@@ -61,7 +62,16 @@ defmodule D20.Sessions.Server do
   end
 
   @impl true
-  def handle_info({:join, actor_id, member_attrs}, session) do
+  def handle_info({:join, actor_id, %{online_at: online_at}}, session) do
+    profile = Accounts.get_user_or_anonymous(actor_id)
+
+    member_attrs = %{
+      online_at: online_at,
+      actor_type: profile.actor_type,
+      display_name: profile.display_name,
+      avatar: profile.avatar
+    }
+
     handle_presence_event(session, "join", actor_id, member_attrs)
   end
 

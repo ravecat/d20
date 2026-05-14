@@ -15,10 +15,12 @@ defmodule D20Web.Presence do
 
   def handle_metas(topic, %{joins: joins, leaves: leaves}, presences, state) do
     for {actor_id, presence} <- joins do
+      %{metas: [member_attrs | _]} = presence
+
       Phoenix.PubSub.local_broadcast(
         D20.PubSub,
         presence_topic(topic),
-        {:join, actor_id, member_attrs(presence)}
+        {:join, actor_id, member_attrs}
       )
     end
 
@@ -35,15 +37,6 @@ defmodule D20Web.Presence do
 
   def subscribe(topic) do
     Phoenix.PubSub.subscribe(D20.PubSub, presence_topic(topic))
-  end
-
-  defp member_attrs(%{metas: [%{online_at: online_at} | _]})
-       when is_integer(online_at) and online_at >= 0 do
-    %{online_at: online_at}
-  end
-
-  defp member_attrs(_presence) do
-    %{online_at: System.system_time(:second)}
   end
 
   defp present?(presences, actor_id) do

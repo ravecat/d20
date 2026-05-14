@@ -1,6 +1,8 @@
 defmodule D20Web.SessionChannelTest do
   use D20Web.ChannelCase, async: false
 
+  import D20.AccountsFixtures
+
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
@@ -19,7 +21,16 @@ defmodule D20Web.SessionChannelTest do
     assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
 
     assert_push "projection", %Session{members: members}
-    assert members[actor_id] == %{online_at: tracked_online_at}
+
+    assert %{
+             online_at: ^tracked_online_at,
+             actor_type: :anonymous,
+             display_name: display_name,
+             avatar: avatar
+           } = members[actor_id]
+
+    assert is_binary(display_name)
+    assert is_binary(avatar)
 
     assert %{
              ^actor_id => %{metas: [%{online_at: ^tracked_online_at}]}
@@ -28,18 +39,37 @@ defmodule D20Web.SessionChannelTest do
     assert is_integer(tracked_online_at)
 
     assert {:ok, session} = D20.Sessions.get(session_id)
-    assert session.members[actor_id] == %{online_at: tracked_online_at}
+
+    assert %{
+             online_at: ^tracked_online_at,
+             actor_type: :anonymous,
+             display_name: display_name,
+             avatar: avatar
+           } = session.members[actor_id]
+
+    assert is_binary(display_name)
+    assert is_binary(avatar)
   end
 
-  test "page session topic tracks authenticated actor presence by id" do
-    actor = %{id: "42", type: :user}
+  test "page session topic tracks authenticated actor profile by id" do
+    user = user_fixture()
+    actor = %{id: to_string(user.id), type: :user}
     session_id = create_runtime_session(actor.id)
 
     assert {:ok, %Session{members: %{}}, _socket} =
              join_page_session_channel(session_id, actor)
 
-    assert_push "projection", %Session{members: %{"42" => %{online_at: online_at}}}
+    assert_push "projection", %Session{members: members}
+
+    assert %{
+             online_at: online_at,
+             actor_type: :user,
+             display_name: display_name,
+             avatar: nil
+           } = members[actor.id]
+
     assert is_integer(online_at)
+    assert display_name == user.email
   end
 
   test "page session topic rejects missing sessions" do
@@ -102,6 +132,11 @@ defmodule D20Web.SessionChannelTest do
 
   defp create_runtime_session(owner_id) do
     assert {:ok, session} = D20.Sessions.create("qwinto", owner_id)
+
+    on_exit(fn ->
+      D20.Sessions.stop(session.id)
+    end)
+
     session.id
   end
 

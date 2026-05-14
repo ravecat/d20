@@ -86,6 +86,17 @@ defmodule D20.AccountsTest do
                avatar: nil
              }
     end
+
+    test "returns deterministic anonymous profile data for unknown actor ids" do
+      id = "anon_profile_test"
+
+      assert %{id: ^id, actor_type: :anonymous, display_name: display_name, avatar: avatar} =
+               Accounts.get_user_or_anonymous(id)
+
+      assert is_binary(display_name)
+      assert is_binary(avatar)
+      assert Accounts.get_user_or_anonymous(id) == Accounts.get_user_or_anonymous(id)
+    end
   end
 
   describe "register_user/1" do

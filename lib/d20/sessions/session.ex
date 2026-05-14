@@ -16,7 +16,12 @@ defmodule D20.Sessions.Session do
   @type id :: Ecto.UUID.t()
   @type phase :: :waiting_for_players | :in_progress | :finished
   @type player_id :: String.t()
-  @type member :: %{required(:online_at) => non_neg_integer()}
+  @type member :: %{
+          required(:online_at) => non_neg_integer(),
+          optional(:actor_type) => :anonymous | :user,
+          optional(:display_name) => String.t(),
+          optional(:avatar) => String.t() | nil
+        }
   @type members :: %{optional(player_id()) => member()}
   @type event :: String.t()
   @type engine_reason :: term()
@@ -68,11 +73,15 @@ defmodule D20.Sessions.Session do
   def dispatch(
         %__MODULE__{phase: phase} = session,
         "join",
-        %{player_id: player_id, online_at: online_at}
+        %{player_id: player_id, online_at: _online_at} = attrs
       )
-      when phase in [:waiting_for_players, :in_progress] and is_player_id(player_id) and
-             is_integer(online_at) and online_at >= 0 do
-    join(session, player_id, %{online_at: online_at})
+      when phase in [:waiting_for_players, :in_progress] do
+    with {:ok, game} <- session.engine.dispatch(session.game, "join", %{player_id: player_id}) do
+      member = Map.delete(attrs, :player_id)
+      members = Map.put(session.members, player_id, member)
+
+      {:ok, maybe_finish(%{session | game: game, members: members})}
+    end
   end
 
   def dispatch(%__MODULE__{phase: phase}, "join", %{player_id: player_id})
@@ -126,13 +135,6 @@ defmodule D20.Sessions.Session do
   end
 
   def dispatch(%__MODULE__{}, _event, _attrs), do: {:error, :invalid_phase}
-
-  defp join(%__MODULE__{} = session, player_id, member) do
-    with {:ok, game} <- session.engine.dispatch(session.game, "join", %{player_id: player_id}) do
-      {:ok,
-       maybe_finish(%{session | game: game, members: Map.put(session.members, player_id, member)})}
-    end
-  end
 
   defp leave(%__MODULE__{} = session, player_id) do
     case Map.fetch(session.members, player_id) do
