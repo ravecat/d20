@@ -11,6 +11,11 @@ type SessionChannelSpec = {
   events: {
     projection: Session;
   };
+  actions: {
+    start: {
+      error: { reason?: string };
+    };
+  };
 };
 
 export type SessionStore = ReturnType<typeof createSession>;

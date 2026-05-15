@@ -12,9 +12,6 @@
   const { module, id }: Props = $props();
   const session = createSession(untrack(() => id));
 
-  let starting = $state(false);
-  let startError = $state<string | null>(null);
-
   const members = $derived(
     Object.entries($session.value?.members ?? {}).map(([id, member]) => {
       const name = member.display_name || "Player";
@@ -31,22 +28,7 @@
   const phase = $derived($session.value?.phase);
 
   function handleStart() {
-    starting = true;
-    startError = null;
-
-    session
-      .start()
-      .receive("ok", () => {
-        starting = false;
-      })
-      .receive("error", (reply: { reason?: string }) => {
-        starting = false;
-        startError = reply.reason ?? "start_failed";
-      })
-      .receive("timeout", () => {
-        starting = false;
-        startError = "timeout";
-      });
+    session.start();
   }
 </script>
 
@@ -56,11 +38,11 @@
       <button
         class="inline-flex min-h-10 min-w-20 flex-none items-center justify-center gap-2 rounded-sm border border-base-content bg-base-content px-3 py-2 text-sm font-medium text-base-100 transition-colors hover:bg-base-content/85 focus:outline-none focus:ring-2 focus:ring-base-content/40 disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
-        disabled={starting}
-        aria-busy={starting}
+        disabled={$session.processing.start}
+        aria-busy={$session.processing.start}
         onclick={handleStart}
       >
-        {#if starting}
+        {#if $session.processing.start}
           <span
             class="size-3 animate-spin rounded-full border-2 border-base-100/35 border-t-base-100"
             aria-hidden="true"
@@ -71,8 +53,10 @@
     {/if}
 
     <div class="min-w-0 flex-1">
-      {#if startError}
-        <p class="mb-3 text-sm text-error">{startError}</p>
+      {#if $session.timeouts.start}
+        <p class="mb-3 text-sm text-error">timeout</p>
+      {:else if $session.errors.start.reason}
+        <p class="mb-3 text-sm text-error">{$session.errors.start.reason}</p>
       {/if}
 
       {#if status === "loading"}
