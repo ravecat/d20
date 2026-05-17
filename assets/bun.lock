@@ -5,7 +5,7 @@
     "": {
       "dependencies": {
         "@inertiajs/svelte": "2.3.21",
-        "@rvct/phoenix": "1.0.0-beta.2",
+        "@rvct/phoenix": "1.1.0-beta.1",
         "phoenix": "file:../deps/phoenix",
         "phoenix_html": "file:../deps/phoenix_html",
         "phoenix_live_view": "file:../deps/phoenix_live_view",
@@ -494,7 +494,7 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.60.2", "", { "os": "win32", "cpu": "x64" }, "sha512-Nd/SgG27WoA9e+/TdK74KnHz852TLa94ovOYySo/yMPuTmpckK/jIF2jSwS3g7ELSKXK13/cVdmg1Z/DaCWKxA=="],
 
-    "@rvct/phoenix": ["@rvct/phoenix@1.0.0-beta.2", "", { "dependencies": { "@types/phoenix": "^1.6.7", "nanostores": "^1.0.1" } }, "sha512-y7WEJM5eeFm74OR5mY7yoiTm1UTrg52JRhTOZlyrOU7j1qV8zJJGmXym9C6TWbr6UWDlvC3jRHqo9IELhEiO/w=="],
+    "@rvct/phoenix": ["@rvct/phoenix@1.1.0-beta.1", "", { "dependencies": { "@types/phoenix": "^1.6.7", "nanostores": "^1.0.1" } }, "sha512-nWIO/x63rKulIwKPyDi0SJP1G2V2l1g4VI33KqWvM8dtbw+Ou1g5nIdOom7gAf4pHCgR3sciffOLCNFI8bNUcg=="],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.49", "", {}, "sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A=="],
 
