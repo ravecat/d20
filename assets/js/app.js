@@ -21,7 +21,6 @@ import "vite/modulepreload-polyfill";
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 import { createInertiaApp } from "@inertiajs/svelte";
-import axios from "axios";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
@@ -31,7 +30,6 @@ import topbar from "topbar";
 import Layout from "~components/layout.svelte";
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-axios.defaults.headers.common["x-csrf-token"] = csrfToken;
 
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
@@ -63,6 +61,15 @@ if (inertiaRoot) {
     progress: {
       delay: 250,
       color: "#29d",
+    },
+    defaults: {
+      visitOptions: (_href, options) => ({
+        ...options,
+        headers: {
+          ...options.headers,
+          "x-csrf-token": csrfToken,
+        },
+      }),
     },
     resolve: (name) => {
       const page = pages[`./pages/${name}.svelte`];

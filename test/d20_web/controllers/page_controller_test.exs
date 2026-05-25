@@ -96,7 +96,9 @@ defmodule D20Web.PageControllerTest do
     assert session.id == session_id
     assert session.phase == :waiting_for_players
     assert session.members == %{}
-    assert module[:bootstrap][:moduleId] == "qwinto"
+    refute Map.has_key?(module[:bootstrap], :moduleId)
+    refute Map.has_key?(module[:bootstrap], :socketUrl)
+    assert module[:bootstrap][:endpoint] == "ws://www.example.com/module"
     assert module[:bootstrap][:topic] == "session:#{session_id}"
   end
 
@@ -119,7 +121,9 @@ defmodule D20Web.PageControllerTest do
     assert session.id == session_id
     assert session.phase == :in_progress
     assert session.members == %{"p2" => %{online_at: 123}}
-    assert module[:bootstrap][:moduleId] == "qwinto"
+    refute Map.has_key?(module[:bootstrap], :moduleId)
+    refute Map.has_key?(module[:bootstrap], :socketUrl)
+    assert module[:bootstrap][:endpoint] == "ws://www.example.com/module"
     assert module[:bootstrap][:topic] == "session:#{session_id}"
   end
 end

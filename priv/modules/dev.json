@@ -6,7 +6,6 @@
       "game": "qwinto",
       "entry": "http://localhost:5173",
       "allowedOrigins": ["http://localhost:5173"],
-      "trust": "owned-isolated",
       "sandbox": ["allow-scripts", "allow-same-origin"]
     }
   ]

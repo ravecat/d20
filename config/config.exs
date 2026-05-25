@@ -21,7 +21,7 @@ config :d20, :scopes,
   ]
 
 config :bun,
-  version: "1.2.16",
+  version: "1.3.13",
   assets: [args: [], cd: Path.expand("../assets", __DIR__)],
   vite: [
     args: ~w(x vite),

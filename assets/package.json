@@ -1,4 +1,5 @@
 {
+  "private": true,
   "scripts": {
     "check": "biome ci .",
     "format": "biome check --write .",
@@ -8,7 +9,8 @@
   },
   "dependencies": {
     "@inertiajs/svelte": "2.3.21",
-    "@rvct/phoenix": "1.1.0-beta.1",
+    "@rvct/d20sdk": "^1.0.0",
+    "@rvct/phoenix": "1.2.0",
     "phoenix": "file:../deps/phoenix",
     "phoenix_html": "file:../deps/phoenix_html",
     "phoenix_live_view": "file:../deps/phoenix_live_view",

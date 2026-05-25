@@ -10,9 +10,8 @@ defmodule D20Web.Module do
   @socket_path "/module"
 
   @type bootstrap :: %{
-          required(:module_id) => String.t(),
           required(:topic) => String.t(),
-          required(:socket_url) => String.t(),
+          required(:endpoint) => String.t(),
           required(:token) => String.t()
         }
 
@@ -24,15 +23,14 @@ defmodule D20Web.Module do
     actor = conn.assigns.current_scope.actor
 
     %{
-      module_id: module.id,
       topic: SessionChannel.topic(session_id),
-      socket_url: module_socket_url(conn),
+      endpoint: module_endpoint(conn),
       token: module_token(module, session_id, actor)
     }
   end
 
-  @spec module_socket_url(Plug.Conn.t()) :: String.t()
-  defp module_socket_url(conn) do
+  @spec module_endpoint(Plug.Conn.t()) :: String.t()
+  defp module_endpoint(conn) do
     conn
     |> Plug.Conn.request_url()
     |> URI.parse()

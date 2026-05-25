@@ -35,8 +35,16 @@ defmodule D20Web.ModuleTest do
 
     module = %{id: "qwinto"}
 
-    assert %{topic: "session:" <> ^session_id, token: token} =
+    assert %{
+             endpoint: "ws://www.example.com/module",
+             topic: "session:" <> ^session_id,
+             token: token
+           } =
+             bootstrap =
              Module.bootstrap(conn, module, session_id: session_id)
+
+    refute Map.has_key?(bootstrap, :module_id)
+    refute Map.has_key?(bootstrap, :socket_url)
 
     assert {:ok,
             %{
