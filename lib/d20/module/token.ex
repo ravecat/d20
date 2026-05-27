@@ -12,7 +12,12 @@ defmodule D20.Module.Token do
           required(:session_id) => String.t()
         }
 
-  @type context :: module() | Phoenix.Socket.t()
+  @type context :: Phoenix.Token.context()
+
+  defguardp valid_claims?(claims)
+            when is_map(claims) and is_binary(claims.actor_id) and
+                   claims.actor_type in [:user, :anonymous] and is_binary(claims.module_id) and
+                   is_binary(claims.session_id)
 
   @spec sign(context(), claims()) :: String.t()
   def sign(context, claims) when is_map(claims) do
@@ -22,15 +27,7 @@ defmodule D20.Module.Token do
   @spec verify(context(), String.t()) :: {:ok, claims()} | {:error, term()}
   def verify(context, token) when is_binary(token) do
     case Phoenix.Token.verify(context, salt(), token, max_age: max_age()) do
-      {:ok,
-       %{
-         actor_id: actor_id,
-         actor_type: actor_type,
-         module_id: module_id,
-         session_id: session_id
-       } = claims}
-      when is_binary(actor_id) and actor_type in [:user, :anonymous] and is_binary(module_id) and
-             is_binary(session_id) ->
+      {:ok, claims} when valid_claims?(claims) ->
         {:ok, claims}
 
       {:ok, _claims} ->

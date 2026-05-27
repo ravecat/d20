@@ -8,11 +8,13 @@ defmodule D20Web.SessionChannel do
 
   @impl true
   def join("session:" <> session_id, _payload, socket) do
-    with {:ok, session} <- Sessions.get(session_id) do
+    with :ok <- authorize_topic(socket, session_id),
+         {:ok, session} <- Sessions.get(session_id) do
       send(self(), :after_join)
 
       {:ok, session, socket}
     else
+      {:error, :forbidden} -> {:error, %{reason: "forbidden"}}
       {:error, :session_not_found} -> {:error, %{reason: "session_not_found"}}
       {:error, reason} when is_atom(reason) -> {:error, %{reason: Atom.to_string(reason)}}
       {:error, reason} -> {:error, %{reason: inspect(reason)}}
@@ -60,6 +62,16 @@ defmodule D20Web.SessionChannel do
   defp put_actor_attrs(_socket, _event, attrs), do: attrs
 
   defp actor_id(%{assigns: %{actor: actor}}), do: actor.id
+
+  defp authorize_topic(%{assigns: %{module: %{session_id: session_id}}}, session_id) do
+    :ok
+  end
+
+  defp authorize_topic(%{assigns: %{module: _module}}, _session_id) do
+    {:error, :forbidden}
+  end
+
+  defp authorize_topic(_socket, _session_id), do: :ok
 
   defp session_id(socket) do
     "session:" <> session_id = socket.topic

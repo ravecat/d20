@@ -4,6 +4,7 @@ defmodule D20Web.SessionChannelTest do
   import D20.AccountsFixtures
 
   alias D20.Sessions.Session
+  alias D20Web.ModuleSocket
   alias D20Web.Presence
   alias D20Web.SessionChannel
   alias D20Web.UserSocket
@@ -79,6 +80,34 @@ defmodule D20Web.SessionChannelTest do
              join_page_session_channel(Ecto.UUID.generate(), actor)
   end
 
+  test "module session topic accepts signed module tokens" do
+    actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+    session_id = create_runtime_session(actor.id)
+
+    assert {:ok, socket} = connect_module_socket(session_id, actor)
+
+    assert socket.assigns.actor == actor
+    assert socket.assigns.module.session_id == session_id
+    assert socket.assigns.module.module_id == "qwinto"
+
+    assert {:ok, %Session{id: ^session_id}, _socket} =
+             subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
+
+    assert_push "projection", %Session{members: members}
+    assert %{actor_type: :anonymous} = members[actor.id]
+  end
+
+  test "module session topic rejects tokens for another session" do
+    actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+    session_id = create_runtime_session(actor.id)
+    other_session_id = create_runtime_session(Ecto.UUID.generate())
+
+    assert {:ok, socket} = connect_module_socket(session_id, actor)
+
+    assert {:error, %{reason: "forbidden"}} =
+             subscribe_and_join(socket, SessionChannel.topic(other_session_id), %{})
+  end
+
   test "page session command dispatches with actor id" do
     actor = %{id: Ecto.UUID.generate(), type: :anonymous}
     actor_id = actor.id
@@ -144,5 +173,17 @@ defmodule D20Web.SessionChannelTest do
     UserSocket
     |> socket(actor.id, %{actor: actor})
     |> subscribe_and_join(SessionChannel, SessionChannel.topic(session_id), %{})
+  end
+
+  defp connect_module_socket(session_id, actor) do
+    token =
+      D20.Module.Token.sign(D20Web.Endpoint, %{
+        actor_id: actor.id,
+        actor_type: actor.type,
+        module_id: "qwinto",
+        session_id: session_id
+      })
+
+    connect(ModuleSocket, %{}, connect_info: %{auth_token: token})
   end
 end
