@@ -19,7 +19,7 @@ defmodule D20.Sessions do
   @spec create(String.t(), Session.player_id()) ::
           {:ok, Session.t()} | {:error, reason()}
   def create(game_slug, owner_id) when is_binary(game_slug) do
-    with {:ok, %{engine: engine}} <- Games.fetch_playable_context_by_slug(game_slug),
+    with {:ok, %{engine: engine}} <- Games.fetch_context_by_slug(game_slug),
          {:ok, session} <- Session.new(engine, owner_id),
          {:ok, _pid} <- start_child(session) do
       {:ok, session}

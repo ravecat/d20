@@ -3,7 +3,7 @@ defmodule D20.Module.Manifest do
   Loads iframe module entries from project-scoped manifests.
   """
 
-  @type module_entry :: %{
+  @type entry :: %{
           required(:id) => String.t(),
           required(:title) => String.t(),
           required(:game) => String.t(),
@@ -12,13 +12,13 @@ defmodule D20.Module.Manifest do
           required(:sandbox) => [String.t()]
         }
 
-  @spec list() :: [module_entry()]
+  @spec list() :: [entry()]
   def list do
     manifest_entries()
     |> Enum.map(&normalize!/1)
   end
 
-  @spec fetch(String.t()) :: {:ok, module_entry()} | {:error, :module_not_found}
+  @spec fetch(String.t()) :: {:ok, entry()} | {:error, :module_not_found}
   def fetch(id) when is_binary(id) do
     list()
     |> Enum.find(&(&1.id == id))

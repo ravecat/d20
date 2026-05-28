@@ -12,12 +12,12 @@ defmodule D20Web.PageController do
   end
 
   def game(conn, %{"slug" => slug} = params) do
-    with {:ok, playable_context} <- D20.Games.fetch_playable_context_by_slug(slug) do
-      {module_entry, session} = resolve_session_view(conn, playable_context, params["session"])
+    with {:ok, game_context} <- D20.Games.fetch_context_by_slug(slug) do
+      {module_manifest, session} = resolve_session_view(conn, game_context, params["session"])
 
       conn
-      |> assign_prop(:module, module_entry)
-      |> assign_prop(:game, Map.from_struct(playable_context.game))
+      |> assign_prop(:module, module_manifest)
+      |> assign_prop(:game, Map.from_struct(game_context.game))
       |> assign_prop(:session, session)
       |> render_inertia("game")
     else
@@ -49,31 +49,31 @@ defmodule D20Web.PageController do
     end
   end
 
-  defp resolve_session_view(conn, playable_context, session_id) when is_binary(session_id) do
+  defp resolve_session_view(conn, game_context, session_id) when is_binary(session_id) do
     case D20.Sessions.get(session_id) do
       {:ok, %{engine: engine} = session} ->
-        if engine == playable_context.engine do
+        if engine == game_context.engine do
           {
-            put_bootstrap(conn, playable_context.module_entry, session.id),
+            put_bootstrap(conn, game_context.manifest, session.id),
             session
           }
         else
-          {playable_context.module_entry, nil}
+          {game_context.manifest, nil}
         end
 
       {:error, :session_not_found} ->
-        {playable_context.module_entry, nil}
+        {game_context.manifest, nil}
     end
   end
 
-  defp resolve_session_view(_conn, playable_context, _session_id),
-    do: {playable_context.module_entry, nil}
+  defp resolve_session_view(_conn, game_context, _session_id),
+    do: {game_context.manifest, nil}
 
-  defp put_bootstrap(conn, module_entry, session_id) do
+  defp put_bootstrap(conn, manifest, session_id) do
     Map.put(
-      module_entry,
+      manifest,
       :bootstrap,
-      D20Web.Module.bootstrap(conn, module_entry, session_id: session_id)
+      D20Web.Module.bootstrap(conn, manifest, session_id: session_id)
     )
   end
 

@@ -9,9 +9,18 @@ defmodule D20.Games do
   alias D20.Games.Game
   alias D20.Module.Manifest
 
-  @type playable_context :: %{
+  @typedoc """
+  Server-side context required to display and run a game.
+
+  Fields:
+
+  - `:game` - product metadata for the game page.
+  - `:manifest` - iframe module manifest used by the web shell.
+  - `:engine` - runtime game engine module used by sessions.
+  """
+  @type context :: %{
           required(:game) => Game.t(),
-          required(:module_entry) => Manifest.module_entry(),
+          required(:manifest) => Manifest.entry(),
           required(:engine) => module()
         }
 
@@ -43,14 +52,21 @@ defmodule D20.Games do
     end
   end
 
-  @spec fetch_playable_context_by_slug(String.t()) ::
-          {:ok, playable_context()}
+  @doc """
+  Fetches the server-side context for a game slug.
+
+  The context joins project game metadata, the matching iframe module manifest
+  entry, and the runtime engine module. It is a server API shape, not a client
+  page payload.
+  """
+  @spec fetch_context_by_slug(String.t()) ::
+          {:ok, context()}
           | {:error, :game_not_found | :module_not_found | :engine_not_found}
-  def fetch_playable_context_by_slug(slug) when is_binary(slug) do
+  def fetch_context_by_slug(slug) when is_binary(slug) do
     with {:ok, %Game{} = game} <- fetch_by_slug(slug),
-         {:ok, module_entry} <- Manifest.fetch(game.slug),
-         {:ok, engine} <- Manifest.fetch_engine(module_entry.id) do
-      {:ok, %{game: game, module_entry: module_entry, engine: engine}}
+         {:ok, manifest} <- Manifest.fetch(game.slug),
+         {:ok, engine} <- Manifest.fetch_engine(manifest.id) do
+      {:ok, %{game: game, manifest: manifest, engine: engine}}
     else
       {:error, :not_found} -> {:error, :game_not_found}
       {:error, reason} -> {:error, reason}

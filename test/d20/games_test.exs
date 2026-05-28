@@ -13,14 +13,14 @@ defmodule D20.GamesTest do
 
   test "returns not found for unknown games" do
     assert Games.fetch_by_slug("missing") == {:error, :not_found}
-    assert Games.fetch_playable_context_by_slug("missing") == {:error, :game_not_found}
+    assert Games.fetch_context_by_slug("missing") == {:error, :game_not_found}
   end
 
   test "resolves a game slug to metadata, iframe module entry, and engine" do
-    assert {:ok, playable_context} = Games.fetch_playable_context_by_slug("qwinto")
-    assert playable_context.game.slug == "qwinto"
-    assert playable_context.module_entry.id == "qwinto"
-    assert playable_context.engine == D20.Qwinto.Game
+    assert {:ok, game_context} = Games.fetch_context_by_slug("qwinto")
+    assert game_context.game.slug == "qwinto"
+    assert game_context.manifest.id == "qwinto"
+    assert game_context.engine == D20.Qwinto.Game
   end
 
   test "returns engine not found when a playable game has no configured engine" do
@@ -36,6 +36,6 @@ defmodule D20.GamesTest do
       Application.put_env(:d20, D20.Module.Manifest, manifest_config)
     end)
 
-    assert Games.fetch_playable_context_by_slug("qwinto") == {:error, :engine_not_found}
+    assert Games.fetch_context_by_slug("qwinto") == {:error, :engine_not_found}
   end
 end
