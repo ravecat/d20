@@ -10,7 +10,7 @@
   }
 
   const { module, id }: Props = $props();
-  const session = createSession(untrack(() => id));
+  const session = createSession(untrack(() => `session:${id}`));
 
   const members = $derived(
     Object.entries($session.value?.members ?? {}).map(([id, member]) => {
@@ -55,7 +55,7 @@
     <div class="min-w-0 flex-1">
       {#if $session.timeouts.start}
         <p class="mb-3 text-sm text-error">timeout</p>
-      {:else if $session.errors.start.reason}
+      {:else if $session.errors.start?.reason}
         <p class="mb-3 text-sm text-error">{$session.errors.start.reason}</p>
       {/if}
 

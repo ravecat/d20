@@ -1,37 +1,27 @@
 import { session } from "@rvct/phoenix";
 import socket from "~/user_socket.js";
 
-type CursorPoint = {
+type Cursor = {
   id: string;
   x: number;
   y: number;
 };
 
-type CursorProjection = CursorPoint[];
-
-type CursorProjectionPayload = {
-  cursors: CursorProjection;
+type CursorsPayload = {
+  cursors: Cursor[];
 };
 
-type CursorSessionSpec = {
-  value: CursorProjection;
-  connect: { ok: CursorProjectionPayload };
-  events: {
-    projection: CursorProjectionPayload;
-  };
-};
-
-export const cursors = session<CursorSessionSpec>(socket, {
+export const cursors = session<Cursor[]>(socket, {
   topic: "cursors",
   value: [],
   connect: {
-    ok: (_value, projection) => projection.cursors,
+    ok: (_value, projection: CursorsPayload) => projection.cursors,
   },
   events: {
-    projection: (_value, projection) => projection.cursors,
+    projection: (_value, projection: CursorsPayload) => projection.cursors,
   },
-}).extend(({ push }) => ({
+}).extend(({ cast }) => ({
   move(point: { x: number; y: number }) {
-    push("move", point);
+    cast("move", point);
   },
 }));

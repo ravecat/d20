@@ -2,36 +2,22 @@ import { session } from "@rvct/phoenix";
 import socket from "~/user_socket.js";
 import type { Session } from "~types/game";
 
-type SessionChannelSpec = {
-  value: Session;
-  connect: {
-    ok: Session;
-    error: { reason?: string };
-  };
-  events: {
-    projection: Session;
-  };
-  actions: {
-    start: {
-      error: { reason?: string };
-    };
-  };
+type StartError = {
+  reason?: string;
 };
 
-export type SessionStore = ReturnType<typeof createSession>;
-
-export function createSession(id: string) {
-  return session<SessionChannelSpec>(socket, {
-    topic: `session:${id}`,
+export function createSession(topic: string) {
+  return session<Session>(socket, {
+    topic,
     connect: {
-      ok: (_value, state) => state,
+      ok: (_value, state: Session) => state,
     },
     events: {
-      projection: (_value, state) => state,
+      projection: (_value, state: Session) => state,
     },
-  }).extend(({ push }) => ({
+  }).extend(({ call }) => ({
     start() {
-      return push("start", {});
+      return call<unknown, StartError>("start", {});
     },
   }));
 }
