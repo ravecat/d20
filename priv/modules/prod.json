@@ -1,7 +1,6 @@
 {
   "qwinto": {
     "entry": "https://qwinto.modules.example.com/",
-    "allowedOrigins": ["https://qwinto.modules.example.com"],
     "sandbox": ["allow-scripts", "allow-same-origin"]
   }
 }

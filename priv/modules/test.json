@@ -1,7 +1,6 @@
 {
   "qwinto": {
     "entry": "http://localhost:5173",
-    "allowedOrigins": ["http://localhost:5173"],
     "sandbox": ["allow-scripts", "allow-same-origin"]
   }
 }

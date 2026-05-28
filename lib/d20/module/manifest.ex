@@ -37,17 +37,31 @@ defmodule D20.Module.Manifest do
          slug,
          %{
            "entry" => entry,
-           "allowedOrigins" => allowed_origins,
            "sandbox" => sandbox
          }
        )
-       when is_binary(slug) and is_binary(entry) and is_list(allowed_origins) and is_list(sandbox) do
+       when is_binary(slug) and is_binary(entry) and is_list(sandbox) do
     %{
       slug: slug,
       embed_url: entry,
-      allowed_origins: allowed_origins,
+      allowed_origins: [origin!(entry)],
       sandbox: sandbox
     }
+  end
+
+  defp origin!(entry) do
+    case URI.parse(entry) do
+      %URI{scheme: scheme, host: host} = uri when is_binary(scheme) and is_binary(host) ->
+        uri
+        |> Map.put(:path, nil)
+        |> Map.put(:query, nil)
+        |> Map.put(:fragment, nil)
+        |> Map.put(:userinfo, nil)
+        |> URI.to_string()
+
+      _uri ->
+        raise ArgumentError, "invalid iframe entry URL #{inspect(entry)}"
+    end
   end
 
   defp path do
