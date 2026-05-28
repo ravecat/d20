@@ -13,8 +13,7 @@ defmodule D20.DiceTest do
     end
 
     test "rolls heterogeneous keyword roll sets" do
-      assert {:ok, %{sum: sum, d6: d6_values, d10: d10_values}} =
-               Dice.roll(d6: 3, d10: 2)
+      assert {:ok, %{sum: sum, d6: d6_values, d10: d10_values}} = Dice.roll(d6: 3, d10: 2)
 
       assert length(d6_values) == 3
       assert Enum.all?(d6_values, &(&1 in 1..6))

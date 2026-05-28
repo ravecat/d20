@@ -51,10 +51,7 @@ defmodule D20Web.PageControllerTest do
   test "POST /games/:slug/sessions creates a session and redirects to shareable URL", %{
     conn: conn
   } do
-    conn =
-      conn
-      |> put_req_header("x-inertia", "true")
-      |> post(~p"/games/qwinto/sessions")
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
     assert redirected_to(conn, 303) =~ ~r"^/games/qwinto\?session="
   end
@@ -64,20 +61,11 @@ defmodule D20Web.PageControllerTest do
   } do
     manifest_config = Application.fetch_env!(:d20, D20.Module.Manifest)
 
-    Application.put_env(
-      :d20,
-      D20.Module.Manifest,
-      Keyword.put(manifest_config, :engines, [])
-    )
+    Application.put_env(:d20, D20.Module.Manifest, Keyword.put(manifest_config, :engines, []))
 
-    on_exit(fn ->
-      Application.put_env(:d20, D20.Module.Manifest, manifest_config)
-    end)
+    on_exit(fn -> Application.put_env(:d20, D20.Module.Manifest, manifest_config) end)
 
-    conn =
-      conn
-      |> put_req_header("x-inertia", "true")
-      |> post(~p"/games/qwinto/sessions")
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
     assert redirected_to(conn, 303) == ~p"/games/qwinto"
     assert inertia_errors(conn) == %{start_session: "Game engine is not available."}
@@ -87,9 +75,7 @@ defmodule D20Web.PageControllerTest do
     assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
     session_id = session.id
 
-    on_exit(fn ->
-      D20.Sessions.stop(session_id)
-    end)
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
@@ -107,9 +93,7 @@ defmodule D20Web.PageControllerTest do
     assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
     session_id = session.id
 
-    on_exit(fn ->
-      D20.Sessions.stop(session_id)
-    end)
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
 
     assert {:ok, _session} =
              D20.Sessions.dispatch(session_id, "join", %{player_id: "p2", online_at: 123})

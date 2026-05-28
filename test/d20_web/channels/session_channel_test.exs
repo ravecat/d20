@@ -16,8 +16,7 @@ defmodule D20Web.SessionChannelTest do
 
     :ok = Presence.subscribe(SessionChannel.topic(session_id))
 
-    assert {:ok, %Session{members: %{}}, socket} =
-             join_page_session_channel(session_id, actor)
+    assert {:ok, %Session{members: %{}}, socket} = join_page_session_channel(session_id, actor)
 
     assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
 
@@ -33,9 +32,7 @@ defmodule D20Web.SessionChannelTest do
     assert is_binary(display_name)
     assert is_binary(avatar)
 
-    assert %{
-             ^actor_id => %{metas: [%{online_at: ^tracked_online_at}]}
-           } = Presence.list(socket)
+    assert %{^actor_id => %{metas: [%{online_at: ^tracked_online_at}]}} = Presence.list(socket)
 
     assert is_integer(tracked_online_at)
 
@@ -57,17 +54,12 @@ defmodule D20Web.SessionChannelTest do
     actor = %{id: to_string(user.id), type: :user}
     session_id = create_runtime_session(actor.id)
 
-    assert {:ok, %Session{members: %{}}, _socket} =
-             join_page_session_channel(session_id, actor)
+    assert {:ok, %Session{members: %{}}, _socket} = join_page_session_channel(session_id, actor)
 
     assert_push "projection", %Session{members: members}
 
-    assert %{
-             online_at: online_at,
-             actor_type: :user,
-             display_name: display_name,
-             avatar: nil
-           } = members[actor.id]
+    assert %{online_at: online_at, actor_type: :user, display_name: display_name, avatar: nil} =
+             members[actor.id]
 
     assert is_integer(online_at)
     assert display_name == user.email
@@ -121,8 +113,7 @@ defmodule D20Web.SessionChannelTest do
               id: ^session_id,
               phase: :waiting_for_players,
               members: %{"p2" => %{online_at: 123}}
-            }, socket} =
-             join_page_session_channel(session_id, actor)
+            }, socket} = join_page_session_channel(session_id, actor)
 
     assert_push "projection", %Session{members: members}
     assert %{online_at: actor_online_at} = members[actor_id]
@@ -162,9 +153,7 @@ defmodule D20Web.SessionChannelTest do
   defp create_runtime_session(owner_id) do
     assert {:ok, session} = D20.Sessions.create("qwinto", owner_id)
 
-    on_exit(fn ->
-      D20.Sessions.stop(session.id)
-    end)
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
 
     session.id
   end
@@ -184,6 +173,6 @@ defmodule D20Web.SessionChannelTest do
         session_id: session_id
       })
 
-    connect(ModuleSocket, %{}, connect_info: %{auth_token: token})
+    connect ModuleSocket, %{}, connect_info: %{auth_token: token}
   end
 end

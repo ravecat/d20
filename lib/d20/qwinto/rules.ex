@@ -68,13 +68,7 @@ defmodule D20.Qwinto.Rules do
          :ok <- require_empty(game, command.player_id, command.row, command.slot),
          :ok <- require_row_order(game, command.player_id, command.row, command.slot, game.sum),
          :ok <-
-           require_column_unique(
-             game,
-             command.player_id,
-             command.row,
-             command.slot,
-             game.sum
-           ) do
+           require_column_unique(game, command.player_id, command.row, command.slot, game.sum) do
       :ok
     end
   end

@@ -7,18 +7,11 @@ defmodule D20Web.ModuleTest do
 
   test "requires a session id", %{conn: conn} do
     conn =
-      assign(
-        conn,
-        :current_scope,
-        Scope.for_user(nil)
-        |> Scope.put_anonymous(Anonymous.new())
-      )
+      assign(conn, :current_scope, Scope.for_user(nil) |> Scope.put_anonymous(Anonymous.new()))
 
     module = %{slug: "qwinto"}
 
-    assert_raise KeyError, fn ->
-      Module.bootstrap(conn, module)
-    end
+    assert_raise KeyError, fn -> Module.bootstrap(conn, module) end
   end
 
   test "builds scoped module token for a game session", %{conn: conn} do
@@ -29,8 +22,7 @@ defmodule D20Web.ModuleTest do
       assign(
         conn,
         :current_scope,
-        Scope.for_user(nil)
-        |> Scope.put_anonymous(Anonymous.from_id(actor_id))
+        Scope.for_user(nil) |> Scope.put_anonymous(Anonymous.from_id(actor_id))
       )
 
     module = %{slug: "qwinto"}
@@ -39,9 +31,7 @@ defmodule D20Web.ModuleTest do
              endpoint: "ws://www.example.com/module",
              topic: "session:" <> ^session_id,
              token: token
-           } =
-             bootstrap =
-             Module.bootstrap(conn, module, session_id: session_id)
+           } = bootstrap = Module.bootstrap(conn, module, session_id: session_id)
 
     refute Map.has_key?(bootstrap, :module_id)
     refute Map.has_key?(bootstrap, :socket_url)

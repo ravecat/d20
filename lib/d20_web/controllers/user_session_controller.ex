@@ -21,9 +21,7 @@ defmodule D20Web.UserSessionController do
 
     case Accounts.login_user_by_magic_link(token) do
       {:ok, {user, _expired_tokens}} ->
-        conn
-        |> put_flash(:info, info)
-        |> UserAuth.log_in_user(user, user_params)
+        conn |> put_flash(:info, info) |> UserAuth.log_in_user(user, user_params)
 
       {:error, :not_found} ->
         conn
@@ -51,14 +49,10 @@ defmodule D20Web.UserSessionController do
   # magic link request
   def create(conn, %{"user" => %{"email" => email}}) do
     if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_login_instructions(
-        user,
-        &url(~p"/users/log-in/#{&1}")
-      )
+      Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
     end
 
-    info =
-      "If your email is in our system, you will receive instructions for logging in shortly."
+    info = "If your email is in our system, you will receive instructions for logging in shortly."
 
     conn
     |> put_flash(:info, info)

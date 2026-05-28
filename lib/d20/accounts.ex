@@ -6,7 +6,10 @@ defmodule D20.Accounts do
   import Ecto.Query, warn: false
   alias D20.Repo
 
-  alias D20.Accounts.{Anonymous, User, UserToken, UserNotifier}
+  alias D20.Accounts.Anonymous
+  alias D20.Accounts.User
+  alias D20.Accounts.UserNotifier
+  alias D20.Accounts.UserToken
 
   ## Database getters
 
@@ -83,11 +86,7 @@ defmodule D20.Accounts do
   def get_user_or_anonymous(id) when is_binary(id) do
     # Actor ids are mixed user/anonymous strings; Repo.get/2 would cast every id
     # as a `user` TypeID and reject anonymous ids before the fallback can run.
-    user =
-      Repo.one(
-        from user in User,
-          where: fragment("? = ?", user.id, type(^id, :string))
-      )
+    user = Repo.one(from user in User, where: fragment("? = ?", user.id, type(^id, :string)))
 
     case user do
       %User{} = user -> user_profile(user)
@@ -116,12 +115,7 @@ defmodule D20.Accounts do
   end
 
   defp user_profile(%User{} = user) do
-    %{
-      id: to_string(user.id),
-      actor_type: :user,
-      display_name: user.email,
-      avatar: nil
-    }
+    %{id: to_string(user.id), actor_type: :user, display_name: user.email, avatar: nil}
   end
 
   defp user_profile(%Anonymous{} = anonymous) do
@@ -151,7 +145,7 @@ defmodule D20.Accounts do
   def sudo_mode?(user, minutes \\ -20)
 
   def sudo_mode?(%User{authenticated_at: ts}, minutes) when is_struct(ts, DateTime) do
-    DateTime.after?(ts, DateTime.utc_now() |> DateTime.add(minutes, :minute))
+    DateTime.after?(ts, DateTime.add(DateTime.utc_now(), minutes, :minute))
   end
 
   def sudo_mode?(_user, _minutes), do: false
@@ -184,7 +178,7 @@ defmodule D20.Accounts do
            %UserToken{sent_to: email} <- Repo.one(query),
            {:ok, user} <- Repo.update(User.email_changeset(user, %{email: email})),
            {_count, _result} <-
-             Repo.delete_all(from(UserToken, where: [user_id: ^user.id, context: ^context])) do
+             Repo.delete_all(from UserToken, where: [user_id: ^user.id, context: ^context]) do
         {:ok, user}
       else
         _ -> {:error, :transaction_aborted}
@@ -293,9 +287,7 @@ defmodule D20.Accounts do
         """
 
       {%User{confirmed_at: nil} = user, _token} ->
-        user
-        |> User.confirm_changeset()
-        |> update_user_and_delete_all_tokens()
+        user |> User.confirm_changeset() |> update_user_and_delete_all_tokens()
 
       {user, token} ->
         Repo.delete!(token)
@@ -337,7 +329,7 @@ defmodule D20.Accounts do
   Deletes the signed token with the given context.
   """
   def delete_user_session_token(token) do
-    Repo.delete_all(from(UserToken, where: [token: ^token, context: "session"]))
+    Repo.delete_all(from UserToken, where: [token: ^token, context: "session"])
     :ok
   end
 
@@ -348,7 +340,7 @@ defmodule D20.Accounts do
       with {:ok, user} <- Repo.update(changeset) do
         tokens_to_expire = Repo.all_by(UserToken, user_id: user.id)
 
-        Repo.delete_all(from(t in UserToken, where: t.id in ^Enum.map(tokens_to_expire, & &1.id)))
+        Repo.delete_all(from t in UserToken, where: t.id in ^Enum.map(tokens_to_expire, & &1.id))
 
         {:ok, {user, tokens_to_expire}}
       end

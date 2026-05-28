@@ -19,10 +19,7 @@ defmodule D20.MixProject do
   #
   # Type `mix help compile.app` for more information.
   def application do
-    [
-      mod: {D20.Application, []},
-      extra_applications: [:crypto, :logger, :runtime_tools]
-    ]
+    [mod: {D20.Application, []}, extra_applications: [:crypto, :logger, :runtime_tools]]
   end
 
   # Specifies which paths to compile per environment.
@@ -65,6 +62,7 @@ defmodule D20.MixProject do
       {:pathex, "~> 2.6"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
+      {:recode, "~> 0.8", only: [:dev, :test], runtime: false},
       {:bun, "~> 1.5 and >= 1.5.1", runtime: Mix.env() == :dev}
     ]
   end
@@ -91,15 +89,8 @@ defmodule D20.MixProject do
       typecheck: ["bun assets run typecheck"],
       "assets.check": ["bun assets run check"],
       "assets.build": ["bun vite build"],
-      "assets.deploy": [
-        "assets.build"
-      ],
-      deploy: [
-        "deps.get --only prod",
-        "compile",
-        "assets.setup",
-        "assets.deploy"
-      ]
+      "assets.deploy": ["assets.build"],
+      deploy: ["deps.get --only prod", "compile", "assets.setup", "assets.deploy"]
     ]
   end
 end

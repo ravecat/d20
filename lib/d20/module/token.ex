@@ -27,14 +27,9 @@ defmodule D20.Module.Token do
   @spec verify(context(), String.t()) :: {:ok, claims()} | {:error, term()}
   def verify(context, token) when is_binary(token) do
     case Phoenix.Token.verify(context, salt(), token, max_age: max_age()) do
-      {:ok, claims} when valid_claims?(claims) ->
-        {:ok, claims}
-
-      {:ok, _claims} ->
-        {:error, :invalid_claims}
-
-      {:error, reason} ->
-        {:error, reason}
+      {:ok, claims} when valid_claims?(claims) -> {:ok, claims}
+      {:ok, _claims} -> {:error, :invalid_claims}
+      {:error, reason} -> {:error, reason}
     end
   end
 

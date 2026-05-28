@@ -23,10 +23,7 @@ defmodule D20Web.UserSessionControllerTest do
     end
 
     test "renders login page with email filled in (sudo mode)", %{conn: conn, user: user} do
-      conn =
-        conn
-        |> log_in_user(user)
-        |> get(~p"/users/log-in")
+      conn = conn |> log_in_user(user) |> get(~p"/users/log-in")
 
       html = html_response(conn, 200)
 
@@ -56,20 +53,14 @@ defmodule D20Web.UserSessionControllerTest do
 
   describe "GET /users/log-in/:token" do
     test "renders confirmation page for unconfirmed user", %{conn: conn, unconfirmed_user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_login_instructions(user, url)
-        end)
+      token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
       conn = get(conn, ~p"/users/log-in/#{token}")
       assert html_response(conn, 200) =~ "Confirm and stay logged in"
     end
 
     test "renders login page for confirmed user", %{conn: conn, user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_login_instructions(user, url)
-        end)
+      token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
       conn = get(conn, ~p"/users/log-in/#{token}")
       html = html_response(conn, 200)
@@ -125,10 +116,7 @@ defmodule D20Web.UserSessionControllerTest do
         conn
         |> init_test_session(user_return_to: "/foo/bar")
         |> post(~p"/users/log-in", %{
-          "user" => %{
-            "email" => user.email,
-            "password" => valid_user_password()
-          }
+          "user" => %{"email" => user.email, "password" => valid_user_password()}
         })
 
       assert redirected_to(conn) == "/foo/bar"
@@ -149,10 +137,7 @@ defmodule D20Web.UserSessionControllerTest do
 
   describe "POST /users/log-in - magic link" do
     test "sends magic link email when user exists", %{conn: conn, user: user} do
-      conn =
-        post(conn, ~p"/users/log-in", %{
-          "user" => %{"email" => user.email}
-        })
+      conn = post conn, ~p"/users/log-in", %{"user" => %{"email" => user.email}}
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "If your email is in our system"
       assert D20.Repo.get_by!(Accounts.UserToken, user_id: user.id).context == "login"
@@ -161,10 +146,7 @@ defmodule D20Web.UserSessionControllerTest do
     test "logs the user in", %{conn: conn, user: user} do
       {token, _hashed_token} = generate_user_magic_link_token(user)
 
-      conn =
-        post(conn, ~p"/users/log-in", %{
-          "user" => %{"token" => token}
-        })
+      conn = post conn, ~p"/users/log-in", %{"user" => %{"token" => token}}
 
       assert get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
@@ -178,10 +160,7 @@ defmodule D20Web.UserSessionControllerTest do
       refute user.confirmed_at
 
       conn =
-        post(conn, ~p"/users/log-in", %{
-          "user" => %{"token" => token},
-          "_action" => "confirmed"
-        })
+        post conn, ~p"/users/log-in", %{"user" => %{"token" => token}, "_action" => "confirmed"}
 
       assert get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
@@ -194,10 +173,7 @@ defmodule D20Web.UserSessionControllerTest do
     end
 
     test "emits error message when magic link is invalid", %{conn: conn} do
-      conn =
-        post(conn, ~p"/users/log-in", %{
-          "user" => %{"token" => "invalid"}
-        })
+      conn = post conn, ~p"/users/log-in", %{"user" => %{"token" => "invalid"}}
 
       assert html_response(conn, 200) =~ "The link is invalid or it has expired."
     end

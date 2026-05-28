@@ -3,25 +3,14 @@ defmodule D20.Dice do
   Shared dice roller for game engines.
   """
 
-  @sides %{
-    d4: 4,
-    d6: 6,
-    d8: 8,
-    d10: 10,
-    d12: 12,
-    d20: 20,
-    d100: 100
-  }
+  @sides %{d4: 4, d6: 6, d8: 8, d10: 10, d12: 12, d20: 20, d100: 100}
 
   defguardp is_die(die) when die in [:d4, :d6, :d8, :d10, :d12, :d20, :d100]
   defguardp is_count(count) when is_integer(count) and count > 0
 
   @type die :: :d4 | :d6 | :d8 | :d10 | :d12 | :d20 | :d100
   @type roll_set :: [{die(), pos_integer()}]
-  @type result :: %{
-          required(:sum) => non_neg_integer(),
-          optional(die()) => [pos_integer()]
-        }
+  @type result :: %{required(:sum) => non_neg_integer(), optional(die()) => [pos_integer()]}
   @type reason :: :invalid_count | :invalid_die | :invalid_set
 
   @spec roll(roll_set()) :: {:ok, result()} | {:error, reason()}
@@ -46,10 +35,7 @@ defmodule D20.Dice do
         else
           values = roll_values(die, count)
 
-          result =
-            result
-            |> Map.put(die, values)
-            |> Map.update!(:sum, &(&1 + Enum.sum(values)))
+          result = result |> Map.put(die, values) |> Map.update!(:sum, &(&1 + Enum.sum(values)))
 
           {:cont, {:ok, result}}
         end

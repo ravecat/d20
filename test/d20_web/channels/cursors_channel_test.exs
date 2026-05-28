@@ -36,9 +36,7 @@ defmodule D20Web.CursorsChannelTest do
     refute_push "presence_state", _
     refute_push "join", _
 
-    assert %{
-             ^actor_id => %{metas: [%{online_at: ^tracked_online_at}]}
-           } = Presence.list(socket)
+    assert %{^actor_id => %{metas: [%{online_at: ^tracked_online_at}]}} = Presence.list(socket)
 
     assert is_integer(tracked_online_at)
   end

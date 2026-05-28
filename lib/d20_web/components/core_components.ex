@@ -97,9 +97,7 @@ defmodule D20Web.CoreComponents do
     variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
 
     assigns =
-      assign_new(assigns, :class, fn ->
-        ["btn", Map.fetch!(variants, assigns[:variant])]
-      end)
+      assign_new(assigns, :class, fn -> ["btn", Map.fetch!(variants, assigns[:variant])] end)
 
     if rest[:href] || rest[:navigate] || rest[:patch] do
       ~H"""

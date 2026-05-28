@@ -13,16 +13,11 @@ defmodule D20.AccountsFixtures do
   def valid_user_password, do: "hello world!"
 
   def valid_user_attributes(attrs \\ %{}) do
-    Enum.into(attrs, %{
-      email: unique_user_email()
-    })
+    Enum.into(attrs, %{email: unique_user_email()})
   end
 
   def unconfirmed_user_fixture(attrs \\ %{}) do
-    {:ok, user} =
-      attrs
-      |> valid_user_attributes()
-      |> Accounts.register_user()
+    {:ok, user} = attrs |> valid_user_attributes() |> Accounts.register_user()
 
     user
   end
@@ -30,13 +25,9 @@ defmodule D20.AccountsFixtures do
   def user_fixture(attrs \\ %{}) do
     user = unconfirmed_user_fixture(attrs)
 
-    token =
-      extract_user_token(fn url ->
-        Accounts.deliver_login_instructions(user, url)
-      end)
+    token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
-    {:ok, {user, _expired_tokens}} =
-      Accounts.login_user_by_magic_link(token)
+    {:ok, {user, _expired_tokens}} = Accounts.login_user_by_magic_link(token)
 
     user
   end
@@ -64,10 +55,7 @@ defmodule D20.AccountsFixtures do
   end
 
   def override_token_authenticated_at(token, authenticated_at) when is_binary(token) do
-    D20.Repo.update_all(
-      from(t in Accounts.UserToken,
-        where: t.token == ^token
-      ),
+    D20.Repo.update_all(from(t in Accounts.UserToken, where: t.token == ^token),
       set: [authenticated_at: authenticated_at]
     )
   end
@@ -81,8 +69,7 @@ defmodule D20.AccountsFixtures do
   def offset_user_token(token, amount_to_add, unit) do
     dt = DateTime.add(DateTime.utc_now(:second), amount_to_add, unit)
 
-    D20.Repo.update_all(
-      from(ut in Accounts.UserToken, where: ut.token == ^token),
+    D20.Repo.update_all(from(ut in Accounts.UserToken, where: ut.token == ^token),
       set: [inserted_at: dt, authenticated_at: dt]
     )
   end

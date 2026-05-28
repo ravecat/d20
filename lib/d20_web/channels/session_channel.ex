@@ -24,9 +24,7 @@ defmodule D20Web.SessionChannel do
   @impl true
   def handle_info(:after_join, socket) do
     {:ok, _} =
-      Presence.track(socket, socket.assigns.actor.id, %{
-        online_at: System.system_time(:second)
-      })
+      Presence.track(socket, socket.assigns.actor.id, %{online_at: System.system_time(:second)})
 
     {:noreply, socket}
   end
@@ -41,11 +39,8 @@ defmodule D20Web.SessionChannel do
     attrs = put_actor_attrs(socket, event, payload)
 
     case Sessions.dispatch(session_id(socket), event, attrs) do
-      {:ok, _session} ->
-        {:reply, :ok, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: format_reason(reason)}}, socket}
+      {:ok, _session} -> {:reply, :ok, socket}
+      {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
   end
 

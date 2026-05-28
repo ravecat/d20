@@ -30,8 +30,7 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.assign_actor_to_scope([])
         |> UserAuth.put_actor_token([])
 
-      assert %Actor{id: anonymous_user_id, type: :anonymous} =
-               conn.assigns.current_scope.actor
+      assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.current_scope.actor
 
       assert %Anonymous{id: ^anonymous_user_id, display_name: display_name, avatar: avatar} =
                conn.assigns.current_scope.anonymous
@@ -55,10 +54,7 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.assign_actor_to_scope([])
         |> UserAuth.put_actor_token([])
 
-      assert conn.assigns.current_scope.actor == %Actor{
-               id: to_string(user.id),
-               type: :user
-             }
+      assert conn.assigns.current_scope.actor == %Actor{id: to_string(user.id), type: :user}
 
       assert conn.assigns.current_scope.anonymous == nil
 
@@ -71,23 +67,16 @@ defmodule D20Web.UserAuthTest do
 
     test "reuses anonymous user id from session", %{conn: conn} do
       conn =
-        conn
-        |> UserAuth.fetch_current_scope_for_user([])
-        |> UserAuth.assign_actor_to_scope([])
+        conn |> UserAuth.fetch_current_scope_for_user([]) |> UserAuth.assign_actor_to_scope([])
 
       assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.current_scope.actor
       assert get_session(conn, :anonymous_user_id) == anonymous_user_id
       assert conn.assigns.current_scope.anonymous.id == anonymous_user_id
 
       conn =
-        conn
-        |> UserAuth.fetch_current_scope_for_user([])
-        |> UserAuth.assign_actor_to_scope([])
+        conn |> UserAuth.fetch_current_scope_for_user([]) |> UserAuth.assign_actor_to_scope([])
 
-      assert conn.assigns.current_scope.actor == %Actor{
-               id: anonymous_user_id,
-               type: :anonymous
-             }
+      assert conn.assigns.current_scope.actor == %Actor{id: anonymous_user_id, type: :anonymous}
 
       assert conn.assigns.current_scope.anonymous == Anonymous.from_id(anonymous_user_id)
     end
@@ -161,7 +150,7 @@ defmodule D20Web.UserAuthTest do
       # the conn is already logged in and has the remember_me cookie set,
       # now we log in again and even without explicitly setting remember_me,
       # the cookie should be set again
-      conn = conn |> UserAuth.log_in_user(user, %{})
+      conn = UserAuth.log_in_user(conn, user, %{})
       assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
       assert signed_token != get_session(conn, :user_token)
       assert max_age == @remember_me_cookie_max_age

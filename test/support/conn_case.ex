@@ -49,10 +49,7 @@ defmodule D20Web.ConnCase do
     user = D20.AccountsFixtures.user_fixture()
     scope = D20.Accounts.Scope.for_user(user)
 
-    opts =
-      context
-      |> Map.take([:token_authenticated_at])
-      |> Enum.into([])
+    opts = context |> Map.take([:token_authenticated_at]) |> Enum.into([])
 
     %{conn: log_in_user(conn, user, opts), user: user, scope: scope}
   end

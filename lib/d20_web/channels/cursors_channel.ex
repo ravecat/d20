@@ -15,9 +15,7 @@ defmodule D20Web.CursorsChannel do
   @impl true
   def handle_info(:after_join, socket) do
     {:ok, _} =
-      Presence.track(socket, socket.assigns.actor.id, %{
-        online_at: System.system_time(:second)
-      })
+      Presence.track(socket, socket.assigns.actor.id, %{online_at: System.system_time(:second)})
 
     {:noreply, socket}
   end
@@ -63,17 +61,8 @@ defmodule D20Web.CursorsChannel do
 
       {actor_id, %{metas: metas}} ->
         Enum.find_value(metas, [], fn
-          %{x: x, y: y} when is_integer(x) and is_integer(y) ->
-            [
-              %{
-                id: actor_id,
-                x: x,
-                y: y
-              }
-            ]
-
-          _meta ->
-            false
+          %{x: x, y: y} when is_integer(x) and is_integer(y) -> [%{id: actor_id, x: x, y: y}]
+          _meta -> false
         end)
     end)
   end

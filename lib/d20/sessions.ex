@@ -70,9 +70,6 @@ defmodule D20.Sessions do
   end
 
   defp start_child(session) do
-    DynamicSupervisor.start_child(
-      D20.Sessions.Supervisor,
-      {Server, session: session}
-    )
+    DynamicSupervisor.start_child(D20.Sessions.Supervisor, {Server, session: session})
   end
 end

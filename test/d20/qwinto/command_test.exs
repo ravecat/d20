@@ -5,8 +5,7 @@ defmodule D20.Qwinto.CommandTest do
 
   describe "build/2" do
     test "builds a join command from raw attrs" do
-      assert {:ok, %Command.Join{player_id: "p1"}} =
-               Command.build(:join, %{"player_id" => "p1"})
+      assert {:ok, %Command.Join{player_id: "p1"}} = Command.build(:join, %{"player_id" => "p1"})
     end
 
     test "rejects malformed join commands" do
@@ -45,8 +44,7 @@ defmodule D20.Qwinto.CommandTest do
     end
 
     test "builds keep, reroll, write, and skip commands from raw attrs" do
-      assert {:ok, %Command.Keep{player_id: "p1"}} =
-               Command.build(:keep, %{"player_id" => "p1"})
+      assert {:ok, %Command.Keep{player_id: "p1"}} = Command.build(:keep, %{"player_id" => "p1"})
 
       assert {:ok, %Command.Reroll{player_id: "p1"}} =
                Command.build(:reroll, %{"player_id" => "p1"})
@@ -54,8 +52,7 @@ defmodule D20.Qwinto.CommandTest do
       assert {:ok, %Command.Write{player_id: "p1", row: :orange, slot: 0}} =
                Command.build(:write, %{"player_id" => "p1", "row" => "orange", "slot" => 0})
 
-      assert {:ok, %Command.Skip{player_id: "p1"}} =
-               Command.build(:skip, %{"player_id" => "p1"})
+      assert {:ok, %Command.Skip{player_id: "p1"}} = Command.build(:skip, %{"player_id" => "p1"})
     end
 
     test "rejects write slots outside the score-sheet slot range" do

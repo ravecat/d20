@@ -24,10 +24,7 @@ defmodule D20Web.UserRegistrationControllerTest do
     test "creates account but does not log in", %{conn: conn} do
       email = unique_user_email()
 
-      conn =
-        post(conn, ~p"/users/register", %{
-          "user" => valid_user_attributes(email: email)
-        })
+      conn = post conn, ~p"/users/register", %{"user" => valid_user_attributes(email: email)}
 
       refute get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/users/log-in"
@@ -37,10 +34,7 @@ defmodule D20Web.UserRegistrationControllerTest do
     end
 
     test "render errors for invalid data", %{conn: conn} do
-      conn =
-        post(conn, ~p"/users/register", %{
-          "user" => %{"email" => "with spaces"}
-        })
+      conn = post conn, ~p"/users/register", %{"user" => %{"email" => "with spaces"}}
 
       response = html_response(conn, 200)
       assert response =~ "Register"

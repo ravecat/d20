@@ -89,8 +89,7 @@ defmodule D20.Sessions.Session do
     {:error, :invalid_command}
   end
 
-  def dispatch(%__MODULE__{}, "join", %{player_id: player_id})
-      when is_player_id(player_id) do
+  def dispatch(%__MODULE__{}, "join", %{player_id: player_id}) when is_player_id(player_id) do
     {:error, :invalid_phase}
   end
 
@@ -101,8 +100,7 @@ defmodule D20.Sessions.Session do
     leave(session, player_id)
   end
 
-  def dispatch(%__MODULE__{}, "leave", %{player_id: player_id})
-      when is_player_id(player_id) do
+  def dispatch(%__MODULE__{}, "leave", %{player_id: player_id}) when is_player_id(player_id) do
     {:error, :invalid_phase}
   end
 

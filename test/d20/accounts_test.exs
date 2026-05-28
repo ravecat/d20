@@ -4,7 +4,8 @@ defmodule D20.AccountsTest do
   alias D20.Accounts
 
   import D20.AccountsFixtures
-  alias D20.Accounts.{User, UserToken}
+  alias D20.Accounts.User
+  alias D20.Accounts.UserToken
 
   describe "get_user_by_email/1" do
     test "does not return the user if the email does not exist" do
@@ -23,12 +24,12 @@ defmodule D20.AccountsTest do
     end
 
     test "does not return the user if the password is not valid" do
-      user = user_fixture() |> set_password()
+      user = set_password(user_fixture())
       refute Accounts.get_user_by_email_and_password(user.email, "invalid")
     end
 
     test "returns the user if the email and password are valid" do
-      %{id: id} = user = user_fixture() |> set_password()
+      %{id: id} = user = set_password(user_fixture())
 
       assert %User{id: ^id} =
                Accounts.get_user_by_email_and_password(user.email, valid_user_password())
@@ -41,9 +42,7 @@ defmodule D20.AccountsTest do
       id = user.id
       Repo.delete!(user)
 
-      assert_raise Ecto.NoResultsError, fn ->
-        Accounts.get_user!(id)
-      end
+      assert_raise Ecto.NoResultsError, fn -> Accounts.get_user!(id) end
     end
 
     test "returns the user with the given id" do
@@ -69,9 +68,7 @@ defmodule D20.AccountsTest do
     end
 
     test "raises for ids that cannot be cast to a user primary key" do
-      assert_raise Ecto.Query.CastError, fn ->
-        Accounts.get_user("not-a-typeid")
-      end
+      assert_raise Ecto.Query.CastError, fn -> Accounts.get_user("not-a-typeid") end
     end
   end
 
@@ -148,10 +145,7 @@ defmodule D20.AccountsTest do
       refute Accounts.sudo_mode?(%User{authenticated_at: DateTime.add(now, -21, :minute)})
 
       # minute override
-      refute Accounts.sudo_mode?(
-               %User{authenticated_at: DateTime.add(now, -11, :minute)},
-               -10
-             )
+      refute Accounts.sudo_mode?(%User{authenticated_at: DateTime.add(now, -11, :minute)}, -10)
 
       # not authenticated
       refute Accounts.sudo_mode?(%User{})
@@ -206,8 +200,7 @@ defmodule D20.AccountsTest do
     end
 
     test "does not update email with invalid token", %{user: user} do
-      assert Accounts.update_user_email(user, "oops") ==
-               {:error, :transaction_aborted}
+      assert Accounts.update_user_email(user, "oops") == {:error, :transaction_aborted}
 
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
@@ -224,8 +217,7 @@ defmodule D20.AccountsTest do
     test "does not update email if token expired", %{user: user, token: token} do
       {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
 
-      assert Accounts.update_user_email(user, token) ==
-               {:error, :transaction_aborted}
+      assert Accounts.update_user_email(user, token) == {:error, :transaction_aborted}
 
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
@@ -240,11 +232,7 @@ defmodule D20.AccountsTest do
 
     test "allows fields to be set" do
       changeset =
-        Accounts.change_user_password(
-          %User{},
-          %{
-            "password" => "new valid password"
-          },
+        Accounts.change_user_password(%User{}, %{"password" => "new valid password"},
           hash_password: false
         )
 
@@ -275,17 +263,14 @@ defmodule D20.AccountsTest do
     test "validates maximum values for password for security", %{user: user} do
       too_long = String.duplicate("db", 100)
 
-      {:error, changeset} =
-        Accounts.update_user_password(user, %{password: too_long})
+      {:error, changeset} = Accounts.update_user_password(user, %{password: too_long})
 
       assert "should be at most 72 character(s)" in errors_on(changeset).password
     end
 
     test "updates the password", %{user: user} do
       {:ok, {user, expired_tokens}} =
-        Accounts.update_user_password(user, %{
-          password: "new valid password"
-        })
+        Accounts.update_user_password(user, %{password: "new valid password"})
 
       assert expired_tokens == []
       assert is_nil(user.password)
@@ -295,10 +280,7 @@ defmodule D20.AccountsTest do
     test "deletes all tokens for the given user", %{user: user} do
       _ = Accounts.generate_user_session_token(user)
 
-      {:ok, {_, _}} =
-        Accounts.update_user_password(user, %{
-          password: "new valid password"
-        })
+      {:ok, {_, _}} = Accounts.update_user_password(user, %{password: "new valid password"})
 
       refute Repo.get_by(UserToken, user_id: user.id)
     end
@@ -428,10 +410,7 @@ defmodule D20.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_login_instructions(user, url)
-        end)
+      token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
       {:ok, token} = Base.url_decode64(token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))

@@ -10,11 +10,7 @@ defmodule D20.Accounts.Anonymous do
   @enforce_keys [:id, :display_name, :avatar]
   defstruct [:id, :display_name, :avatar]
 
-  @type t :: %__MODULE__{
-          id: String.t(),
-          display_name: String.t(),
-          avatar: String.t()
-        }
+  @type t :: %__MODULE__{id: String.t(), display_name: String.t(), avatar: String.t()}
 
   @adjectives ~w(
     Able Agile Alert Ample Apt Balanced Bold Brave Bright Brilliant Calm Capable
@@ -53,11 +49,7 @@ defmodule D20.Accounts.Anonymous do
   def from_id(id) when is_binary(id) and byte_size(id) > 0 do
     seed = :crypto.hash(:sha256, "anonymous:" <> id)
 
-    %__MODULE__{
-      id: id,
-      display_name: display_name(seed),
-      avatar: avatar_url(id)
-    }
+    %__MODULE__{id: id, display_name: display_name(seed), avatar: avatar_url(id)}
   end
 
   defp display_name(seed) do
@@ -68,8 +60,7 @@ defmodule D20.Accounts.Anonymous do
   end
 
   defp avatar_url(id) do
-    NeoFaker.Gravatar.display(
-      "anonymous-#{id}@d20.local",
+    NeoFaker.Gravatar.display("anonymous-#{id}@d20.local",
       fallback: @avatar_fallback,
       force_default: true,
       rating: :g,

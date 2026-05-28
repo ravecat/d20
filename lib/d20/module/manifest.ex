@@ -33,20 +33,9 @@ defmodule D20.Module.Manifest do
     |> Jason.decode!()
   end
 
-  defp normalize!(
-         slug,
-         %{
-           "entry" => entry,
-           "sandbox" => sandbox
-         }
-       )
+  defp normalize!(slug, %{"entry" => entry, "sandbox" => sandbox})
        when is_binary(slug) and is_binary(entry) and is_list(sandbox) do
-    %{
-      slug: slug,
-      embed_url: entry,
-      allowed_origins: [origin!(entry)],
-      sandbox: sandbox
-    }
+    %{slug: slug, embed_url: entry, allowed_origins: [origin!(entry)], sandbox: sandbox}
   end
 
   defp origin!(entry) do

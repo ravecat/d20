@@ -22,7 +22,7 @@ defmodule D20.Accounts.UserToken do
 
     belongs_to :user, D20.Accounts.User, prefix: "user"
 
-    timestamps(type: :utc_datetime, updated_at: false)
+    timestamps type: :utc_datetime, updated_at: false
   end
 
   @doc """
@@ -90,12 +90,7 @@ defmodule D20.Accounts.UserToken do
     hashed_token = :crypto.hash(@hash_algorithm, token)
 
     {Base.url_encode64(token, padding: false),
-     %UserToken{
-       token: hashed_token,
-       context: context,
-       sent_to: sent_to,
-       user_id: user.id
-     }}
+     %UserToken{token: hashed_token, context: context, sent_to: sent_to, user_id: user.id}}
   end
 
   @doc """

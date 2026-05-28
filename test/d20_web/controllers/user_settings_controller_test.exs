@@ -54,10 +54,7 @@ defmodule D20Web.UserSettingsControllerTest do
       old_password_conn =
         put(conn, ~p"/users/settings", %{
           "action" => "update_password",
-          "user" => %{
-            "password" => "too short",
-            "password_confirmation" => "does not match"
-          }
+          "user" => %{"password" => "too short", "password_confirmation" => "does not match"}
         })
 
       response = html_response(old_password_conn, 200)

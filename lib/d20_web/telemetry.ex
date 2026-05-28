@@ -22,12 +22,8 @@ defmodule D20Web.Telemetry do
   def metrics do
     [
       # Phoenix Metrics
-      summary("phoenix.endpoint.start.system_time",
-        unit: {:native, :millisecond}
-      ),
-      summary("phoenix.endpoint.stop.duration",
-        unit: {:native, :millisecond}
-      ),
+      summary("phoenix.endpoint.start.system_time", unit: {:native, :millisecond}),
+      summary("phoenix.endpoint.stop.duration", unit: {:native, :millisecond}),
       summary("phoenix.router_dispatch.start.system_time",
         tags: [:route],
         unit: {:native, :millisecond}
@@ -40,13 +36,9 @@ defmodule D20Web.Telemetry do
         tags: [:route],
         unit: {:native, :millisecond}
       ),
-      summary("phoenix.socket_connected.duration",
-        unit: {:native, :millisecond}
-      ),
+      summary("phoenix.socket_connected.duration", unit: {:native, :millisecond}),
       sum("phoenix.socket_drain.count"),
-      summary("phoenix.channel_joined.duration",
-        unit: {:native, :millisecond}
-      ),
+      summary("phoenix.channel_joined.duration", unit: {:native, :millisecond}),
       summary("phoenix.channel_handled_in.duration",
         tags: [:event],
         unit: {:native, :millisecond}

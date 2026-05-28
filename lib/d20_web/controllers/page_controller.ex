@@ -53,10 +53,7 @@ defmodule D20Web.PageController do
     case D20.Sessions.get(session_id) do
       {:ok, %{engine: engine} = session} ->
         if engine == game_context.engine do
-          {
-            put_bootstrap(conn, game_context.manifest, session.id),
-            session
-          }
+          {put_bootstrap(conn, game_context.manifest, session.id), session}
         else
           {game_context.manifest, nil}
         end
@@ -70,11 +67,7 @@ defmodule D20Web.PageController do
     do: {game_context.manifest, nil}
 
   defp put_bootstrap(conn, manifest, session_id) do
-    Map.put(
-      manifest,
-      :bootstrap,
-      D20Web.Module.bootstrap(conn, manifest, session_id: session_id)
-    )
+    Map.put(manifest, :bootstrap, D20Web.Module.bootstrap(conn, manifest, session_id: session_id))
   end
 
   defp redirect_with_start_error(conn, slug, message) do

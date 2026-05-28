@@ -6,7 +6,8 @@ defmodule D20Web.ErrorJSONTest do
   end
 
   test "renders 500" do
-    assert D20Web.ErrorJSON.render("500.json", %{}) ==
-             %{errors: %{detail: "Internal Server Error"}}
+    assert D20Web.ErrorJSON.render("500.json", %{}) == %{
+             errors: %{detail: "Internal Server Error"}
+           }
   end
 end

@@ -15,9 +15,6 @@ defmodule D20.Actors.ActorTest do
   test "builds anonymous actor from anonymous profile" do
     anonymous = Anonymous.from_id("actor-1")
 
-    assert Actor.new(anonymous) == %Actor{
-             id: "actor-1",
-             type: :anonymous
-           }
+    assert Actor.new(anonymous) == %Actor{id: "actor-1", type: :anonymous}
   end
 end

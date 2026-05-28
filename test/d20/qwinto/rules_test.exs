@@ -21,34 +21,21 @@ defmodule D20.Qwinto.RulesTest do
     end
 
     test "rejects start before ready" do
-      game = %Game{
-        phase: :setup,
-        order: ["p1"],
-        players: %{"p1" => player()}
-      }
+      game = %Game{phase: :setup, order: ["p1"], players: %{"p1" => player()}}
 
       refute Rules.ready_to_start?(game)
       assert {:error, :invalid_phase} = Rules.validate(game, %Command.Start{})
     end
 
     test "rejects a roll from a non-active player" do
-      game = %Game{
-        phase: :turn,
-        order: ["p1", "p2"],
-        cursor: 0
-      }
+      game = %Game{phase: :turn, order: ["p1", "p2"], cursor: 0}
 
       assert {:error, :not_active_player} =
                Rules.validate(game, %Command.Roll{player_id: "p2", colors: [:orange]})
     end
 
     test "validates keep and reroll through the same decision preconditions" do
-      game = %Game{
-        phase: :decision,
-        order: ["p1", "p2"],
-        cursor: 0,
-        attempt: 1
-      }
+      game = %Game{phase: :decision, order: ["p1", "p2"], cursor: 0, attempt: 1}
 
       assert :ok = Rules.validate(game, %Command.Keep{player_id: "p1"})
       assert :ok = Rules.validate(game, %Command.Reroll{player_id: "p1"})
@@ -59,17 +46,11 @@ defmodule D20.Qwinto.RulesTest do
         phase: :result,
         dices: [:orange],
         sum: 7,
-        players: %{
-          "p1" => player(%{yellow: %{2 => 7}})
-        }
+        players: %{"p1" => player(%{yellow: %{2 => 7}})}
       }
 
       assert {:error, :column_duplicate} =
-               Rules.validate(game, %Command.Write{
-                 player_id: "p1",
-                 row: :orange,
-                 slot: 1
-               })
+               Rules.validate(game, %Command.Write{player_id: "p1", row: :orange, slot: 1})
     end
 
     test "does not compare cells that only shared the old unshifted column index" do
@@ -77,47 +58,22 @@ defmodule D20.Qwinto.RulesTest do
         phase: :result,
         dices: [:orange],
         sum: 7,
-        players: %{
-          "p1" => player(%{yellow: %{1 => 7}})
-        }
+        players: %{"p1" => player(%{yellow: %{1 => 7}})}
       }
 
-      assert :ok =
-               Rules.validate(game, %Command.Write{
-                 player_id: "p1",
-                 row: :orange,
-                 slot: 1
-               })
+      assert :ok = Rules.validate(game, %Command.Write{player_id: "p1", row: :orange, slot: 1})
     end
 
     test "accepts writes in single-cell edge columns" do
-      game = %Game{
-        phase: :result,
-        dices: [:orange],
-        sum: 7,
-        players: %{
-          "p1" => player()
-        }
-      }
+      game = %Game{phase: :result, dices: [:orange], sum: 7, players: %{"p1" => player()}}
 
-      assert :ok =
-               Rules.validate(game, %Command.Write{
-                 player_id: "p1",
-                 row: :orange,
-                 slot: 8
-               })
+      assert :ok = Rules.validate(game, %Command.Write{player_id: "p1", row: :orange, slot: 8})
     end
 
     test "rejects a player that already responded" do
-      game = %Game{
-        phase: :result,
-        players: %{
-          "p1" => player(%{}, :wrote)
-        }
-      }
+      game = %Game{phase: :result, players: %{"p1" => player(%{}, :wrote)}}
 
-      assert {:error, :already_responded} =
-               Rules.validate(game, %Command.Skip{player_id: "p1"})
+      assert {:error, :already_responded} = Rules.validate(game, %Command.Skip{player_id: "p1"})
     end
   end
 

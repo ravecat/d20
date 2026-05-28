@@ -29,9 +29,7 @@ defmodule D20.SessionsTest do
       assert {:ok, %Session{} = session} = Sessions.create("qwinto", "p1")
       id = session.id
 
-      on_exit(fn ->
-        Sessions.stop(id)
-      end)
+      on_exit(fn -> Sessions.stop(id) end)
 
       assert {:ok, ^id} = Ecto.UUID.cast(id)
       assert %Session{id: ^id, engine: D20.Qwinto.Game, owner_id: "p1"} = session
@@ -84,12 +82,8 @@ defmodule D20.SessionsTest do
 
       assert {:ok, session} = Sessions.get(id)
 
-      assert %{
-               online_at: 123,
-               actor_type: :anonymous,
-               display_name: display_name,
-               avatar: avatar
-             } = session.members["p2"]
+      assert %{online_at: 123, actor_type: :anonymous, display_name: display_name, avatar: avatar} =
+               session.members["p2"]
 
       assert is_binary(display_name)
       assert is_binary(avatar)
@@ -145,9 +139,7 @@ defmodule D20.SessionsTest do
     assert {:ok, _pid} =
              DynamicSupervisor.start_child(D20.Sessions.Supervisor, {Server, session: session})
 
-    on_exit(fn ->
-      Sessions.stop(session.id)
-    end)
+    on_exit(fn -> Sessions.stop(session.id) end)
 
     %{id: session.id, session: session}
   end

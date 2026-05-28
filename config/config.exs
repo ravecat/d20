@@ -39,9 +39,7 @@ config :d20, D20.Actors.ActorToken,
 
 config :d20, D20.Module.Manifest,
   path: "priv/modules/#{config_env()}.json",
-  engines: [
-    qwinto: D20.Qwinto.Game
-  ]
+  engines: [qwinto: D20.Qwinto.Game]
 
 config :d20, D20.Module.Token,
   salt: "module",
@@ -51,10 +49,7 @@ config :d20, D20.Module.Token,
 config :d20, D20Web.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
-  render_errors: [
-    formats: [html: D20Web.ErrorHTML, json: D20Web.ErrorJSON],
-    layout: false
-  ],
+  render_errors: [formats: [html: D20Web.ErrorHTML, json: D20Web.ErrorJSON], layout: false],
   pubsub_server: D20.PubSub,
   live_view: [signing_salt: "EPfGcCGF"]
 

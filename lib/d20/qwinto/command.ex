@@ -4,7 +4,13 @@ defmodule D20.Qwinto.Command do
   """
 
   alias Ecto.Changeset
-  alias __MODULE__.{Join, Keep, Reroll, Roll, Skip, Start, Write}
+  alias __MODULE__.Join
+  alias __MODULE__.Keep
+  alias __MODULE__.Reroll
+  alias __MODULE__.Roll
+  alias __MODULE__.Skip
+  alias __MODULE__.Start
+  alias __MODULE__.Write
 
   @type kind :: :join | :start | :roll | :keep | :reroll | :write | :skip
   @type command :: Join.t() | Start.t() | Roll.t() | Keep.t() | Reroll.t() | Write.t() | Skip.t()
@@ -86,10 +92,7 @@ defmodule D20.Qwinto.Command do
       field :colors, {:array, Ecto.Enum}, values: @colors
     end
 
-    @type t :: %__MODULE__{
-            player_id: String.t() | nil,
-            colors: [Constants.color()] | nil
-          }
+    @type t :: %__MODULE__{player_id: String.t() | nil, colors: [Constants.color()] | nil}
 
     @spec changeset(map()) :: Ecto.Changeset.t()
     def changeset(attrs) do

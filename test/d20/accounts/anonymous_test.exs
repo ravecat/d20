@@ -12,8 +12,7 @@ defmodule D20.Accounts.AnonymousTest do
   test "keeps id as the source of truth" do
     id = Ecto.UUID.generate()
 
-    assert %Anonymous{id: ^id, display_name: display_name, avatar: avatar} =
-             Anonymous.from_id(id)
+    assert %Anonymous{id: ^id, display_name: display_name, avatar: avatar} = Anonymous.from_id(id)
 
     assert is_binary(display_name)
     assert display_name =~ ~r/^.+ .+$/
@@ -29,10 +28,6 @@ defmodule D20.Accounts.AnonymousTest do
     assert %Anonymous{id: id, display_name: display_name, avatar: avatar} = Anonymous.new()
     assert is_binary(id)
 
-    assert Anonymous.from_id(id) == %Anonymous{
-             id: id,
-             display_name: display_name,
-             avatar: avatar
-           }
+    assert Anonymous.from_id(id) == %Anonymous{id: id, display_name: display_name, avatar: avatar}
   end
 end

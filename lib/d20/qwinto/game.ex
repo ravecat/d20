@@ -70,8 +70,7 @@ defmodule D20.Qwinto.Game do
   @spec dispatch(t(), String.t(), map()) ::
           {:ok, t()}
           | {:error, Ecto.Changeset.t() | Rules.reason() | reason()}
-  def dispatch(%__MODULE__{phase: phase} = game, "join", attrs)
-      when phase in [:setup, :ready] do
+  def dispatch(%__MODULE__{phase: phase} = game, "join", attrs) when phase in [:setup, :ready] do
     with {:ok, command} <- Command.build(:join, attrs),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -169,10 +168,7 @@ defmodule D20.Qwinto.Game do
   end
 
   defp apply_command(game, %Command.Roll{} = command) do
-    game =
-      game
-      |> put_roll(command.colors, 1)
-      |> reset_responses()
+    game = game |> put_roll(command.colors, 1) |> reset_responses()
 
     %{game | phase: :decision}
   end
@@ -228,9 +224,7 @@ defmodule D20.Qwinto.Game do
   end
 
   defp reset_player_statuses(players) do
-    Map.new(players, fn {player_id, player} ->
-      {player_id, %{player | status: :ready}}
-    end)
+    Map.new(players, fn {player_id, player} -> {player_id, %{player | status: :ready}} end)
   end
 
   defp put_roll(game, dices, attempt) do

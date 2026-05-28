@@ -25,11 +25,7 @@ defmodule D20Web.Presence do
     end
 
     for {actor_id, _} <- leaves, not present?(presences, actor_id) do
-      Phoenix.PubSub.local_broadcast(
-        D20.PubSub,
-        presence_topic(topic),
-        {:left, actor_id}
-      )
+      Phoenix.PubSub.local_broadcast(D20.PubSub, presence_topic(topic), {:left, actor_id})
     end
 
     {:ok, state}

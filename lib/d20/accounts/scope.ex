@@ -46,11 +46,6 @@ defmodule D20.Accounts.Scope do
 
   @spec put_anonymous(t(), Anonymous.t()) :: t()
   def put_anonymous(%__MODULE__{} = scope, %Anonymous{} = anonymous) do
-    %{
-      scope
-      | anonymous: anonymous,
-        user: nil,
-        actor: Actor.new(anonymous)
-    }
+    %{scope | anonymous: anonymous, user: nil, actor: Actor.new(anonymous)}
   end
 end
