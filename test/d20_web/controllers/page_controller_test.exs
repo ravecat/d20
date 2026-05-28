@@ -10,18 +10,17 @@ defmodule D20Web.PageControllerTest do
     assert html_response(conn, 200) =~ ~s(window.actorToken = "#{token}")
   end
 
-  test "GET /games renders configured modules", %{conn: conn} do
+  test "GET /games renders game metadata", %{conn: conn} do
     conn = get(conn, ~p"/games")
 
     assert inertia_component(conn) == "games"
-    assert %{modules: [module]} = inertia_props(conn)
-    assert module[:id] == "qwinto"
-    assert module[:title] == "Qwinto"
-    assert module[:embedUrl] == "http://localhost:5173"
-    assert module[:allowedOrigins] == ["http://localhost:5173"]
-    assert "allow-scripts" in module[:sandbox]
-    refute Map.has_key?(module, :transport)
-    refute Map.has_key?(module, :bootstrap)
+    assert %{games: [game]} = inertia_props(conn)
+    assert game[:slug] == "qwinto"
+    assert game[:name] == "Qwinto"
+    assert game[:externalId] == 183_006
+    refute Map.has_key?(game, :embedUrl)
+    refute Map.has_key?(game, :allowedOrigins)
+    refute Map.has_key?(game, :bootstrap)
     assert html_response(conn, 200) =~ ~s(src="http://localhost:5174/@vite/client")
     assert html_response(conn, 200) =~ ~s(src="http://localhost:5174/js/app.js")
   end
@@ -31,13 +30,15 @@ defmodule D20Web.PageControllerTest do
 
     assert inertia_component(conn) == "game"
     assert %{module: module, game: game, session: nil} = inertia_props(conn)
-    assert module[:id] == "qwinto"
-    assert module[:title] == "Qwinto"
+    assert module[:slug] == "qwinto"
     assert module[:embedUrl] == "http://localhost:5173"
     assert module[:allowedOrigins] == ["http://localhost:5173"]
     assert "allow-scripts" in module[:sandbox]
     assert game[:slug] == "qwinto"
     assert game[:externalId] == 183_006
+    refute Map.has_key?(module, :id)
+    refute Map.has_key?(module, :title)
+    refute Map.has_key?(module, :game)
     refute Map.has_key?(module, :bootstrap)
   end
 

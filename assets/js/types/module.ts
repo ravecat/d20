@@ -5,8 +5,7 @@ export interface ModuleBootstrap {
 }
 
 export interface ModuleEntry {
-  id: string;
-  title: string;
+  slug: string;
   embedUrl: string;
   allowedOrigins: string[];
   sandbox: string[];

@@ -11,6 +11,12 @@ defmodule D20.GamesTest do
     assert game.name == "Qwinto"
   end
 
+  test "lists game metadata" do
+    assert [%Game{} = game] = Games.list()
+    assert game.slug == "qwinto"
+    assert game.name == "Qwinto"
+  end
+
   test "returns not found for unknown games" do
     assert Games.fetch_by_slug("missing") == {:error, :not_found}
     assert Games.fetch_context_by_slug("missing") == {:error, :game_not_found}
@@ -19,7 +25,7 @@ defmodule D20.GamesTest do
   test "resolves a game slug to metadata, iframe module entry, and engine" do
     assert {:ok, game_context} = Games.fetch_context_by_slug("qwinto")
     assert game_context.game.slug == "qwinto"
-    assert game_context.manifest.id == "qwinto"
+    assert game_context.manifest.slug == "qwinto"
     assert game_context.engine == D20.Qwinto.Game
   end
 

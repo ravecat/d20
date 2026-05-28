@@ -18,14 +18,14 @@ defmodule D20Web.Module do
   @type bootstrap_opts :: [session_id: String.t()]
 
   @spec bootstrap(Plug.Conn.t(), Manifest.entry(), bootstrap_opts()) :: bootstrap()
-  def bootstrap(conn, module, opts \\ []) do
+  def bootstrap(conn, manifest, opts \\ []) do
     session_id = Keyword.fetch!(opts, :session_id)
     actor = conn.assigns.current_scope.actor
 
     %{
       topic: SessionChannel.topic(session_id),
       endpoint: module_endpoint(conn),
-      token: module_token(module, session_id, actor)
+      token: module_token(manifest, session_id, actor)
     }
   end
 
@@ -45,11 +45,11 @@ defmodule D20Web.Module do
   defp socket_scheme(_conn), do: "ws"
 
   @spec module_token(Manifest.entry(), String.t(), Actor.t()) :: String.t()
-  defp module_token(module, session_id, actor) do
+  defp module_token(manifest, session_id, actor) do
     D20.Module.Token.sign(D20Web.Endpoint, %{
       actor_id: actor.id,
       actor_type: actor.type,
-      module_id: module.id,
+      module_id: manifest.slug,
       session_id: session_id
     })
   end

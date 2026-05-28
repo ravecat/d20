@@ -14,7 +14,7 @@ defmodule D20Web.ModuleTest do
         |> Scope.put_anonymous(Anonymous.new())
       )
 
-    module = %{id: "qwinto"}
+    module = %{slug: "qwinto"}
 
     assert_raise KeyError, fn ->
       Module.bootstrap(conn, module)
@@ -33,7 +33,7 @@ defmodule D20Web.ModuleTest do
         |> Scope.put_anonymous(Anonymous.from_id(actor_id))
       )
 
-    module = %{id: "qwinto"}
+    module = %{slug: "qwinto"}
 
     assert %{
              endpoint: "ws://www.example.com/module",

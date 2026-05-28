@@ -1,13 +1,7 @@
 {
-  "modules": [
-    {
-      "id": "qwinto",
-      "title": "Qwinto",
-      "game": "qwinto",
-      "entry": "https://qwinto.modules.example.com/",
-      "allowedOrigins": ["https://qwinto.modules.example.com"],
-      "trust": "owned-isolated",
-      "sandbox": ["allow-scripts", "allow-same-origin"]
-    }
-  ]
+  "qwinto": {
+    "entry": "https://qwinto.modules.example.com/",
+    "allowedOrigins": ["https://qwinto.modules.example.com"],
+    "sandbox": ["allow-scripts", "allow-same-origin"]
+  }
 }

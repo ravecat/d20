@@ -28,7 +28,7 @@
 <iframe
   bind:this={iframe}
   class="h-full w-full"
-  title={`${module.title} preview`}
+  title="Game module"
   src={module.embedUrl}
   loading="lazy"
   sandbox={module.sandbox.join(" ")}

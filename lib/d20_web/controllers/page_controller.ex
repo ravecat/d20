@@ -7,7 +7,7 @@ defmodule D20Web.PageController do
 
   def games(conn, _params) do
     conn
-    |> assign_prop(:modules, D20.Module.Manifest.list())
+    |> assign_prop(:games, Enum.map(D20.Games.list(), &Map.from_struct/1))
     |> render_inertia("games")
   end
 

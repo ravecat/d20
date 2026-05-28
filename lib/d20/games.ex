@@ -44,6 +44,13 @@ defmodule D20.Games do
     }
   }
 
+  @spec list() :: [Game.t()]
+  def list do
+    @mock_games
+    |> Enum.sort_by(fn {slug, _attrs} -> slug end)
+    |> Enum.map(fn {_slug, attrs} -> struct(Game, attrs) end)
+  end
+
   @spec fetch_by_slug(String.t()) :: {:ok, Game.t()} | {:error, :not_found}
   def fetch_by_slug(slug) when is_binary(slug) do
     case Map.fetch(@mock_games, slug) do
@@ -65,7 +72,7 @@ defmodule D20.Games do
   def fetch_context_by_slug(slug) when is_binary(slug) do
     with {:ok, %Game{} = game} <- fetch_by_slug(slug),
          {:ok, manifest} <- Manifest.fetch(game.slug),
-         {:ok, engine} <- Manifest.fetch_engine(manifest.id) do
+         {:ok, engine} <- Manifest.fetch_engine(game.slug) do
       {:ok, %{game: game, manifest: manifest, engine: engine}}
     else
       {:error, :not_found} -> {:error, :game_not_found}
