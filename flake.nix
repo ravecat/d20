@@ -19,6 +19,8 @@
           packages = [
             beam.erlang
             beam.elixir_1_19
+            pkgs.docker-client
+            pkgs.docker-compose
             pkgs.git
             pkgs.glibcLocales
             pkgs.jq

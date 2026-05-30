@@ -17,6 +17,13 @@ serve sname="d20" erl="-proto_dist inet6_tcp":
     just setup
     just start --sname "{{sname}}" --erl "{{erl}}"
 
+up:
+    docker compose up -d traefik
+    just serve
+
+down:
+    docker compose down
+
 test:
     mix test
 
