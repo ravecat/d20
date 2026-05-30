@@ -3,12 +3,9 @@ defmodule D20.Module.Manifest do
   Loads iframe module entries from project-scoped manifests.
   """
 
-  @type entry :: %{
-          required(:slug) => String.t(),
-          required(:embed_url) => String.t(),
-          required(:allowed_origins) => [String.t()],
-          required(:sandbox) => [String.t()]
-        }
+  @type entry :: %{required(:slug) => String.t(), required(:sandbox) => [String.t()]}
+
+  @slug_pattern ~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
 
   @spec fetch(String.t()) :: {:ok, entry()} | {:error, :module_not_found}
   def fetch(slug) when is_binary(slug) do
@@ -33,23 +30,14 @@ defmodule D20.Module.Manifest do
     |> Jason.decode!()
   end
 
-  defp normalize!(slug, %{"entry" => entry, "sandbox" => sandbox})
-       when is_binary(slug) and is_binary(entry) and is_list(sandbox) do
-    %{slug: slug, embed_url: entry, allowed_origins: [origin!(entry)], sandbox: sandbox}
+  defp normalize!(slug, %{"sandbox" => sandbox}) when is_binary(slug) and is_list(sandbox) do
+    validate_slug!(slug)
+    %{slug: slug, sandbox: sandbox}
   end
 
-  defp origin!(entry) do
-    case URI.parse(entry) do
-      %URI{scheme: scheme, host: host} = uri when is_binary(scheme) and is_binary(host) ->
-        uri
-        |> Map.put(:path, nil)
-        |> Map.put(:query, nil)
-        |> Map.put(:fragment, nil)
-        |> Map.put(:userinfo, nil)
-        |> URI.to_string()
-
-      _uri ->
-        raise ArgumentError, "invalid iframe entry URL #{inspect(entry)}"
+  defp validate_slug!(slug) do
+    unless Regex.match?(@slug_pattern, slug) do
+      raise ArgumentError, "invalid iframe module slug #{inspect(slug)}"
     end
   end
 

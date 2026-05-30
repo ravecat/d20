@@ -1,26 +1,27 @@
 <script lang="ts">
   import { module as expose } from "@rvct/d20sdk";
-  import type { ModuleEntry } from "~types/module";
+  import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   interface Props {
     module: ModuleEntry;
+    connection: ModuleConnection;
   }
 
-  const { module }: Props = $props();
+  const { module, connection }: Props = $props();
 
   let iframe: HTMLIFrameElement | undefined;
 
   $effect(() => {
-    if (!module.bootstrap || !iframe?.contentWindow) return;
+    if (!iframe?.contentWindow) return;
 
-    const connection = expose({
+    const bridge = expose({
       remoteWindow: iframe.contentWindow,
       allowedOrigins: module.allowedOrigins,
-      bootstrap: module.bootstrap,
+      bootstrap: connection,
     });
 
     return () => {
-      connection.destroy();
+      bridge.destroy();
     };
   });
 </script>

@@ -9,8 +9,10 @@ defmodule D20Web.SessionChannel do
   @impl true
   def join("session:" <> session_id, _payload, socket) do
     with :ok <- authorize_topic(socket, session_id),
-         {:ok, session} <- Sessions.get(session_id) do
+         {:ok, ref, session} <- session_context(socket, session_id) do
       send(self(), :after_join)
+
+      socket = assign(socket, :session_ref, ref)
 
       {:ok, session, socket}
     else
@@ -38,7 +40,7 @@ defmodule D20Web.SessionChannel do
   def handle_in(event, payload, socket) do
     attrs = put_actor_attrs(socket, event, payload)
 
-    case Sessions.dispatch(session_id(socket), event, attrs) do
+    case Sessions.dispatch(socket.assigns.session_ref, event, attrs) do
       {:ok, _session} -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
@@ -66,11 +68,14 @@ defmodule D20Web.SessionChannel do
     {:error, :forbidden}
   end
 
-  defp authorize_topic(_socket, _session_id), do: :ok
+  defp authorize_topic(_socket, _session_id), do: {:error, :forbidden}
 
-  defp session_id(socket) do
-    "session:" <> session_id = socket.topic
-    session_id
+  defp session_context(%{assigns: %{module: %{module_id: slug}}}, session_id) do
+    ref = {slug, session_id}
+
+    with {:ok, session} <- Sessions.get(ref) do
+      {:ok, ref, session}
+    end
   end
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)

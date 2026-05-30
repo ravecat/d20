@@ -1,6 +1,8 @@
 defmodule D20Web.PageController do
   use D20Web, :controller
 
+  alias D20.Module.Manifest
+
   def home(conn, _params) do
     render_inertia(conn, "home")
   end
@@ -11,19 +13,32 @@ defmodule D20Web.PageController do
     |> render_inertia("games")
   end
 
-  def game(conn, %{"slug" => slug} = params) do
-    with {:ok, game_context} <- D20.Games.fetch_context_by_slug(slug) do
-      {module_manifest, session} = resolve_session_view(conn, game_context, params["session"])
-
+  def game(conn, %{"slug" => slug, "session" => session_id}) do
+    with {:ok, game} <- D20.Games.fetch_by_slug(slug),
+         {:ok, manifest} <- Manifest.fetch(slug),
+         {:ok, session} <- D20.Sessions.get({slug, session_id}) do
       conn
-      |> assign_prop(:module, module_manifest)
-      |> assign_prop(:game, Map.from_struct(game_context.game))
+      |> assign_prop(:game, Map.from_struct(game))
       |> assign_prop(:session, session)
+      |> assign_prop(:module, D20Web.Module.entry(conn, manifest))
+      |> assign_prop(:connection, D20Web.Module.connection(conn, slug, session.id))
       |> render_inertia("game")
     else
-      {:error, :game_not_found} -> send_not_found(conn)
-      {:error, :module_not_found} -> send_not_found(conn)
-      {:error, :engine_not_found} -> send_not_found(conn)
+      {:error, :session_not_found} -> game(conn, %{"slug" => slug})
+      {:error, reason} -> handle_game_error(conn, reason)
+    end
+  end
+
+  def game(conn, %{"slug" => slug}) do
+    with {:ok, game} <- D20.Games.fetch_by_slug(slug) do
+      conn
+      |> assign_prop(:game, Map.from_struct(game))
+      |> assign_prop(:session, nil)
+      |> assign_prop(:module, nil)
+      |> assign_prop(:connection, nil)
+      |> render_inertia("game")
+    else
+      {:error, reason} -> handle_game_error(conn, reason)
     end
   end
 
@@ -49,25 +64,9 @@ defmodule D20Web.PageController do
     end
   end
 
-  defp resolve_session_view(conn, game_context, session_id) when is_binary(session_id) do
-    case D20.Sessions.get(session_id) do
-      {:ok, %{engine: engine} = session} ->
-        if engine == game_context.engine do
-          {put_bootstrap(conn, game_context.manifest, session.id), session}
-        else
-          {game_context.manifest, nil}
-        end
-
-      {:error, :session_not_found} ->
-        {game_context.manifest, nil}
-    end
-  end
-
-  defp resolve_session_view(_conn, game_context, _session_id),
-    do: {game_context.manifest, nil}
-
-  defp put_bootstrap(conn, manifest, session_id) do
-    Map.put(manifest, :bootstrap, D20Web.Module.bootstrap(conn, manifest, session_id: session_id))
+  defp handle_game_error(conn, reason)
+       when reason in [:not_found, :game_not_found, :module_not_found, :engine_not_found] do
+    send_not_found(conn)
   end
 
   defp redirect_with_start_error(conn, slug, message) do

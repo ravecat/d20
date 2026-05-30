@@ -2,15 +2,16 @@
   import { inertia, useForm } from "@inertiajs/svelte";
   import SessionPanel from "~components/session_panel.svelte";
   import type { GameMetadata, Session } from "~types/game";
-  import type { ModuleEntry } from "~types/module";
+  import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   type Props = InertiaProps<{
     game: GameMetadata;
-    module: ModuleEntry;
+    module: ModuleEntry | null;
+    connection: ModuleConnection | null;
     session: Session | null;
   }>;
 
-  const { game, module, session }: Props = $props();
+  const { game, module, connection, session }: Props = $props();
   const sessionForm = useForm<Record<string, string>>({});
 
   const handleStartSession = () => {
@@ -46,9 +47,9 @@
 
       <p class="mt-4 max-w-3xl text-sm leading-6 text-base-content/75">{game.description}</p>
 
-      {#if session}
+      {#if session && module && connection}
         {#key session.id}
-          <SessionPanel {module} id={session.id} />
+          <SessionPanel {module} {connection} />
         {/key}
       {:else}
         <div class="mt-8 border-t border-base-300 pt-5">

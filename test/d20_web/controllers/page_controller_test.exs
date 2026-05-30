@@ -21,25 +21,25 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(game, :embedUrl)
     refute Map.has_key?(game, :allowedOrigins)
     refute Map.has_key?(game, :bootstrap)
-    assert html_response(conn, 200) =~ ~s(src="http://localhost:5174/@vite/client")
-    assert html_response(conn, 200) =~ ~s(src="http://localhost:5174/js/app.js")
   end
 
   test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do
     conn = get(conn, ~p"/games/qwinto")
 
     assert inertia_component(conn) == "game"
-    assert %{module: module, game: game, session: nil} = inertia_props(conn)
-    assert module[:slug] == "qwinto"
-    assert module[:embedUrl] == "http://localhost:5173"
-    assert module[:allowedOrigins] == ["http://localhost:5173"]
-    assert "allow-scripts" in module[:sandbox]
+    assert %{module: nil, connection: nil, game: game, session: nil} = inertia_props(conn)
     assert game[:slug] == "qwinto"
     assert game[:externalId] == 183_006
-    refute Map.has_key?(module, :id)
-    refute Map.has_key?(module, :title)
-    refute Map.has_key?(module, :game)
-    refute Map.has_key?(module, :bootstrap)
+  end
+
+  test "GET /games/:slug with a missing session renders metadata without session", %{conn: conn} do
+    session_id = Ecto.UUID.generate()
+
+    conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
+
+    assert inertia_component(conn) == "game"
+    assert %{module: nil, connection: nil, game: game, session: nil} = inertia_props(conn)
+    assert game[:slug] == "qwinto"
   end
 
   test "GET /games/:slug returns 404 for unknown games", %{conn: conn} do
@@ -71,44 +71,54 @@ defmodule D20Web.PageControllerTest do
     assert inertia_errors(conn) == %{start_session: "Game engine is not available."}
   end
 
-  test "GET /games/:slug with a waiting session attaches iframe bootstrap", %{conn: conn} do
+  test "GET /games/:slug with a waiting session attaches module connection", %{conn: conn} do
     assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
     session_id = session.id
+    session_ref = {"qwinto", session_id}
 
-    on_exit(fn -> D20.Sessions.stop(session_id) end)
+    on_exit(fn -> D20.Sessions.stop(session_ref) end)
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
-    assert %{module: module, session: session} = inertia_props(conn)
+    assert %{module: module, connection: connection, session: session} = inertia_props(conn)
     assert session.id == session_id
     assert session.phase == :waiting_for_players
     assert session.members == %{}
-    refute Map.has_key?(module[:bootstrap], :moduleId)
-    refute Map.has_key?(module[:bootstrap], :socketUrl)
-    assert module[:bootstrap][:endpoint] == "ws://www.example.com/module"
-    assert module[:bootstrap][:topic] == "session:#{session_id}"
+    assert module[:embedUrl] == "http://qwinto.example.com/"
+    assert module[:allowedOrigins] == ["http://qwinto.example.com"]
+    assert "allow-scripts" in module[:sandbox]
+    refute Map.has_key?(module, :bootstrap)
+    refute Map.has_key?(connection, :moduleId)
+    refute Map.has_key?(connection, :socketUrl)
+    assert connection[:endpoint] == "ws://example.com/module"
+    assert connection[:topic] == "session:#{session_id}"
+
+    assert {:ok, %{module_id: "qwinto", session_id: ^session_id}} =
+             D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
   end
 
-  test "GET /games/:slug with an in-progress session attaches iframe bootstrap", %{conn: conn} do
+  test "GET /games/:slug with an in-progress session attaches module connection", %{conn: conn} do
     assert {:ok, session} = D20.Sessions.create("qwinto", "p1")
     session_id = session.id
+    session_ref = {"qwinto", session_id}
 
-    on_exit(fn -> D20.Sessions.stop(session_id) end)
+    on_exit(fn -> D20.Sessions.stop(session_ref) end)
 
     assert {:ok, _session} =
-             D20.Sessions.dispatch(session_id, "join", %{player_id: "p2", online_at: 123})
+             D20.Sessions.dispatch(session_ref, "join", %{player_id: "p2", online_at: 123})
 
-    assert {:ok, _session} = D20.Sessions.dispatch(session_id, "start", %{player_id: "p1"})
+    assert {:ok, _session} = D20.Sessions.dispatch(session_ref, "start", %{player_id: "p1"})
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
-    assert %{module: module, session: session} = inertia_props(conn)
+    assert %{module: module, connection: connection, session: session} = inertia_props(conn)
     assert session.id == session_id
     assert session.phase == :in_progress
     assert session.members == %{"p2" => %{online_at: 123}}
-    refute Map.has_key?(module[:bootstrap], :moduleId)
-    refute Map.has_key?(module[:bootstrap], :socketUrl)
-    assert module[:bootstrap][:endpoint] == "ws://www.example.com/module"
-    assert module[:bootstrap][:topic] == "session:#{session_id}"
+    refute Map.has_key?(module, :bootstrap)
+    refute Map.has_key?(connection, :moduleId)
+    refute Map.has_key?(connection, :socketUrl)
+    assert connection[:endpoint] == "ws://example.com/module"
+    assert connection[:topic] == "session:#{session_id}"
   end
 end

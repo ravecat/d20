@@ -38,7 +38,7 @@ config :d20, D20.Actors.ActorToken,
   max_age: 1_209_600
 
 config :d20, D20.Module.Manifest,
-  path: "priv/modules/#{config_env()}.json",
+  path: "priv/modules/registry.json",
   engines: [qwinto: D20.Qwinto.Game]
 
 config :d20, D20.Module.Token,

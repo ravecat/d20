@@ -1,16 +1,20 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import Frame from "~components/module_frame.svelte";
   import { createSession } from "~stores/session";
-  import type { ModuleEntry } from "~types/module";
+  import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   interface Props {
     module: ModuleEntry;
-    id: string;
+    connection: ModuleConnection;
   }
 
-  const { module, id }: Props = $props();
-  const session = createSession(untrack(() => `session:${id}`));
+  const { module, connection }: Props = $props();
+  const session = createSession(untrack(() => connection));
+
+  onDestroy(() => {
+    session.disconnect();
+  });
 
   const members = $derived(
     Object.entries($session.value?.members ?? {}).map(([id, member]) => {
@@ -96,6 +100,6 @@
 
 {#if phase === "in_progress"}
   <section class="mt-6 h-136 min-h-0 overflow-hidden rounded-sm border border-base-300">
-    <Frame {module} />
+    <Frame {module} {connection} />
   </section>
 {/if}

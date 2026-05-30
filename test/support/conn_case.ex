@@ -34,7 +34,7 @@ defmodule D20Web.ConnCase do
 
   setup tags do
     D20.DataCase.setup_sandbox(tags)
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    {:ok, conn: %{Phoenix.ConnTest.build_conn() | host: "example.com"}}
   end
 
   @doc """

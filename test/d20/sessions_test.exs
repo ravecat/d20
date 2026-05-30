@@ -28,12 +28,14 @@ defmodule D20.SessionsTest do
     test "starts a supervised session process for a game slug" do
       assert {:ok, %Session{} = session} = Sessions.create("qwinto", "p1")
       id = session.id
+      session_ref = {"qwinto", id}
 
-      on_exit(fn -> Sessions.stop(id) end)
+      on_exit(fn -> Sessions.stop(session_ref) end)
 
       assert {:ok, ^id} = Ecto.UUID.cast(id)
-      assert %Session{id: ^id, engine: D20.Qwinto.Game, owner_id: "p1"} = session
-      assert {:ok, pid} = Sessions.lookup(id)
+      assert %Session{id: ^id, owner_id: "p1"} = session
+      assert {:ok, ^session} = Sessions.get(session_ref)
+      assert {:ok, pid} = Sessions.lookup(session_ref)
       assert Process.alive?(pid)
     end
 
@@ -45,6 +47,16 @@ defmodule D20.SessionsTest do
     test "returns playable game lookup errors" do
       assert {:error, :game_not_found} = Sessions.create("missing", "p1")
     end
+
+    test "returns engine lookup errors" do
+      manifest_config = Application.fetch_env!(:d20, D20.Module.Manifest)
+
+      Application.put_env(:d20, D20.Module.Manifest, Keyword.put(manifest_config, :engines, []))
+
+      on_exit(fn -> Application.put_env(:d20, D20.Module.Manifest, manifest_config) end)
+
+      assert {:error, :engine_not_found} = Sessions.create("qwinto", "p1")
+    end
   end
 
   describe "dispatch/3" do
@@ -52,24 +64,25 @@ defmodule D20.SessionsTest do
       start_test_session(TestGame, "p1")
     end
 
-    test "serializes session transitions through the process", %{id: id} do
-      assert {:ok, %Session{} = session} = Sessions.dispatch(id, "noop", %{value: 1})
+    test "serializes session transitions through the process", %{id: id, ref: ref} do
+      assert {:ok, %Session{} = session} = Sessions.dispatch(ref, "noop", %{value: 1})
       assert {"noop", %{value: 1}} in session.game.events
-      assert {:ok, ^session} = Sessions.get(id)
+      assert session.id == id
+      assert {:ok, ^session} = Sessions.get(ref)
     end
 
-    test "keeps current state when a dispatch returns an error", %{id: id} do
-      assert {:ok, before} = Sessions.get(id)
-      assert {:error, :bad_command} = Sessions.dispatch(id, "fail", %{})
-      assert {:ok, ^before} = Sessions.get(id)
+    test "keeps current state when a dispatch returns an error", %{ref: ref} do
+      assert {:ok, before} = Sessions.get(ref)
+      assert {:error, :bad_command} = Sessions.dispatch(ref, "fail", %{})
+      assert {:ok, ^before} = Sessions.get(ref)
     end
 
-    test "keeps client state out of the server state", %{id: id} do
-      assert {:ok, %Session{id: ^id} = session} = Sessions.get(id)
+    test "keeps client state out of the server state", %{id: id, ref: ref} do
+      assert {:ok, %Session{id: ^id} = session} = Sessions.get(ref)
       refute Map.has_key?(session, :client_state)
     end
 
-    test "updates members from session presence events", %{id: id} do
+    test "updates members from session presence events", %{id: id, ref: ref} do
       topic = SessionChannel.topic(id)
 
       assert {:ok, %{}} =
@@ -80,7 +93,7 @@ defmodule D20.SessionsTest do
                  %{}
                )
 
-      assert {:ok, session} = Sessions.get(id)
+      assert {:ok, session} = Sessions.get(ref)
 
       assert %{online_at: 123, actor_type: :anonymous, display_name: display_name, avatar: avatar} =
                session.members["p2"]
@@ -96,7 +109,7 @@ defmodule D20.SessionsTest do
                  %{}
                )
 
-      assert {:ok, session} = Sessions.get(id)
+      assert {:ok, session} = Sessions.get(ref)
       refute Map.has_key?(session.members, "p2")
     end
   end
@@ -104,32 +117,50 @@ defmodule D20.SessionsTest do
   describe "missing sessions" do
     test "returns not found for missing session ids" do
       id = "missing-#{System.unique_integer([:positive])}"
+      ref = {"qwinto", id}
 
-      assert {:error, :session_not_found} = Sessions.get(id)
-      assert {:error, :session_not_found} = Sessions.dispatch(id, "join", %{player_id: "p1"})
-      assert {:error, :session_not_found} = Sessions.lookup("")
+      assert {:error, :session_not_found} = Sessions.get(ref)
+      assert {:error, :session_not_found} = Sessions.dispatch(ref, "join", %{player_id: "p1"})
+      assert {:error, :session_not_found} = Sessions.lookup({"qwinto", ""})
     end
   end
 
-  describe "stop/3" do
+  describe "get/1" do
     setup do
       start_test_session(TestGame, "p1")
     end
 
-    test "stops an existing session process and treats missing sessions as stopped", %{id: id} do
-      assert :ok = Sessions.stop(id)
-      assert {:error, :session_not_found} = Sessions.get(id)
-      assert :ok = Sessions.stop(id)
+    test "treats unknown game slugs as not found", %{id: id} do
+      assert {:error, :session_not_found} = Sessions.get({"missing", id})
     end
 
-    test "does not restart a crashed volatile session process", %{id: id} do
-      assert {:ok, pid} = Sessions.lookup(id)
+    test "treats sessions from another game slug as not found", %{id: id} do
+      assert {:error, :session_not_found} = Sessions.get({"qwinto", id})
+    end
+  end
 
-      ref = Process.monitor(pid)
+  describe "stop/1" do
+    setup do
+      start_test_session(TestGame, "p1")
+    end
+
+    test "stops an existing session process and treats missing sessions as stopped", %{ref: ref} do
+      assert :ok = Sessions.stop(ref)
+      assert :ok = Sessions.stop(ref)
+    end
+
+    test "does not restart a crashed volatile session process", %{ref: session_ref} do
+      assert {:ok, pid} = Sessions.lookup(session_ref)
+
+      monitor_ref = Process.monitor(pid)
       Process.exit(pid, :kill)
 
-      assert_receive {:DOWN, ^ref, :process, ^pid, :killed}
-      assert {:error, :session_not_found} = Sessions.get(id)
+      assert_receive {:DOWN, ^monitor_ref, :process, ^pid, :killed}
+
+      case Sessions.lookup(session_ref) do
+        {:ok, pid} -> refute Process.alive?(pid)
+        {:error, :session_not_found} -> :ok
+      end
     end
   end
 
@@ -137,10 +168,15 @@ defmodule D20.SessionsTest do
     assert {:ok, session} = Session.new(engine, owner_id)
 
     assert {:ok, _pid} =
-             DynamicSupervisor.start_child(D20.Sessions.Supervisor, {Server, session: session})
+             DynamicSupervisor.start_child(
+               D20.Sessions.Supervisor,
+               {Server, slug: "test-game", engine: engine, session: session}
+             )
 
-    on_exit(fn -> Sessions.stop(session.id) end)
+    ref = {"test-game", session.id}
 
-    %{id: session.id, session: session}
+    on_exit(fn -> Sessions.stop(ref) end)
+
+    %{id: session.id, ref: ref, session: session}
   end
 end

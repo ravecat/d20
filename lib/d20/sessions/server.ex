@@ -11,30 +11,33 @@ defmodule D20.Sessions.Server do
   alias D20Web.SessionChannel
 
   @type id :: Session.id()
-  @type start_opts :: [session: Session.t()]
-  @type state :: Session.t()
+  @type slug :: String.t()
+  @type start_opts :: [slug: slug(), engine: module(), session: Session.t()]
+  @type state :: {slug(), module(), Session.t()}
 
   @spec start_link(start_opts()) :: GenServer.on_start()
   def start_link(opts) do
+    slug = Keyword.fetch!(opts, :slug)
+    engine = Keyword.fetch!(opts, :engine)
     session = Keyword.fetch!(opts, :session)
 
-    GenServer.start_link(__MODULE__, session, name: via(session.id))
+    GenServer.start_link(__MODULE__, {slug, engine, session}, name: via(slug, session.id))
   end
 
   @impl true
-  @spec init(Session.t()) :: {:ok, state()} | {:stop, term()}
-  def init(%Session{} = session) do
+  @spec init(state()) :: {:ok, state()} | {:stop, term()}
+  def init({slug, engine, %Session{} = session}) when is_binary(slug) and is_atom(engine) do
     case Presence.subscribe(SessionChannel.topic(session.id)) do
-      :ok -> {:ok, session}
+      :ok -> {:ok, {slug, engine, session}}
       {:error, reason} -> {:stop, reason}
     end
   end
 
-  def init(_session) do
+  def init(_state) do
     {:stop, :badarg}
   end
 
-  @spec get(GenServer.server()) :: {:ok, state()}
+  @spec get(GenServer.server()) :: {:ok, Session.t()}
   def get(server) do
     GenServer.call(server, :get)
   end
@@ -46,23 +49,23 @@ defmodule D20.Sessions.Server do
   end
 
   @impl true
-  def handle_call(:get, _from, session) do
-    {:reply, {:ok, session}, session}
+  def handle_call(:get, _from, {_slug, _engine, session} = state) do
+    {:reply, {:ok, session}, state}
   end
 
-  def handle_call({:dispatch, event, attrs}, _from, session) do
-    case dispatch_to_session(session, event, attrs) do
+  def handle_call({:dispatch, event, attrs}, _from, {slug, engine, _session} = state) do
+    case dispatch_to_session(state, event, attrs) do
       {:ok, session} ->
-        broadcast_state(session)
-        {:reply, {:ok, session}, session}
+        broadcast_state(slug, session)
+        {:reply, {:ok, session}, {slug, engine, session}}
 
       {:error, reason} ->
-        {:reply, {:error, reason}, session}
+        {:reply, {:error, reason}, state}
     end
   end
 
   @impl true
-  def handle_info({:join, actor_id, %{online_at: online_at}}, session) do
+  def handle_info({:join, actor_id, %{online_at: online_at}}, state) do
     profile = Accounts.get_user_or_anonymous(actor_id)
 
     member_attrs = %{
@@ -72,36 +75,36 @@ defmodule D20.Sessions.Server do
       avatar: profile.avatar
     }
 
-    handle_presence_event(session, "join", actor_id, member_attrs)
+    handle_presence_event(state, "join", actor_id, member_attrs)
   end
 
-  def handle_info({:left, actor_id}, session) do
-    handle_presence_event(session, "leave", actor_id, %{})
+  def handle_info({:left, actor_id}, state) do
+    handle_presence_event(state, "leave", actor_id, %{})
   end
 
   @spec handle_presence_event(state(), String.t(), Session.player_id(), map()) ::
           {:noreply, state()}
-  defp handle_presence_event(session, event, actor_id, member_attrs) do
+  defp handle_presence_event({slug, engine, _session} = state, event, actor_id, member_attrs) do
     attrs = Map.put(member_attrs, :player_id, actor_id)
 
-    case dispatch_to_session(session, event, attrs) do
+    case dispatch_to_session(state, event, attrs) do
       {:ok, session} ->
-        broadcast_state(session)
-        {:noreply, session}
+        broadcast_state(slug, session)
+        {:noreply, {slug, engine, session}}
 
       {:error, _reason} ->
-        {:noreply, session}
+        {:noreply, state}
     end
   end
 
   @spec dispatch_to_session(state(), Session.event(), term()) ::
-          {:ok, state()} | {:error, Session.reason()}
-  defp dispatch_to_session(%Session{} = session, event, attrs) do
-    Session.dispatch(session, event, attrs)
+          {:ok, Session.t()} | {:error, Session.reason()}
+  defp dispatch_to_session({_slug, engine, %Session{} = session}, event, attrs) do
+    Session.dispatch(session, engine, event, attrs)
   end
 
-  @spec broadcast_state(state()) :: :ok
-  defp broadcast_state(session) do
+  @spec broadcast_state(slug(), Session.t()) :: :ok
+  defp broadcast_state(_slug, session) do
     Phoenix.PubSub.local_broadcast(
       D20.PubSub,
       SessionChannel.topic(session.id),
@@ -109,7 +112,7 @@ defmodule D20.Sessions.Server do
     )
   end
 
-  defp via(id) do
-    {:via, Registry, {D20.Registry, {:session, id}}}
+  defp via(slug, id) do
+    {:via, Registry, {D20.Registry, {:session, slug, id}}}
   end
 end

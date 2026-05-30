@@ -4,9 +4,9 @@ defmodule D20.Module.ManifestTest do
   test "fetches module entries by slug" do
     assert {:ok, qwinto} = D20.Module.Manifest.fetch("qwinto")
     assert qwinto.slug == "qwinto"
-    assert qwinto.embed_url == "http://localhost:5173"
-    assert qwinto.allowed_origins == ["http://localhost:5173"]
     assert "allow-scripts" in qwinto.sandbox
+    refute Map.has_key?(qwinto, :embed_url)
+    refute Map.has_key?(qwinto, :allowed_origins)
     refute Map.has_key?(qwinto, :id)
     refute Map.has_key?(qwinto, :title)
     refute Map.has_key?(qwinto, :game)
