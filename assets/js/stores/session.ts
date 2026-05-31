@@ -1,18 +1,14 @@
 import { session } from "@rvct/phoenix";
-import { Socket } from "phoenix";
+import socket from "~/user_socket.js";
 import type { Session } from "~types/game";
-import type { ModuleConnection } from "~types/module";
 
 type StartError = {
   reason?: string;
 };
 
-export function createSession(connection: ModuleConnection) {
-  const socket = new Socket(connection.endpoint, { authToken: connection.token });
-  socket.connect();
-
-  const store = session<Session>(socket, {
-    topic: connection.topic,
+export function createSession(topic: string) {
+  return session<Session>(socket, {
+    topic,
     connect: {
       ok: (_value, state: Session) => state,
     },
@@ -24,10 +20,4 @@ export function createSession(connection: ModuleConnection) {
       return call<unknown, StartError>("start", {});
     },
   }));
-
-  return Object.assign(store, {
-    disconnect() {
-      socket.disconnect();
-    },
-  });
 }

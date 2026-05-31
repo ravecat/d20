@@ -7,6 +7,7 @@ defmodule D20Web.SessionChannelTest do
   alias D20Web.ModuleSocket
   alias D20Web.Presence
   alias D20Web.SessionChannel
+  alias D20Web.UserSocket
 
   test "session topic tracks anonymous actor presence" do
     actor = %{id: Ecto.UUID.generate(), type: :anonymous}
@@ -35,7 +36,7 @@ defmodule D20Web.SessionChannelTest do
 
     assert is_integer(tracked_online_at)
 
-    assert {:ok, session} = D20.Sessions.get({"qwinto", session_id})
+    assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_id)
 
     assert %{
              online_at: ^tracked_online_at,
@@ -71,7 +72,7 @@ defmodule D20Web.SessionChannelTest do
              join_session_channel(Ecto.UUID.generate(), actor)
   end
 
-  test "module session topic accepts signed module tokens" do
+  test "module session topic accepts signed module tokens without tracking player presence" do
     actor = %{id: Ecto.UUID.generate(), type: :anonymous}
     session_id = create_runtime_session(actor.id)
 
@@ -84,8 +85,9 @@ defmodule D20Web.SessionChannelTest do
     assert {:ok, %Session{id: ^session_id}, _socket} =
              subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
 
-    assert_push "projection", %Session{members: members}
-    assert %{actor_type: :anonymous} = members[actor.id]
+    refute_push "projection", %Session{}, 50
+
+    assert {:ok, {%Session{members: %{}}, "qwinto"}} = D20.Sessions.get(session_id)
   end
 
   test "module session topic rejects tokens for another session" do
@@ -99,11 +101,21 @@ defmodule D20Web.SessionChannelTest do
              subscribe_and_join(socket, SessionChannel.topic(other_session_id), %{})
   end
 
+  test "module session topic rejects tokens for another module" do
+    actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+    session_id = create_runtime_session(actor.id)
+
+    assert {:ok, socket} = connect_module_socket(session_id, actor, module_id: "missing")
+
+    assert {:error, %{reason: "forbidden"}} =
+             subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
+  end
+
   test "session command dispatches with actor id" do
     actor = %{id: Ecto.UUID.generate(), type: :anonymous}
     actor_id = actor.id
     session_id = create_runtime_session(actor.id)
-    session_ref = {"qwinto", session_id}
+    session_ref = session_id
 
     assert {:ok, _session} =
              D20.Sessions.dispatch(session_ref, "join", %{player_id: "p2", online_at: 123})
@@ -126,7 +138,7 @@ defmodule D20Web.SessionChannelTest do
 
     assert_push "projection", %Session{id: ^session_id, phase: :in_progress}
 
-    assert {:ok, session} = D20.Sessions.get(session_ref)
+    assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_ref)
     assert session.phase == :in_progress
   end
 
@@ -151,25 +163,33 @@ defmodule D20Web.SessionChannelTest do
   end
 
   defp create_runtime_session(owner_id) do
-    assert {:ok, session} = D20.Sessions.create("qwinto", owner_id)
+    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, owner_id)
 
-    on_exit(fn -> D20.Sessions.stop({"qwinto", session.id}) end)
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
 
     session.id
   end
 
   defp join_session_channel(session_id, actor) do
-    assert {:ok, socket} = connect_module_socket(session_id, actor)
+    assert {:ok, socket} = connect_user_socket(actor)
 
     subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
   end
 
-  defp connect_module_socket(session_id, actor) do
+  defp connect_user_socket(actor) do
+    token = D20.Actors.Token.sign(D20Web.Endpoint, actor)
+
+    connect UserSocket, %{}, connect_info: %{auth_token: token}
+  end
+
+  defp connect_module_socket(session_id, actor, opts \\ []) do
+    module_id = Keyword.get(opts, :module_id, "qwinto")
+
     token =
       D20.Module.Token.sign(D20Web.Endpoint, %{
         actor_id: actor.id,
         actor_type: actor.type,
-        module_id: "qwinto",
+        module_id: module_id,
         session_id: session_id
       })
 

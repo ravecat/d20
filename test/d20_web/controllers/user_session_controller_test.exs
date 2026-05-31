@@ -19,7 +19,7 @@ defmodule D20Web.UserSessionControllerTest do
       assert response =~ ~s(window.actorToken = "#{token}")
 
       assert {:ok, %{id: _actor_id, type: :anonymous}} =
-               D20.Actors.ActorToken.verify(D20Web.Endpoint, token)
+               D20.Actors.Token.verify(D20Web.Endpoint, token)
     end
 
     test "renders login page with email filled in (sudo mode)", %{conn: conn, user: user} do
@@ -33,8 +33,7 @@ defmodule D20Web.UserSessionControllerTest do
       assert token = conn.assigns.actor_token
       assert html =~ ~s(window.actorToken = "#{token}")
 
-      assert {:ok, %{id: actor_id, type: :user}} =
-               D20.Actors.ActorToken.verify(D20Web.Endpoint, token)
+      assert {:ok, %{id: actor_id, type: :user}} = D20.Actors.Token.verify(D20Web.Endpoint, token)
 
       assert actor_id == to_string(user.id)
 
@@ -204,8 +203,7 @@ defmodule D20Web.UserSessionControllerTest do
     assert token = conn.assigns.actor_token
     assert response =~ ~s(window.actorToken = "#{token}")
 
-    assert {:ok, %{id: actor_id, type: :user}} =
-             D20.Actors.ActorToken.verify(D20Web.Endpoint, token)
+    assert {:ok, %{id: actor_id, type: :user}} = D20.Actors.Token.verify(D20Web.Endpoint, token)
 
     assert actor_id == to_string(user.id)
   end

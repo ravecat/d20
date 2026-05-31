@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from "svelte";
+  import { untrack } from "svelte";
   import Frame from "~components/module_frame.svelte";
   import { createSession } from "~stores/session";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
@@ -10,11 +10,7 @@
   }
 
   const { module, connection }: Props = $props();
-  const session = createSession(untrack(() => connection));
-
-  onDestroy(() => {
-    session.disconnect();
-  });
+  const session = createSession(untrack(() => connection.topic));
 
   const members = $derived(
     Object.entries($session.value?.members ?? {}).map(([id, member]) => {

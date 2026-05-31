@@ -8,8 +8,23 @@ defmodule D20.Game do
 
   @type command_kind :: String.t()
   @type command_attrs :: map()
+  @type engine :: module()
 
   @callback init() :: {:ok, term()} | {:error, term()}
   @callback dispatch(term(), command_kind(), command_attrs()) :: {:ok, term()} | {:error, term()}
   @callback finished?(term()) :: boolean()
+
+  @spec ensure_engine(term()) :: {:ok, engine()} | {:error, :invalid_engine}
+  def ensure_engine(engine) when is_atom(engine) do
+    if Code.ensure_loaded?(engine) and
+         Enum.all?(__MODULE__.behaviour_info(:callbacks), fn {name, arity} ->
+           function_exported?(engine, name, arity)
+         end) do
+      {:ok, engine}
+    else
+      {:error, :invalid_engine}
+    end
+  end
+
+  def ensure_engine(_engine), do: {:error, :invalid_engine}
 end

@@ -3,11 +3,9 @@ defmodule D20.Module.Token do
   Signs short-lived iframe module access claims.
   """
 
-  @type actor_type :: :user | :anonymous
-
   @type claims :: %{
           required(:actor_id) => String.t(),
-          required(:actor_type) => actor_type(),
+          required(:actor_type) => D20.Actors.Actor.type(),
           required(:module_id) => String.t(),
           required(:session_id) => String.t()
         }

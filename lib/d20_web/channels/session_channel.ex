@@ -9,10 +9,10 @@ defmodule D20Web.SessionChannel do
   @impl true
   def join("session:" <> session_id, _payload, socket) do
     with :ok <- authorize_topic(socket, session_id),
-         {:ok, ref, session} <- session_context(socket, session_id) do
+         {:ok, session} <- session_context(socket, session_id) do
       send(self(), :after_join)
 
-      socket = assign(socket, :session_ref, ref)
+      socket = assign(socket, :session_id, session_id)
 
       {:ok, session, socket}
     else
@@ -24,6 +24,10 @@ defmodule D20Web.SessionChannel do
   end
 
   @impl true
+  def handle_info(:after_join, %{assigns: %{module: _module}} = socket) do
+    {:noreply, socket}
+  end
+
   def handle_info(:after_join, socket) do
     {:ok, _} =
       Presence.track(socket, socket.assigns.actor.id, %{online_at: System.system_time(:second)})
@@ -40,7 +44,7 @@ defmodule D20Web.SessionChannel do
   def handle_in(event, payload, socket) do
     attrs = put_actor_attrs(socket, event, payload)
 
-    case Sessions.dispatch(socket.assigns.session_ref, event, attrs) do
+    case Sessions.dispatch(socket.assigns.session_id, event, attrs) do
       {:ok, _session} -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
@@ -68,13 +72,25 @@ defmodule D20Web.SessionChannel do
     {:error, :forbidden}
   end
 
+  defp authorize_topic(%{assigns: %{actor: %{id: actor_id}}}, _session_id)
+       when is_binary(actor_id) do
+    :ok
+  end
+
   defp authorize_topic(_socket, _session_id), do: {:error, :forbidden}
 
   defp session_context(%{assigns: %{module: %{module_id: slug}}}, session_id) do
-    ref = {slug, session_id}
+    with {:ok, {session, ^slug}} <- Sessions.get(session_id) do
+      {:ok, session}
+    else
+      {:ok, {_session, _session_slug}} -> {:error, :forbidden}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-    with {:ok, session} <- Sessions.get(ref) do
-      {:ok, ref, session}
+  defp session_context(_socket, session_id) do
+    with {:ok, {session, _slug}} <- Sessions.get(session_id) do
+      {:ok, session}
     end
   end
 

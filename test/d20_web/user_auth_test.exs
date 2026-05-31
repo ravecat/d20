@@ -5,7 +5,7 @@ defmodule D20Web.UserAuthTest do
   alias D20.Accounts.Anonymous
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
-  alias D20.Actors.ActorToken
+  alias D20.Actors.Token
   alias D20Web.UserAuth
 
   import D20.AccountsFixtures
@@ -42,7 +42,7 @@ defmodule D20Web.UserAuthTest do
       assert is_binary(conn.assigns.actor_token)
 
       assert {:ok, %Actor{id: ^anonymous_user_id, type: :anonymous}} =
-               ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
+               Token.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       refute Map.has_key?(conn.assigns, :current_actor)
     end
@@ -59,7 +59,7 @@ defmodule D20Web.UserAuthTest do
       assert conn.assigns.current_scope.anonymous == nil
 
       assert {:ok, %Actor{id: user_id, type: :user}} =
-               ActorToken.verify(D20Web.Endpoint, conn.assigns.actor_token)
+               Token.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       assert user_id == to_string(user.id)
       refute Map.has_key?(conn.assigns, :current_actor)

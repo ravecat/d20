@@ -18,6 +18,6 @@ defmodule D20.GamesTest do
   end
 
   test "returns not found for unknown games" do
-    assert Games.fetch_by_slug("missing") == {:error, :not_found}
+    assert Games.fetch_by_slug("missing") == {:error, :game_not_found}
   end
 end

@@ -3,20 +3,25 @@ defmodule D20Web.PageController do
 
   alias D20.Module.Manifest
 
+  @typep params :: Plug.Conn.params()
+
+  @spec home(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def home(conn, _params) do
     render_inertia(conn, "home")
   end
 
+  @spec games(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def games(conn, _params) do
     conn
     |> assign_prop(:games, Enum.map(D20.Games.list(), &Map.from_struct/1))
     |> render_inertia("games")
   end
 
+  @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def game(conn, %{"slug" => slug, "session" => session_id}) do
     with {:ok, game} <- D20.Games.fetch_by_slug(slug),
          {:ok, manifest} <- Manifest.fetch(slug),
-         {:ok, session} <- D20.Sessions.get({slug, session_id}) do
+         {:ok, {session, ^slug}} <- D20.Sessions.get(session_id) do
       conn
       |> assign_prop(:game, Map.from_struct(game))
       |> assign_prop(:session, session)
@@ -24,8 +29,20 @@ defmodule D20Web.PageController do
       |> assign_prop(:connection, D20Web.Module.connection(conn, slug, session.id))
       |> render_inertia("game")
     else
-      {:error, :session_not_found} -> game(conn, %{"slug" => slug})
-      {:error, reason} -> handle_game_error(conn, reason)
+      {:ok, {_session, _session_slug}} ->
+        redirect_to_game_with_error(conn, slug, "Session not found.")
+
+      {:error, :session_not_found} ->
+        redirect_to_game_with_error(conn, slug, "Session not found.")
+
+      {:error, :game_not_found} ->
+        send_not_found(conn)
+
+      {:error, :module_not_found} ->
+        redirect_to_game_with_error(conn, slug, "Game module is not available.")
+
+      {:error, _reason} ->
+        send_not_found(conn)
     end
   end
 
@@ -38,14 +55,19 @@ defmodule D20Web.PageController do
       |> assign_prop(:connection, nil)
       |> render_inertia("game")
     else
-      {:error, reason} -> handle_game_error(conn, reason)
+      {:error, :game_not_found} -> send_not_found(conn)
+      {:error, _reason} -> send_not_found(conn)
     end
   end
 
+  @spec create_game_session(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def create_game_session(conn, %{"slug" => slug}) do
     actor = conn.assigns.current_scope.actor
 
-    with {:ok, session} <- D20.Sessions.create(slug, actor.id) do
+    with {:ok, _game} <- D20.Games.fetch_by_slug(slug),
+         {:ok, _manifest} <- Manifest.fetch(slug),
+         {:ok, engine} <- Manifest.fetch_engine(slug),
+         {:ok, session} <- D20.Sessions.create(slug, engine, actor.id) do
       conn
       |> put_status(303)
       |> redirect(to: ~p"/games/#{slug}?session=#{session.id}")
@@ -54,28 +76,25 @@ defmodule D20Web.PageController do
         send_not_found(conn)
 
       {:error, :module_not_found} ->
-        redirect_with_start_error(conn, slug, "Game module is not available.")
+        redirect_to_game_with_error(conn, slug, "Game module is not available.")
 
       {:error, :engine_not_found} ->
-        redirect_with_start_error(conn, slug, "Game engine is not available.")
+        redirect_to_game_with_error(conn, slug, "Game engine is not available.")
 
       {:error, _reason} ->
-        redirect_with_start_error(conn, slug, "Could not start session.")
+        redirect_to_game_with_error(conn, slug, "Could not start session.")
     end
   end
 
-  defp handle_game_error(conn, reason)
-       when reason in [:not_found, :game_not_found, :module_not_found, :engine_not_found] do
-    send_not_found(conn)
-  end
-
-  defp redirect_with_start_error(conn, slug, message) do
+  @spec redirect_to_game_with_error(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
+  defp redirect_to_game_with_error(conn, slug, message) do
     conn
-    |> assign_errors(%{start_session: message})
+    |> assign_errors(%{session: message})
     |> put_status(303)
     |> redirect(to: ~p"/games/#{slug}")
   end
 
+  @spec send_not_found(Plug.Conn.t()) :: Plug.Conn.t()
   defp send_not_found(conn) do
     conn
     |> put_resp_content_type("text/html")

@@ -41,9 +41,9 @@ defmodule D20.Sessions.Session do
           game: term()
         }
 
-  @spec new(module(), player_id()) :: {:ok, t()} | {:error, reason()}
+  @spec new(D20.Game.engine(), player_id()) :: {:ok, t()} | {:error, reason()}
   def new(engine, owner_id) when is_player_id(owner_id) do
-    with :ok <- require_engine(engine),
+    with {:ok, engine} <- D20.Game.ensure_engine(engine),
          {:ok, game} <- engine.init(),
          {:ok, game} <- engine.dispatch(game, "join", %{player_id: owner_id}) do
       {:ok, %__MODULE__{id: Ecto.UUID.generate(), owner_id: owner_id, members: %{}, game: game}}
@@ -52,7 +52,7 @@ defmodule D20.Sessions.Session do
 
   def new(_engine, _owner_id), do: {:error, :invalid_owner_id}
 
-  @spec dispatch(t(), module(), event(), term()) :: {:ok, t()} | {:error, reason()}
+  @spec dispatch(t(), D20.Game.engine(), event(), term()) :: {:ok, t()} | {:error, reason()}
   def dispatch(%__MODULE__{}, _engine, _event, attrs) when not is_map(attrs) do
     {:error, :invalid_command}
   end
@@ -153,19 +153,6 @@ defmodule D20.Sessions.Session do
       session
     end
   end
-
-  defp require_engine(engine) when is_atom(engine) do
-    if Code.ensure_loaded?(engine) and
-         Enum.all?(D20.Game.behaviour_info(:callbacks), fn {name, arity} ->
-           function_exported?(engine, name, arity)
-         end) do
-      :ok
-    else
-      {:error, :invalid_engine}
-    end
-  end
-
-  defp require_engine(_engine), do: {:error, :invalid_engine}
 
   defp require_owner(_session, player_id) when not is_player_id(player_id) do
     {:error, :invalid_identity}

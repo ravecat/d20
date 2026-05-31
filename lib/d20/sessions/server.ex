@@ -12,8 +12,11 @@ defmodule D20.Sessions.Server do
 
   @type id :: Session.id()
   @type slug :: String.t()
-  @type start_opts :: [slug: slug(), engine: module(), session: Session.t()]
-  @type state :: {slug(), module(), Session.t()}
+  @type start_opts :: [slug: slug(), engine: D20.Game.engine(), session: Session.t()]
+  @type state :: {slug(), D20.Game.engine(), Session.t()}
+
+  @spec registry_key(id()) :: {:session, id()}
+  def registry_key(id) when is_binary(id), do: {:session, id}
 
   @spec start_link(start_opts()) :: GenServer.on_start()
   def start_link(opts) do
@@ -21,7 +24,7 @@ defmodule D20.Sessions.Server do
     engine = Keyword.fetch!(opts, :engine)
     session = Keyword.fetch!(opts, :session)
 
-    GenServer.start_link(__MODULE__, {slug, engine, session}, name: via(slug, session.id))
+    GenServer.start_link(__MODULE__, {slug, engine, session}, name: via(session.id))
   end
 
   @impl true
@@ -37,7 +40,7 @@ defmodule D20.Sessions.Server do
     {:stop, :badarg}
   end
 
-  @spec get(GenServer.server()) :: {:ok, Session.t()}
+  @spec get(GenServer.server()) :: {:ok, {Session.t(), slug()}}
   def get(server) do
     GenServer.call(server, :get)
   end
@@ -49,14 +52,14 @@ defmodule D20.Sessions.Server do
   end
 
   @impl true
-  def handle_call(:get, _from, {_slug, _engine, session} = state) do
-    {:reply, {:ok, session}, state}
+  def handle_call(:get, _from, {slug, _engine, session} = state) do
+    {:reply, {:ok, {session, slug}}, state}
   end
 
   def handle_call({:dispatch, event, attrs}, _from, {slug, engine, _session} = state) do
     case dispatch_to_session(state, event, attrs) do
       {:ok, session} ->
-        broadcast_state(slug, session)
+        broadcast_state(session)
         {:reply, {:ok, session}, {slug, engine, session}}
 
       {:error, reason} ->
@@ -89,7 +92,7 @@ defmodule D20.Sessions.Server do
 
     case dispatch_to_session(state, event, attrs) do
       {:ok, session} ->
-        broadcast_state(slug, session)
+        broadcast_state(session)
         {:noreply, {slug, engine, session}}
 
       {:error, _reason} ->
@@ -103,8 +106,8 @@ defmodule D20.Sessions.Server do
     Session.dispatch(session, engine, event, attrs)
   end
 
-  @spec broadcast_state(slug(), Session.t()) :: :ok
-  defp broadcast_state(_slug, session) do
+  @spec broadcast_state(Session.t()) :: :ok
+  defp broadcast_state(session) do
     Phoenix.PubSub.local_broadcast(
       D20.PubSub,
       SessionChannel.topic(session.id),
@@ -112,7 +115,7 @@ defmodule D20.Sessions.Server do
     )
   end
 
-  defp via(slug, id) do
-    {:via, Registry, {D20.Registry, {:session, slug, id}}}
+  defp via(id) do
+    {:via, Registry, {D20.Registry, registry_key(id)}}
   end
 end

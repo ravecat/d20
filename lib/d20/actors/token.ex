@@ -1,4 +1,4 @@
-defmodule D20.Actors.ActorToken do
+defmodule D20.Actors.Token do
   def sign(context, actor) when is_map(actor) do
     Phoenix.Token.sign(context, salt(), actor)
   end

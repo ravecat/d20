@@ -95,7 +95,7 @@ defmodule D20Web.UserAuth do
   end
 
   def put_actor_token(%{assigns: %{current_scope: %Scope{actor: %Actor{} = actor}}} = conn, _opts) do
-    assign(conn, :actor_token, D20.Actors.ActorToken.sign(D20Web.Endpoint, actor))
+    assign(conn, :actor_token, D20.Actors.Token.sign(D20Web.Endpoint, actor))
   end
 
   def put_actor_token(conn, _opts), do: conn

@@ -35,11 +35,11 @@ defmodule D20.Games do
     |> Enum.map(fn {_slug, attrs} -> struct(Game, attrs) end)
   end
 
-  @spec fetch_by_slug(String.t()) :: {:ok, Game.t()} | {:error, :not_found}
+  @spec fetch_by_slug(String.t()) :: {:ok, Game.t()} | {:error, :game_not_found}
   def fetch_by_slug(slug) when is_binary(slug) do
     case Map.fetch(@mock_games, slug) do
       {:ok, attrs} -> {:ok, struct(Game, attrs)}
-      :error -> {:error, :not_found}
+      :error -> {:error, :game_not_found}
     end
   end
 end

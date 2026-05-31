@@ -15,7 +15,7 @@ defmodule D20.Module.Manifest do
     end
   end
 
-  @spec fetch_engine(String.t()) :: {:ok, module()} | {:error, :engine_not_found}
+  @spec fetch_engine(String.t()) :: {:ok, D20.Game.engine()} | {:error, :engine_not_found}
   def fetch_engine(slug) when is_binary(slug) do
     :engines
     |> config!()
