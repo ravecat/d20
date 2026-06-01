@@ -78,7 +78,6 @@ defmodule D20.AccountsTest do
 
       assert Accounts.get_user_or_anonymous(to_string(user.id)) == %{
                id: to_string(user.id),
-               actor_type: :user,
                display_name: user.email,
                avatar: nil
              }
@@ -87,7 +86,7 @@ defmodule D20.AccountsTest do
     test "returns deterministic anonymous profile data for unknown actor ids" do
       id = "anon_profile_test"
 
-      assert %{id: ^id, actor_type: :anonymous, display_name: display_name, avatar: avatar} =
+      assert %{id: ^id, display_name: display_name, avatar: avatar} =
                Accounts.get_user_or_anonymous(id)
 
       assert is_binary(display_name)

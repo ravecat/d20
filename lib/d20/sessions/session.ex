@@ -17,7 +17,6 @@ defmodule D20.Sessions.Session do
   @type player_id :: String.t()
   @type member :: %{
           required(:online_at) => non_neg_integer(),
-          optional(:actor_type) => :anonymous | :user,
           optional(:display_name) => String.t(),
           optional(:avatar) => String.t() | nil
         }

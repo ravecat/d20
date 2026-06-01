@@ -73,7 +73,6 @@ defmodule D20.Sessions.Server do
 
     member_attrs = %{
       online_at: online_at,
-      actor_type: profile.actor_type,
       display_name: profile.display_name,
       avatar: profile.avatar
     }

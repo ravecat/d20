@@ -71,7 +71,6 @@ defmodule D20.Accounts do
 
   @type profile :: %{
           required(:id) => String.t(),
-          required(:actor_type) => :user | :anonymous,
           required(:display_name) => String.t(),
           required(:avatar) => String.t() | nil
         }
@@ -115,16 +114,11 @@ defmodule D20.Accounts do
   end
 
   defp user_profile(%User{} = user) do
-    %{id: to_string(user.id), actor_type: :user, display_name: user.email, avatar: nil}
+    %{id: to_string(user.id), display_name: user.email, avatar: nil}
   end
 
   defp user_profile(%Anonymous{} = anonymous) do
-    %{
-      id: anonymous.id,
-      actor_type: :anonymous,
-      display_name: anonymous.display_name,
-      avatar: anonymous.avatar
-    }
+    %{id: anonymous.id, display_name: anonymous.display_name, avatar: anonymous.avatar}
   end
 
   defp anonymous_profile(id) do

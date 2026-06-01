@@ -22,12 +22,8 @@ defmodule D20Web.SessionChannelTest do
 
     assert_push "projection", %Session{members: members}
 
-    assert %{
-             online_at: ^tracked_online_at,
-             actor_type: :anonymous,
-             display_name: display_name,
-             avatar: avatar
-           } = members[actor_id]
+    assert %{online_at: ^tracked_online_at, display_name: display_name, avatar: avatar} =
+             members[actor_id]
 
     assert is_binary(display_name)
     assert is_binary(avatar)
@@ -38,12 +34,8 @@ defmodule D20Web.SessionChannelTest do
 
     assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_id)
 
-    assert %{
-             online_at: ^tracked_online_at,
-             actor_type: :anonymous,
-             display_name: display_name,
-             avatar: avatar
-           } = session.members[actor_id]
+    assert %{online_at: ^tracked_online_at, display_name: display_name, avatar: avatar} =
+             session.members[actor_id]
 
     assert is_binary(display_name)
     assert is_binary(avatar)
@@ -58,8 +50,7 @@ defmodule D20Web.SessionChannelTest do
 
     assert_push "projection", %Session{members: members}
 
-    assert %{online_at: online_at, actor_type: :user, display_name: display_name, avatar: nil} =
-             members[actor.id]
+    assert %{online_at: online_at, display_name: display_name, avatar: nil} = members[actor.id]
 
     assert is_integer(online_at)
     assert display_name == user.email

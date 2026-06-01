@@ -85,8 +85,7 @@ defmodule D20.SessionsTest do
 
       assert {:ok, {session, "test-game"}} = Sessions.get(ref)
 
-      assert %{online_at: 123, actor_type: :anonymous, display_name: display_name, avatar: avatar} =
-               session.members["p2"]
+      assert %{online_at: 123, display_name: display_name, avatar: avatar} = session.members["p2"]
 
       assert is_binary(display_name)
       assert is_binary(avatar)
