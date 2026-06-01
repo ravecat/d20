@@ -67,7 +67,7 @@ defmodule D20Web.UserAuth do
 
   Will reissue the session token if it is older than the configured age.
   """
-  def fetch_current_scope_for_user(conn, _opts) do
+  def fetch_current_scope_for_actor(conn, _opts) do
     with {token, conn} <- ensure_user_token(conn),
          {user, token_inserted_at} <- Accounts.get_user_by_session_token(token) do
       conn
@@ -80,7 +80,7 @@ defmodule D20Web.UserAuth do
   end
 
   defp assign_anonymous_scope(conn) do
-    anonymous = current_anonymous(conn)
+    anonymous = get_anonymous(conn)
 
     conn
     |> assign(:current_user, nil)
@@ -94,7 +94,7 @@ defmodule D20Web.UserAuth do
 
   def put_actor_token(conn, _opts), do: conn
 
-  defp current_anonymous(conn) do
+  defp get_anonymous(conn) do
     case get_session(conn, :anonymous_user_id) do
       nil -> Anonymous.new()
       anonymous_user_id -> Anonymous.from_id(anonymous_user_id)

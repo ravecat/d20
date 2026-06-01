@@ -1,6 +1,7 @@
 defmodule D20Web.CursorsChannelTest do
   use D20Web.ChannelCase, async: false
 
+  alias D20.Actors.Actor
   alias D20Web.CursorsChannel
   alias D20Web.Presence
   alias D20Web.UserSocket
@@ -12,12 +13,12 @@ defmodule D20Web.CursorsChannelTest do
   end
 
   test "socket accepts a signed actor token" do
-    actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+    actor = %Actor{id: Ecto.UUID.generate(), type: :anonymous}
     token = D20.Actors.Token.sign(D20Web.Endpoint, actor)
 
     assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token})
 
-    assert socket.assigns.actor == actor
+    assert socket.assigns.actor == %{id: actor.id, type: actor.type}
   end
 
   test "socket rejects missing or invalid actor tokens" do

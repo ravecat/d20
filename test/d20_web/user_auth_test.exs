@@ -24,7 +24,7 @@ defmodule D20Web.UserAuthTest do
 
   describe "actor channel tokens" do
     test "creates an anonymous actor when no user is authenticated", %{conn: conn} do
-      conn = conn |> UserAuth.fetch_current_scope_for_user([]) |> UserAuth.put_actor_token([])
+      conn = conn |> UserAuth.fetch_current_scope_for_actor([]) |> UserAuth.put_actor_token([])
 
       assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.current_scope.actor
 
@@ -37,7 +37,7 @@ defmodule D20Web.UserAuthTest do
       assert get_session(conn, :anonymous_user_id) == anonymous_user_id
       assert is_binary(conn.assigns.actor_token)
 
-      assert {:ok, %Actor{id: ^anonymous_user_id, type: :anonymous}} =
+      assert {:ok, %{id: ^anonymous_user_id, type: :anonymous}} =
                Token.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       refute Map.has_key?(conn.assigns, :current_actor)
@@ -53,7 +53,7 @@ defmodule D20Web.UserAuthTest do
       assert conn.assigns.current_scope.actor == %Actor{id: to_string(user.id), type: :user}
       assert conn.assigns.current_user == user
 
-      assert {:ok, %Actor{id: user_id, type: :user}} =
+      assert {:ok, %{id: user_id, type: :user}} =
                Token.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       assert user_id == to_string(user.id)
@@ -61,13 +61,13 @@ defmodule D20Web.UserAuthTest do
     end
 
     test "reuses anonymous user id from session", %{conn: conn} do
-      conn = UserAuth.fetch_current_scope_for_user(conn, [])
+      conn = UserAuth.fetch_current_scope_for_actor(conn, [])
 
       assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.current_scope.actor
       assert get_session(conn, :anonymous_user_id) == anonymous_user_id
       assert conn.assigns.current_user == nil
 
-      conn = UserAuth.fetch_current_scope_for_user(conn, [])
+      conn = UserAuth.fetch_current_scope_for_actor(conn, [])
 
       assert conn.assigns.current_scope.actor == %Actor{id: anonymous_user_id, type: :anonymous}
       assert Anonymous.from_id(anonymous_user_id).id == anonymous_user_id
@@ -178,12 +178,12 @@ defmodule D20Web.UserAuthTest do
     end
   end
 
-  describe "fetch_current_scope_for_user/2" do
+  describe "fetch_current_scope_for_actor/2" do
     test "authenticates user from session", %{conn: conn, user: user} do
       user_token = Accounts.generate_user_session_token(user)
 
       conn =
-        conn |> put_session(:user_token, user_token) |> UserAuth.fetch_current_scope_for_user([])
+        conn |> put_session(:user_token, user_token) |> UserAuth.fetch_current_scope_for_actor([])
 
       assert conn.assigns.current_user.id == user.id
       assert conn.assigns.current_user.authenticated_at == user.authenticated_at
@@ -201,7 +201,7 @@ defmodule D20Web.UserAuthTest do
       conn =
         conn
         |> put_req_cookie(@remember_me_cookie, signed_token)
-        |> UserAuth.fetch_current_scope_for_user([])
+        |> UserAuth.fetch_current_scope_for_actor([])
 
       assert conn.assigns.current_user.id == user.id
       assert conn.assigns.current_user.authenticated_at == user.authenticated_at
@@ -212,7 +212,7 @@ defmodule D20Web.UserAuthTest do
 
     test "does not authenticate if data is missing", %{conn: conn, user: user} do
       _ = Accounts.generate_user_session_token(user)
-      conn = UserAuth.fetch_current_scope_for_user(conn, [])
+      conn = UserAuth.fetch_current_scope_for_actor(conn, [])
       refute get_session(conn, :user_token)
       assert conn.assigns.current_user == nil
       assert %Actor{type: :anonymous} = conn.assigns.current_scope.actor
@@ -233,7 +233,7 @@ defmodule D20Web.UserAuthTest do
         |> put_session(:user_token, token)
         |> put_session(:user_remember_me, true)
         |> put_req_cookie(@remember_me_cookie, signed_token)
-        |> UserAuth.fetch_current_scope_for_user([])
+        |> UserAuth.fetch_current_scope_for_actor([])
 
       assert conn.assigns.current_user.id == user.id
       assert conn.assigns.current_user.authenticated_at == user.authenticated_at
@@ -282,7 +282,7 @@ defmodule D20Web.UserAuthTest do
 
   describe "redirect_if_user_is_authenticated/2" do
     setup %{conn: conn} do
-      %{conn: UserAuth.fetch_current_scope_for_user(conn, [])}
+      %{conn: UserAuth.fetch_current_scope_for_actor(conn, [])}
     end
 
     test "redirects if user is authenticated", %{conn: conn, user: user} do
@@ -305,7 +305,7 @@ defmodule D20Web.UserAuthTest do
 
   describe "require_authenticated_user/2" do
     setup %{conn: conn} do
-      %{conn: UserAuth.fetch_current_scope_for_user(conn, [])}
+      %{conn: UserAuth.fetch_current_scope_for_actor(conn, [])}
     end
 
     test "redirects if user is not authenticated", %{conn: conn} do
