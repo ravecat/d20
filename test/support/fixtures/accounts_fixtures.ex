@@ -32,14 +32,17 @@ defmodule D20.AccountsFixtures do
     user
   end
 
-  def user_scope_fixture do
+  def actor_scope_fixture do
     user = user_fixture()
-    user_scope_fixture(user)
+    actor_scope_fixture(user)
   end
 
-  def user_scope_fixture(user) do
-    Scope.for_user(user)
+  def actor_scope_fixture(user) do
+    Scope.for_actor(user)
   end
+
+  def user_scope_fixture, do: actor_scope_fixture()
+  def user_scope_fixture(user), do: actor_scope_fixture(user)
 
   def set_password(user) do
     {:ok, {user, _expired_tokens}} =

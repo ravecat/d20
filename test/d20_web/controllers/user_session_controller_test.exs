@@ -199,7 +199,7 @@ defmodule D20Web.UserSessionControllerTest do
 
     assert response =~ ~s(id="app")
     assert inertia_component(conn) == "home"
-    assert conn.assigns.current_scope.user.id == user.id
+    assert conn.assigns.current_user.id == user.id
     assert token = conn.assigns.actor_token
     assert response =~ ~s(window.actorToken = "#{token}")
 

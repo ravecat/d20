@@ -47,7 +47,7 @@ defmodule D20Web.ConnCase do
   """
   def register_and_log_in_user(%{conn: conn} = context) do
     user = D20.AccountsFixtures.user_fixture()
-    scope = D20.Accounts.Scope.for_user(user)
+    scope = D20.Accounts.Scope.for_actor(user)
 
     opts = context |> Map.take([:token_authenticated_at]) |> Enum.into([])
 

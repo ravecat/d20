@@ -71,27 +71,21 @@ defmodule D20Web.UserAuth do
     with {token, conn} <- ensure_user_token(conn),
          {user, token_inserted_at} <- Accounts.get_user_by_session_token(token) do
       conn
-      |> assign(:current_scope, Scope.for_user(user))
+      |> assign(:current_user, user)
+      |> assign(:current_scope, Scope.for_actor(user))
       |> maybe_reissue_user_session_token(user, token_inserted_at)
     else
-      nil -> assign(conn, :current_scope, Scope.for_user(nil))
+      nil -> assign_anonymous_scope(conn)
     end
   end
 
-  def assign_actor_to_scope(
-        %{assigns: %{current_scope: %Scope{user: %User{} = user} = scope}} = conn,
-        _opts
-      ) do
-    actor = Actor.new(user)
-    assign(conn, :current_scope, Scope.put_actor(%{scope | anonymous: nil}, actor))
-  end
-
-  def assign_actor_to_scope(%{assigns: %{current_scope: %Scope{} = scope}} = conn, _opts) do
+  defp assign_anonymous_scope(conn) do
     anonymous = current_anonymous(conn)
 
     conn
+    |> assign(:current_user, nil)
     |> put_session(:anonymous_user_id, anonymous.id)
-    |> assign(:current_scope, Scope.put_anonymous(scope, anonymous))
+    |> assign(:current_scope, Scope.for_actor(anonymous))
   end
 
   def put_actor_token(%{assigns: %{current_scope: %Scope{actor: %Actor{} = actor}}} = conn, _opts) do
@@ -152,7 +146,7 @@ defmodule D20Web.UserAuth do
 
   # Do not renew session if the user is already logged in
   # to prevent CSRF errors or data being lost in tabs that are still open
-  defp renew_session(conn, user) when conn.assigns.current_scope.user.id == user.id do
+  defp renew_session(%{assigns: %{current_user: %User{id: id}}} = conn, %User{id: id}) do
     conn
   end
 
@@ -202,7 +196,7 @@ defmodule D20Web.UserAuth do
   Plug for routes that require sudo mode.
   """
   def require_sudo_mode(conn, _opts) do
-    if Accounts.sudo_mode?(conn.assigns.current_scope.user, -10) do
+    if Accounts.sudo_mode?(conn.assigns.current_user, -10) do
       conn
     else
       conn
@@ -217,7 +211,7 @@ defmodule D20Web.UserAuth do
   Plug for routes that require the user to not be authenticated.
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
-    if authenticated?(conn.assigns.current_scope) do
+    if authenticated?(conn.assigns.current_user) do
       conn
       |> redirect(to: signed_in_path(conn))
       |> halt()
@@ -232,7 +226,7 @@ defmodule D20Web.UserAuth do
   Plug for routes that require the user to be authenticated.
   """
   def require_authenticated_user(conn, _opts) do
-    if authenticated?(conn.assigns.current_scope) do
+    if authenticated?(conn.assigns.current_user) do
       conn
     else
       conn
@@ -249,6 +243,6 @@ defmodule D20Web.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
-  defp authenticated?(%Scope{user: %User{}}), do: true
-  defp authenticated?(_scope), do: false
+  defp authenticated?(%User{}), do: true
+  defp authenticated?(_user), do: false
 end

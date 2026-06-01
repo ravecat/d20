@@ -5,7 +5,7 @@ defmodule D20Web.UserSessionController do
   alias D20Web.UserAuth
 
   def new(conn, _params) do
-    email = get_in(conn.assigns, [:current_scope, Access.key(:user), Access.key(:email)])
+    email = get_in(conn.assigns, [:current_user, Access.key(:email)])
     form = Phoenix.Component.to_form(%{"email" => email}, as: "user")
 
     render(conn, :new, form: form)

@@ -33,7 +33,7 @@
       phx-mounted={JS.focus_first()}
     >
       <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
-      <%= if @current_scope.user do %>
+      <%= if @current_user do %>
         <.button variant="primary" phx-disable-with="Logging in..." class="btn btn-primary w-full">
           Log in
         </.button>

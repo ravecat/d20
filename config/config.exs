@@ -8,14 +8,15 @@
 import Config
 
 config :d20, :scopes,
-  user: [
+  actor: [
     default: true,
     module: D20.Accounts.Scope,
     assign_key: :current_scope,
-    access_path: [:user, :id],
-    schema_key: :user_id,
-    schema_type: :id,
-    schema_table: :users,
+    access_path: [:actor, :id],
+    schema_key: :actor_id,
+    schema_type: :string,
+    # Actor is not persisted; generated resources store actor_id directly.
+    schema_table: nil,
     test_data_fixture: D20.AccountsFixtures,
     test_setup_helper: :register_and_log_in_user
   ]

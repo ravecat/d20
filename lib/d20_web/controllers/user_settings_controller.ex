@@ -15,7 +15,7 @@ defmodule D20Web.UserSettingsController do
 
   def update(conn, %{"action" => "update_email"} = params) do
     %{"user" => user_params} = params
-    user = conn.assigns.current_scope.user
+    user = conn.assigns.current_user
 
     case Accounts.change_user_email(user, user_params) do
       %{valid?: true} = changeset ->
@@ -39,7 +39,7 @@ defmodule D20Web.UserSettingsController do
 
   def update(conn, %{"action" => "update_password"} = params) do
     %{"user" => user_params} = params
-    user = conn.assigns.current_scope.user
+    user = conn.assigns.current_user
 
     case Accounts.update_user_password(user, user_params) do
       {:ok, {user, _}} ->
@@ -54,7 +54,7 @@ defmodule D20Web.UserSettingsController do
   end
 
   def confirm_email(conn, %{"token" => token}) do
-    case Accounts.update_user_email(conn.assigns.current_scope.user, token) do
+    case Accounts.update_user_email(conn.assigns.current_user, token) do
       {:ok, _user} ->
         conn
         |> put_flash(:info, "Email changed successfully.")
@@ -68,7 +68,7 @@ defmodule D20Web.UserSettingsController do
   end
 
   defp assign_email_and_password_changesets(conn, _opts) do
-    user = conn.assigns.current_scope.user
+    user = conn.assigns.current_user
 
     conn
     |> assign(:email_changeset, Accounts.change_user_email(user))
