@@ -7,8 +7,8 @@ defmodule D20Web.SessionChannel do
   def topic(session_id), do: "session:#{session_id}"
 
   @impl true
-  def join("session:" <> session_id, _payload, socket) do
-    with :ok <- authorize_topic(socket, session_id),
+  def join("session:" <> session_id = topic, _payload, socket) do
+    with :ok <- authorize_topic(socket, topic),
          {:ok, session} <- session_context(socket, session_id) do
       send(self(), :after_join)
 
@@ -42,7 +42,7 @@ defmodule D20Web.SessionChannel do
 
   @impl true
   def handle_in(event, payload, socket) do
-    attrs = put_actor_attrs(socket, event, payload)
+    attrs = put_actor(socket, event, payload)
 
     case Sessions.dispatch(socket.assigns.session_id, event, attrs) do
       {:ok, _session} -> {:reply, :ok, socket}
@@ -50,36 +50,35 @@ defmodule D20Web.SessionChannel do
     end
   end
 
-  defp put_actor_attrs(socket, event, _payload) when event in ["join", "leave", "start"] do
+  defp put_actor(socket, event, _payload) when event in ["join", "leave", "start"] do
     %{player_id: actor_id(socket)}
   end
 
-  defp put_actor_attrs(socket, _event, attrs) when is_map(attrs) do
+  defp put_actor(socket, _event, attrs) when is_map(attrs) do
     attrs
     |> Map.delete(:player_id)
     |> Map.put("player_id", actor_id(socket))
   end
 
-  defp put_actor_attrs(_socket, _event, attrs), do: attrs
+  defp put_actor(_socket, _event, attrs), do: attrs
 
   defp actor_id(%{assigns: %{actor: actor}}), do: actor.id
 
-  defp authorize_topic(%{assigns: %{module: %{session_id: session_id}}}, session_id) do
+  defp authorize_topic(%{assigns: %{module: %{topic: topic}}}, topic) do
     :ok
   end
 
-  defp authorize_topic(%{assigns: %{module: _module}}, _session_id) do
+  defp authorize_topic(%{assigns: %{module: _module}}, _topic) do
     {:error, :forbidden}
   end
 
-  defp authorize_topic(%{assigns: %{actor: %{id: actor_id}}}, _session_id)
-       when is_binary(actor_id) do
+  defp authorize_topic(%{assigns: %{actor: %{id: actor_id}}}, _topic) when is_binary(actor_id) do
     :ok
   end
 
-  defp authorize_topic(_socket, _session_id), do: {:error, :forbidden}
+  defp authorize_topic(_socket, _topic), do: {:error, :forbidden}
 
-  defp session_context(%{assigns: %{module: %{module_id: slug}}}, session_id) do
+  defp session_context(%{assigns: %{module: %{slug: slug}}}, session_id) do
     with {:ok, {session, ^slug}} <- Sessions.get(session_id) do
       {:ok, session}
     else

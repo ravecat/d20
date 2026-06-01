@@ -3,10 +3,10 @@ defmodule D20.Module.TokenTest do
 
   test "signs and verifies module claims" do
     claims = %{
-      actor_id: Ecto.UUID.generate(),
-      actor_type: :anonymous,
-      module_id: "qwinto",
-      session_id: Ecto.UUID.generate()
+      endpoint: "ws://example.com/module",
+      slug: "qwinto",
+      topic: "session:#{Ecto.UUID.generate()}",
+      actor: %{id: Ecto.UUID.generate(), type: :anonymous}
     }
 
     token = D20.Module.Token.sign(D20Web.Endpoint, claims)

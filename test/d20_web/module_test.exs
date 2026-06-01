@@ -21,17 +21,21 @@ defmodule D20Web.ModuleTest do
   test "builds a module socket connection from the request and current actor", %{conn: conn} do
     actor = %Actor{id: "p1", type: :anonymous}
     session_id = Ecto.UUID.generate()
+    topic = "session:#{session_id}"
     conn = assign(conn, :current_scope, %Scope{actor: actor})
+    connection = Module.connection(conn, "qwinto", session_id)
 
-    assert %{endpoint: "ws://example.com/module", topic: "session:" <> ^session_id, token: token} =
-             Module.connection(conn, "qwinto", session_id)
+    assert %{endpoint: "ws://example.com/module", topic: ^topic, token: token} = connection
+
+    refute Map.has_key?(connection, :slug)
+    refute Map.has_key?(connection, :actor)
 
     assert {:ok,
             %{
-              actor_id: "p1",
-              actor_type: :anonymous,
-              module_id: "qwinto",
-              session_id: ^session_id
+              endpoint: "ws://example.com/module",
+              slug: "qwinto",
+              topic: ^topic,
+              actor: %{id: "p1", type: :anonymous}
             }} = D20.Module.Token.verify(D20Web.Endpoint, token)
   end
 end

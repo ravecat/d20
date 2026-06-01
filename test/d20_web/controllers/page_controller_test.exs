@@ -141,11 +141,21 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(module, :bootstrap)
     refute Map.has_key?(connection, :moduleId)
     refute Map.has_key?(connection, :socketUrl)
+    refute Map.has_key?(connection, :slug)
+    refute Map.has_key?(connection, :actor)
     assert connection[:endpoint] == "ws://example.com/module"
-    assert connection[:topic] == "session:#{session_id}"
+    topic = "session:#{session_id}"
+    assert connection[:topic] == topic
 
-    assert {:ok, %{module_id: "qwinto", session_id: ^session_id}} =
-             D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
+    assert {:ok,
+            %{
+              endpoint: "ws://example.com/module",
+              slug: "qwinto",
+              topic: ^topic,
+              actor: %{id: actor_id, type: :anonymous}
+            }} = D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
+
+    assert is_binary(actor_id)
   end
 
   test "GET /games/:slug with an in-progress session attaches module connection", %{conn: conn} do

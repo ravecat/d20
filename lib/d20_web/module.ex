@@ -28,18 +28,17 @@ defmodule D20Web.Module do
   @spec connection(Plug.Conn.t(), String.t(), String.t()) :: connection()
   def connection(conn, slug, session_id) when is_binary(slug) and is_binary(session_id) do
     actor = conn.assigns.current_scope.actor
+    endpoint = module_endpoint(conn)
+    topic = D20Web.SessionChannel.topic(session_id)
 
-    %{
-      endpoint: module_endpoint(conn),
-      topic: D20Web.SessionChannel.topic(session_id),
-      token:
-        D20.Module.Token.sign(D20Web.Endpoint, %{
-          actor_id: actor.id,
-          actor_type: actor.type,
-          module_id: slug,
-          session_id: session_id
-        })
+    claims = %{
+      endpoint: endpoint,
+      topic: topic,
+      slug: slug,
+      actor: %{id: actor.id, type: actor.type}
     }
+
+    %{endpoint: endpoint, topic: topic, token: D20.Module.Token.sign(D20Web.Endpoint, claims)}
   end
 
   @spec embed_url(Plug.Conn.t(), String.t()) :: String.t()

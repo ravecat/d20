@@ -70,8 +70,8 @@ defmodule D20Web.SessionChannelTest do
     assert {:ok, socket} = connect_module_socket(session_id, actor)
 
     assert socket.assigns.actor == actor
-    assert socket.assigns.module.session_id == session_id
-    assert socket.assigns.module.module_id == "qwinto"
+    assert socket.assigns.module.topic == SessionChannel.topic(session_id)
+    assert socket.assigns.module.slug == "qwinto"
 
     assert {:ok, %Session{id: ^session_id}, _socket} =
              subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
@@ -178,10 +178,10 @@ defmodule D20Web.SessionChannelTest do
 
     token =
       D20.Module.Token.sign(D20Web.Endpoint, %{
-        actor_id: actor.id,
-        actor_type: actor.type,
-        module_id: module_id,
-        session_id: session_id
+        endpoint: "ws://example.com/module",
+        slug: module_id,
+        topic: SessionChannel.topic(session_id),
+        actor: actor
       })
 
     connect ModuleSocket, %{}, connect_info: %{auth_token: token}
