@@ -7,7 +7,7 @@ defmodule D20.Sessions do
   alias D20.Sessions.Session
 
   @type slug :: String.t()
-  @type ref :: Server.id()
+  @type id :: Session.id()
   @type state :: {Session.t(), slug()}
   @type reason ::
           :session_not_found
@@ -24,18 +24,18 @@ defmodule D20.Sessions do
     end
   end
 
-  @spec get(ref()) :: {:ok, state()} | {:error, reason()}
+  @spec get(id()) :: {:ok, state()} | {:error, reason()}
   def get(id) when is_binary(id) do
     call_if_exists(id, &Server.get/1)
   end
 
-  @spec dispatch(ref(), Session.event(), term()) ::
+  @spec dispatch(id(), Session.event(), term()) ::
           {:ok, Session.t()} | {:error, reason()}
   def dispatch(id, event, attrs) when is_binary(id) do
     call_if_exists(id, &Server.dispatch(&1, event, attrs))
   end
 
-  @spec lookup(ref()) :: {:ok, pid()} | {:error, :session_not_found}
+  @spec lookup(id()) :: {:ok, pid()} | {:error, :session_not_found}
   def lookup(id) when is_binary(id) do
     case Registry.lookup(D20.Registry, Server.registry_key(id)) do
       [{pid, _value}] -> {:ok, pid}
@@ -43,11 +43,11 @@ defmodule D20.Sessions do
     end
   end
 
-  @spec stop(ref(), term(), timeout()) :: :ok
-  def stop(ref, reason \\ :normal, timeout \\ :infinity)
+  @spec stop(id(), term(), timeout()) :: :ok
+  def stop(id, reason \\ :normal, timeout \\ :infinity)
 
-  def stop(ref, reason, timeout) do
-    case lookup(ref) do
+  def stop(id, reason, timeout) do
+    case lookup(id) do
       {:ok, pid} ->
         try do
           GenServer.stop(pid, reason, timeout)
@@ -60,8 +60,8 @@ defmodule D20.Sessions do
     end
   end
 
-  defp call_if_exists(ref, fun) do
-    with {:ok, pid} <- lookup(ref) do
+  defp call_if_exists(id, fun) do
+    with {:ok, pid} <- lookup(id) do
       fun.(pid)
     end
   end

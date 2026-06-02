@@ -1,6 +1,7 @@
 defmodule D20Web.CursorsChannelTest do
   use D20Web.ChannelCase, async: false
 
+  alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20Web.CursorsChannel
   alias D20Web.Presence
@@ -8,7 +9,7 @@ defmodule D20Web.CursorsChannelTest do
 
   defp join_cursors_channel(actor_id) do
     UserSocket
-    |> socket(actor_id, %{actor: %{id: actor_id, type: :anonymous}})
+    |> socket(actor_id, %{current_scope: Scope.for_actor(%Actor{id: actor_id, type: :anonymous})})
     |> subscribe_and_join(CursorsChannel, "cursors", %{})
   end
 
@@ -18,7 +19,8 @@ defmodule D20Web.CursorsChannelTest do
 
     assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token})
 
-    assert socket.assigns.actor == %{id: actor.id, type: actor.type}
+    assert socket.assigns.current_scope.actor == actor
+    refute Map.has_key?(socket.assigns, :actor)
   end
 
   test "socket rejects missing or invalid actor tokens" do

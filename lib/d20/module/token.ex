@@ -3,21 +3,20 @@ defmodule D20.Module.Token do
   Signs short-lived iframe module access claims.
   """
 
-  @type actor :: %{required(:id) => String.t(), required(:type) => D20.Actors.Actor.type()}
+  alias D20.Actors.Actor
 
   @type claims :: %{
           required(:endpoint) => String.t(),
           required(:slug) => String.t(),
           required(:topic) => String.t(),
-          required(:actor) => actor()
+          required(:actor) => Actor.t()
         }
 
   @type context :: Phoenix.Token.context()
 
   defguardp valid_claims?(claims)
             when is_map(claims) and is_binary(claims.endpoint) and is_binary(claims.slug) and
-                   is_binary(claims.topic) and is_binary(claims.actor.id) and
-                   claims.actor.type in [:user, :anonymous]
+                   is_binary(claims.topic) and is_struct(claims.actor, Actor)
 
   @spec sign(context(), claims()) :: String.t()
   def sign(context, claims) when is_map(claims) do

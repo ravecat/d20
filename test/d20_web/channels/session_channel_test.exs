@@ -3,6 +3,7 @@ defmodule D20Web.SessionChannelTest do
 
   import D20.AccountsFixtures
 
+  alias D20.Actors.Actor
   alias D20.Sessions.Session
   alias D20Web.ModuleSocket
   alias D20Web.Presence
@@ -17,6 +18,10 @@ defmodule D20Web.SessionChannelTest do
     :ok = Presence.subscribe(SessionChannel.topic(session_id))
 
     assert {:ok, %Session{members: %{}}, socket} = join_session_channel(session_id, actor)
+
+    assert socket.assigns.current_scope.session == %{id: session_id}
+
+    assert socket.assigns.current_scope.game == %{slug: "qwinto"}
 
     assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
 
@@ -69,12 +74,21 @@ defmodule D20Web.SessionChannelTest do
 
     assert {:ok, socket} = connect_module_socket(session_id, actor)
 
-    assert socket.assigns.actor == actor
-    assert socket.assigns.module.topic == SessionChannel.topic(session_id)
-    assert socket.assigns.module.slug == "qwinto"
+    assert socket.assigns.current_scope.actor == %Actor{id: actor.id, type: actor.type}
 
-    assert {:ok, %Session{id: ^session_id}, _socket} =
+    assert socket.assigns.current_scope.session == %{id: session_id}
+
+    assert socket.assigns.current_scope.game == %{slug: "qwinto"}
+
+    refute Map.has_key?(socket.assigns, :actor)
+    refute Map.has_key?(socket.assigns, :module)
+
+    assert {:ok, %Session{id: ^session_id}, socket} =
              subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
+
+    assert socket.assigns.current_scope.session == %{id: session_id}
+
+    assert socket.assigns.current_scope.game == %{slug: "qwinto"}
 
     refute_push "projection", %Session{}, 50
 
@@ -168,7 +182,7 @@ defmodule D20Web.SessionChannelTest do
   end
 
   defp connect_user_socket(actor) do
-    token = D20.Actors.Token.sign(D20Web.Endpoint, actor)
+    token = D20.Actors.Token.sign(D20Web.Endpoint, %Actor{id: actor.id, type: actor.type})
 
     connect UserSocket, %{}, connect_info: %{auth_token: token}
   end
@@ -181,7 +195,7 @@ defmodule D20Web.SessionChannelTest do
         endpoint: "ws://example.com/module",
         slug: module_id,
         topic: SessionChannel.topic(session_id),
-        actor: actor
+        actor: %Actor{id: actor.id, type: actor.type}
       })
 
     connect ModuleSocket, %{}, connect_info: %{auth_token: token}

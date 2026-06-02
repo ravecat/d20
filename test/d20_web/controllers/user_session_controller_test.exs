@@ -3,6 +3,7 @@ defmodule D20Web.UserSessionControllerTest do
 
   import D20.AccountsFixtures
   alias D20.Accounts
+  alias D20.Actors.Actor
 
   setup do
     %{unconfirmed_user: unconfirmed_user_fixture(), user: user_fixture()}
@@ -18,7 +19,7 @@ defmodule D20Web.UserSessionControllerTest do
       assert token = conn.assigns.actor_token
       assert response =~ ~s(window.actorToken = "#{token}")
 
-      assert {:ok, %{id: _actor_id, type: :anonymous}} =
+      assert {:ok, %Actor{id: _actor_id, type: :anonymous}} =
                D20.Actors.Token.verify(D20Web.Endpoint, token)
     end
 
@@ -33,7 +34,8 @@ defmodule D20Web.UserSessionControllerTest do
       assert token = conn.assigns.actor_token
       assert html =~ ~s(window.actorToken = "#{token}")
 
-      assert {:ok, %{id: actor_id, type: :user}} = D20.Actors.Token.verify(D20Web.Endpoint, token)
+      assert {:ok, %Actor{id: actor_id, type: :user}} =
+               D20.Actors.Token.verify(D20Web.Endpoint, token)
 
       assert actor_id == to_string(user.id)
 
@@ -203,7 +205,8 @@ defmodule D20Web.UserSessionControllerTest do
     assert token = conn.assigns.actor_token
     assert response =~ ~s(window.actorToken = "#{token}")
 
-    assert {:ok, %{id: actor_id, type: :user}} = D20.Actors.Token.verify(D20Web.Endpoint, token)
+    assert {:ok, %Actor{id: actor_id, type: :user}} =
+             D20.Actors.Token.verify(D20Web.Endpoint, token)
 
     assert actor_id == to_string(user.id)
   end

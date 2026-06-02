@@ -31,12 +31,7 @@ defmodule D20Web.Module do
     endpoint = module_endpoint(conn)
     topic = D20Web.SessionChannel.topic(session_id)
 
-    claims = %{
-      endpoint: endpoint,
-      topic: topic,
-      slug: slug,
-      actor: %{id: actor.id, type: actor.type}
-    }
+    claims = %{endpoint: endpoint, topic: topic, slug: slug, actor: actor}
 
     %{endpoint: endpoint, topic: topic, token: D20.Module.Token.sign(D20Web.Endpoint, claims)}
   end

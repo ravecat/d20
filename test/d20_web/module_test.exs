@@ -35,7 +35,7 @@ defmodule D20Web.ModuleTest do
               endpoint: "ws://example.com/module",
               slug: "qwinto",
               topic: ^topic,
-              actor: %{id: "p1", type: :anonymous}
+              actor: %Actor{id: "p1", type: :anonymous}
             }} = D20.Module.Token.verify(D20Web.Endpoint, token)
   end
 end

@@ -4,12 +4,12 @@ defmodule D20.Actors.TokenTest do
   alias D20.Actors.Actor
   alias D20.Actors.Token
 
-  test "signs actors as plain claims" do
+  test "verifies signed actor claims as actors" do
     actor = %Actor{id: Ecto.UUID.generate(), type: :anonymous}
 
     token = Token.sign(D20Web.Endpoint, actor)
 
-    assert {:ok, %{id: actor.id, type: actor.type}} == Token.verify(D20Web.Endpoint, token)
+    assert {:ok, ^actor} = Token.verify(D20Web.Endpoint, token)
   end
 
   test "rejects malformed actor claims" do

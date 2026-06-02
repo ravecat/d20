@@ -1,6 +1,8 @@
 defmodule D20Web.PageControllerTest do
   use D20Web.ConnCase
 
+  alias D20.Actors.Actor
+
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
 
@@ -152,7 +154,7 @@ defmodule D20Web.PageControllerTest do
               endpoint: "ws://example.com/module",
               slug: "qwinto",
               topic: ^topic,
-              actor: %{id: actor_id, type: :anonymous}
+              actor: %Actor{id: actor_id, type: :anonymous}
             }} = D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
 
     assert is_binary(actor_id)

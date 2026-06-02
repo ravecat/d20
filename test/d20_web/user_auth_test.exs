@@ -37,7 +37,7 @@ defmodule D20Web.UserAuthTest do
       assert get_session(conn, :anonymous_user_id) == anonymous_user_id
       assert is_binary(conn.assigns.actor_token)
 
-      assert {:ok, %{id: ^anonymous_user_id, type: :anonymous}} =
+      assert {:ok, %Actor{id: ^anonymous_user_id, type: :anonymous}} =
                Token.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       refute Map.has_key?(conn.assigns, :current_actor)
@@ -53,7 +53,7 @@ defmodule D20Web.UserAuthTest do
       assert conn.assigns.current_scope.actor == %Actor{id: to_string(user.id), type: :user}
       assert conn.assigns.current_user == user
 
-      assert {:ok, %{id: user_id, type: :user}} =
+      assert {:ok, %Actor{id: user_id, type: :user}} =
                Token.verify(D20Web.Endpoint, conn.assigns.actor_token)
 
       assert user_id == to_string(user.id)

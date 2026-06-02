@@ -3,9 +3,8 @@ defmodule D20.Accounts.Scope do
   Defines the scope of the caller to be used throughout the app.
 
   The `D20.Accounts.Scope` allows public interfaces to receive
-  information about the caller. It intentionally stores only the runtime actor
-  identity; account-specific data such as the authenticated `%User{}` lives in
-  web assigns.
+  information about the caller and the runtime resource being addressed.
+  Account-specific data such as the authenticated `%User{}` lives in web assigns.
 
   It is useful for logging as well as for scoping pubsub subscriptions and
   broadcasts when a caller subscribes to an interface or performs a particular
@@ -18,10 +17,13 @@ defmodule D20.Accounts.Scope do
   alias D20.Accounts.Anonymous
   alias D20.Accounts.User
   alias D20.Actors.Actor
+  alias D20.Sessions.Session
 
-  defstruct actor: nil
+  defstruct actor: nil, session: nil, game: nil
 
-  @type t :: %__MODULE__{actor: Actor.t() | nil}
+  @type session :: %{required(:id) => Session.id()}
+  @type game :: %{required(:slug) => String.t()}
+  @type t :: %__MODULE__{actor: Actor.t() | nil, session: session() | nil, game: game() | nil}
 
   @doc """
   Creates a scope for the given actor.
@@ -30,4 +32,20 @@ defmodule D20.Accounts.Scope do
   def for_actor(%User{} = user), do: %__MODULE__{actor: Actor.new(user)}
   def for_actor(%Anonymous{} = anonymous), do: %__MODULE__{actor: Actor.new(anonymous)}
   def for_actor(%Actor{} = actor), do: %__MODULE__{actor: actor}
+
+  @doc """
+  Adds the current transport session identity to the scope.
+  """
+  @spec put_session(t(), Session.id()) :: t()
+  def put_session(%__MODULE__{} = scope, session_id) when is_binary(session_id) do
+    %{scope | session: %{id: session_id}}
+  end
+
+  @doc """
+  Adds the current game identity to the scope.
+  """
+  @spec put_game(t(), String.t()) :: t()
+  def put_game(%__MODULE__{} = scope, slug) when is_binary(slug) do
+    %{scope | game: %{slug: slug}}
+  end
 end
