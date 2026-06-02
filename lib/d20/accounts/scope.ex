@@ -34,6 +34,12 @@ defmodule D20.Accounts.Scope do
   def for_actor(%Actor{} = actor), do: %__MODULE__{actor: actor}
 
   @doc """
+  Returns the caller actor id from the scope.
+  """
+  @spec actor_id(t()) :: String.t()
+  def actor_id(%__MODULE__{actor: %Actor{id: id}}) when is_binary(id), do: id
+
+  @doc """
   Adds the current transport session identity to the scope.
   """
   @spec put_session(t(), Session.id()) :: t()

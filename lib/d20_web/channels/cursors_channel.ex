@@ -1,6 +1,7 @@
 defmodule D20Web.CursorsChannel do
   use D20Web, :channel
 
+  alias D20.Accounts.Scope
   alias D20Web.Presence
 
   @impl true
@@ -14,7 +15,10 @@ defmodule D20Web.CursorsChannel do
 
   @impl true
   def handle_info(:after_join, socket) do
-    {:ok, _} = Presence.track(socket, actor_id(socket), %{online_at: System.system_time(:second)})
+    {:ok, _} =
+      Presence.track(socket, Scope.actor_id(socket.assigns.current_scope), %{
+        online_at: System.system_time(:second)
+      })
 
     {:noreply, socket}
   end
@@ -38,7 +42,7 @@ defmodule D20Web.CursorsChannel do
   @impl true
   def handle_in("move", %{"x" => x, "y" => y}, socket) do
     {:ok, _} =
-      Presence.update(socket, actor_id(socket), %{
+      Presence.update(socket, Scope.actor_id(socket.assigns.current_scope), %{
         online_at: System.system_time(:second),
         x: clamp_world_number(x),
         y: clamp_world_number(y)
@@ -50,7 +54,7 @@ defmodule D20Web.CursorsChannel do
   end
 
   defp cursor_projection(socket) do
-    self_id = actor_id(socket)
+    self_id = Scope.actor_id(socket.assigns.current_scope)
 
     socket
     |> Presence.list()
@@ -68,6 +72,4 @@ defmodule D20Web.CursorsChannel do
 
   defp clamp_world_number(value) when is_integer(value), do: value
   defp clamp_world_number(value) when is_float(value), do: round(value)
-
-  defp actor_id(%{assigns: %{current_scope: %{actor: actor}}}), do: actor.id
 end

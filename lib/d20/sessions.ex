@@ -3,6 +3,7 @@ defmodule D20.Sessions do
   Runtime boundary for dynamically created game session processes.
   """
 
+  alias D20.Accounts.Scope
   alias D20.Sessions.Server
   alias D20.Sessions.Session
 
@@ -10,7 +11,8 @@ defmodule D20.Sessions do
   @type id :: Session.id()
   @type state :: {Session.t(), slug()}
   @type reason ::
-          :session_not_found
+          :forbidden
+          | :session_not_found
           | Session.reason()
 
   @spec create(slug(), D20.Game.engine(), Session.player_id()) ::
@@ -29,8 +31,15 @@ defmodule D20.Sessions do
     call_if_exists(id, &Server.get/1)
   end
 
-  @spec dispatch(id(), Session.event(), term()) ::
+  @spec dispatch(Scope.t() | id(), Session.event(), term()) ::
           {:ok, Session.t()} | {:error, reason()}
+  def dispatch(%Scope{session: %{id: id}, actor: %{id: actor_id}}, event, attrs)
+      when is_binary(id) and is_binary(actor_id) do
+    dispatch(id, event, put_actor(event, attrs, actor_id))
+  end
+
+  def dispatch(%Scope{}, _event, _attrs), do: {:error, :forbidden}
+
   def dispatch(id, event, attrs) when is_binary(id) do
     call_if_exists(id, &Server.dispatch(&1, event, attrs))
   end
@@ -72,4 +81,16 @@ defmodule D20.Sessions do
       {Server, slug: slug, engine: engine, session: session}
     )
   end
+
+  defp put_actor(event, _attrs, actor_id) when event in ["join", "leave", "start"] do
+    %{player_id: actor_id}
+  end
+
+  defp put_actor(_event, attrs, actor_id) when is_map(attrs) do
+    attrs
+    |> Map.delete(:player_id)
+    |> Map.put("player_id", actor_id)
+  end
+
+  defp put_actor(_event, attrs, _actor_id), do: attrs
 end

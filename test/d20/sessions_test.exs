@@ -1,6 +1,8 @@
 defmodule D20.SessionsTest do
   use D20.DataCase, async: false
 
+  alias D20.Accounts.Scope
+  alias D20.Actors.Actor
   alias D20.Sessions
   alias D20.Sessions.Server
   alias D20.Sessions.Session
@@ -59,6 +61,28 @@ defmodule D20.SessionsTest do
       assert {"noop", %{value: 1}} in session.game.events
       assert session.id == id
       assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
+    end
+
+    test "dispatches scoped game commands with the actor id", %{ref: ref} do
+      scope = scope(ref, "p2")
+
+      payload = %{:player_id => "forged-atom", "player_id" => "forged-string", "value" => 1}
+
+      assert {:ok, %Session{} = session} = Sessions.dispatch(scope, "noop", payload)
+      assert {"noop", %{"player_id" => "p2", "value" => 1}} in session.game.events
+    end
+
+    test "dispatches scoped lifecycle commands with the actor id", %{ref: ref} do
+      scope = scope(ref, "p1")
+
+      assert {:ok, %Session{} = session} =
+               Sessions.dispatch(scope, "start", %{"player_id" => "forged"})
+
+      assert {"start", %{player_id: "p1"}} in session.game.events
+    end
+
+    test "rejects scoped dispatches without session or actor context" do
+      assert {:error, :forbidden} = Sessions.dispatch(%Scope{}, "noop", %{})
     end
 
     test "keeps current state when a dispatch returns an error", %{ref: ref} do
@@ -162,5 +186,12 @@ defmodule D20.SessionsTest do
     on_exit(fn -> Sessions.stop(ref) end)
 
     %{id: session.id, ref: ref, session: session}
+  end
+
+  defp scope(session_id, actor_id) do
+    %Actor{id: actor_id, type: :anonymous}
+    |> Scope.for_actor()
+    |> Scope.put_session(session_id)
+    |> Scope.put_game("test-game")
   end
 end

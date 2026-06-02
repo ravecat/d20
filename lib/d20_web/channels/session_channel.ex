@@ -58,7 +58,10 @@ defmodule D20Web.SessionChannel do
   end
 
   def handle_info(:after_join, socket) do
-    {:ok, _} = Presence.track(socket, actor_id(socket), %{online_at: System.system_time(:second)})
+    {:ok, _} =
+      Presence.track(socket, Scope.actor_id(socket.assigns.current_scope), %{
+        online_at: System.system_time(:second)
+      })
 
     {:noreply, socket}
   end
@@ -70,30 +73,11 @@ defmodule D20Web.SessionChannel do
 
   @impl true
   def handle_in(event, payload, socket) do
-    attrs = put_actor(socket, event, payload)
-
-    case Sessions.dispatch(scope_session_id(socket), event, attrs) do
+    case Sessions.dispatch(socket.assigns.current_scope, event, payload) do
       {:ok, _session} -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
   end
-
-  defp put_actor(socket, event, _payload) when event in ["join", "leave", "start"] do
-    %{player_id: actor_id(socket)}
-  end
-
-  defp put_actor(socket, _event, attrs) when is_map(attrs) do
-    attrs
-    |> Map.delete(:player_id)
-    |> Map.put("player_id", actor_id(socket))
-  end
-
-  defp put_actor(_socket, _event, attrs), do: attrs
-
-  defp actor_id(%{assigns: %{current_scope: %{actor: actor}}}), do: actor.id
-
-  defp scope_session_id(%{assigns: %{current_scope: %{session: %{id: session_id}}}}),
-    do: session_id
 
   defp join_session(socket, session) do
     send(self(), :after_join)
