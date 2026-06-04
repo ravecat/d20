@@ -5,6 +5,8 @@ defmodule D20.Sessions.Session do
 
   import D20.Guards, only: [is_player_id: 1]
 
+  alias D20.Sessions.Command
+
   @derive {Jason.Encoder, only: [:id, :phase, :owner_id, :members, :game]}
   defstruct id: nil,
             phase: :waiting_for_players,
@@ -15,11 +17,7 @@ defmodule D20.Sessions.Session do
   @type id :: Ecto.UUID.t()
   @type phase :: :waiting_for_players | :in_progress | :finished
   @type player_id :: String.t()
-  @type member :: %{
-          required(:online_at) => non_neg_integer(),
-          optional(:display_name) => String.t(),
-          optional(:avatar) => String.t() | nil
-        }
+  @type member :: map()
   @type members :: %{optional(player_id()) => member()}
   @type event :: String.t()
   @type engine_reason :: term()
@@ -51,90 +49,39 @@ defmodule D20.Sessions.Session do
 
   def new(_engine, _owner_id), do: {:error, :invalid_owner_id}
 
-  @spec dispatch(t(), D20.Game.engine(), event(), term()) :: {:ok, t()} | {:error, reason()}
-  def dispatch(%__MODULE__{}, _engine, _event, attrs) when not is_map(attrs) do
+  @spec dispatch(t(), D20.Game.engine(), Command.t()) :: {:ok, t()} | {:error, reason()}
+  def dispatch(%__MODULE__{}, _engine, %Command{event: event}) when not is_binary(event) do
     {:error, :invalid_command}
   end
 
-  def dispatch(%__MODULE__{}, _engine, event, _attrs) when not is_binary(event) do
+  def dispatch(%__MODULE__{}, _engine, %Command{attrs: attrs}) when not is_map(attrs) do
     {:error, :invalid_command}
   end
 
-  def dispatch(
-        %__MODULE__{phase: phase} = session,
-        engine,
-        "join",
-        %{player_id: player_id, online_at: _online_at} = attrs
-      )
+  def dispatch(%__MODULE__{phase: phase} = session, engine, %Command{
+        event: "join",
+        actor_id: actor_id,
+        attrs: attrs
+      })
       when phase in [:waiting_for_players, :in_progress] do
-    with {:ok, game} <- engine.dispatch(session.game, "join", %{player_id: player_id}) do
-      member = Map.delete(attrs, :player_id)
-      members = Map.put(session.members, player_id, member)
+    with {:ok, game} <- engine.dispatch(session.game, "join", %{"player_id" => actor_id}) do
+      members = Map.put(session.members, actor_id, attrs)
 
-      {:ok, maybe_finish(%{session | game: game, members: members}, engine)}
+      {:ok, %{session | game: game, members: members}}
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase}, _engine, "join", %{player_id: player_id})
-      when phase in [:waiting_for_players, :in_progress] and is_player_id(player_id) do
-    {:error, :invalid_command}
-  end
-
-  def dispatch(%__MODULE__{}, _engine, "join", %{player_id: player_id})
-      when is_player_id(player_id) do
-    {:error, :invalid_phase}
-  end
-
-  def dispatch(%__MODULE__{}, _engine, "join", _attrs), do: {:error, :invalid_identity}
-
-  def dispatch(%__MODULE__{phase: phase} = session, engine, "leave", %{player_id: player_id})
-      when phase in [:waiting_for_players, :in_progress] and is_player_id(player_id) do
-    leave(session, engine, player_id)
-  end
-
-  def dispatch(%__MODULE__{}, _engine, "leave", %{player_id: player_id})
-      when is_player_id(player_id) do
-    {:error, :invalid_phase}
-  end
-
-  def dispatch(%__MODULE__{}, _engine, "leave", _attrs), do: {:error, :invalid_identity}
-
-  def dispatch(
-        %__MODULE__{phase: :waiting_for_players} = session,
-        engine,
-        "start",
-        %{player_id: player_id} = attrs
-      )
-      when is_player_id(player_id) do
-    with :ok <- require_owner(session, player_id),
-         {:ok, game} <- engine.dispatch(session.game, "start", attrs) do
-      {:ok, maybe_finish(%{session | phase: :in_progress, game: game}, engine)}
-    end
-  end
-
-  def dispatch(%__MODULE__{phase: :waiting_for_players}, _engine, "start", _attrs) do
-    {:error, :invalid_identity}
-  end
-
-  def dispatch(%__MODULE__{}, _engine, "start", _attrs), do: {:error, :invalid_phase}
-
-  def dispatch(%__MODULE__{phase: phase} = session, engine, event, attrs)
+  def dispatch(%__MODULE__{phase: phase} = session, engine, %Command{
+        event: "leave",
+        actor_id: actor_id
+      })
       when phase in [:waiting_for_players, :in_progress] do
-    case engine.dispatch(session.game, event, attrs) do
-      {:ok, game} -> {:ok, maybe_finish(%{session | game: game}, engine)}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  def dispatch(%__MODULE__{}, _engine, _event, _attrs), do: {:error, :invalid_phase}
-
-  defp leave(%__MODULE__{} = session, engine, player_id) do
-    case Map.fetch(session.members, player_id) do
+    case Map.fetch(session.members, actor_id) do
       {:ok, _member} ->
-        case engine.dispatch(session.game, "leave", %{player_id: player_id}) do
+        case engine.dispatch(session.game, "leave", %{"player_id" => actor_id}) do
           {:ok, game} ->
-            members = Map.delete(session.members, player_id)
-            {:ok, maybe_finish(%{session | game: game, members: members}, engine)}
+            members = Map.delete(session.members, actor_id)
+            {:ok, %{session | game: game, members: members}}
 
           {:error, reason} ->
             {:error, reason}
@@ -143,6 +90,31 @@ defmodule D20.Sessions.Session do
       :error ->
         {:ok, session}
     end
+  end
+
+  def dispatch(
+        %__MODULE__{phase: :waiting_for_players} = session,
+        engine,
+        %Command{event: "start", actor_id: actor_id} = command
+      ) do
+    with :ok <- require_owner(session, actor_id),
+         {:ok, game} <- dispatch_to_engine(engine, session.game, command) do
+      {:ok, %{session | phase: :in_progress, game: game}}
+    end
+  end
+
+  def dispatch(%__MODULE__{phase: :in_progress} = session, engine, %Command{} = command) do
+    case dispatch_to_engine(engine, session.game, command) do
+      {:ok, game} -> {:ok, maybe_finish(%{session | game: game}, engine)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def dispatch(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
+
+  defp dispatch_to_engine(engine, game, %Command{} = command) do
+    attrs = Map.put(command.attrs, "player_id", command.actor_id)
+    engine.dispatch(game, command.event, attrs)
   end
 
   defp maybe_finish(session, engine) do

@@ -3,6 +3,7 @@ defmodule D20Web.SessionChannelTest do
 
   import D20.AccountsFixtures
 
+  alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20.Sessions.Session
   alias D20Web.ModuleSocket
@@ -123,7 +124,7 @@ defmodule D20Web.SessionChannelTest do
     session_ref = session_id
 
     assert {:ok, _session} =
-             D20.Sessions.dispatch(session_ref, "join", %{player_id: "p2", online_at: 123})
+             D20.Sessions.dispatch(session_scope(session_ref, "p2"), "join", %{online_at: 123})
 
     assert {:ok,
             %Session{
@@ -185,6 +186,13 @@ defmodule D20Web.SessionChannelTest do
     token = D20.Actors.Token.sign(D20Web.Endpoint, %Actor{id: actor.id, type: actor.type})
 
     connect UserSocket, %{}, connect_info: %{auth_token: token}
+  end
+
+  defp session_scope(session_id, actor_id) do
+    %Actor{id: actor_id, type: :anonymous}
+    |> Scope.for_actor()
+    |> Scope.put_session(session_id)
+    |> Scope.put_game("qwinto")
   end
 
   defp connect_module_socket(session_id, actor, opts \\ []) do

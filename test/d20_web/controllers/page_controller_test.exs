@@ -1,6 +1,7 @@
 defmodule D20Web.PageControllerTest do
   use D20Web.ConnCase
 
+  alias D20.Accounts.Scope
   alias D20.Actors.Actor
 
   test "GET /", %{conn: conn} do
@@ -168,9 +169,9 @@ defmodule D20Web.PageControllerTest do
     on_exit(fn -> D20.Sessions.stop(session_ref) end)
 
     assert {:ok, _session} =
-             D20.Sessions.dispatch(session_ref, "join", %{player_id: "p2", online_at: 123})
+             D20.Sessions.dispatch(session_scope(session_ref, "p2"), "join", %{online_at: 123})
 
-    assert {:ok, _session} = D20.Sessions.dispatch(session_ref, "start", %{player_id: "p1"})
+    assert {:ok, _session} = D20.Sessions.dispatch(session_scope(session_ref, "p1"), "start", %{})
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
@@ -215,5 +216,12 @@ defmodule D20Web.PageControllerTest do
     )
 
     on_exit(fn -> Application.put_env(:d20, D20.Module.Manifest, manifest_config) end)
+  end
+
+  defp session_scope(session_id, actor_id) do
+    %Actor{id: actor_id, type: :anonymous}
+    |> Scope.for_actor()
+    |> Scope.put_session(session_id)
+    |> Scope.put_game("qwinto")
   end
 end

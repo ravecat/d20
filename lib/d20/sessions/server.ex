@@ -6,6 +6,7 @@ defmodule D20.Sessions.Server do
   use GenServer, restart: :temporary
 
   alias D20.Accounts
+  alias D20.Sessions.Command
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
@@ -45,10 +46,10 @@ defmodule D20.Sessions.Server do
     GenServer.call(server, :get)
   end
 
-  @spec dispatch(GenServer.server(), Session.event(), term()) ::
+  @spec dispatch(GenServer.server(), Command.t()) ::
           {:ok, Session.t()} | {:error, Session.reason()}
-  def dispatch(server, event, attrs) do
-    GenServer.call(server, {:dispatch, event, attrs})
+  def dispatch(server, %Command{} = command) do
+    GenServer.call(server, {:dispatch, command})
   end
 
   @impl true
@@ -56,11 +57,11 @@ defmodule D20.Sessions.Server do
     {:reply, {:ok, {session, slug}}, state}
   end
 
-  def handle_call({:dispatch, event, attrs}, _from, {slug, engine, _session} = state) do
-    case dispatch_to_session(state, event, attrs) do
-      {:ok, session} ->
-        broadcast_state(session)
-        {:reply, {:ok, session}, {slug, engine, session}}
+  def handle_call({:dispatch, %Command{} = command}, _from, {slug, engine, session} = state) do
+    case Session.dispatch(session, engine, command) do
+      {:ok, updated_session} ->
+        broadcast_state(updated_session)
+        {:reply, {:ok, updated_session}, {slug, engine, updated_session}}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
@@ -68,14 +69,11 @@ defmodule D20.Sessions.Server do
   end
 
   @impl true
-  def handle_info({:join, actor_id, %{online_at: online_at}}, state) do
+  def handle_info({:join, actor_id, member_attrs}, state) when is_map(member_attrs) do
     profile = Accounts.get_user_or_anonymous(actor_id)
 
-    member_attrs = %{
-      online_at: online_at,
-      display_name: profile.display_name,
-      avatar: profile.avatar
-    }
+    member_attrs =
+      Map.merge(member_attrs, %{display_name: profile.display_name, avatar: profile.avatar})
 
     handle_presence_event(state, "join", actor_id, member_attrs)
   end
@@ -86,23 +84,17 @@ defmodule D20.Sessions.Server do
 
   @spec handle_presence_event(state(), String.t(), Session.player_id(), map()) ::
           {:noreply, state()}
-  defp handle_presence_event({slug, engine, _session} = state, event, actor_id, member_attrs) do
-    attrs = Map.put(member_attrs, :player_id, actor_id)
+  defp handle_presence_event({slug, engine, session} = state, event, actor_id, attrs) do
+    command = %Command{event: event, actor_id: actor_id, attrs: attrs}
 
-    case dispatch_to_session(state, event, attrs) do
-      {:ok, session} ->
-        broadcast_state(session)
-        {:noreply, {slug, engine, session}}
+    case Session.dispatch(session, engine, command) do
+      {:ok, updated_session} ->
+        broadcast_state(updated_session)
+        {:noreply, {slug, engine, updated_session}}
 
       {:error, _reason} ->
         {:noreply, state}
     end
-  end
-
-  @spec dispatch_to_session(state(), Session.event(), term()) ::
-          {:ok, Session.t()} | {:error, Session.reason()}
-  defp dispatch_to_session({_slug, engine, %Session{} = session}, event, attrs) do
-    Session.dispatch(session, engine, event, attrs)
   end
 
   @spec broadcast_state(Session.t()) :: :ok

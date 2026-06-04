@@ -4,6 +4,7 @@ defmodule D20.Sessions do
   """
 
   alias D20.Accounts.Scope
+  alias D20.Sessions.Command
   alias D20.Sessions.Server
   alias D20.Sessions.Session
 
@@ -31,18 +32,16 @@ defmodule D20.Sessions do
     call_if_exists(id, &Server.get/1)
   end
 
-  @spec dispatch(Scope.t() | id(), Session.event(), term()) ::
+  @spec dispatch(Scope.t(), Session.event(), term()) ::
           {:ok, Session.t()} | {:error, reason()}
   def dispatch(%Scope{session: %{id: id}, actor: %{id: actor_id}}, event, attrs)
       when is_binary(id) and is_binary(actor_id) do
-    dispatch(id, event, put_actor(event, attrs, actor_id))
+    command = %Command{event: event, actor_id: actor_id, attrs: command_attrs(attrs)}
+
+    call_if_exists(id, &Server.dispatch(&1, command))
   end
 
   def dispatch(%Scope{}, _event, _attrs), do: {:error, :forbidden}
-
-  def dispatch(id, event, attrs) when is_binary(id) do
-    call_if_exists(id, &Server.dispatch(&1, event, attrs))
-  end
 
   @spec lookup(id()) :: {:ok, pid()} | {:error, :session_not_found}
   def lookup(id) when is_binary(id) do
@@ -82,15 +81,9 @@ defmodule D20.Sessions do
     )
   end
 
-  defp put_actor(event, _attrs, actor_id) when event in ["join", "leave", "start"] do
-    %{player_id: actor_id}
+  defp command_attrs(attrs) when is_map(attrs) do
+    Map.drop(attrs, [:player_id, "player_id"])
   end
 
-  defp put_actor(_event, attrs, actor_id) when is_map(attrs) do
-    attrs
-    |> Map.delete(:player_id)
-    |> Map.put("player_id", actor_id)
-  end
-
-  defp put_actor(_event, attrs, _actor_id), do: attrs
+  defp command_attrs(attrs), do: attrs
 end

@@ -57,13 +57,15 @@ defmodule D20.SessionsTest do
     end
 
     test "serializes session transitions through the process", %{id: id, ref: ref} do
-      assert {:ok, %Session{} = session} = Sessions.dispatch(ref, "noop", %{value: 1})
-      assert {"noop", %{value: 1}} in session.game.events
+      assert {:ok, %Session{} = session} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
+      assert {"start", %{"player_id" => "p1"}} in session.game.events
       assert session.id == id
       assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
     end
 
     test "dispatches scoped game commands with the actor id", %{ref: ref} do
+      assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
+
       scope = scope(ref, "p2")
 
       payload = %{:player_id => "forged-atom", "player_id" => "forged-string", "value" => 1}
@@ -78,7 +80,7 @@ defmodule D20.SessionsTest do
       assert {:ok, %Session{} = session} =
                Sessions.dispatch(scope, "start", %{"player_id" => "forged"})
 
-      assert {"start", %{player_id: "p1"}} in session.game.events
+      assert {"start", %{"player_id" => "p1"}} in session.game.events
     end
 
     test "rejects scoped dispatches without session or actor context" do
@@ -86,8 +88,9 @@ defmodule D20.SessionsTest do
     end
 
     test "keeps current state when a dispatch returns an error", %{ref: ref} do
+      assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
       assert {:ok, {before, "test-game"}} = Sessions.get(ref)
-      assert {:error, :bad_command} = Sessions.dispatch(ref, "fail", %{})
+      assert {:error, :bad_command} = Sessions.dispatch(scope(ref, "p1"), "fail", %{})
       assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
     end
 
@@ -102,8 +105,19 @@ defmodule D20.SessionsTest do
       assert {:ok, %{}} =
                Presence.handle_metas(
                  topic,
-                 %{joins: %{"p2" => %{metas: [%{online_at: 123}]}}, leaves: %{}},
-                 %{"p2" => %{metas: [%{online_at: 123}]}},
+                 %{
+                   joins: %{
+                     "p2" => %{
+                       metas: [%{online_at: 123, display_name: "forged", avatar: "forged-avatar"}]
+                     }
+                   },
+                   leaves: %{}
+                 },
+                 %{
+                   "p2" => %{
+                     metas: [%{online_at: 123, display_name: "forged", avatar: "forged-avatar"}]
+                   }
+                 },
                  %{}
                )
 
@@ -113,6 +127,8 @@ defmodule D20.SessionsTest do
 
       assert is_binary(display_name)
       assert is_binary(avatar)
+      refute display_name == "forged"
+      refute avatar == "forged-avatar"
 
       assert {:ok, %{}} =
                Presence.handle_metas(
@@ -132,7 +148,7 @@ defmodule D20.SessionsTest do
       id = "missing-#{System.unique_integer([:positive])}"
 
       assert {:error, :session_not_found} = Sessions.get(id)
-      assert {:error, :session_not_found} = Sessions.dispatch(id, "join", %{player_id: "p1"})
+      assert {:error, :session_not_found} = Sessions.dispatch(scope(id, "p1"), "join", %{})
       assert {:error, :session_not_found} = Sessions.lookup(id)
     end
   end
