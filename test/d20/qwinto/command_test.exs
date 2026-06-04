@@ -3,65 +3,60 @@ defmodule D20.Qwinto.CommandTest do
 
   alias D20.Qwinto.Command
 
-  describe "build/2" do
-    test "builds a join command from raw attrs" do
-      assert {:ok, %Command.Join{player_id: "p1"}} = Command.build(:join, %{"player_id" => "p1"})
+  describe "validate/1" do
+    test "passes payload-less commands through unchanged" do
+      join = command("join", "p1", %{online_at: 10})
+      start = command("start", "p1")
+      keep = command("keep", "p1")
+      reroll = command("reroll", "p1")
+      skip = command("skip", "p1")
+
+      assert {:ok, ^join} = Command.validate(join)
+      assert {:ok, ^start} = Command.validate(start)
+      assert {:ok, ^keep} = Command.validate(keep)
+      assert {:ok, ^reroll} = Command.validate(reroll)
+      assert {:ok, ^skip} = Command.validate(skip)
     end
 
-    test "rejects malformed join commands" do
-      assert {:error, changeset} = Command.build(:join, %{})
-
-      refute changeset.valid?
-      assert changeset.action == :join
-      assert Keyword.has_key?(changeset.errors, :player_id)
+    test "validates and normalizes roll attrs" do
+      assert {:ok,
+              %D20.Command{event: "roll", actor_id: "p1", attrs: %{colors: [:orange, :purple]}}} =
+               Command.validate(
+                 command("roll", "p1", %{"colors" => ["orange", "purple"], "values" => [4, 5]})
+               )
     end
 
-    test "builds a start command from raw attrs" do
-      assert {:ok, %Command.Start{}} = Command.build(:start, %{})
-      assert {:ok, %Command.Start{}} = Command.build(:start, %{"player_id" => "p1"})
-    end
-
-    test "builds a roll command from raw attrs" do
-      assert {:ok, %Command.Roll{player_id: "p1", colors: [:orange, :purple]}} =
-               Command.build(:roll, %{
-                 "player_id" => "p1",
-                 "colors" => ["orange", "purple"],
-                 "values" => [4, 5]
-               })
-    end
-
-    test "rejects malformed roll commands" do
+    test "rejects malformed roll attrs" do
       assert {:error, changeset} =
-               Command.build(:roll, %{
-                 "player_id" => "p1",
-                 "colors" => ["orange", "orange"],
-                 "values" => [4]
-               })
+               Command.validate(
+                 command("roll", "p1", %{"colors" => ["orange", "orange"], "values" => [4]})
+               )
 
       refute changeset.valid?
       assert changeset.action == :roll
       assert Keyword.has_key?(changeset.errors, :colors)
     end
 
-    test "builds keep, reroll, write, and skip commands from raw attrs" do
-      assert {:ok, %Command.Keep{player_id: "p1"}} = Command.build(:keep, %{"player_id" => "p1"})
-
-      assert {:ok, %Command.Reroll{player_id: "p1"}} =
-               Command.build(:reroll, %{"player_id" => "p1"})
-
-      assert {:ok, %Command.Write{player_id: "p1", row: :orange, slot: 0}} =
-               Command.build(:write, %{"player_id" => "p1", "row" => "orange", "slot" => 0})
-
-      assert {:ok, %Command.Skip{player_id: "p1"}} = Command.build(:skip, %{"player_id" => "p1"})
+    test "validates and normalizes write attrs" do
+      assert {:ok, %D20.Command{event: "write", actor_id: "p1", attrs: %{row: :orange, slot: 0}}} =
+               Command.validate(command("write", "p1", %{"row" => "orange", "slot" => 0}))
     end
 
     test "rejects write slots outside the score-sheet slot range" do
       assert {:error, changeset} =
-               Command.build(:write, %{"player_id" => "p1", "row" => "orange", "slot" => 9})
+               Command.validate(command("write", "p1", %{"row" => "orange", "slot" => 9}))
 
       refute changeset.valid?
       assert changeset.action == :write
       assert Keyword.has_key?(changeset.errors, :slot)
     end
+
+    test "rejects unknown commands" do
+      assert {:error, :unknown_command} = Command.validate(command("unknown", "p1"))
+    end
+  end
+
+  defp command(event, actor_id, attrs \\ %{}) do
+    %D20.Command{event: event, actor_id: actor_id, attrs: attrs}
   end
 end

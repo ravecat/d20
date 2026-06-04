@@ -3,6 +3,7 @@ defmodule D20.SessionsTest do
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.Command
   alias D20.Sessions
   alias D20.Sessions.Server
   alias D20.Sessions.Session
@@ -16,10 +17,10 @@ defmodule D20.SessionsTest do
     def init, do: {:ok, %{events: []}}
 
     @impl D20.Game
-    def dispatch(_state, "fail", _attrs), do: {:error, :bad_command}
+    def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
 
-    def dispatch(state, event, attrs) do
-      {:ok, update_in(state.events, &(&1 ++ [{event, attrs}]))}
+    def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
+      {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
     end
 
     @impl D20.Game
@@ -58,7 +59,7 @@ defmodule D20.SessionsTest do
 
     test "serializes session transitions through the process", %{id: id, ref: ref} do
       assert {:ok, %Session{} = session} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
-      assert {"start", %{"player_id" => "p1"}} in session.game.events
+      assert {"start", "p1", %{}} in session.game.events
       assert session.id == id
       assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
     end
@@ -71,7 +72,7 @@ defmodule D20.SessionsTest do
       payload = %{:player_id => "forged-atom", "player_id" => "forged-string", "value" => 1}
 
       assert {:ok, %Session{} = session} = Sessions.dispatch(scope, "noop", payload)
-      assert {"noop", %{"player_id" => "p2", "value" => 1}} in session.game.events
+      assert {"noop", "p2", payload} in session.game.events
     end
 
     test "dispatches scoped lifecycle commands with the actor id", %{ref: ref} do
@@ -80,7 +81,7 @@ defmodule D20.SessionsTest do
       assert {:ok, %Session{} = session} =
                Sessions.dispatch(scope, "start", %{"player_id" => "forged"})
 
-      assert {"start", %{"player_id" => "p1"}} in session.game.events
+      assert {"start", "p1", %{"player_id" => "forged"}} in session.game.events
     end
 
     test "rejects scoped dispatches without session or actor context" do
@@ -90,7 +91,7 @@ defmodule D20.SessionsTest do
     test "keeps current state when a dispatch returns an error", %{ref: ref} do
       assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
       assert {:ok, {before, "test-game"}} = Sessions.get(ref)
-      assert {:error, :bad_command} = Sessions.dispatch(scope(ref, "p1"), "fail", %{})
+      assert {:error, :invalid_command} = Sessions.dispatch(scope(ref, "p1"), "fail", %{})
       assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
     end
 

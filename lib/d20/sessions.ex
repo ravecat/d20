@@ -4,7 +4,7 @@ defmodule D20.Sessions do
   """
 
   alias D20.Accounts.Scope
-  alias D20.Sessions.Command
+  alias D20.Command
   alias D20.Sessions.Server
   alias D20.Sessions.Session
 
@@ -36,7 +36,7 @@ defmodule D20.Sessions do
           {:ok, Session.t()} | {:error, reason()}
   def dispatch(%Scope{session: %{id: id}, actor: %{id: actor_id}}, event, attrs)
       when is_binary(id) and is_binary(actor_id) do
-    command = %Command{event: event, actor_id: actor_id, attrs: command_attrs(attrs)}
+    command = %Command{event: event, actor_id: actor_id, attrs: attrs}
 
     call_if_exists(id, &Server.dispatch(&1, command))
   end
@@ -80,10 +80,4 @@ defmodule D20.Sessions do
       {Server, slug: slug, engine: engine, session: session}
     )
   end
-
-  defp command_attrs(attrs) when is_map(attrs) do
-    Map.drop(attrs, [:player_id, "player_id"])
-  end
-
-  defp command_attrs(attrs), do: attrs
 end

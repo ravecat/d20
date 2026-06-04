@@ -6,12 +6,10 @@ defmodule D20.Game do
   game-specific state, and internal transitions.
   """
 
-  @type kind :: String.t()
-  @type payload :: map()
   @type engine :: module()
 
   @callback init() :: {:ok, term()} | {:error, term()}
-  @callback dispatch(term(), kind(), payload()) :: {:ok, term()} | {:error, term()}
+  @callback dispatch(term(), D20.Command.t()) :: {:ok, term()} | {:error, term()}
   @callback finished?(term()) :: boolean()
 
   @spec ensure_engine(term()) :: {:ok, engine()} | {:error, :invalid_engine}

@@ -67,132 +67,138 @@ defmodule D20.Qwinto.Game do
   def init, do: {:ok, %__MODULE__{}}
 
   @impl D20.Game
-  @spec dispatch(t(), String.t(), map()) ::
+  @spec dispatch(t(), D20.Command.t()) ::
           {:ok, t()}
-          | {:error, Ecto.Changeset.t() | Rules.reason() | reason()}
-  def dispatch(%__MODULE__{phase: phase} = game, "join", attrs) when phase in [:setup, :ready] do
-    with {:ok, command} <- Command.build(:join, attrs),
+          | {:error, Ecto.Changeset.t() | Rules.reason() | Command.reason() | reason()}
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "join"} = command)
+      when phase in [:setup, :ready] do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase} = game, "leave", _attrs)
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "leave"})
       when phase in [:setup, :ready],
       do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :ready} = game, "start", attrs) do
-    with {:ok, command} <- Command.build(:start, attrs),
+  def dispatch(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"} = command) do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase}, _kind, _attrs)
+  def dispatch(%__MODULE__{phase: phase}, %D20.Command{})
       when phase in [:setup, :ready],
       do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, "join", _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: "join"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, "leave", _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: "leave"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, "roll", attrs) do
-    with {:ok, command} <- Command.build(:roll, attrs),
+  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: "roll"} = command) do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :turn}, _kind, _attrs),
+  def dispatch(%__MODULE__{phase: :turn}, %D20.Command{}),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, "join", _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "join"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, "leave", _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "leave"}),
+    do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, "keep", attrs) do
-    with {:ok, command} <- Command.build(:keep, attrs),
+  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "keep"} = command) do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :decision} = game, "reroll", attrs) do
-    with {:ok, command} <- Command.build(:reroll, attrs),
+  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "reroll"} = command) do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :decision}, _kind, _attrs),
+  def dispatch(%__MODULE__{phase: :decision}, %D20.Command{}),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :result} = game, "join", _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "join"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :result} = game, "leave", _attrs), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "leave"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :result} = game, "write", attrs) do
-    with {:ok, command} <- Command.build(:write, attrs),
+  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "write"} = command) do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :result} = game, "skip", attrs) do
-    with {:ok, command} <- Command.build(:skip, attrs),
+  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "skip"} = command) do
+    with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :result}, _kind, _attrs),
+  def dispatch(%__MODULE__{phase: :result}, %D20.Command{}),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :finished}, _kind, _attrs), do: {:error, :finished}
+  def dispatch(%__MODULE__{phase: :finished}, %D20.Command{}), do: {:error, :finished}
 
-  def dispatch(%__MODULE__{}, _kind, _attrs), do: {:error, :invalid_phase}
+  def dispatch(%__MODULE__{}, %D20.Command{}), do: {:error, :invalid_phase}
 
   @impl D20.Game
   @spec finished?(t()) :: boolean()
   def finished?(%__MODULE__{phase: :finished}), do: true
   def finished?(%__MODULE__{}), do: false
 
-  defp apply_command(game, %Command.Join{} = command) do
+  defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
     game
-    |> join_player(command.player_id)
+    |> join_player(actor_id)
     |> maybe_mark_ready()
   end
 
-  defp apply_command(game, %Command.Start{}) do
+  defp apply_command(game, %D20.Command{event: "start"}) do
     %{game | phase: :turn, cursor: 0}
   end
 
-  defp apply_command(game, %Command.Roll{} = command) do
-    game = game |> put_roll(command.colors, 1) |> reset_responses()
+  defp apply_command(game, %D20.Command{event: "roll", attrs: %{colors: colors}}) do
+    game = game |> put_roll(colors, 1) |> reset_responses()
 
     %{game | phase: :decision}
   end
 
-  defp apply_command(game, %Command.Keep{}) do
+  defp apply_command(game, %D20.Command{event: "keep"}) do
     %{game | phase: :result}
   end
 
-  defp apply_command(game, %Command.Reroll{}) do
+  defp apply_command(game, %D20.Command{event: "reroll"}) do
     game = put_roll(game, game.dices, 2)
 
     %{game | phase: :result}
   end
 
-  defp apply_command(game, %Command.Write{} = command) do
+  defp apply_command(game, %D20.Command{
+         event: "write",
+         actor_id: actor_id,
+         attrs: %{row: row, slot: slot}
+       }) do
     game
-    |> put_entry(command)
-    |> set_player_status(command.player_id, :wrote)
+    |> put_entry(actor_id, row, slot)
+    |> set_player_status(actor_id, :wrote)
     |> resolve_turn()
   end
 
-  defp apply_command(game, %Command.Skip{} = command) do
+  defp apply_command(game, %D20.Command{event: "skip", actor_id: actor_id}) do
     game
-    |> apply_skip_response(command.player_id)
+    |> apply_skip_response(actor_id)
     |> resolve_turn()
   end
 
@@ -233,8 +239,8 @@ defmodule D20.Qwinto.Game do
     %{game | dices: dices, values: values, sum: sum, attempt: attempt}
   end
 
-  defp put_entry(game, command) do
-    put_in(game.players[command.player_id][:rows][command.row][command.slot], game.sum)
+  defp put_entry(game, actor_id, row, slot) do
+    put_in(game.players[actor_id][:rows][row][slot], game.sum)
   end
 
   defp apply_skip_response(game, player_id) do

@@ -169,6 +169,9 @@ defmodule D20Web.PageControllerTest do
     on_exit(fn -> D20.Sessions.stop(session_ref) end)
 
     assert {:ok, _session} =
+             D20.Sessions.dispatch(session_scope(session_ref, "p1"), "join", %{online_at: 100})
+
+    assert {:ok, _session} =
              D20.Sessions.dispatch(session_scope(session_ref, "p2"), "join", %{online_at: 123})
 
     assert {:ok, _session} = D20.Sessions.dispatch(session_scope(session_ref, "p1"), "start", %{})
@@ -178,7 +181,7 @@ defmodule D20Web.PageControllerTest do
     assert %{module: module, connection: connection, session: session} = inertia_props(conn)
     assert session.id == session_id
     assert session.phase == :in_progress
-    assert session.members == %{"p2" => %{online_at: 123}}
+    assert session.members == %{"p1" => %{online_at: 100}, "p2" => %{online_at: 123}}
     refute Map.has_key?(module, :bootstrap)
     refute Map.has_key?(connection, :moduleId)
     refute Map.has_key?(connection, :socketUrl)

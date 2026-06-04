@@ -6,17 +6,15 @@ defmodule D20.Qwinto.GameTest do
   describe "D20.Game behaviour" do
     test "encodes the full game state as JSON" do
       assert {:ok, game} = Game.init()
-      assert {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      assert {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      assert {:ok, game} = Game.dispatch(game, "start", %{})
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+      assert {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "write", %{"player_id" => "p1", "row" => "orange", "slot" => 0})
+      assert {:ok, game} = dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 0})
 
       decoded = game |> Jason.encode!() |> Jason.decode!()
 
@@ -35,50 +33,46 @@ defmodule D20.Qwinto.GameTest do
     test "moves from setup to ready at the minimum player count, then starts" do
       assert {:ok, %Game{phase: :setup} = game} = Game.init()
 
-      assert {:ok, %Game{phase: :setup, order: ["p1"]} = game} =
-               Game.dispatch(game, "join", %{player_id: "p1"})
+      assert {:ok, %Game{phase: :setup, order: ["p1"]} = game} = dispatch(game, "join", "p1")
 
       assert {:ok, %Game{phase: :ready, order: ["p1", "p2"]} = game} =
-               Game.dispatch(game, "join", %{player_id: "p2"})
+               dispatch(game, "join", "p2")
 
       assert {:ok, %Game{phase: :turn, order: ["p1", "p2"], cursor: 0} = game} =
-               Game.dispatch(game, "start", %{"player_id" => "p1"})
+               dispatch(game, "start", "p1")
 
-      assert {:ok, ^game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      assert {:ok, ^game} = Game.dispatch(game, "join", %{player_id: "p3"})
+      assert {:ok, ^game} = dispatch(game, "join", "p1")
+      assert {:ok, ^game} = dispatch(game, "join", "p3")
     end
 
     test "rejects start before the game is ready" do
       assert {:ok, game} = Game.init()
-      assert {:ok, %Game{phase: :setup} = game} = Game.dispatch(game, "join", %{player_id: "p1"})
+      assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "join", "p1")
 
-      assert {:error, :invalid_phase} = Game.dispatch(game, "start", %{})
+      assert {:error, :invalid_phase} = dispatch(game, "start", "p1")
     end
 
     test "accepts additional players while ready until max player count" do
       assert {:ok, game} = Game.init()
-      assert {:ok, %Game{phase: :setup} = game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      assert {:ok, %Game{phase: :ready} = game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      assert {:ok, %Game{phase: :ready} = game} = Game.dispatch(game, "join", %{player_id: "p3"})
-      assert {:ok, %Game{phase: :ready} = game} = Game.dispatch(game, "join", %{player_id: "p4"})
+      assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "join", "p1")
+      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "join", "p2")
+      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "join", "p3")
+      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "join", "p4")
 
-      assert {:error, :invalid_player_count} = Game.dispatch(game, "join", %{player_id: "p5"})
+      assert {:error, :invalid_player_count} = dispatch(game, "join", "p5")
       assert game.order == ["p1", "p2", "p3", "p4"]
     end
   end
 
-  describe "dispatch/3" do
+  describe "dispatch/2" do
     test "active player rolls server dice and decides whether to keep the result" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:ok, %Game{phase: :decision, attempt: 1} = game} =
-               Game.dispatch(game, "roll", %{
-                 "player_id" => "p1",
-                 "colors" => ["orange", "purple"]
-               })
+               dispatch(game, "roll", "p1", %{"colors" => ["orange", "purple"]})
 
       assert game.dices == [:orange, :purple]
       assert length(game.values) == 2
@@ -91,16 +85,12 @@ defmodule D20.Qwinto.GameTest do
 
     test "rejects malformed attrs before applying game rules" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:error, %Ecto.Changeset{} = changeset} =
-               Game.dispatch(game, "roll", %{
-                 "player_id" => "p1",
-                 "colors" => ["orange", "orange"],
-                 "values" => [4]
-               })
+               dispatch(game, "roll", "p1", %{"colors" => ["orange", "orange"], "values" => [4]})
 
       refute changeset.valid?
     end
@@ -108,32 +98,31 @@ defmodule D20.Qwinto.GameTest do
     test "rejects commands outside their matching phases" do
       {:ok, game} = Game.init()
 
-      assert {:error, :invalid_phase} = Game.dispatch(game, "roll", %{})
+      assert {:error, :invalid_phase} = dispatch(game, "roll", "p1")
 
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:error, :invalid_phase} = Game.dispatch(game, "start", %{})
-      assert {:error, :invalid_phase} = Game.dispatch(game, "write", %{})
+      assert {:error, :invalid_phase} = dispatch(game, "start", "p1")
+      assert {:error, :invalid_phase} = dispatch(game, "write", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
       assert game.phase == :decision
-      assert {:error, :invalid_phase} = Game.dispatch(game, "write", %{})
-      assert {:error, :invalid_phase} = Game.dispatch(game, "skip", %{})
-      assert {:error, :invalid_phase} = Game.dispatch(game, "roll", %{})
+      assert {:error, :invalid_phase} = dispatch(game, "write", "p1")
+      assert {:error, :invalid_phase} = dispatch(game, "skip", "p1")
+      assert {:error, :invalid_phase} = dispatch(game, "roll", "p1")
     end
 
     test "rejects non-active player roll without changing game state" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:error, :not_active_player} =
-               Game.dispatch(game, "roll", %{"player_id" => "p2", "colors" => ["orange"]})
+               dispatch(game, "roll", "p2", %{"colors" => ["orange"]})
 
       assert game.phase == :turn
       assert game.cursor == 0
@@ -141,23 +130,21 @@ defmodule D20.Qwinto.GameTest do
 
     test "players write or skip once, then turn advances" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "write", %{"player_id" => "p1", "row" => "orange", "slot" => 0})
+      assert {:ok, game} = dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 0})
 
       assert game.players["p1"].rows.orange[0] == game.sum
       assert game.players["p1"].status == :wrote
       assert game.phase == :result
 
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p2"})
+      assert {:ok, game} = dispatch(game, "skip", "p2")
       assert game.phase == :turn
       assert game.cursor == 1
       assert game.dices == []
@@ -168,17 +155,16 @@ defmodule D20.Qwinto.GameTest do
 
     test "active player receives a penalty only when skipping final result" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
-      assert {:error, :invalid_phase} = Game.dispatch(game, "skip", %{"player_id" => "p1"})
+      assert {:error, :invalid_phase} = dispatch(game, "skip", "p1")
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
+      assert {:ok, game} = dispatch(game, "skip", "p1")
       assert game.players["p1"].penalties == 1
       assert game.players["p1"].status == :failed
       assert game.players["p2"].penalties == 0
@@ -186,21 +172,17 @@ defmodule D20.Qwinto.GameTest do
 
     test "active player can reroll once with the same dice before result opens" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{
-                 "player_id" => "p1",
-                 "colors" => ["yellow", "purple"]
-               })
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["yellow", "purple"]})
 
       assert game.phase == :decision
       assert game.attempt == 1
       assert game.dices == [:yellow, :purple]
 
-      assert {:ok, game} = Game.dispatch(game, "reroll", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "reroll", "p1")
 
       assert game.phase == :result
       assert game.attempt == 2
@@ -211,34 +193,29 @@ defmodule D20.Qwinto.GameTest do
 
     test "rejects writes outside the rolled rows without changing game state" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
 
       assert {:error, :row_not_in_roll} =
-               Game.dispatch(game, "write", %{"player_id" => "p1", "row" => "yellow", "slot" => 0})
+               dispatch(game, "write", "p1", %{"row" => "yellow", "slot" => 0})
 
       assert game.players["p1"].rows.yellow == %{}
     end
 
     test "rejects row order violations and column duplicates" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{
-                 "player_id" => "p1",
-                 "colors" => ["orange", "yellow"]
-               })
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange", "yellow"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
 
       game =
         put_in(game, [Access.key!(:players), "p1", Access.key!(:rows), Access.key!(:orange)], %{
@@ -246,20 +223,16 @@ defmodule D20.Qwinto.GameTest do
         })
 
       assert {:error, :row_order} =
-               Game.dispatch(game, "write", %{"player_id" => "p1", "row" => "orange", "slot" => 5})
+               dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 5})
 
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{
-                 "player_id" => "p1",
-                 "colors" => ["orange", "yellow"]
-               })
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange", "yellow"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
 
       game =
         put_in(game, [Access.key!(:players), "p1", Access.key!(:rows), Access.key!(:yellow)], %{
@@ -267,47 +240,45 @@ defmodule D20.Qwinto.GameTest do
         })
 
       assert {:error, :column_duplicate} =
-               Game.dispatch(game, "write", %{"player_id" => "p1", "row" => "orange", "slot" => 1})
+               dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 1})
     end
 
     test "finishes after the turn containing the active player's fourth penalty is resolved" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
       game = put_in(game.players["p1"].penalties, 3)
 
       assert game.scores == %{}
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
+      assert {:ok, game} = dispatch(game, "skip", "p1")
       assert game.players["p1"].penalties == 4
       assert game.phase == :result
       assert game.scores == %{}
 
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p2"})
+      assert {:ok, game} = dispatch(game, "skip", "p2")
       assert game.phase == :finished
       assert map_size(game.scores) == 2
       assert game.scores["p1"].penalties == -20
-      assert {:error, :finished} = Game.dispatch(game, "join", %{player_id: "p3"})
-      assert {:error, :finished} = Game.dispatch(game, "leave", %{player_id: "p1"})
-      assert {:error, :finished} = Game.dispatch(game, "roll", %{})
+      assert {:error, :finished} = dispatch(game, "join", "p3")
+      assert {:error, :finished} = dispatch(game, "leave", "p1")
+      assert {:error, :finished} = dispatch(game, "roll", "p1")
     end
 
     test "finishes after the turn where any player completes a second colored row" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["yellow"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["yellow"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
 
       orange_row = 0..8 |> Enum.map(&{&1, game.sum + 20 + &1}) |> Map.new()
 
@@ -324,13 +295,12 @@ defmodule D20.Qwinto.GameTest do
           yellow_row
         )
 
-      assert {:ok, game} =
-               Game.dispatch(game, "write", %{"player_id" => "p1", "row" => "yellow", "slot" => 0})
+      assert {:ok, game} = dispatch(game, "write", "p1", %{"row" => "yellow", "slot" => 0})
 
       assert game.phase == :result
       assert game.scores == %{}
 
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p2"})
+      assert {:ok, game} = dispatch(game, "skip", "p2")
       assert game.phase == :finished
       assert map_size(game.scores) == 2
     end
@@ -339,20 +309,19 @@ defmodule D20.Qwinto.GameTest do
   describe "finished?/1" do
     test "reports whether the internal game state is terminal" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
       refute Game.finished?(game)
 
       game = put_in(game.players["p1"].penalties, 3)
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p1", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p1"})
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p1"})
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p2"})
+      assert {:ok, game} = dispatch(game, "keep", "p1")
+      assert {:ok, game} = dispatch(game, "skip", "p1")
+      assert {:ok, game} = dispatch(game, "skip", "p2")
 
       assert Game.finished?(game)
     end
@@ -361,9 +330,9 @@ defmodule D20.Qwinto.GameTest do
   describe "scores" do
     test "stores row, bonus, penalty, and total scores in finished game state" do
       {:ok, game} = Game.init()
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p1"})
-      {:ok, game} = Game.dispatch(game, "join", %{player_id: "p2"})
-      {:ok, game} = Game.dispatch(game, "start", %{})
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
 
       game =
         game
@@ -379,15 +348,14 @@ defmodule D20.Qwinto.GameTest do
         })
         |> put_in([Access.key!(:players), "p2", Access.key!(:penalties)], 3)
 
-      assert {:ok, game} =
-               Game.dispatch(game, "roll", %{"player_id" => "p2", "colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "roll", "p2", %{"colors" => ["orange"]})
 
-      assert {:ok, game} = Game.dispatch(game, "keep", %{"player_id" => "p2"})
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p2"})
+      assert {:ok, game} = dispatch(game, "keep", "p2")
+      assert {:ok, game} = dispatch(game, "skip", "p2")
       assert game.phase == :result
       assert game.scores == %{}
 
-      assert {:ok, game} = Game.dispatch(game, "skip", %{"player_id" => "p1"})
+      assert {:ok, game} = dispatch(game, "skip", "p1")
       assert game.phase == :finished
 
       assert game.scores["p1"] == %{
@@ -398,5 +366,9 @@ defmodule D20.Qwinto.GameTest do
                total: 8
              }
     end
+  end
+
+  defp dispatch(game, event, actor_id, attrs \\ %{}) do
+    Game.dispatch(game, %D20.Command{event: event, actor_id: actor_id, attrs: attrs})
   end
 end

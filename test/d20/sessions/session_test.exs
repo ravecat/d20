@@ -1,8 +1,8 @@
 defmodule D20.Sessions.SessionTest do
   use ExUnit.Case, async: true
 
+  alias D20.Command
   alias D20.Qwinto.Game, as: QwintoGame
-  alias D20.Sessions.Command
   alias D20.Sessions.Session
 
   defmodule TestGame do
@@ -12,37 +12,31 @@ defmodule D20.Sessions.SessionTest do
     def init, do: {:ok, %{players: [], left: [], started?: false, finished?: false}}
 
     @impl D20.Game
-    def dispatch(state, "join", attrs) do
-      player_id = player_id(attrs)
-
-      if player_id in state.players do
+    def dispatch(state, %Command{event: "join", actor_id: actor_id}) do
+      if actor_id in state.players do
         {:ok, state}
       else
-        {:ok, update_in(state.players, &(&1 ++ [player_id]))}
+        {:ok, update_in(state.players, &(&1 ++ [actor_id]))}
       end
     end
 
-    def dispatch(state, "leave", attrs) do
-      player_id = player_id(attrs)
-
-      {:ok, update_in(state.left, &Enum.uniq(&1 ++ [player_id]))}
+    def dispatch(state, %Command{event: "leave", actor_id: actor_id}) do
+      {:ok, update_in(state.left, &Enum.uniq(&1 ++ [actor_id]))}
     end
 
-    def dispatch(state, "start", _attrs) when length(state.players) in 1..2 do
+    def dispatch(state, %Command{event: "start"}) when length(state.players) in 1..2 do
       {:ok, %{state | started?: true}}
     end
 
-    def dispatch(_state, "start", _attrs), do: {:error, :invalid_player_count}
-    def dispatch(state, "finish", _attrs), do: {:ok, %{state | finished?: true}}
-    def dispatch(state, "noop", _attrs), do: {:ok, state}
-    def dispatch(_state, "fail", _attrs), do: {:error, :bad_command}
-    def dispatch(_state, _event, _attrs), do: {:error, :bad_command}
+    def dispatch(_state, %Command{event: "start"}), do: {:error, :invalid_player_count}
+    def dispatch(state, %Command{event: "finish"}), do: {:ok, %{state | finished?: true}}
+    def dispatch(state, %Command{event: "noop"}), do: {:ok, state}
+    def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
+    def dispatch(_state, %Command{}), do: {:error, :invalid_command}
 
     @impl D20.Game
     def finished?(%{finished?: true}), do: true
     def finished?(_state), do: false
-
-    defp player_id(attrs), do: attrs[:player_id] || attrs["player_id"]
   end
 
   describe "new/2" do
@@ -53,7 +47,7 @@ defmodule D20.Sessions.SessionTest do
                 phase: :waiting_for_players,
                 owner_id: "p1",
                 members: %{},
-                game: %{players: ["p1"]}
+                game: %{players: []}
               }} = Session.new(TestGame, "p1")
 
       assert {:ok, ^id} = Ecto.UUID.cast(id)
@@ -87,13 +81,13 @@ defmodule D20.Sessions.SessionTest do
                Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 10}))
 
       assert session.members["p2"] == %{online_at: 10}
-      assert session.game.players == ["p1", "p2"]
+      assert session.game.players == ["p2"]
 
       assert {:ok, session} =
                Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 11}))
 
       assert session.members["p2"] == %{online_at: 11}
-      assert session.game.players == ["p1", "p2"]
+      assert session.game.players == ["p2"]
 
       assert {:ok, session} = Session.dispatch(session, TestGame, command("join", "p3"))
       assert session.members["p3"] == %{}
@@ -101,6 +95,9 @@ defmodule D20.Sessions.SessionTest do
 
     test "propagates game join capacity errors without adding session members" do
       {:ok, session} = Session.new(QwintoGame, "p1")
+
+      {:ok, session} =
+        Session.dispatch(session, QwintoGame, command("join", "p1", %{online_at: 10}))
 
       {:ok, session} =
         Session.dispatch(session, QwintoGame, command("join", "p2", %{online_at: 20}))
@@ -114,7 +111,7 @@ defmodule D20.Sessions.SessionTest do
       assert {:error, :invalid_player_count} =
                Session.dispatch(session, QwintoGame, command("join", "p5", %{online_at: 50}))
 
-      assert Enum.sort(Map.keys(session.members)) == ["p2", "p3", "p4"]
+      assert Enum.sort(Map.keys(session.members)) == ["p1", "p2", "p3", "p4"]
       refute Map.has_key?(session.game.players, "p5")
     end
 
@@ -144,7 +141,7 @@ defmodule D20.Sessions.SessionTest do
                Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 10}))
 
       assert session.members["p2"] == %{online_at: 10}
-      assert session.game.players == ["p1", "p2"]
+      assert session.game.players == ["p2"]
     end
 
     test "delegates game event names to the game engine" do
@@ -156,6 +153,7 @@ defmodule D20.Sessions.SessionTest do
 
     test "routes in-progress joins through the game engine" do
       {:ok, session} = Session.new(TestGame, "p1")
+      {:ok, session} = Session.dispatch(session, TestGame, command("join", "p1"))
       {:ok, session} = Session.dispatch(session, TestGame, command("start", "p1"))
 
       assert {:ok, session} =
@@ -206,6 +204,7 @@ defmodule D20.Sessions.SessionTest do
   describe "game events" do
     test "starts the hosted game and delegates commands while in progress" do
       {:ok, session} = Session.new(TestGame, "p1")
+      {:ok, session} = Session.dispatch(session, TestGame, command("join", "p1"))
 
       assert {:ok, %Session{phase: :in_progress, game: %{started?: true}} = session} =
                Session.dispatch(session, TestGame, command("start", "p1"))
@@ -213,11 +212,13 @@ defmodule D20.Sessions.SessionTest do
       assert {:ok, %Session{phase: :in_progress} = session} =
                Session.dispatch(session, TestGame, command("noop", "p1"))
 
-      assert {:error, :bad_command} = Session.dispatch(session, TestGame, command("fail", "p1"))
+      assert {:error, :invalid_command} =
+               Session.dispatch(session, TestGame, command("fail", "p1"))
     end
 
     test "moves to finished when the hosted game becomes finished" do
       {:ok, session} = Session.new(TestGame, "p1")
+      {:ok, session} = Session.dispatch(session, TestGame, command("join", "p1"))
       {:ok, session} = Session.dispatch(session, TestGame, command("start", "p1"))
 
       assert {:ok, %Session{phase: :finished, game: %{finished?: true}} = session} =

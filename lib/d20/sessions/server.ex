@@ -6,7 +6,7 @@ defmodule D20.Sessions.Server do
   use GenServer, restart: :temporary
 
   alias D20.Accounts
-  alias D20.Sessions.Command
+  alias D20.Command
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel

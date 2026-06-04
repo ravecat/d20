@@ -3,7 +3,6 @@ defmodule D20.Qwinto.Rules do
   Qwinto command precondition checks.
   """
 
-  alias D20.Qwinto.Command
   alias D20.Qwinto.Constants
 
   @type setup_error :: :invalid_player_count
@@ -20,63 +19,66 @@ defmodule D20.Qwinto.Rules do
           | :invalid_attempt
           | :invalid_phase
 
-  @spec validate(D20.Qwinto.Game.t(), D20.Qwinto.Command.command()) ::
+  @spec validate(D20.Qwinto.Game.t(), D20.Command.t()) ::
           :ok | {:error, reason()}
-  def validate(game, %Command.Join{} = command) do
+  def validate(game, %D20.Command{event: "join", actor_id: actor_id}) do
     with :ok <- require_phase(game, [:setup, :ready]),
-         :ok <- require_player_capacity(game, command.player_id) do
+         :ok <- require_player_capacity(game, actor_id) do
       :ok
     end
   end
 
-  def validate(game, %Command.Start{}) do
+  def validate(game, %D20.Command{event: "start"}) do
     with :ok <- require_phase(game, :ready),
          :ok <- require_player_count(game) do
       :ok
     end
   end
 
-  def validate(game, %Command.Roll{} = command) do
+  def validate(game, %D20.Command{event: "roll", actor_id: actor_id}) do
     with :ok <- require_phase(game, :turn),
-         :ok <- require_active_player(game, command.player_id) do
+         :ok <- require_active_player(game, actor_id) do
       :ok
     end
   end
 
-  def validate(game, %Command.Keep{} = command) do
+  def validate(game, %D20.Command{event: "keep", actor_id: actor_id}) do
     with :ok <- require_phase(game, :decision),
-         :ok <- require_active_player(game, command.player_id),
+         :ok <- require_active_player(game, actor_id),
          :ok <- require_attempt(game, 1) do
       :ok
     end
   end
 
-  def validate(game, %Command.Reroll{} = command) do
+  def validate(game, %D20.Command{event: "reroll", actor_id: actor_id}) do
     with :ok <- require_phase(game, :decision),
-         :ok <- require_active_player(game, command.player_id),
+         :ok <- require_active_player(game, actor_id),
          :ok <- require_attempt(game, 1) do
       :ok
     end
   end
 
-  def validate(game, %Command.Write{} = command) do
+  def validate(game, %D20.Command{
+        event: "write",
+        actor_id: actor_id,
+        attrs: %{row: row, slot: slot}
+      }) do
     with :ok <- require_phase(game, :result),
-         :ok <- require_player(game, command.player_id),
-         :ok <- require_ready(game, command.player_id),
-         :ok <- require_row_in_roll(game, command.row),
-         :ok <- require_slot(command.row, command.slot),
-         :ok <- require_empty(game, command.player_id, command.row, command.slot),
-         :ok <- require_row_order(game, command.player_id, command.row, command.slot, game.sum),
-         :ok <-
-           require_column_unique(game, command.player_id, command.row, command.slot, game.sum) do
+         :ok <- require_player(game, actor_id),
+         :ok <- require_ready(game, actor_id),
+         :ok <- require_row_in_roll(game, row),
+         :ok <- require_slot(row, slot),
+         :ok <- require_empty(game, actor_id, row, slot),
+         :ok <- require_row_order(game, actor_id, row, slot, game.sum),
+         :ok <- require_column_unique(game, actor_id, row, slot, game.sum) do
       :ok
     end
   end
 
-  def validate(game, %Command.Skip{} = command) do
+  def validate(game, %D20.Command{event: "skip", actor_id: actor_id}) do
     with :ok <- require_phase(game, :result),
-         :ok <- require_player(game, command.player_id),
-         :ok <- require_ready(game, command.player_id) do
+         :ok <- require_player(game, actor_id),
+         :ok <- require_ready(game, actor_id) do
       :ok
     end
   end
