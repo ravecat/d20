@@ -18,7 +18,7 @@
         devShells.default = pkgs.mkShell {
           packages = [
             beam.erlang
-            beam.elixir_1_19
+            beam.elixir_1_20
             pkgs.docker-client
             pkgs.docker-compose
             pkgs.git
