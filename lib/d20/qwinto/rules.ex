@@ -1,9 +1,15 @@
 defmodule D20.Qwinto.Rules do
   @moduledoc """
-  Qwinto command precondition checks.
+  State-dependent Qwinto command precondition checks.
+
+  Keep checks here when they need the current `D20.Qwinto.Game` state: phase,
+  active player, player readiness, rolled rows, occupied cells, row order,
+  column duplicates, and end-game conditions. Static limits and score-sheet
+  geometry belong in `D20.Qwinto.Ruleset`; state mutation belongs in
+  `D20.Qwinto.Game`.
   """
 
-  alias D20.Qwinto.Constants
+  alias D20.Qwinto.Ruleset
 
   @type setup_error :: :invalid_player_count
   @type reason ::
@@ -89,7 +95,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   @spec ready_to_start?(D20.Qwinto.Game.t()) :: boolean()
-  def ready_to_start?(game), do: player_count_result(game) == :ok
+  def ready_to_start?(game), do: valid_player_count?(game)
 
   @spec finished?(D20.Qwinto.Game.t()) :: boolean()
   def finished?(game) do
@@ -106,18 +112,18 @@ defmodule D20.Qwinto.Rules do
   defp require_attempt(%{attempt: attempt}, attempt), do: :ok
   defp require_attempt(%{attempt: _attempt}, _expected), do: {:error, :invalid_attempt}
 
-  defp require_player_count(game), do: player_count_result(game)
+  defp require_player_count(game) do
+    if valid_player_count?(game), do: :ok, else: {:error, :invalid_player_count}
+  end
 
-  defp player_count_result(%{order: player_ids}) do
-    if length(player_ids) in Constants.player_count_range(),
-      do: :ok,
-      else: {:error, :invalid_player_count}
+  defp valid_player_count?(%{order: player_ids}) do
+    length(player_ids) in Ruleset.player_count_range()
   end
 
   defp require_player_capacity(game, player_id) do
     cond do
       Map.has_key?(game.players, player_id) -> :ok
-      length(game.order) < Enum.max(Constants.player_count_range()) -> :ok
+      length(game.order) < Enum.max(Ruleset.player_count_range()) -> :ok
       true -> {:error, :invalid_player_count}
     end
   end
@@ -139,11 +145,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_slot(row, slot) do
-    cond do
-      row not in Constants.colors() -> {:error, :invalid_slot}
-      slot in Constants.row_slots(row) -> :ok
-      true -> {:error, :invalid_slot}
-    end
+    if Ruleset.valid_slot?(row, slot), do: :ok, else: {:error, :invalid_slot}
   end
 
   defp require_empty(game, player_id, row, slot) do
@@ -162,7 +164,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_column_unique(game, player_id, row, slot, sum) do
-    case Enum.find(Constants.score_sheet_columns(), fn column -> {row, slot} in column.cells end) do
+    case Ruleset.column_for_cell(row, slot) do
       nil -> :ok
       column -> require_column_value_unique(game, player_id, row, slot, sum, column)
     end
@@ -183,19 +185,19 @@ defmodule D20.Qwinto.Rules do
 
   defp completed_rows_limit_reached?(game) do
     Enum.any?(game.players, fn {_player_id, player} ->
-      completed_row_count(player) >= Constants.completed_rows_to_end()
+      completed_row_count(player) >= Ruleset.completed_rows_to_end()
     end)
   end
 
   defp penalty_limit_reached?(game) do
     Enum.any?(game.players, fn {_player_id, player} ->
-      player.penalties >= Constants.penalty_limit()
+      player.penalties >= Ruleset.penalty_limit()
     end)
   end
 
   defp completed_row_count(player) do
-    Enum.count(Constants.colors(), fn row ->
-      map_size(player.rows[row]) == length(Constants.row_slots(row))
+    Enum.count(Ruleset.colors(), fn row ->
+      map_size(player.rows[row]) == Ruleset.row_slot_count(row)
     end)
   end
 end

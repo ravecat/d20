@@ -1,6 +1,11 @@
-defmodule D20.Qwinto.Constants do
+defmodule D20.Qwinto.Ruleset do
   @moduledoc """
-  Static Qwinto board layout and numeric limits.
+  Static Qwinto ruleset data.
+
+  Keep game-wide facts here when they can be answered without a
+  `D20.Qwinto.Game` state: colors, player and dice limits, penalty values,
+  score-sheet geometry, and bonus cells. State-dependent precondition checks
+  belong in `D20.Qwinto.Rules`.
 
   The score sheet rows are staggered: purple starts one visual column before yellow,
   and yellow starts one visual column before orange.
@@ -67,8 +72,27 @@ defmodule D20.Qwinto.Constants do
   @spec row_slots(color()) :: [non_neg_integer()]
   def row_slots(row), do: Map.fetch!(@row_slots, row)
 
+  @spec valid_slot?(term(), term()) :: boolean()
+  def valid_slot?(row, slot) do
+    case Map.fetch(@row_slots, row) do
+      {:ok, slots} -> slot in slots
+      :error -> false
+    end
+  end
+
+  @spec row_slot_count(color()) :: non_neg_integer()
+  def row_slot_count(row), do: row |> row_slots() |> length()
+
+  @spec final_slot(color()) :: non_neg_integer()
+  def final_slot(row), do: row |> row_slots() |> List.last()
+
   @spec score_sheet_columns() :: [column()]
   def score_sheet_columns, do: @score_sheet_columns
+
+  @spec column_for_cell(color(), non_neg_integer()) :: column() | nil
+  def column_for_cell(row, slot) do
+    Enum.find(@score_sheet_columns, fn column -> {row, slot} in column.cells end)
+  end
 
   @spec bonus_columns() :: [column()]
   def bonus_columns, do: @bonus_columns

@@ -9,10 +9,10 @@ defmodule D20.Qwinto.Game do
 
   alias D20.Dice
   alias D20.Qwinto.Command
-  alias D20.Qwinto.Constants
   alias D20.Qwinto.Rules
+  alias D20.Qwinto.Ruleset
 
-  @colors Constants.colors()
+  @colors Ruleset.colors()
   @phases [:setup, :ready, :turn, :decision, :result, :finished]
   @derive Jason.Encoder
   @primary_key false
@@ -37,14 +37,14 @@ defmodule D20.Qwinto.Game do
   @type player_status :: :ready | :wrote | :failed | :passed
   @type player :: %{
           required(:rows) => %{
-            required(Constants.color()) => %{optional(non_neg_integer()) => integer()}
+            required(Ruleset.color()) => %{optional(non_neg_integer()) => integer()}
           },
           required(:penalties) => non_neg_integer(),
           required(:status) => player_status()
         }
   @type score :: %{
           required(:player_id) => player_id(),
-          required(:rows) => %{required(Constants.color()) => integer()},
+          required(:rows) => %{required(Ruleset.color()) => integer()},
           required(:bonuses) => integer(),
           required(:penalties) => integer(),
           required(:total) => integer()
@@ -54,7 +54,7 @@ defmodule D20.Qwinto.Game do
           order: [player_id()],
           cursor: non_neg_integer(),
           players: %{optional(player_id()) => player()},
-          dices: [Constants.color()],
+          dices: [Ruleset.color()],
           values: [integer()],
           sum: integer() | nil,
           attempt: 0 | 1 | 2,
@@ -211,7 +211,7 @@ defmodule D20.Qwinto.Game do
         | order: game.order ++ [player_id],
           players:
             Map.put(game.players, player_id, %{
-              rows: Map.new(Constants.colors(), &{&1, %{}}),
+              rows: Map.new(Ruleset.colors(), &{&1, %{}}),
               penalties: 0,
               status: :ready
             })
@@ -283,9 +283,9 @@ defmodule D20.Qwinto.Game do
 
   defp score_player(game, player_id) do
     player = Map.fetch!(game.players, player_id)
-    rows = Map.new(Constants.colors(), &{&1, score_row(player, &1)})
+    rows = Map.new(Ruleset.colors(), &{&1, score_row(player, &1)})
     bonuses = score_bonus_columns(player)
-    penalties = player.penalties * Constants.penalty_points()
+    penalties = player.penalties * Ruleset.penalty_points()
 
     %{
       player_id: player_id,
@@ -298,18 +298,18 @@ defmodule D20.Qwinto.Game do
 
   defp score_row(player, row) do
     if row_complete?(player, row) do
-      player.rows[row] |> Map.fetch!(List.last(Constants.row_slots(row)))
+      player.rows[row] |> Map.fetch!(Ruleset.final_slot(row))
     else
       map_size(player.rows[row])
     end
   end
 
   defp row_complete?(player, row) do
-    map_size(player.rows[row]) == length(Constants.row_slots(row))
+    map_size(player.rows[row]) == Ruleset.row_slot_count(row)
   end
 
   defp score_bonus_columns(player) do
-    Constants.bonus_columns()
+    Ruleset.bonus_columns()
     |> Enum.filter(&column_complete?(player, &1))
     |> Enum.map(fn %{bonus: {row, slot}} -> get_in(player.rows, [row, slot]) end)
     |> Enum.sum()

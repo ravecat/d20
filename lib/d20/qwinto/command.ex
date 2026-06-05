@@ -5,12 +5,12 @@ defmodule D20.Qwinto.Command do
 
   import Ecto.Changeset
 
-  alias D20.Qwinto.Constants
+  alias D20.Qwinto.Ruleset
   alias Ecto.Changeset
 
-  @colors Constants.colors()
-  @dice_count_range Constants.dice_count_range()
-  @slot_range Constants.slot_range()
+  @colors Ruleset.colors()
+  @dice_count_range Ruleset.dice_count_range()
+  @slot_range Ruleset.slot_range()
 
   @type reason :: Changeset.t() | :unknown_command
 
