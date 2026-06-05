@@ -23,7 +23,7 @@ export interface SessionMember {
 
 export interface Session<TGame = unknown> {
   id: string;
-  phase: string;
+  phase: "waiting_for_players" | "in_progress" | "finished";
   owner_id: string;
   members: Record<string, SessionMember>;
   game: TGame;

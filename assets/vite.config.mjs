@@ -8,8 +8,10 @@ import { defineConfig } from "vite";
 const assetsDir = fileURLToPath(new URL(".", import.meta.url));
 const phoenixPort = process.env.PHOENIX_PORT || process.env.PORT || "5000";
 const vitePort = Number(process.env.VITE_PORT || "5174");
+const isVitest = process.env.VITEST === "true";
 
 export default defineConfig({
+  root: assetsDir,
   server: {
     port: vitePort,
     strictPort: true,
@@ -43,9 +45,14 @@ export default defineConfig({
   },
   plugins: [
     tailwindcss(),
-    svelte(),
-    phoenixVitePlugin({
-      pattern: /\.(ex|heex)$/,
-    }),
+    svelte({ configFile: "svelte.config.mjs" }),
+    !isVitest &&
+      phoenixVitePlugin({
+        pattern: /\.(ex|heex)$/,
+      }),
   ],
+  test: {
+    environment: "jsdom",
+    include: ["js/**/*.test.ts"],
+  },
 });

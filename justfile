@@ -41,6 +41,7 @@ check:
     mix format.check
     mix assets.format.check
     mix assets.lint
+    mix assets.test
     mix typecheck
     mix test
 
