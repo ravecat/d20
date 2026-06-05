@@ -4,7 +4,7 @@ defmodule D20.Command do
   """
 
   @type event :: String.t()
-  @type actor_id :: String.t()
+  @type actor_id :: D20.Actors.Actor.id()
   @type attrs :: map()
   @type t :: %__MODULE__{event: event(), actor_id: actor_id(), attrs: attrs()}
 

@@ -16,7 +16,7 @@ defmodule D20.Sessions.Session do
 
   @type id :: Ecto.UUID.t()
   @type phase :: :waiting_for_players | :in_progress | :finished
-  @type player_id :: String.t()
+  @type player_id :: D20.Actors.Actor.id()
   @type member :: map()
   @type members :: %{optional(player_id()) => member()}
   @type event :: String.t()

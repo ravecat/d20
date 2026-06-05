@@ -27,6 +27,8 @@ defmodule D20.Accounts.AnonymousTest do
   test "generates anonymous data from a new id" do
     assert %Anonymous{id: id, display_name: display_name, avatar: avatar} = Anonymous.new()
     assert is_binary(id)
+    assert {:ok, type_id} = TypeID.from_string(id)
+    assert TypeID.prefix(type_id) == "anon"
 
     assert Anonymous.from_id(id) == %Anonymous{id: id, display_name: display_name, avatar: avatar}
   end

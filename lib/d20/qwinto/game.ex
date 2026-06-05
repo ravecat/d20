@@ -32,7 +32,7 @@ defmodule D20.Qwinto.Game do
     field :scores, :map, default: %{}
   end
 
-  @type player_id :: String.t()
+  @type player_id :: D20.Actors.Actor.id()
   @type phase :: :setup | :ready | :turn | :decision | :result | :finished
   @type player_status :: :ready | :wrote | :failed | :passed
   @type player :: %{

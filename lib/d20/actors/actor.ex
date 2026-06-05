@@ -9,8 +9,12 @@ defmodule D20.Actors.Actor do
   @enforce_keys [:id, :type]
   defstruct [:id, :type]
 
+  @typedoc """
+  Runtime actor id string derived from either a user id or an anonymous id.
+  """
+  @type id :: String.t()
   @type type :: :user | :anonymous
-  @type t :: %__MODULE__{id: String.t(), type: type()}
+  @type t :: %__MODULE__{id: id(), type: type()}
 
   @spec new(Anonymous.t() | %User{}) :: t()
   def new(%Anonymous{id: id}) do

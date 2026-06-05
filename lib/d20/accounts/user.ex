@@ -4,6 +4,8 @@ defmodule D20.Accounts.User do
 
   @primary_key {:id, TypeID, autogenerate: true, prefix: "user"}
 
+  @type id :: TypeID.t()
+
   schema "users" do
     field :email, :string
     field :password, :string, virtual: true, redact: true

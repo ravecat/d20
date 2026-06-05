@@ -36,7 +36,7 @@ defmodule D20.Accounts.Scope do
   @doc """
   Returns the caller actor id from the scope.
   """
-  @spec actor_id(t()) :: String.t()
+  @spec actor_id(t()) :: Actor.id()
   def actor_id(%__MODULE__{actor: %Actor{id: id}}) when is_binary(id), do: id
 
   @doc """

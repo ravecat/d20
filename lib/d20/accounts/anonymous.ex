@@ -10,7 +10,9 @@ defmodule D20.Accounts.Anonymous do
   @enforce_keys [:id, :display_name, :avatar]
   defstruct [:id, :display_name, :avatar]
 
-  @type t :: %__MODULE__{id: String.t(), display_name: String.t(), avatar: String.t()}
+  @typedoc "Anonymous id string. Generated ids use the `anon` TypeID prefix."
+  @type id :: String.t()
+  @type t :: %__MODULE__{id: id(), display_name: String.t(), avatar: String.t()}
 
   @adjectives ~w(
     Able Agile Alert Ample Apt Balanced Bold Brave Bright Brilliant Calm Capable
