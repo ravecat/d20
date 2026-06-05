@@ -30,19 +30,12 @@ test:
 build:
     mix deploy
 
-lint:
-    mix assets.lint
-
 typecheck:
     mix typecheck
 
 format:
     mix format
     mix assets.format
-
-format-check:
-    mix format.check
-    mix assets.format.check
 
 check:
     mix format.check
