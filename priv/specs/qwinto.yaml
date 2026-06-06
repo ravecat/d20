@@ -1,0 +1,693 @@
+asyncapi: 3.0.0
+info:
+  title: Game Session Async API
+  version: 0.1.0
+  description: >
+    Real-time async API for game sessions.
+
+    Clients join a session topic, send game commands, and receive authoritative
+    session projections after state transitions.
+  license:
+    name: MIT
+  tags:
+    - name: session
+      description: Game-session messaging
+    - name: channel-protocol
+      description: Channel protocol messages
+servers:
+  userProduction:
+    host: "{domain}"
+    pathname: /socket/websocket
+    protocol: wss
+    description: Production WebSocket endpoint for clients
+    variables:
+      domain:
+        $ref: "#/components/serverVariables/domain"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+  userDevelopment:
+    host: "{domain}:{port}"
+    pathname: /socket/websocket
+    protocol: ws
+    description: Local WebSocket endpoint for clients
+    variables:
+      domain:
+        default: localhost
+      port:
+        $ref: "#/components/serverVariables/port"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+defaultContentType: application/json
+channels:
+  gameSession:
+    address: "session:{session_id}"
+    title: Game Session
+    summary: WebSocket channel for a single game session
+    description: >
+      Stateful channel for one game session. A successful join tracks player
+      presence and returns the initial session in the join reply. Later accepted
+      commands are acknowledged with `phx_reply`; the updated state is delivered
+      separately as `projection`.
+    servers:
+      - $ref: "#/servers/userProduction"
+      - $ref: "#/servers/userDevelopment"
+    parameters:
+      session_id:
+        description: Session identifier assigned when the session is created.
+        examples:
+          - 6f218f3c-6b82-4d8d-9f9f-dc5af24118ee
+    messages:
+      joinSessionRequest:
+        $ref: "#/components/messages/joinSessionRequest"
+      joinSessionReply:
+        $ref: "#/components/messages/joinSessionReply"
+      channelError:
+        $ref: "#/components/messages/channelError"
+      channelClosed:
+        $ref: "#/components/messages/channelClosed"
+      sessionProjection:
+        $ref: "#/components/messages/sessionProjection"
+      startSession:
+        $ref: "#/components/messages/startSession"
+      rollDice:
+        $ref: "#/components/messages/rollDice"
+      keepRoll:
+        $ref: "#/components/messages/keepRoll"
+      rerollDice:
+        $ref: "#/components/messages/rerollDice"
+      writeResult:
+        $ref: "#/components/messages/writeResult"
+      skipResult:
+        $ref: "#/components/messages/skipResult"
+      commandReply:
+        $ref: "#/components/messages/commandReply"
+    bindings:
+      ws:
+        method: GET
+        bindingVersion: 0.1.0
+operations:
+  joinSession:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Join a game session topic
+    description: |
+      Client sends `phx_join` for `session:{session_id}`.
+      On success, the server replies with the current session projection and
+      tracks player presence.
+    messages:
+      - $ref: "#/channels/gameSession/messages/joinSessionRequest"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/joinSessionReply"
+  startSession:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Start the session
+    description: |
+      Client sends `start` with an empty payload. The session owner can start
+      only while the session is waiting for players and the game is ready.
+      Success returns an empty `ok` reply; the new state arrives via
+      `projection`.
+    messages:
+      - $ref: "#/channels/gameSession/messages/startSession"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  rollDice:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Roll selected dice
+    description: |
+      The active player sends `roll` during the game `turn` phase. The payload
+      chooses one to three unique dice colors. Dice values and sum are generated
+      by the server.
+    messages:
+      - $ref: "#/channels/gameSession/messages/rollDice"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  keepRoll:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Keep the first roll
+    description: |
+      The active player sends `keep` during the game `decision` phase after the
+      first roll. Success opens the result phase for player responses.
+    messages:
+      - $ref: "#/channels/gameSession/messages/keepRoll"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  rerollDice:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Reroll the same dice once
+    description: |
+      The active player sends `reroll` during the game `decision` phase after
+      the first roll. The server rerolls the same colors and opens the result
+      phase.
+    messages:
+      - $ref: "#/channels/gameSession/messages/rerollDice"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  writeResult:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Write the current sum into a score-sheet cell
+    description: |
+      A ready player sends `write` during the result phase. The target row must
+      be one of the rolled dice colors, the cell must be empty, row ordering
+      must remain valid, and the column must not duplicate the current sum.
+    messages:
+      - $ref: "#/channels/gameSession/messages/writeResult"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  skipResult:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Skip writing the current result
+    description: |
+      A ready player sends `skip` during the result phase. The active player
+      receives one penalty when skipping; non-active players pass without a
+      penalty.
+    messages:
+      - $ref: "#/channels/gameSession/messages/skipResult"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  receiveSessionProjection:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive the latest session projection
+    description: |
+      Server pushes `projection` after accepted session state changes and after
+      player-presence tracking.
+    messages:
+      - $ref: "#/channels/gameSession/messages/sessionProjection"
+  receiveSessionError:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive a session-channel error
+    messages:
+      - $ref: "#/channels/gameSession/messages/channelError"
+  receiveSessionClose:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive a session-channel close
+    messages:
+      - $ref: "#/channels/gameSession/messages/channelClosed"
+components:
+  serverVariables:
+    domain:
+      description: Public server hostname.
+    port:
+      default: "5000"
+      description: Local endpoint port.
+  securitySchemes:
+    channelAuthToken:
+      type: httpApiKey
+      in: header
+      name: Sec-WebSocket-Protocol
+      description: >
+        Auth token transported as a WebSocket subprotocol entry:
+        `base64url.bearer.phx.{base64url_token}`.
+  messages:
+    joinSessionRequest:
+      name: phx_join
+      title: Join Session
+      summary: Join request for a session topic
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/joinPayload"
+    joinSessionReply:
+      name: phx_reply
+      title: Join Session Reply
+      summary: Session join success or failure
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/sessionJoinReply"
+    channelError:
+      name: phx_error
+      title: Channel Error
+      summary: Channel error event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    channelClosed:
+      name: phx_close
+      title: Channel Closed
+      summary: Channel close event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    sessionProjection:
+      name: projection
+      title: Session Projection
+      summary: Authoritative session state
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/session"
+    startSession:
+      name: start
+      title: Start Session
+      summary: Request to start the current session
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    rollDice:
+      name: roll
+      title: Roll Dice
+      summary: Request a server-side roll for selected dice colors
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/rollPayload"
+    keepRoll:
+      name: keep
+      title: Keep Roll
+      summary: Keep the first roll result
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    rerollDice:
+      name: reroll
+      title: Reroll Dice
+      summary: Reroll the same dice colors once
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    writeResult:
+      name: write
+      title: Write Result
+      summary: Write the current sum to a score-sheet cell
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/writePayload"
+    skipResult:
+      name: skip
+      title: Skip Result
+      summary: Skip writing the current sum
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    commandReply:
+      name: phx_reply
+      title: Command Reply
+      summary: Success or failure reply for session commands
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/commandReply"
+  schemas:
+    socketConnectQuery:
+      type: object
+      description: Transport query parameters.
+      properties:
+        vsn:
+          type: string
+          const: 2.0.0
+          description: Channel serializer version.
+      required:
+        - vsn
+      additionalProperties: true
+    joinPayload:
+      type: object
+      description: Channel join payload. Current channels ignore it.
+      additionalProperties: true
+    channelSystemPayload:
+      type: object
+      description: Channel protocol payload for lifecycle events.
+      additionalProperties: true
+    emptyPayload:
+      type: object
+      additionalProperties: false
+    emptyReplyResponse:
+      type: object
+      additionalProperties: false
+    sessionJoinReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/session"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/joinError"
+          additionalProperties: false
+    commandReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/emptyReplyResponse"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/commandError"
+          additionalProperties: false
+    joinError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          enum:
+            - forbidden
+            - session_not_found
+      additionalProperties: false
+    commandError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          $ref: "#/components/schemas/commandErrorReason"
+      additionalProperties: false
+    commandErrorReason:
+      type: string
+      enum:
+        - forbidden
+        - session_not_found
+        - invalid_command
+        - invalid_identity
+        - not_owner
+        - invalid_phase
+        - invalid_player_count
+        - not_active_player
+        - unknown_player
+        - already_responded
+        - row_not_in_roll
+        - invalid_slot
+        - occupied
+        - row_order
+        - column_duplicate
+        - invalid_attempt
+        - finished
+        - unknown_command
+    session:
+      type: object
+      description: Authoritative session projection.
+      required:
+        - id
+        - phase
+        - owner_id
+        - members
+        - game
+      properties:
+        id:
+          type: string
+          format: uuid
+        phase:
+          type: string
+          enum:
+            - waiting_for_players
+            - in_progress
+            - finished
+        owner_id:
+          $ref: "#/components/schemas/participantId"
+        members:
+          type: object
+          description: Session members keyed by participant id.
+          additionalProperties:
+            $ref: "#/components/schemas/sessionMember"
+        game:
+          $ref: "#/components/schemas/game"
+      additionalProperties: false
+    sessionMember:
+      type: object
+      required:
+        - online_at
+      properties:
+        online_at:
+          type: integer
+          minimum: 0
+          description: Unix epoch time in seconds.
+        display_name:
+          type: string
+        avatar:
+          oneOf:
+            - type: string
+              format: uri
+            - type: "null"
+      additionalProperties: true
+    participantId:
+      type: string
+      description: Stable participant identifier.
+      minLength: 1
+    game:
+      type: object
+      description: Authoritative game state.
+      required:
+        - phase
+        - order
+        - cursor
+        - players
+        - dices
+        - values
+        - sum
+        - attempt
+        - scores
+      properties:
+        phase:
+          $ref: "#/components/schemas/gamePhase"
+        order:
+          type: array
+          description: Turn order as participant ids.
+          minItems: 0
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/participantId"
+        cursor:
+          type: integer
+          minimum: 0
+          description: Zero-based index into `order` for the active player.
+        players:
+          type: object
+          description: Game players keyed by participant id.
+          additionalProperties:
+            $ref: "#/components/schemas/player"
+        dices:
+          type: array
+          minItems: 0
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/color"
+        values:
+          type: array
+          minItems: 0
+          maxItems: 3
+          items:
+            type: integer
+            minimum: 1
+            maximum: 6
+        sum:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 18
+            - type: "null"
+        attempt:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+        scores:
+          type: object
+          description: Final scores keyed by participant id. Empty until finished.
+          additionalProperties:
+            $ref: "#/components/schemas/score"
+      additionalProperties: false
+    gamePhase:
+      type: string
+      enum:
+        - setup
+        - ready
+        - turn
+        - decision
+        - result
+        - finished
+    color:
+      type: string
+      enum:
+        - orange
+        - yellow
+        - purple
+    player:
+      type: object
+      required:
+        - rows
+        - penalties
+        - status
+      properties:
+        rows:
+          $ref: "#/components/schemas/scoreSheetRows"
+        penalties:
+          type: integer
+          minimum: 0
+          maximum: 4
+        status:
+          type: string
+          enum:
+            - ready
+            - wrote
+            - failed
+            - passed
+      additionalProperties: false
+    scoreSheetRows:
+      type: object
+      required:
+        - orange
+        - yellow
+        - purple
+      properties:
+        orange:
+          $ref: "#/components/schemas/scoreSheetRowEntries"
+        yellow:
+          $ref: "#/components/schemas/scoreSheetRowEntries"
+        purple:
+          $ref: "#/components/schemas/scoreSheetRowEntries"
+      additionalProperties: false
+    scoreSheetRowEntries:
+      type: object
+      description: >
+        Filled score-sheet slots keyed by stringified slot number. Valid slots
+        are 0 through 8.
+      propertyNames:
+        pattern: "^[0-8]$"
+      additionalProperties:
+        type: integer
+        minimum: 1
+        maximum: 18
+    score:
+      type: object
+      required:
+        - player_id
+        - rows
+        - bonuses
+        - penalties
+        - total
+      properties:
+        player_id:
+          $ref: "#/components/schemas/participantId"
+        rows:
+          $ref: "#/components/schemas/scoreRows"
+        bonuses:
+          type: integer
+        penalties:
+          type: integer
+          maximum: 0
+        total:
+          type: integer
+      additionalProperties: false
+    scoreRows:
+      type: object
+      required:
+        - orange
+        - yellow
+        - purple
+      properties:
+        orange:
+          type: integer
+        yellow:
+          type: integer
+        purple:
+          type: integer
+      additionalProperties: false
+    rollPayload:
+      type: object
+      required:
+        - colors
+      properties:
+        colors:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/color"
+      additionalProperties: false
+    writePayload:
+      type: object
+      required:
+        - row
+        - slot
+      properties:
+        row:
+          $ref: "#/components/schemas/color"
+        slot:
+          type: integer
+          minimum: 0
+          maximum: 8
+      additionalProperties: false
