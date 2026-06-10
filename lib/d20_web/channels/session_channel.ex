@@ -4,6 +4,7 @@ defmodule D20Web.SessionChannel do
   alias D20.Accounts.Scope
   alias D20.Sessions
   alias D20Web.Presence
+  alias D20Web.Projection
 
   def topic(session_id), do: "session:#{session_id}"
   def session_id("session:" <> id) when id != "", do: {:ok, id}
@@ -67,7 +68,7 @@ defmodule D20Web.SessionChannel do
   end
 
   def handle_info({:session, session}, socket) do
-    push(socket, "projection", session)
+    push(socket, "projection", Projection.render(socket.assigns.current_scope, session))
     {:noreply, socket}
   end
 
@@ -82,7 +83,7 @@ defmodule D20Web.SessionChannel do
   defp join_session(socket, session) do
     send(self(), :after_join)
 
-    {:ok, session, socket}
+    {:ok, Projection.render(socket.assigns.current_scope, session), socket}
   end
 
   defp join_error({:error, :forbidden}), do: {:error, %{reason: "forbidden"}}

@@ -4,6 +4,13 @@ defmodule D20.Qwinto.GameTest do
   alias D20.Qwinto.Game
 
   describe "D20.Game behaviour" do
+    test "identifies the active player from order and cursor" do
+      game = %Game{order: ["p1", "p2"], cursor: 1}
+
+      assert Game.active_player?(game, "p2")
+      refute Game.active_player?(game, "p1")
+    end
+
     test "encodes the full game state as JSON" do
       assert {:ok, game} = Game.init()
       assert {:ok, game} = dispatch(game, "join", "p1")

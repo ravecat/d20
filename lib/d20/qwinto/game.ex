@@ -159,6 +159,11 @@ defmodule D20.Qwinto.Game do
   def finished?(%__MODULE__{phase: :finished}), do: true
   def finished?(%__MODULE__{}), do: false
 
+  @spec active_player?(t(), player_id()) :: boolean()
+  def active_player?(%__MODULE__{order: order, cursor: cursor}, player_id) do
+    Enum.at(order, cursor) == player_id
+  end
+
   defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
     game
     |> join_player(actor_id)
@@ -244,17 +249,13 @@ defmodule D20.Qwinto.Game do
   end
 
   defp apply_skip_response(game, player_id) do
-    if active_player?(game, player_id) do
+    if __MODULE__.active_player?(game, player_id) do
       game
       |> update_in([Access.key!(:players), player_id, Access.key!(:penalties)], &(&1 + 1))
       |> set_player_status(player_id, :failed)
     else
       set_player_status(game, player_id, :passed)
     end
-  end
-
-  defp active_player?(%{order: order, cursor: cursor}, player_id) do
-    Enum.at(order, cursor) == player_id
   end
 
   defp set_player_status(game, player_id, status) do

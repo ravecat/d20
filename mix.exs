@@ -62,6 +62,7 @@ defmodule D20.MixProject do
       {:pathex, "~> 2.6"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
+      {:bodyguard, "~> 2.4.3"},
       {:recode, "~> 0.8", only: [:dev, :test], runtime: false},
       {:bun, "~> 1.5 and >= 1.5.1", runtime: Mix.env() == :dev}
     ]

@@ -57,9 +57,10 @@ channels:
     summary: WebSocket channel for a single game session
     description: >
       Stateful channel for one game session. A successful join tracks player
-      presence and returns the initial session in the join reply. Later accepted
-      commands are acknowledged with `phx_reply`; the updated state is delivered
-      separately as `projection`.
+      presence and returns the initial session projection in the join response.
+      Later accepted commands receive an empty success response; the updated
+      state and caller-specific permissions are delivered separately as the
+      latest session projection.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -104,9 +105,9 @@ operations:
       $ref: "#/channels/gameSession"
     summary: Join a game session topic
     description: |
-      Client sends `phx_join` for `session:{session_id}`.
-      On success, the server replies with the current session projection and
-      tracks player presence.
+      Client joins `session:{session_id}`.
+      On success, the server replies with the current session projection,
+      including caller-specific permissions, and tracks player presence.
     messages:
       - $ref: "#/channels/gameSession/messages/joinSessionRequest"
     reply:
@@ -247,8 +248,7 @@ components:
       in: header
       name: Sec-WebSocket-Protocol
       description: >
-        Auth token transported as a WebSocket subprotocol entry:
-        `base64url.bearer.phx.{base64url_token}`.
+        Auth token transported as a WebSocket subprotocol bearer-token entry.
   messages:
     joinSessionRequest:
       name: phx_join
@@ -289,7 +289,7 @@ components:
     sessionProjection:
       name: projection
       title: Session Projection
-      summary: Authoritative session state
+      summary: Authoritative session state with caller-specific permissions
       contentType: application/json
       payload:
         $ref: "#/components/schemas/session"
@@ -463,6 +463,7 @@ components:
         - owner_id
         - members
         - game
+        - permissions
       properties:
         id:
           type: string
@@ -482,6 +483,38 @@ components:
             $ref: "#/components/schemas/sessionMember"
         game:
           $ref: "#/components/schemas/game"
+        permissions:
+          $ref: "#/components/schemas/permissions"
+      additionalProperties: false
+    permissions:
+      type: object
+      description: Caller-specific permissions computed from session and game state.
+      required:
+        - can_start_game
+        - can_select_dice
+        - can_roll
+        - can_keep
+        - can_reroll
+        - can_write_result
+        - can_pass_result
+        - can_take_penalty
+      properties:
+        can_start_game:
+          type: boolean
+        can_select_dice:
+          type: boolean
+        can_roll:
+          type: boolean
+        can_keep:
+          type: boolean
+        can_reroll:
+          type: boolean
+        can_write_result:
+          type: boolean
+        can_pass_result:
+          type: boolean
+        can_take_penalty:
+          type: boolean
       additionalProperties: false
     sessionMember:
       type: object

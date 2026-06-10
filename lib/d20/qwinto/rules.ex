@@ -9,6 +9,7 @@ defmodule D20.Qwinto.Rules do
   `D20.Qwinto.Game`.
   """
 
+  alias D20.Qwinto.Game
   alias D20.Qwinto.Ruleset
 
   @type setup_error :: :invalid_player_count
@@ -128,8 +129,8 @@ defmodule D20.Qwinto.Rules do
     end
   end
 
-  defp require_active_player(%{order: order, cursor: cursor}, player_id) do
-    if Enum.at(order, cursor) == player_id, do: :ok, else: {:error, :not_active_player}
+  defp require_active_player(game, player_id) do
+    if Game.active_player?(game, player_id), do: :ok, else: {:error, :not_active_player}
   end
 
   defp require_player(game, player_id) do
