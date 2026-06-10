@@ -38,10 +38,6 @@ defmodule D20.Qwinto.Command do
     end
   end
 
-  def validate(%D20.Command{event: "keep"} = command), do: {:ok, command}
-
-  def validate(%D20.Command{event: "reroll"} = command), do: {:ok, command}
-
   def validate(%D20.Command{event: "write", attrs: attrs} = command) do
     color_type = Ecto.ParameterizedType.init(Ecto.Enum, values: @colors)
 
@@ -58,7 +54,9 @@ defmodule D20.Qwinto.Command do
     end
   end
 
-  def validate(%D20.Command{event: "skip"} = command), do: {:ok, command}
+  def validate(%D20.Command{event: event} = command)
+      when event in ["keep", "reroll", "skip", "take_penalty"],
+      do: {:ok, command}
 
   def validate(%D20.Command{}), do: {:error, :unknown_command}
 end

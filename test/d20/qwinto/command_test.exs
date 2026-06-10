@@ -10,12 +10,14 @@ defmodule D20.Qwinto.CommandTest do
       keep = command("keep", "p1")
       reroll = command("reroll", "p1")
       skip = command("skip", "p1")
+      take_penalty = command("take_penalty", "p1")
 
       assert {:ok, ^join} = Command.validate(join)
       assert {:ok, ^start} = Command.validate(start)
       assert {:ok, ^keep} = Command.validate(keep)
       assert {:ok, ^reroll} = Command.validate(reroll)
       assert {:ok, ^skip} = Command.validate(skip)
+      assert {:ok, ^take_penalty} = Command.validate(take_penalty)
     end
 
     test "validates and normalizes roll attrs" do

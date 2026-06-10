@@ -140,7 +140,8 @@ defmodule D20.Qwinto.Game do
     end
   end
 
-  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "skip"} = command) do
+  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: event} = command)
+      when event in ["skip", "take_penalty"] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -203,7 +204,13 @@ defmodule D20.Qwinto.Game do
 
   defp apply_command(game, %D20.Command{event: "skip", actor_id: actor_id}) do
     game
-    |> apply_skip_response(actor_id)
+    |> apply_skip(actor_id)
+    |> resolve_turn()
+  end
+
+  defp apply_command(game, %D20.Command{event: "take_penalty", actor_id: actor_id}) do
+    game
+    |> apply_penalty(actor_id)
     |> resolve_turn()
   end
 
@@ -248,14 +255,18 @@ defmodule D20.Qwinto.Game do
     put_in(game.players[actor_id][:rows][row][slot], game.sum)
   end
 
-  defp apply_skip_response(game, player_id) do
-    if __MODULE__.active_player?(game, player_id) do
-      game
-      |> update_in([Access.key!(:players), player_id, Access.key!(:penalties)], &(&1 + 1))
-      |> set_player_status(player_id, :failed)
+  defp apply_skip(game, player_id) do
+    if active_player?(game, player_id) do
+      apply_penalty(game, player_id)
     else
       set_player_status(game, player_id, :passed)
     end
+  end
+
+  defp apply_penalty(game, player_id) do
+    game
+    |> update_in([Access.key!(:players), player_id, Access.key!(:penalties)], &(&1 + 1))
+    |> set_player_status(player_id, :failed)
   end
 
   defp set_player_status(game, player_id, status) do

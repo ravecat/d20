@@ -90,6 +90,28 @@ defmodule D20.Qwinto.Rules do
     end
   end
 
+  def validate(game, %D20.Command{event: "take_penalty", actor_id: actor_id}) do
+    with :ok <- require_phase(game, :result),
+         :ok <- require_player(game, actor_id),
+         :ok <- require_ready(game, actor_id),
+         :ok <- require_active_player(game, actor_id) do
+      :ok
+    end
+  end
+
+  @spec write_allowed?(D20.Qwinto.Game.t(), Game.player_id()) :: boolean()
+  def write_allowed?(%Game{} = game, actor_id) do
+    Enum.any?(game.dices, fn row ->
+      Enum.any?(Ruleset.row_slots(row), fn slot ->
+        validate(game, %D20.Command{
+          event: "write",
+          actor_id: actor_id,
+          attrs: %{row: row, slot: slot}
+        }) == :ok
+      end)
+    end)
+  end
+
   @spec turn_responses_complete?(D20.Qwinto.Game.t()) :: boolean()
   def turn_responses_complete?(game) do
     Enum.all?(game.players, fn {_player_id, player} -> player.status != :ready end)

@@ -10,7 +10,6 @@ defmodule D20.Qwinto.Permission do
   alias D20.Command
   alias D20.Qwinto.Game
   alias D20.Qwinto.Rules
-  alias D20.Qwinto.Ruleset
   alias D20.Sessions.Session
 
   @permissions ~w(
@@ -58,75 +57,53 @@ defmodule D20.Qwinto.Permission do
         owner_id: actor_id,
         game: %Game{} = game
       }) do
-    case Rules.validate(game, %Command{event: "start", actor_id: actor_id}) do
-      :ok -> :ok
-      {:error, _reason} -> {:error, :unauthorized}
-    end
+    Rules.validate(game, %Command{event: "start", actor_id: actor_id}) == :ok
   end
 
-  def authorize(:select_dice, %Scope{actor: %{id: actor_id}}, %Session{
-        phase: :in_progress,
-        game: %Game{phase: :turn} = game
-      }) do
-    if Game.active_player?(game, actor_id),
-      do: :ok,
-      else: {:error, :unauthorized}
+  def authorize(:select_dice, %Scope{} = scope, %Session{} = session) do
+    authorize(:roll, scope, session)
   end
 
   def authorize(:roll, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
-        game: %Game{phase: :turn} = game
+        game: %Game{} = game
       }) do
-    if Game.active_player?(game, actor_id),
-      do: :ok,
-      else: {:error, :unauthorized}
+    Rules.validate(game, %Command{event: "roll", actor_id: actor_id}) == :ok
   end
 
   def authorize(:keep, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
-    case Rules.validate(game, %Command{event: "keep", actor_id: actor_id}) do
-      :ok -> :ok
-      {:error, _reason} -> {:error, :unauthorized}
-    end
+    Rules.validate(game, %Command{event: "keep", actor_id: actor_id}) == :ok
   end
 
   def authorize(:reroll, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
-    case Rules.validate(game, %Command{event: "reroll", actor_id: actor_id}) do
-      :ok -> :ok
-      {:error, _reason} -> {:error, :unauthorized}
-    end
+    Rules.validate(game, %Command{event: "reroll", actor_id: actor_id}) == :ok
   end
 
   def authorize(:write_result, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{phase: :result} = game
       }) do
-    if write_allowed?(game, actor_id), do: :ok, else: {:error, :unauthorized}
+    Rules.write_allowed?(game, actor_id)
   end
 
   def authorize(:pass_result, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
-        game: %Game{phase: :result} = game
+        game: %Game{} = game
       }) do
-    if Rules.validate(game, %Command{event: "skip", actor_id: actor_id}) == :ok and
-         not Game.active_player?(game, actor_id),
-       do: :ok,
-       else: {:error, :unauthorized}
+    Rules.validate(game, %Command{event: "skip", actor_id: actor_id}) == :ok
   end
 
   def authorize(:take_penalty, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
-        game: %Game{phase: :result} = game
+        game: %Game{} = game
       }) do
-    if Rules.validate(game, %Command{event: "skip", actor_id: actor_id}) == :ok and
-         Game.active_player?(game, actor_id) and not write_allowed?(game, actor_id),
-       do: :ok,
-       else: {:error, :unauthorized}
+    Rules.validate(game, %Command{event: "take_penalty", actor_id: actor_id}) == :ok
   end
 
   def authorize(_action, %Scope{}, %Session{}), do: {:error, :unauthorized}
@@ -152,40 +129,17 @@ defmodule D20.Qwinto.Permission do
     permit(:reroll, scope, session) == :ok
   end
 
-  defp permit?(:can_write_result, %Scope{actor: %{id: actor_id}}, %Session{
-         phase: :in_progress,
-         game: %Game{phase: :result} = game
-       }) do
-    write_allowed?(game, actor_id)
+  defp permit?(:can_write_result, %Scope{} = scope, %Session{} = session) do
+    permit(:write_result, scope, session) == :ok
   end
 
-  defp permit?(:can_pass_result, %Scope{actor: %{id: actor_id}}, %Session{
-         phase: :in_progress,
-         game: %Game{phase: :result} = game
-       }) do
-    Rules.validate(game, %Command{event: "skip", actor_id: actor_id}) == :ok and
-      not Game.active_player?(game, actor_id)
+  defp permit?(:can_pass_result, %Scope{} = scope, %Session{} = session) do
+    permit(:pass_result, scope, session) == :ok
   end
 
-  defp permit?(:can_take_penalty, %Scope{actor: %{id: actor_id}}, %Session{
-         phase: :in_progress,
-         game: %Game{phase: :result} = game
-       }) do
-    Rules.validate(game, %Command{event: "skip", actor_id: actor_id}) == :ok and
-      Game.active_player?(game, actor_id) and not write_allowed?(game, actor_id)
+  defp permit?(:can_take_penalty, %Scope{} = scope, %Session{} = session) do
+    permit(:take_penalty, scope, session) == :ok
   end
 
   defp permit?(_permission, %Scope{}, %Session{}), do: false
-
-  defp write_allowed?(%Game{} = game, actor_id) do
-    Enum.any?(game.dices, fn row ->
-      Enum.any?(Ruleset.row_slots(row), fn slot ->
-        Rules.validate(game, %Command{
-          event: "write",
-          actor_id: actor_id,
-          attrs: %{row: row, slot: slot}
-        }) == :ok
-      end)
-    end)
-  end
 end

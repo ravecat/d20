@@ -63,14 +63,14 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(), "p2" => player()}
         )
 
-      assert %{can_write_result: true, can_pass_result: false, can_take_penalty: false} =
+      assert %{can_write_result: true, can_pass_result: true, can_take_penalty: true} =
                Permission.permissions(scope("p1"), session)
 
       assert %{can_write_result: true, can_pass_result: true, can_take_penalty: false} =
                Permission.permissions(scope("p2"), session)
     end
 
-    test "allows active player penalty only when there is no legal result write" do
+    test "keeps penalty independent from legal result writes" do
       session =
         session(:result,
           order: ["p1", "p2"],
@@ -80,7 +80,7 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(%{orange: full_row()}), "p2" => player()}
         )
 
-      assert %{can_write_result: false, can_pass_result: false, can_take_penalty: true} =
+      assert %{can_write_result: false, can_pass_result: true, can_take_penalty: true} =
                Permission.permissions(scope("p1"), session)
     end
 

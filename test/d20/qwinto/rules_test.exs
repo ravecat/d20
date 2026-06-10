@@ -69,10 +69,43 @@ defmodule D20.Qwinto.RulesTest do
       assert :ok = Rules.validate(game, command("write", "p1", %{row: :orange, slot: 8}))
     end
 
+    test "allows ready players to skip and only active players to take penalties" do
+      game = %Game{
+        phase: :result,
+        order: ["p1", "p2"],
+        cursor: 0,
+        dices: [:orange],
+        sum: 7,
+        players: %{"p1" => player(), "p2" => player()}
+      }
+
+      assert :ok = Rules.validate(game, command("skip", "p1"))
+      assert :ok = Rules.validate(game, command("skip", "p2"))
+      assert :ok = Rules.validate(game, command("take_penalty", "p1"))
+
+      assert {:error, :not_active_player} = Rules.validate(game, command("take_penalty", "p2"))
+    end
+
+    test "reports whether any legal result write is available" do
+      game = %Game{phase: :result, dices: [:orange], sum: 7, players: %{"p1" => player()}}
+
+      assert Rules.write_allowed?(game, "p1")
+
+      game = %Game{
+        phase: :result,
+        dices: [:orange],
+        sum: 7,
+        players: %{"p1" => player(%{orange: full_row()})}
+      }
+
+      refute Rules.write_allowed?(game, "p1")
+    end
+
     test "rejects a player that already responded" do
       game = %Game{phase: :result, players: %{"p1" => player(%{}, :wrote)}}
 
       assert {:error, :already_responded} = Rules.validate(game, command("skip", "p1"))
+      assert {:error, :already_responded} = Rules.validate(game, command("take_penalty", "p1"))
     end
   end
 
@@ -90,5 +123,9 @@ defmodule D20.Qwinto.RulesTest do
       penalties: 0,
       status: status
     }
+  end
+
+  defp full_row do
+    0..8 |> Enum.map(&{&1, &1 + 1}) |> Map.new()
   end
 end
