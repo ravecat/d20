@@ -12,7 +12,6 @@ defmodule D20.Qwinto.Game do
   alias D20.Qwinto.Rules
   alias D20.Qwinto.Ruleset
 
-  @colors Ruleset.colors()
   @phases [:setup, :ready, :turn, :decision, :result, :finished]
   @derive Jason.Encoder
   @primary_key false
@@ -25,14 +24,14 @@ defmodule D20.Qwinto.Game do
     field :order, {:array, :string}, default: []
     field :cursor, :integer, default: 0
     field :players, :map, default: %{}
-    field :dices, {:array, Ecto.Enum}, values: @colors, default: []
-    field :values, {:array, :integer}, default: []
+    field :dices, :map, default: %{}
     field :sum, :integer
     field :attempt, :integer, default: 0
     field :scores, :map, default: %{}
   end
 
   @type player_id :: D20.Actors.Actor.id()
+  @type roll :: %{optional(Ruleset.color()) => pos_integer()}
   @type phase :: :setup | :ready | :turn | :decision | :result | :finished
   @type player_status :: :ready | :wrote | :failed | :passed
   @type player :: %{
@@ -54,8 +53,7 @@ defmodule D20.Qwinto.Game do
           order: [player_id()],
           cursor: non_neg_integer(),
           players: %{optional(player_id()) => player()},
-          dices: [Ruleset.color()],
-          values: [integer()],
+          dices: roll(),
           sum: integer() | nil,
           attempt: 0 | 1 | 2,
           scores: %{optional(player_id()) => score()}
@@ -186,7 +184,7 @@ defmodule D20.Qwinto.Game do
   end
 
   defp apply_command(game, %D20.Command{event: "reroll"}) do
-    game = put_roll(game, game.dices, 2)
+    game = put_roll(game, Map.keys(game.dices), 2)
 
     %{game | phase: :result}
   end
@@ -247,8 +245,9 @@ defmodule D20.Qwinto.Game do
 
   defp put_roll(game, dices, attempt) do
     %{sum: sum, d6: values} = Dice.roll!(d6: length(dices))
+    dices = dices |> Enum.zip(values) |> Map.new()
 
-    %{game | dices: dices, values: values, sum: sum, attempt: attempt}
+    %{game | dices: dices, sum: sum, attempt: attempt}
   end
 
   defp put_entry(game, actor_id, row, slot) do
@@ -286,7 +285,7 @@ defmodule D20.Qwinto.Game do
   defp advance_turn(game) do
     next_cursor = rem(game.cursor + 1, length(game.order))
 
-    %{game | phase: :turn, cursor: next_cursor, dices: [], values: [], sum: nil, attempt: 0}
+    %{game | phase: :turn, cursor: next_cursor, dices: %{}, sum: nil, attempt: 0}
   end
 
   defp score_players(game) do

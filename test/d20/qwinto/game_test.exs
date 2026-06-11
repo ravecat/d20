@@ -28,8 +28,7 @@ defmodule D20.Qwinto.GameTest do
       assert decoded["phase"] == "result"
       assert decoded["order"] == ["p1", "p2"]
       assert decoded["cursor"] == 0
-      assert decoded["dices"] == ["orange"]
-      assert decoded["values"] == game.values
+      assert decoded["dices"] == %{"orange" => game.dices.orange}
       assert decoded["sum"] == game.sum
       assert decoded["attempt"] == 1
       assert decoded["scores"] == %{}
@@ -81,10 +80,12 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, %Game{phase: :decision, attempt: 1} = game} =
                dispatch(game, "roll", "p1", %{"colors" => ["orange", "purple"]})
 
-      assert game.dices == [:orange, :purple]
-      assert length(game.values) == 2
-      assert Enum.all?(game.values, &(&1 in 1..6))
-      assert game.sum == Enum.sum(game.values)
+      rolled_values = Map.values(game.dices)
+
+      assert MapSet.new(Map.keys(game.dices)) == MapSet.new([:orange, :purple])
+      assert length(rolled_values) == 2
+      assert Enum.all?(rolled_values, &(&1 in 1..6))
+      assert game.sum == Enum.sum(rolled_values)
       assert game.players["p1"].status == :ready
       assert game.players["p2"].status == :ready
       assert game.scores == %{}
@@ -97,7 +98,7 @@ defmodule D20.Qwinto.GameTest do
       {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:error, %Ecto.Changeset{} = changeset} =
-               dispatch(game, "roll", "p1", %{"colors" => ["orange", "orange"], "values" => [4]})
+               dispatch(game, "roll", "p1", %{"colors" => ["orange", "orange"]})
 
       refute changeset.valid?
     end
@@ -155,8 +156,7 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, game} = dispatch(game, "skip", "p2")
       assert game.phase == :turn
       assert game.cursor == 1
-      assert game.dices == []
-      assert game.values == []
+      assert game.dices == %{}
       assert game.sum == nil
       assert game.attempt == 0
     end
@@ -212,15 +212,17 @@ defmodule D20.Qwinto.GameTest do
 
       assert game.phase == :decision
       assert game.attempt == 1
-      assert game.dices == [:yellow, :purple]
+      assert MapSet.new(Map.keys(game.dices)) == MapSet.new([:yellow, :purple])
 
       assert {:ok, game} = dispatch(game, "reroll", "p1")
 
       assert game.phase == :result
       assert game.attempt == 2
-      assert game.dices == [:yellow, :purple]
-      assert length(game.values) == 2
-      assert game.sum == Enum.sum(game.values)
+      rolled_values = Map.values(game.dices)
+
+      assert MapSet.new(Map.keys(game.dices)) == MapSet.new([:yellow, :purple])
+      assert length(rolled_values) == 2
+      assert game.sum == Enum.sum(rolled_values)
     end
 
     test "rejects writes outside the rolled rows without changing game state" do

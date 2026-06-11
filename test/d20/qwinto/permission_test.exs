@@ -72,8 +72,8 @@ defmodule D20.Qwinto.PermissionTest do
         session(:result,
           order: ["p1", "p2"],
           cursor: 0,
-          dices: [:orange],
-          sum: 7,
+          dices: %{orange: 4},
+          sum: 4,
           players: %{"p1" => player(), "p2" => player()}
         )
 
@@ -89,8 +89,8 @@ defmodule D20.Qwinto.PermissionTest do
         session(:result,
           order: ["p1", "p2"],
           cursor: 0,
-          dices: [:orange],
-          sum: 7,
+          dices: %{orange: 4},
+          sum: 4,
           players: %{"p1" => player(%{orange: full_row()}), "p2" => player()}
         )
 
@@ -100,7 +100,7 @@ defmodule D20.Qwinto.PermissionTest do
 
     test "denies result actions for players that already responded" do
       session =
-        session(:result, dices: [:orange], sum: 7, players: %{"p1" => player(%{}, :wrote)})
+        session(:result, dices: %{orange: 4}, sum: 4, players: %{"p1" => player(%{}, :wrote)})
 
       assert %{can_write_result: false, can_pass_result: false, can_take_penalty: false} =
                Permission.permissions(scope("p1"), session)
@@ -139,7 +139,7 @@ defmodule D20.Qwinto.PermissionTest do
       order: Keyword.get(opts, :order, Map.keys(players)),
       cursor: Keyword.get(opts, :cursor, 0),
       players: players,
-      dices: Keyword.get(opts, :dices, []),
+      dices: Keyword.get(opts, :dices, %{}),
       sum: Keyword.get(opts, :sum),
       attempt: Keyword.get(opts, :attempt, 0)
     }

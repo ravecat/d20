@@ -101,7 +101,7 @@ defmodule D20.Qwinto.Rules do
 
   @spec write_allowed?(D20.Qwinto.Game.t(), Game.player_id()) :: boolean()
   def write_allowed?(%Game{} = game, actor_id) do
-    Enum.any?(game.dices, fn row ->
+    Enum.any?(Map.keys(game.dices), fn row ->
       Enum.any?(Ruleset.row_slots(row), fn slot ->
         validate(game, %D20.Command{
           event: "write",
@@ -164,7 +164,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   defp require_row_in_roll(game, row) do
-    if row in game.dices, do: :ok, else: {:error, :row_not_in_roll}
+    if Map.has_key?(game.dices, row), do: :ok, else: {:error, :row_not_in_roll}
   end
 
   defp require_slot(row, slot) do

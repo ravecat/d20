@@ -198,15 +198,12 @@ defmodule D20Web.SessionChannelTest do
       assert_push "projection", %{
         id: ^session_id,
         phase: :in_progress,
-        game: %D20.Qwinto.Game{
-          phase: :decision,
-          dices: [:orange, :purple],
-          values: _values,
-          sum: _sum,
-          attempt: 1
-        },
+        game: %D20.Qwinto.Game{phase: :decision, dices: dices, sum: _sum, attempt: 1},
         permissions: %{can_keep: true, can_reroll: true, can_see_result: true}
       }
+
+      assert MapSet.new(Map.keys(dices)) == MapSet.new([:orange, :purple])
+      assert Enum.all?(Map.values(dices), &(&1 in 1..6))
     end
 
     test "should forward unknown commands to the game engine" do

@@ -43,9 +43,9 @@ defmodule D20.Qwinto.RulesTest do
     test "rejects duplicate values in a write column" do
       game = %Game{
         phase: :result,
-        dices: [:orange],
-        sum: 7,
-        players: %{"p1" => player(%{yellow: %{2 => 7}})}
+        dices: %{orange: 4},
+        sum: 4,
+        players: %{"p1" => player(%{yellow: %{2 => 4}})}
       }
 
       assert {:error, :column_duplicate} =
@@ -55,16 +55,16 @@ defmodule D20.Qwinto.RulesTest do
     test "does not compare cells that only shared the old unshifted column index" do
       game = %Game{
         phase: :result,
-        dices: [:orange],
-        sum: 7,
-        players: %{"p1" => player(%{yellow: %{1 => 7}})}
+        dices: %{orange: 4},
+        sum: 4,
+        players: %{"p1" => player(%{yellow: %{1 => 4}})}
       }
 
       assert :ok = Rules.validate(game, command("write", "p1", %{row: :orange, slot: 1}))
     end
 
     test "accepts writes in single-cell edge columns" do
-      game = %Game{phase: :result, dices: [:orange], sum: 7, players: %{"p1" => player()}}
+      game = %Game{phase: :result, dices: %{orange: 4}, sum: 4, players: %{"p1" => player()}}
 
       assert :ok = Rules.validate(game, command("write", "p1", %{row: :orange, slot: 8}))
     end
@@ -74,8 +74,8 @@ defmodule D20.Qwinto.RulesTest do
         phase: :result,
         order: ["p1", "p2"],
         cursor: 0,
-        dices: [:orange],
-        sum: 7,
+        dices: %{orange: 4},
+        sum: 4,
         players: %{"p1" => player(), "p2" => player()}
       }
 
@@ -87,14 +87,14 @@ defmodule D20.Qwinto.RulesTest do
     end
 
     test "reports whether any legal result write is available" do
-      game = %Game{phase: :result, dices: [:orange], sum: 7, players: %{"p1" => player()}}
+      game = %Game{phase: :result, dices: %{orange: 4}, sum: 4, players: %{"p1" => player()}}
 
       assert Rules.write_allowed?(game, "p1")
 
       game = %Game{
         phase: :result,
-        dices: [:orange],
-        sum: 7,
+        dices: %{orange: 4},
+        sum: 4,
         players: %{"p1" => player(%{orange: full_row()})}
       }
 

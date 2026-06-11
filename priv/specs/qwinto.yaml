@@ -550,7 +550,6 @@ components:
         - cursor
         - players
         - dices
-        - values
         - sum
         - attempt
         - scores
@@ -574,20 +573,24 @@ components:
           additionalProperties:
             $ref: "#/components/schemas/player"
         dices:
-          type: array
-          minItems: 0
-          maxItems: 3
-          uniqueItems: true
-          items:
-            $ref: "#/components/schemas/color"
-        values:
-          type: array
-          minItems: 0
-          maxItems: 3
-          items:
-            type: integer
-            minimum: 1
-            maximum: 6
+          type: object
+          description: Rolled dice values keyed by color. Empty before the current roll.
+          minProperties: 0
+          maxProperties: 3
+          properties:
+            orange:
+              type: integer
+              minimum: 1
+              maximum: 6
+            yellow:
+              type: integer
+              minimum: 1
+              maximum: 6
+            purple:
+              type: integer
+              minimum: 1
+              maximum: 6
+          additionalProperties: false
         sum:
           oneOf:
             - type: integer

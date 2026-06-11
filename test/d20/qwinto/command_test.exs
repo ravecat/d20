@@ -23,16 +23,12 @@ defmodule D20.Qwinto.CommandTest do
     test "validates and normalizes roll attrs" do
       assert {:ok,
               %D20.Command{event: "roll", actor_id: "p1", attrs: %{colors: [:orange, :purple]}}} =
-               Command.validate(
-                 command("roll", "p1", %{"colors" => ["orange", "purple"], "values" => [4, 5]})
-               )
+               Command.validate(command("roll", "p1", %{"colors" => ["orange", "purple"]}))
     end
 
     test "rejects malformed roll attrs" do
       assert {:error, changeset} =
-               Command.validate(
-                 command("roll", "p1", %{"colors" => ["orange", "orange"], "values" => [4]})
-               )
+               Command.validate(command("roll", "p1", %{"colors" => ["orange", "orange"]}))
 
       refute changeset.valid?
       assert changeset.action == :roll
