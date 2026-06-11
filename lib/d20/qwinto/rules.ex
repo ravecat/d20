@@ -210,19 +210,15 @@ defmodule D20.Qwinto.Rules do
 
   defp completed_rows_limit_reached?(game) do
     Enum.any?(game.players, fn {_player_id, player} ->
-      completed_row_count(player) >= Ruleset.completed_rows_to_end()
+      Enum.count(Ruleset.colors(), fn row ->
+        map_size(player.rows[row]) == Ruleset.row_slot_count(row)
+      end) >= Ruleset.completed_rows_to_end()
     end)
   end
 
   defp penalty_limit_reached?(game) do
     Enum.any?(game.players, fn {_player_id, player} ->
       player.penalties >= Ruleset.penalty_limit()
-    end)
-  end
-
-  defp completed_row_count(player) do
-    Enum.count(Ruleset.colors(), fn row ->
-      map_size(player.rows[row]) == Ruleset.row_slot_count(row)
     end)
   end
 end
