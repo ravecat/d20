@@ -158,7 +158,7 @@ defmodule D20Web.SessionChannelTest do
       assert_push "projection", %{
         id: ^session_id,
         phase: :in_progress,
-        permissions: %{can_select_dice: false, can_roll: false}
+        permissions: %{can_select_dice: false, can_roll: false, can_see_result: false}
       }
 
       assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_ref)
@@ -189,7 +189,7 @@ defmodule D20Web.SessionChannelTest do
         id: ^session_id,
         phase: :in_progress,
         game: %D20.Qwinto.Game{phase: :turn, order: [^actor_id, "p2"], cursor: 0},
-        permissions: %{can_select_dice: true, can_roll: true}
+        permissions: %{can_select_dice: true, can_roll: true, can_see_result: false}
       }
 
       roll_ref = push(socket, "roll", %{"colors" => ["orange", "purple"]})
@@ -205,7 +205,7 @@ defmodule D20Web.SessionChannelTest do
           sum: _sum,
           attempt: 1
         },
-        permissions: %{can_keep: true, can_reroll: true}
+        permissions: %{can_keep: true, can_reroll: true, can_see_result: true}
       }
     end
 

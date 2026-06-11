@@ -18,6 +18,7 @@ defmodule D20.Qwinto.Permission do
     can_roll
     can_keep
     can_reroll
+    can_see_result
     can_write_result
     can_pass_result
     can_take_penalty
@@ -29,6 +30,7 @@ defmodule D20.Qwinto.Permission do
           required(:can_roll) => boolean(),
           required(:can_keep) => boolean(),
           required(:can_reroll) => boolean(),
+          required(:can_see_result) => boolean(),
           required(:can_write_result) => boolean(),
           required(:can_pass_result) => boolean(),
           required(:can_take_penalty) => boolean()
@@ -85,6 +87,10 @@ defmodule D20.Qwinto.Permission do
     Rules.validate(game, %Command{event: "reroll", actor_id: actor_id}) == :ok
   end
 
+  def authorize(:see_result, %Scope{}, %Session{phase: :in_progress, game: %Game{phase: phase}})
+      when phase in [:decision, :result],
+      do: true
+
   def authorize(:write_result, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{phase: :result} = game
@@ -127,6 +133,10 @@ defmodule D20.Qwinto.Permission do
 
   defp permit?(:can_reroll, %Scope{} = scope, %Session{} = session) do
     permit(:reroll, scope, session) == :ok
+  end
+
+  defp permit?(:can_see_result, %Scope{} = scope, %Session{} = session) do
+    permit(:see_result, scope, session) == :ok
   end
 
   defp permit?(:can_write_result, %Scope{} = scope, %Session{} = session) do

@@ -29,7 +29,7 @@ defmodule D20Web.ProjectionTest do
                owner_id: "owner",
                members: %{},
                game: %Game{},
-               permissions: %{can_start_game: true}
+               permissions: %{can_start_game: true, can_see_result: false}
              } = Projection.render(scope, session)
     end
 

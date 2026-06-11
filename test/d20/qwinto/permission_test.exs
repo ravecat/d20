@@ -13,6 +13,7 @@ defmodule D20.Qwinto.PermissionTest do
     can_roll: false,
     can_keep: false,
     can_reroll: false,
+    can_see_result: false,
     can_write_result: false,
     can_pass_result: false,
     can_take_penalty: false
@@ -40,6 +41,19 @@ defmodule D20.Qwinto.PermissionTest do
 
       assert %{can_select_dice: false, can_roll: false} =
                Permission.permissions(scope("p2"), session)
+    end
+
+    test "exposes rolled result visibility during decision and result phases" do
+      decision = session(:decision, order: ["p1", "p2"], cursor: 0, attempt: 1)
+      result = session(:result, order: ["p1", "p2"], cursor: 0)
+      turn = session(:turn, order: ["p1", "p2"], cursor: 0)
+      finished = session(:finished, order: ["p1", "p2"], cursor: 0)
+
+      assert %{can_see_result: true} = Permission.permissions(scope("p1"), decision)
+      assert %{can_see_result: true} = Permission.permissions(scope("p2"), decision)
+      assert %{can_see_result: true} = Permission.permissions(scope("p1"), result)
+      assert %{can_see_result: false} = Permission.permissions(scope("p1"), turn)
+      assert %{can_see_result: false} = Permission.permissions(scope("p1"), finished)
     end
 
     test "lets only the active player keep or reroll the first decision roll" do
