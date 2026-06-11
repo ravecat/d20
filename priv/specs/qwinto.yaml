@@ -446,10 +446,9 @@ components:
         - not_active_player
         - unknown_player
         - already_responded
-        - row_not_in_roll
         - invalid_slot
         - occupied
-        - row_order
+        - invalid_row_order
         - column_duplicate
         - invalid_attempt
         - finished
@@ -485,6 +484,11 @@ components:
           $ref: "#/components/schemas/game"
         permissions:
           $ref: "#/components/schemas/permissions"
+        available_slots:
+          type: array
+          description: Caller-specific available slots where the current rolled sum can be written; empty when no preview should be shown.
+          items:
+            $ref: "#/components/schemas/slot"
       additionalProperties: false
     permissions:
       type: object
@@ -721,6 +725,19 @@ components:
           uniqueItems: true
           items:
             $ref: "#/components/schemas/color"
+      additionalProperties: false
+    slot:
+      type: object
+      required:
+        - row
+        - slot
+      properties:
+        row:
+          $ref: "#/components/schemas/color"
+        slot:
+          type: integer
+          minimum: 0
+          maximum: 8
       additionalProperties: false
     writePayload:
       type: object

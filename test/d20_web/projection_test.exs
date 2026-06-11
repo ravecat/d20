@@ -29,8 +29,34 @@ defmodule D20Web.ProjectionTest do
                owner_id: "owner",
                members: %{},
                game: %Game{},
-               permissions: %{can_start_game: true, can_see_result: false}
+               permissions: %{can_start_game: true, can_see_result: false},
+               available_slots: []
              } = Projection.render(scope, session)
+    end
+
+    test "renders caller-specific Qwinto available slots for first-roll decision previews" do
+      session = %Session{
+        id: "session-1",
+        phase: :in_progress,
+        owner_id: "owner",
+        members: %{},
+        game: %Game{
+          phase: :decision,
+          order: ["owner", "p2"],
+          cursor: 0,
+          dices: %{orange: 4, purple: 1},
+          sum: 5,
+          attempt: 1,
+          players: %{"owner" => player(), "p2" => player()}
+        }
+      }
+
+      scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+
+      assert %{available_slots: available_slots} = Projection.render(scope, session)
+      assert %{row: :orange, slot: 0} in available_slots
+      assert %{row: :purple, slot: 8} in available_slots
+      refute Enum.any?(available_slots, &(&1.row == :yellow))
     end
 
     test "renders an empty permissions object for sessions without a game-specific projection" do

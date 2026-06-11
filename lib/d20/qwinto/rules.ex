@@ -18,13 +18,13 @@ defmodule D20.Qwinto.Rules do
           | :not_active_player
           | :unknown_player
           | :already_responded
-          | :row_not_in_roll
           | :invalid_slot
           | :occupied
-          | :row_order
+          | :invalid_row_order
           | :column_duplicate
           | :invalid_attempt
           | :invalid_phase
+  @type slot :: %{required(:row) => Ruleset.color(), required(:slot) => non_neg_integer()}
 
   @spec validate(D20.Qwinto.Game.t(), D20.Command.t()) ::
           :ok | {:error, reason()}
@@ -73,11 +73,10 @@ defmodule D20.Qwinto.Rules do
     with :ok <- require_phase(game, :result),
          :ok <- require_player(game, actor_id),
          :ok <- require_ready(game, actor_id),
-         :ok <- require_row_in_roll(game, row),
-         :ok <- require_slot(row, slot),
-         :ok <- require_empty(game, actor_id, row, slot),
-         :ok <- require_row_order(game, actor_id, row, slot, game.sum),
-         :ok <- require_column_unique(game, actor_id, row, slot, game.sum) do
+         :ok <- require_valid_slot(game, row, slot),
+         :ok <- require_available_slot(game, actor_id, row, slot),
+         :ok <- require_valid_order(game, actor_id, row, slot),
+         :ok <- require_column_unique(game, actor_id, row, slot) do
       :ok
     end
   end
@@ -101,15 +100,19 @@ defmodule D20.Qwinto.Rules do
 
   @spec write_allowed?(D20.Qwinto.Game.t(), Game.player_id()) :: boolean()
   def write_allowed?(%Game{} = game, actor_id) do
-    Enum.any?(Map.keys(game.dices), fn row ->
-      Enum.any?(Ruleset.row_slots(row), fn slot ->
-        validate(game, %D20.Command{
-          event: "write",
-          actor_id: actor_id,
-          attrs: %{row: row, slot: slot}
-        }) == :ok
-      end)
-    end)
+    game
+    |> available_slots(actor_id)
+    |> Enum.any?()
+  end
+
+  @spec available_slots(D20.Qwinto.Game.t(), Game.player_id()) :: [slot()]
+  def available_slots(%Game{} = game, actor_id) do
+    for row <- Map.keys(game.dices),
+        slot <- Ruleset.row_slots(row),
+        require_available_slot(game, actor_id, row, slot) == :ok,
+        require_valid_order(game, actor_id, row, slot) == :ok,
+        require_column_unique(game, actor_id, row, slot) == :ok,
+        do: %{row: row, slot: slot}
   end
 
   @spec turn_responses_complete?(D20.Qwinto.Game.t()) :: boolean()
@@ -163,19 +166,19 @@ defmodule D20.Qwinto.Rules do
     if game.players[player_id].status == :ready, do: :ok, else: {:error, :already_responded}
   end
 
-  defp require_row_in_roll(game, row) do
-    if Map.has_key?(game.dices, row), do: :ok, else: {:error, :row_not_in_roll}
+  defp require_valid_slot(game, row, slot) do
+    if Map.has_key?(game.dices, row) and Ruleset.valid_slot?(row, slot) do
+      :ok
+    else
+      {:error, :invalid_slot}
+    end
   end
 
-  defp require_slot(row, slot) do
-    if Ruleset.valid_slot?(row, slot), do: :ok, else: {:error, :invalid_slot}
-  end
-
-  defp require_empty(game, player_id, row, slot) do
+  defp require_available_slot(game, player_id, row, slot) do
     if Map.has_key?(game.players[player_id].rows[row], slot), do: {:error, :occupied}, else: :ok
   end
 
-  defp require_row_order(game, player_id, row, slot, sum) do
+  defp require_valid_order(%{sum: sum} = game, player_id, row, slot) do
     conflict? =
       Enum.any?(game.players[player_id].rows[row], fn
         {filled_slot, value} when filled_slot < slot -> value >= sum
@@ -183,27 +186,26 @@ defmodule D20.Qwinto.Rules do
         {_filled_slot, _value} -> false
       end)
 
-    if conflict?, do: {:error, :row_order}, else: :ok
+    if conflict?, do: {:error, :invalid_row_order}, else: :ok
   end
 
-  defp require_column_unique(game, player_id, row, slot, sum) do
+  defp require_column_unique(%{sum: sum} = game, player_id, row, slot) do
     case Ruleset.column_for_cell(row, slot) do
-      nil -> :ok
-      column -> require_column_value_unique(game, player_id, row, slot, sum, column)
+      nil ->
+        :ok
+
+      %{cells: cells} ->
+        duplicate? =
+          Enum.any?(cells, fn
+            {^row, ^slot} ->
+              false
+
+            {other_row, other_slot} ->
+              get_in(game.players[player_id].rows, [other_row, other_slot]) == sum
+          end)
+
+        if duplicate?, do: {:error, :column_duplicate}, else: :ok
     end
-  end
-
-  defp require_column_value_unique(game, player_id, row, slot, sum, column) do
-    duplicate? =
-      Enum.any?(column.cells, fn
-        {^row, ^slot} ->
-          false
-
-        {other_row, other_slot} ->
-          get_in(game.players[player_id].rows, [other_row, other_slot]) == sum
-      end)
-
-    if duplicate?, do: {:error, :column_duplicate}, else: :ok
   end
 
   defp completed_rows_limit_reached?(game) do

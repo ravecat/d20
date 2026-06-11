@@ -101,6 +101,35 @@ defmodule D20.Qwinto.RulesTest do
       refute Rules.write_allowed?(game, "p1")
     end
 
+    test "lists available slots for the current rolled rows" do
+      game = %Game{
+        phase: :decision,
+        dices: %{orange: 4, purple: 1},
+        sum: 5,
+        players: %{"p1" => player()}
+      }
+
+      assert %{row: :orange, slot: 0} in Rules.available_slots(game, "p1")
+      assert %{row: :purple, slot: 8} in Rules.available_slots(game, "p1")
+      refute Enum.any?(Rules.available_slots(game, "p1"), &(&1.row == :yellow))
+    end
+
+    test "available slots preserve occupancy, row order, and column uniqueness" do
+      game = %Game{
+        phase: :decision,
+        dices: %{orange: 4},
+        sum: 4,
+        players: %{"p1" => player(%{orange: %{0 => 1, 2 => 4, 4 => 4}, yellow: %{2 => 4}})}
+      }
+
+      available_slots = Rules.available_slots(game, "p1")
+
+      refute %{row: :orange, slot: 0} in available_slots
+      refute %{row: :orange, slot: 1} in available_slots
+      refute %{row: :orange, slot: 3} in available_slots
+      refute %{row: :orange, slot: 5} in available_slots
+    end
+
     test "rejects a player that already responded" do
       game = %Game{phase: :result, players: %{"p1" => player(%{}, :wrote)}}
 

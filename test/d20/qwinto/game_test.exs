@@ -235,7 +235,7 @@ defmodule D20.Qwinto.GameTest do
 
       assert {:ok, game} = dispatch(game, "keep", "p1")
 
-      assert {:error, :row_not_in_roll} =
+      assert {:error, :invalid_slot} =
                dispatch(game, "write", "p1", %{"row" => "yellow", "slot" => 0})
 
       assert game.players["p1"].rows.yellow == %{}
@@ -256,7 +256,7 @@ defmodule D20.Qwinto.GameTest do
           4 => game.sum
         })
 
-      assert {:error, :row_order} =
+      assert {:error, :invalid_row_order} =
                dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 5})
 
       {:ok, game} = Game.init()

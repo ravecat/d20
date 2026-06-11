@@ -199,11 +199,14 @@ defmodule D20Web.SessionChannelTest do
         id: ^session_id,
         phase: :in_progress,
         game: %D20.Qwinto.Game{phase: :decision, dices: dices, sum: _sum, attempt: 1},
-        permissions: %{can_keep: true, can_reroll: true, can_see_result: true}
+        permissions: %{can_keep: true, can_reroll: true, can_see_result: true},
+        available_slots: available_slots
       }
 
       assert MapSet.new(Map.keys(dices)) == MapSet.new([:orange, :purple])
       assert Enum.all?(Map.values(dices), &(&1 in 1..6))
+      assert available_slots != []
+      assert Enum.all?(available_slots, &(&1.row in [:orange, :purple]))
     end
 
     test "should forward unknown commands to the game engine" do

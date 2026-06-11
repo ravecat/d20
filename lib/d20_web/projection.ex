@@ -14,12 +14,21 @@ defmodule D20Web.Projection do
   def render(%Scope{} = scope, %Session{} = session) do
     session
     |> Map.from_struct()
-    |> Map.put(:permissions, permissions_for(scope, session))
+    |> Map.merge(projection_for(scope, session))
   end
 
-  defp permissions_for(%Scope{} = scope, %Session{game: %Qwinto.Game{}} = session) do
-    Qwinto.Permission.permissions(scope, session)
+  defp projection_for(%Scope{} = scope, %Session{game: %Qwinto.Game{} = game} = session) do
+    permissions = Qwinto.Permission.permissions(scope, session)
+
+    available_slots =
+      if permissions.can_see_result and game.phase == :decision and game.attempt == 1 do
+        Qwinto.Rules.available_slots(game, scope.actor.id)
+      else
+        []
+      end
+
+    %{permissions: permissions, available_slots: available_slots}
   end
 
-  defp permissions_for(%Scope{}, %Session{}), do: %{}
+  defp projection_for(%Scope{}, %Session{}), do: %{permissions: %{}}
 end
