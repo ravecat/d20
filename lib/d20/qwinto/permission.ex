@@ -93,7 +93,7 @@ defmodule D20.Qwinto.Permission do
 
   def authorize(:write_result, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
-        game: %Game{phase: :result} = game
+        game: %Game{} = game
       }) do
     Rules.write_allowed?(game, actor_id)
   end

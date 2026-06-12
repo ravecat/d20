@@ -118,9 +118,8 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
 
       assert game.phase == :decision
-      assert {:error, :invalid_phase} = dispatch(game, "write", "p1")
+      assert {:error, %Ecto.Changeset{}} = dispatch(game, "write", "p1")
       assert {:error, :invalid_phase} = dispatch(game, "skip", "p1")
-      assert {:error, :invalid_phase} = dispatch(game, "take_penalty", "p1")
       assert {:error, :invalid_phase} = dispatch(game, "roll", "p1")
     end
 
@@ -161,6 +160,40 @@ defmodule D20.Qwinto.GameTest do
       assert game.attempt == 0
     end
 
+    test "active player can write immediately from decision and opens result" do
+      {:ok, game} = Game.init()
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
+
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 0})
+
+      assert game.phase == :result
+      assert game.players["p1"].rows.orange[0] == game.sum
+      assert game.players["p1"].status == :wrote
+      assert game.players["p2"].status == :ready
+
+      assert {:ok, game} = dispatch(game, "skip", "p2")
+      assert game.phase == :turn
+      assert game.cursor == 1
+    end
+
+    test "active player can cancel from decision and opens result with penalty" do
+      {:ok, game} = Game.init()
+      {:ok, game} = dispatch(game, "join", "p1")
+      {:ok, game} = dispatch(game, "join", "p2")
+      {:ok, game} = dispatch(game, "start", "p1")
+
+      assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "take_penalty", "p1")
+
+      assert game.phase == :result
+      assert game.players["p1"].penalties == 1
+      assert game.players["p1"].status == :failed
+      assert game.players["p2"].status == :ready
+    end
+
     test "active player can take a penalty instead of writing the final result" do
       {:ok, game} = Game.init()
       {:ok, game} = dispatch(game, "join", "p1")
@@ -168,8 +201,6 @@ defmodule D20.Qwinto.GameTest do
       {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
-
-      assert {:error, :invalid_phase} = dispatch(game, "take_penalty", "p1")
 
       assert {:ok, game} = dispatch(game, "keep", "p1")
       assert {:ok, game} = dispatch(game, "take_penalty", "p1")

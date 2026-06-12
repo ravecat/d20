@@ -40,6 +40,22 @@ defmodule D20.Qwinto.RulesTest do
       assert :ok = Rules.validate(game, command("reroll", "p1"))
     end
 
+    test "allows only the active player to write during decision" do
+      game = %Game{
+        phase: :decision,
+        order: ["p1", "p2"],
+        cursor: 0,
+        dices: %{orange: 4},
+        sum: 4,
+        players: %{"p1" => player(), "p2" => player()}
+      }
+
+      assert :ok = Rules.validate(game, command("write", "p1", %{row: :orange, slot: 0}))
+
+      assert {:error, :not_active_player} =
+               Rules.validate(game, command("write", "p2", %{row: :orange, slot: 0}))
+    end
+
     test "rejects duplicate values in a write column" do
       game = %Game{
         phase: :result,
@@ -84,9 +100,14 @@ defmodule D20.Qwinto.RulesTest do
       assert :ok = Rules.validate(game, command("take_penalty", "p1"))
 
       assert {:error, :not_active_player} = Rules.validate(game, command("take_penalty", "p2"))
+
+      game = %{game | phase: :decision}
+
+      assert :ok = Rules.validate(game, command("take_penalty", "p1"))
+      assert {:error, :not_active_player} = Rules.validate(game, command("take_penalty", "p2"))
     end
 
-    test "reports whether any legal result write is available" do
+    test "reports whether a legal write action is available now" do
       game = %Game{phase: :result, dices: %{orange: 4}, sum: 4, players: %{"p1" => player()}}
 
       assert Rules.write_allowed?(game, "p1")
@@ -99,6 +120,18 @@ defmodule D20.Qwinto.RulesTest do
       }
 
       refute Rules.write_allowed?(game, "p1")
+
+      game = %Game{
+        phase: :decision,
+        order: ["p1", "p2"],
+        cursor: 0,
+        dices: %{orange: 4},
+        sum: 4,
+        players: %{"p1" => player(), "p2" => player()}
+      }
+
+      assert Rules.write_allowed?(game, "p1")
+      refute Rules.write_allowed?(game, "p2")
     end
 
     test "lists available slots for the current rolled rows" do
@@ -146,7 +179,10 @@ defmodule D20.Qwinto.RulesTest do
     end
 
     test "rejects a player that already responded" do
-      game = %Game{phase: :result, players: %{"p1" => player(%{}, :wrote)}}
+      game = %Game{phase: :result, dices: %{orange: 4}, players: %{"p1" => player(%{}, :wrote)}}
+
+      assert {:error, :already_responded} =
+               Rules.validate(game, command("write", "p1", %{row: :orange, slot: 0}))
 
       assert {:error, :already_responded} = Rules.validate(game, command("skip", "p1"))
       assert {:error, :already_responded} = Rules.validate(game, command("take_penalty", "p1"))

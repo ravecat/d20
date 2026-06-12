@@ -67,6 +67,24 @@ defmodule D20.Qwinto.PermissionTest do
       assert %{can_keep: false, can_reroll: false} = Permission.permissions(scope("p1"), session)
     end
 
+    test "lets active player write or take penalty in first decision" do
+      session =
+        session(:decision,
+          order: ["p1", "p2"],
+          cursor: 0,
+          attempt: 1,
+          dices: %{orange: 4},
+          sum: 4,
+          players: %{"p1" => player(), "p2" => player()}
+        )
+
+      assert %{can_write_result: true, can_take_penalty: true, can_reroll: true} =
+               Permission.permissions(scope("p1"), session)
+
+      assert %{can_write_result: false, can_take_penalty: false, can_reroll: false} =
+               Permission.permissions(scope("p2"), session)
+    end
+
     test "exposes result permissions for active and non-active ready players" do
       session =
         session(:result,

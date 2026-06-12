@@ -110,14 +110,8 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "leave"}),
     do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "keep"} = command) do
-    with {:ok, command} <- Command.validate(command),
-         :ok <- Rules.validate(game, command) do
-      {:ok, apply_command(game, command)}
-    end
-  end
-
-  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "reroll"} = command) do
+  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: event} = command)
+      when event in ["keep", "reroll", "write", "take_penalty"] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -189,6 +183,17 @@ defmodule D20.Qwinto.Game do
     %{game | phase: :result}
   end
 
+  defp apply_command(%__MODULE__{phase: :decision} = game, %D20.Command{
+         event: "write",
+         actor_id: actor_id,
+         attrs: %{row: row, slot: slot}
+       }) do
+    game
+    |> put_entry(actor_id, row, slot)
+    |> set_player_status(actor_id, :wrote)
+    |> Map.put(:phase, :result)
+  end
+
   defp apply_command(game, %D20.Command{
          event: "write",
          actor_id: actor_id,
@@ -197,19 +202,28 @@ defmodule D20.Qwinto.Game do
     game
     |> put_entry(actor_id, row, slot)
     |> set_player_status(actor_id, :wrote)
-    |> resolve_turn()
+    |> maybe_resolve_turn()
   end
 
   defp apply_command(game, %D20.Command{event: "skip", actor_id: actor_id}) do
     game
     |> apply_skip(actor_id)
-    |> resolve_turn()
+    |> maybe_resolve_turn()
+  end
+
+  defp apply_command(%__MODULE__{phase: :decision} = game, %D20.Command{
+         event: "take_penalty",
+         actor_id: actor_id
+       }) do
+    game
+    |> apply_penalty(actor_id)
+    |> Map.put(:phase, :result)
   end
 
   defp apply_command(game, %D20.Command{event: "take_penalty", actor_id: actor_id}) do
     game
     |> apply_penalty(actor_id)
-    |> resolve_turn()
+    |> maybe_resolve_turn()
   end
 
   defp join_player(game, player_id) do
@@ -272,7 +286,7 @@ defmodule D20.Qwinto.Game do
     put_in(game.players[player_id][:status], status)
   end
 
-  defp resolve_turn(game) do
+  defp maybe_resolve_turn(game) do
     cond do
       not Rules.turn_responses_complete?(game) -> game
       Rules.finished?(game) -> finish(game)
