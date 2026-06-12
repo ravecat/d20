@@ -104,6 +104,7 @@ defmodule D20.Qwinto.RulesTest do
     test "lists available slots for the current rolled rows" do
       game = %Game{
         phase: :decision,
+        attempt: 1,
         dices: %{orange: 4, purple: 1},
         sum: 5,
         players: %{"p1" => player()}
@@ -112,6 +113,20 @@ defmodule D20.Qwinto.RulesTest do
       assert %{row: :orange, slot: 0} in Rules.available_slots(game, "p1")
       assert %{row: :purple, slot: 8} in Rules.available_slots(game, "p1")
       refute Enum.any?(Rules.available_slots(game, "p1"), &(&1.row == :yellow))
+
+      game = %{game | phase: :result, attempt: 1}
+
+      assert %{row: :orange, slot: 0} in Rules.available_slots(game, "p1")
+      assert %{row: :purple, slot: 8} in Rules.available_slots(game, "p1")
+
+      game = %{game | attempt: 2}
+
+      assert %{row: :orange, slot: 0} in Rules.available_slots(game, "p1")
+      assert %{row: :purple, slot: 8} in Rules.available_slots(game, "p1")
+
+      game = %{game | phase: :turn, attempt: 0}
+
+      assert Rules.available_slots(game, "p1") == []
     end
 
     test "available slots preserve occupancy, row order, and column uniqueness" do

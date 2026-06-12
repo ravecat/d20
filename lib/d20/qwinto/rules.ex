@@ -106,7 +106,7 @@ defmodule D20.Qwinto.Rules do
   end
 
   @spec available_slots(D20.Qwinto.Game.t(), Game.player_id()) :: [slot()]
-  def available_slots(%Game{} = game, actor_id) do
+  def available_slots(%Game{phase: phase} = game, actor_id) when phase in [:decision, :result] do
     for row <- Map.keys(game.dices),
         slot <- Ruleset.row_slots(row),
         require_available_slot(game, actor_id, row, slot) == :ok,
@@ -114,6 +114,8 @@ defmodule D20.Qwinto.Rules do
         require_column_unique(game, actor_id, row, slot) == :ok,
         do: %{row: row, slot: slot}
   end
+
+  def available_slots(%Game{}, _actor_id), do: []
 
   @spec turn_responses_complete?(D20.Qwinto.Game.t()) :: boolean()
   def turn_responses_complete?(game) do

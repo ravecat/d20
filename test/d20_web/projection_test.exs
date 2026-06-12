@@ -59,7 +59,32 @@ defmodule D20Web.ProjectionTest do
       refute Enum.any?(available_slots, &(&1.row == :yellow))
     end
 
-    test "renders an empty permissions object for sessions without a game-specific projection" do
+    test "renders caller-specific Qwinto available slots after reroll opens result phase" do
+      session = %Session{
+        id: "session-1",
+        phase: :in_progress,
+        owner_id: "owner",
+        members: %{},
+        game: %Game{
+          phase: :result,
+          order: ["owner", "p2"],
+          cursor: 0,
+          dices: %{orange: 4, purple: 1},
+          sum: 5,
+          attempt: 2,
+          players: %{"owner" => player(), "p2" => player()}
+        }
+      }
+
+      scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+
+      assert %{available_slots: available_slots} = Projection.render(scope, session)
+      assert %{row: :orange, slot: 0} in available_slots
+      assert %{row: :purple, slot: 8} in available_slots
+      refute Enum.any?(available_slots, &(&1.row == :yellow))
+    end
+
+    test "returns the session unchanged without a game-specific projection" do
       session = %Session{
         id: "session-1",
         phase: :waiting_for_players,
@@ -70,7 +95,7 @@ defmodule D20Web.ProjectionTest do
 
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
-      assert %{permissions: %{}} = Projection.render(scope, session)
+      assert Projection.render(scope, session) == session
     end
   end
 
