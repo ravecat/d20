@@ -14,26 +14,22 @@ defmodule D20.Qwinto.Permission do
 
   @permissions ~w(
     can_start_game
-    can_select_dice
     can_roll
-    can_keep
     can_reroll
-    can_see_result
-    can_write_result
-    can_pass_result
-    can_take_penalty
+    can_see_roll
+    can_write
+    can_pass
+    can_penalize
   )a
 
   @type t :: %{
           required(:can_start_game) => boolean(),
-          required(:can_select_dice) => boolean(),
           required(:can_roll) => boolean(),
-          required(:can_keep) => boolean(),
           required(:can_reroll) => boolean(),
-          required(:can_see_result) => boolean(),
-          required(:can_write_result) => boolean(),
-          required(:can_pass_result) => boolean(),
-          required(:can_take_penalty) => boolean()
+          required(:can_see_roll) => boolean(),
+          required(:can_write) => boolean(),
+          required(:can_pass) => boolean(),
+          required(:can_penalize) => boolean()
         }
 
   @doc """
@@ -62,22 +58,11 @@ defmodule D20.Qwinto.Permission do
     Rules.validate(game, %Command{event: "start", actor_id: actor_id}) == :ok
   end
 
-  def authorize(:select_dice, %Scope{} = scope, %Session{} = session) do
-    authorize(:roll, scope, session)
-  end
-
   def authorize(:roll, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
     Rules.validate(game, %Command{event: "roll", actor_id: actor_id}) == :ok
-  end
-
-  def authorize(:keep, %Scope{actor: %{id: actor_id}}, %Session{
-        phase: :in_progress,
-        game: %Game{} = game
-      }) do
-    Rules.validate(game, %Command{event: "keep", actor_id: actor_id}) == :ok
   end
 
   def authorize(:reroll, %Scope{actor: %{id: actor_id}}, %Session{
@@ -87,29 +72,29 @@ defmodule D20.Qwinto.Permission do
     Rules.validate(game, %Command{event: "reroll", actor_id: actor_id}) == :ok
   end
 
-  def authorize(:see_result, %Scope{}, %Session{phase: :in_progress, game: %Game{phase: phase}})
-      when phase in [:decision, :result],
+  def authorize(:see_roll, %Scope{}, %Session{phase: :in_progress, game: %Game{phase: phase}})
+      when phase in [:write_or_pass, :result],
       do: true
 
-  def authorize(:write_result, %Scope{actor: %{id: actor_id}}, %Session{
+  def authorize(:write, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
     Rules.write_allowed?(game, actor_id)
   end
 
-  def authorize(:pass_result, %Scope{actor: %{id: actor_id}}, %Session{
+  def authorize(:pass, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
-    Rules.validate(game, %Command{event: "skip", actor_id: actor_id}) == :ok
+    Rules.validate(game, %Command{event: "pass", actor_id: actor_id}) == :ok
   end
 
-  def authorize(:take_penalty, %Scope{actor: %{id: actor_id}}, %Session{
+  def authorize(:penalize, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
-    Rules.validate(game, %Command{event: "take_penalty", actor_id: actor_id}) == :ok
+    Rules.validate(game, %Command{event: "penalize", actor_id: actor_id}) == :ok
   end
 
   def authorize(_action, %Scope{}, %Session{}), do: {:error, :unauthorized}
@@ -119,36 +104,28 @@ defmodule D20.Qwinto.Permission do
     permit(:start_game, scope, session) == :ok
   end
 
-  defp permit?(:can_select_dice, %Scope{} = scope, %Session{} = session) do
-    permit(:select_dice, scope, session) == :ok
-  end
-
   defp permit?(:can_roll, %Scope{} = scope, %Session{} = session) do
     permit(:roll, scope, session) == :ok
-  end
-
-  defp permit?(:can_keep, %Scope{} = scope, %Session{} = session) do
-    permit(:keep, scope, session) == :ok
   end
 
   defp permit?(:can_reroll, %Scope{} = scope, %Session{} = session) do
     permit(:reroll, scope, session) == :ok
   end
 
-  defp permit?(:can_see_result, %Scope{} = scope, %Session{} = session) do
-    permit(:see_result, scope, session) == :ok
+  defp permit?(:can_see_roll, %Scope{} = scope, %Session{} = session) do
+    permit(:see_roll, scope, session) == :ok
   end
 
-  defp permit?(:can_write_result, %Scope{} = scope, %Session{} = session) do
-    permit(:write_result, scope, session) == :ok
+  defp permit?(:can_write, %Scope{} = scope, %Session{} = session) do
+    permit(:write, scope, session) == :ok
   end
 
-  defp permit?(:can_pass_result, %Scope{} = scope, %Session{} = session) do
-    permit(:pass_result, scope, session) == :ok
+  defp permit?(:can_pass, %Scope{} = scope, %Session{} = session) do
+    permit(:pass, scope, session) == :ok
   end
 
-  defp permit?(:can_take_penalty, %Scope{} = scope, %Session{} = session) do
-    permit(:take_penalty, scope, session) == :ok
+  defp permit?(:can_penalize, %Scope{} = scope, %Session{} = session) do
+    permit(:penalize, scope, session) == :ok
   end
 
   defp permit?(_permission, %Scope{}, %Session{}), do: false

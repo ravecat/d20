@@ -27,22 +27,21 @@ defmodule D20.Qwinto.RulesTest do
     end
 
     test "rejects a roll from a non-active player" do
-      game = %Game{phase: :turn, order: ["p1", "p2"], cursor: 0}
+      game = %Game{phase: :roll, order: ["p1", "p2"], cursor: 0}
 
       assert {:error, :not_active_player} =
                Rules.validate(game, command("roll", "p2", %{colors: [:orange]}))
     end
 
-    test "validates keep and reroll through the same decision preconditions" do
-      game = %Game{phase: :decision, order: ["p1", "p2"], cursor: 0, attempt: 1}
+    test "validates reroll through write/pass preconditions" do
+      game = %Game{phase: :write_or_pass, order: ["p1", "p2"], cursor: 0, attempt: 1}
 
-      assert :ok = Rules.validate(game, command("keep", "p1"))
       assert :ok = Rules.validate(game, command("reroll", "p1"))
     end
 
-    test "allows only the active player to write during decision" do
+    test "allows only the active player to write during write/pass" do
       game = %Game{
-        phase: :decision,
+        phase: :write_or_pass,
         order: ["p1", "p2"],
         cursor: 0,
         dices: %{orange: 4},
@@ -85,7 +84,7 @@ defmodule D20.Qwinto.RulesTest do
       assert :ok = Rules.validate(game, command("write", "p1", %{row: :orange, slot: 8}))
     end
 
-    test "allows ready players to skip and only active players to take penalties" do
+    test "allows ready players to pass and only active players to penalize" do
       game = %Game{
         phase: :result,
         order: ["p1", "p2"],
@@ -95,16 +94,16 @@ defmodule D20.Qwinto.RulesTest do
         players: %{"p1" => player(), "p2" => player()}
       }
 
-      assert :ok = Rules.validate(game, command("skip", "p1"))
-      assert :ok = Rules.validate(game, command("skip", "p2"))
-      assert :ok = Rules.validate(game, command("take_penalty", "p1"))
+      assert :ok = Rules.validate(game, command("pass", "p1"))
+      assert :ok = Rules.validate(game, command("pass", "p2"))
+      assert :ok = Rules.validate(game, command("penalize", "p1"))
 
-      assert {:error, :not_active_player} = Rules.validate(game, command("take_penalty", "p2"))
+      assert {:error, :not_active_player} = Rules.validate(game, command("penalize", "p2"))
 
-      game = %{game | phase: :decision}
+      game = %{game | phase: :write_or_pass}
 
-      assert :ok = Rules.validate(game, command("take_penalty", "p1"))
-      assert {:error, :not_active_player} = Rules.validate(game, command("take_penalty", "p2"))
+      assert :ok = Rules.validate(game, command("penalize", "p1"))
+      assert {:error, :not_active_player} = Rules.validate(game, command("penalize", "p2"))
     end
 
     test "reports whether a legal write action is available now" do
@@ -122,7 +121,7 @@ defmodule D20.Qwinto.RulesTest do
       refute Rules.write_allowed?(game, "p1")
 
       game = %Game{
-        phase: :decision,
+        phase: :write_or_pass,
         order: ["p1", "p2"],
         cursor: 0,
         dices: %{orange: 4},
@@ -136,7 +135,7 @@ defmodule D20.Qwinto.RulesTest do
 
     test "lists available slots for the current rolled rows" do
       game = %Game{
-        phase: :decision,
+        phase: :write_or_pass,
         attempt: 1,
         dices: %{orange: 4, purple: 1},
         sum: 5,
@@ -157,14 +156,14 @@ defmodule D20.Qwinto.RulesTest do
       assert %{row: :orange, slot: 0} in Rules.available_slots(game, "p1")
       assert %{row: :purple, slot: 8} in Rules.available_slots(game, "p1")
 
-      game = %{game | phase: :turn, attempt: 0}
+      game = %{game | phase: :roll, attempt: 0}
 
       assert Rules.available_slots(game, "p1") == []
     end
 
     test "available slots preserve occupancy, row order, and column uniqueness" do
       game = %Game{
-        phase: :decision,
+        phase: :write_or_pass,
         dices: %{orange: 4},
         sum: 4,
         players: %{"p1" => player(%{orange: %{0 => 1, 2 => 4, 4 => 4}, yellow: %{2 => 4}})}
@@ -184,8 +183,8 @@ defmodule D20.Qwinto.RulesTest do
       assert {:error, :already_responded} =
                Rules.validate(game, command("write", "p1", %{row: :orange, slot: 0}))
 
-      assert {:error, :already_responded} = Rules.validate(game, command("skip", "p1"))
-      assert {:error, :already_responded} = Rules.validate(game, command("take_penalty", "p1"))
+      assert {:error, :already_responded} = Rules.validate(game, command("pass", "p1"))
+      assert {:error, :already_responded} = Rules.validate(game, command("penalize", "p1"))
     end
   end
 

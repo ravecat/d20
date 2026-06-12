@@ -7,17 +7,15 @@ defmodule D20.Qwinto.CommandTest do
     test "passes payload-less commands through unchanged" do
       join = command("join", "p1", %{online_at: 10})
       start = command("start", "p1")
-      keep = command("keep", "p1")
       reroll = command("reroll", "p1")
-      skip = command("skip", "p1")
-      take_penalty = command("take_penalty", "p1")
+      pass = command("pass", "p1")
+      penalize = command("penalize", "p1")
 
       assert {:ok, ^join} = Command.validate(join)
       assert {:ok, ^start} = Command.validate(start)
-      assert {:ok, ^keep} = Command.validate(keep)
       assert {:ok, ^reroll} = Command.validate(reroll)
-      assert {:ok, ^skip} = Command.validate(skip)
-      assert {:ok, ^take_penalty} = Command.validate(take_penalty)
+      assert {:ok, ^pass} = Command.validate(pass)
+      assert {:ok, ^penalize} = Command.validate(penalize)
     end
 
     test "validates and normalizes roll attrs" do

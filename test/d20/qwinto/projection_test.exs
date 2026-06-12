@@ -33,7 +33,7 @@ defmodule D20.Qwinto.ProjectionTest do
                owner_id: "owner",
                members: %{},
                game: %Game{},
-               permissions: %{can_see_result: true, can_write_result: true},
+               permissions: %{can_see_roll: true, can_write: true},
                available_slots: available_slots
              } = Projection.render(scope, session)
 

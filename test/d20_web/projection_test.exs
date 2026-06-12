@@ -29,19 +29,19 @@ defmodule D20Web.ProjectionTest do
                owner_id: "owner",
                members: %{},
                game: %Game{},
-               permissions: %{can_start_game: true, can_see_result: false},
+               permissions: %{can_start_game: true, can_see_roll: false},
                available_slots: []
              } = Projection.render(scope, session)
     end
 
-    test "renders caller-specific Qwinto available slots for first-roll decision previews" do
+    test "renders caller-specific Qwinto available slots for first-roll choice previews" do
       session = %Session{
         id: "session-1",
         phase: :in_progress,
         owner_id: "owner",
         members: %{},
         game: %Game{
-          phase: :decision,
+          phase: :write_or_pass,
           order: ["owner", "p2"],
           cursor: 0,
           dices: %{orange: 4, purple: 1},

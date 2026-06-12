@@ -84,14 +84,14 @@ channels:
         $ref: "#/components/messages/startSession"
       rollDice:
         $ref: "#/components/messages/rollDice"
-      keepRoll:
-        $ref: "#/components/messages/keepRoll"
       rerollDice:
         $ref: "#/components/messages/rerollDice"
       writeResult:
         $ref: "#/components/messages/writeResult"
-      skipResult:
-        $ref: "#/components/messages/skipResult"
+      passResult:
+        $ref: "#/components/messages/passResult"
+      penalizeResult:
+        $ref: "#/components/messages/penalizeResult"
       commandReply:
         $ref: "#/components/messages/commandReply"
     bindings:
@@ -138,26 +138,11 @@ operations:
       $ref: "#/channels/gameSession"
     summary: Roll selected dice
     description: |
-      The active player sends `roll` during the game `turn` phase. The payload
+      The active player sends `roll` during the game `roll` phase. The payload
       chooses one to three unique dice colors. Dice values and sum are generated
       by the server.
     messages:
       - $ref: "#/channels/gameSession/messages/rollDice"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
-  keepRoll:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Keep the first roll
-    description: |
-      The active player sends `keep` during the game `decision` phase after the
-      first roll. Success opens the result phase for player responses.
-    messages:
-      - $ref: "#/channels/gameSession/messages/keepRoll"
     reply:
       channel:
         $ref: "#/channels/gameSession"
@@ -169,9 +154,9 @@ operations:
       $ref: "#/channels/gameSession"
     summary: Reroll the same dice once
     description: |
-      The active player sends `reroll` during the game `decision` phase after
-      the first roll. The server rerolls the same colors and opens the result
-      phase.
+      The active player sends `reroll` during the game
+      `write_or_pass` phase after the first roll. The server
+      rerolls the same colors and opens the result phase.
     messages:
       - $ref: "#/channels/gameSession/messages/rerollDice"
     reply:
@@ -185,9 +170,11 @@ operations:
       $ref: "#/channels/gameSession"
     summary: Write the current sum into a score-sheet cell
     description: |
-      A ready player sends `write` during the result phase. The target row must
-      be one of the rolled dice colors, the cell must be empty, row ordering
-      must remain valid, and the column must not duplicate the current sum.
+      The active ready player can send `write` during the
+      `write_or_pass` phase. Any ready player can send `write`
+      during the result phase. The target row must be one of the rolled dice
+      colors, the cell must be empty, row ordering must remain valid, and the
+      column must not duplicate the current sum.
     messages:
       - $ref: "#/channels/gameSession/messages/writeResult"
     reply:
@@ -195,17 +182,33 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  skipResult:
+  passResult:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Skip writing the current result
+    summary: Pass on writing the current result
     description: |
-      A ready player sends `skip` during the result phase. The active player
-      receives one penalty when skipping; non-active players pass without a
+      A ready player sends `pass` during the result phase. The active player
+      receives one penalty when passing; non-active players pass without a
       penalty.
     messages:
-      - $ref: "#/channels/gameSession/messages/skipResult"
+      - $ref: "#/channels/gameSession/messages/passResult"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  penalizeResult:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Take a penalty for the current result
+    description: |
+      The active ready player sends `penalize` during the
+      `write_or_pass` or result phase to take one penalty for the
+      current roll.
+    messages:
+      - $ref: "#/channels/gameSession/messages/penalizeResult"
     reply:
       channel:
         $ref: "#/channels/gameSession"
@@ -307,13 +310,6 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/rollPayload"
-    keepRoll:
-      name: keep
-      title: Keep Roll
-      summary: Keep the first roll result
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/emptyPayload"
     rerollDice:
       name: reroll
       title: Reroll Dice
@@ -328,10 +324,17 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/writePayload"
-    skipResult:
-      name: skip
-      title: Skip Result
-      summary: Skip writing the current sum
+    passResult:
+      name: pass
+      title: Pass Result
+      summary: Pass on writing the current sum
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    penalizeResult:
+      name: penalize
+      title: Penalize Result
+      summary: Take a penalty for the current sum
       contentType: application/json
       payload:
         $ref: "#/components/schemas/emptyPayload"
@@ -495,33 +498,27 @@ components:
       description: Caller-specific permissions computed from session and game state.
       required:
         - can_start_game
-        - can_select_dice
         - can_roll
-        - can_keep
         - can_reroll
-        - can_see_result
-        - can_write_result
-        - can_pass_result
-        - can_take_penalty
+        - can_see_roll
+        - can_write
+        - can_pass
+        - can_penalize
       properties:
         can_start_game:
           type: boolean
-        can_select_dice:
-          type: boolean
         can_roll:
-          type: boolean
-        can_keep:
           type: boolean
         can_reroll:
           type: boolean
-        can_see_result:
+        can_see_roll:
           type: boolean
           description: Whether the caller can see rolled dice values and sum evidence for the current roll.
-        can_write_result:
+        can_write:
           type: boolean
-        can_pass_result:
+        can_pass:
           type: boolean
-        can_take_penalty:
+        can_penalize:
           type: boolean
       additionalProperties: false
     sessionMember:
@@ -618,8 +615,8 @@ components:
       enum:
         - setup
         - ready
-        - turn
-        - decision
+        - roll
+        - write_or_pass
         - result
         - finished
     color:

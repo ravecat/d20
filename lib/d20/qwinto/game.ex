@@ -12,7 +12,7 @@ defmodule D20.Qwinto.Game do
   alias D20.Qwinto.Rules
   alias D20.Qwinto.Ruleset
 
-  @phases [:setup, :ready, :turn, :decision, :result, :finished]
+  @phases [:setup, :ready, :roll, :write_or_pass, :result, :finished]
   @derive Jason.Encoder
   @primary_key false
 
@@ -32,7 +32,7 @@ defmodule D20.Qwinto.Game do
 
   @type player_id :: D20.Actors.Actor.id()
   @type roll :: %{optional(Ruleset.color()) => pos_integer()}
-  @type phase :: :setup | :ready | :turn | :decision | :result | :finished
+  @type phase :: :setup | :ready | :roll | :write_or_pass | :result | :finished
   @type player_status :: :ready | :wrote | :failed | :passed
   @type player :: %{
           required(:rows) => %{
@@ -91,34 +91,35 @@ defmodule D20.Qwinto.Game do
       when phase in [:setup, :ready],
       do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: "join"}), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "join"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: "leave"}), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "leave"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: "roll"} = command) do
+  def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :turn}, %D20.Command{}),
+  def dispatch(%__MODULE__{phase: :roll}, %D20.Command{}),
     do: {:error, :invalid_phase}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "join"}), do: {:ok, game}
-
-  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: "leave"}),
+  def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: "join"}),
     do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :decision} = game, %D20.Command{event: event} = command)
-      when event in ["keep", "reroll", "write", "take_penalty"] do
+  def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: "leave"}),
+    do: {:ok, game}
+
+  def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: event} = command)
+      when event in ["reroll", "write", "penalize"] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :decision}, %D20.Command{}),
+  def dispatch(%__MODULE__{phase: :write_or_pass}, %D20.Command{}),
     do: {:error, :invalid_phase}
 
   def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "join"}), do: {:ok, game}
@@ -133,7 +134,7 @@ defmodule D20.Qwinto.Game do
   end
 
   def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: event} = command)
-      when event in ["skip", "take_penalty"] do
+      when event in ["pass", "penalize"] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -164,17 +165,13 @@ defmodule D20.Qwinto.Game do
   end
 
   defp apply_command(game, %D20.Command{event: "start"}) do
-    %{game | phase: :turn, cursor: 0}
+    %{game | phase: :roll, cursor: 0}
   end
 
   defp apply_command(game, %D20.Command{event: "roll", attrs: %{colors: colors}}) do
     game = game |> put_roll(colors, 1) |> reset_responses()
 
-    %{game | phase: :decision}
-  end
-
-  defp apply_command(game, %D20.Command{event: "keep"}) do
-    %{game | phase: :result}
+    %{game | phase: :write_or_pass}
   end
 
   defp apply_command(game, %D20.Command{event: "reroll"}) do
@@ -183,7 +180,7 @@ defmodule D20.Qwinto.Game do
     %{game | phase: :result}
   end
 
-  defp apply_command(%__MODULE__{phase: :decision} = game, %D20.Command{
+  defp apply_command(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{
          event: "write",
          actor_id: actor_id,
          attrs: %{row: row, slot: slot}
@@ -205,14 +202,14 @@ defmodule D20.Qwinto.Game do
     |> maybe_resolve_turn()
   end
 
-  defp apply_command(game, %D20.Command{event: "skip", actor_id: actor_id}) do
+  defp apply_command(game, %D20.Command{event: "pass", actor_id: actor_id}) do
     game
-    |> apply_skip(actor_id)
+    |> apply_pass(actor_id)
     |> maybe_resolve_turn()
   end
 
-  defp apply_command(%__MODULE__{phase: :decision} = game, %D20.Command{
-         event: "take_penalty",
+  defp apply_command(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{
+         event: "penalize",
          actor_id: actor_id
        }) do
     game
@@ -220,7 +217,7 @@ defmodule D20.Qwinto.Game do
     |> Map.put(:phase, :result)
   end
 
-  defp apply_command(game, %D20.Command{event: "take_penalty", actor_id: actor_id}) do
+  defp apply_command(game, %D20.Command{event: "penalize", actor_id: actor_id}) do
     game
     |> apply_penalty(actor_id)
     |> maybe_resolve_turn()
@@ -268,7 +265,7 @@ defmodule D20.Qwinto.Game do
     put_in(game.players[actor_id][:rows][row][slot], game.sum)
   end
 
-  defp apply_skip(game, player_id) do
+  defp apply_pass(game, player_id) do
     if active_player?(game, player_id) do
       apply_penalty(game, player_id)
     else
@@ -299,7 +296,7 @@ defmodule D20.Qwinto.Game do
   defp advance_turn(game) do
     next_cursor = rem(game.cursor + 1, length(game.order))
 
-    %{game | phase: :turn, cursor: next_cursor, dices: %{}, sum: nil, attempt: 0}
+    %{game | phase: :roll, cursor: next_cursor, dices: %{}, sum: nil, attempt: 0}
   end
 
   defp score_players(game) do

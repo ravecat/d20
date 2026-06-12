@@ -9,14 +9,12 @@ defmodule D20.Qwinto.PermissionTest do
 
   @default_permissions %{
     can_start_game: false,
-    can_select_dice: false,
     can_roll: false,
-    can_keep: false,
     can_reroll: false,
-    can_see_result: false,
-    can_write_result: false,
-    can_pass_result: false,
-    can_take_penalty: false
+    can_see_roll: false,
+    can_write: false,
+    can_pass: false,
+    can_penalize: false
   }
 
   describe "permissions/2" do
@@ -33,43 +31,41 @@ defmodule D20.Qwinto.PermissionTest do
       assert %{can_start_game: false} = Permission.permissions(scope("p2"), session)
     end
 
-    test "lets only the active player select and roll dice during the turn phase" do
-      session = session(:turn, order: ["p1", "p2"], cursor: 0)
+    test "lets only the active player roll dice during the roll phase" do
+      session = session(:roll, order: ["p1", "p2"], cursor: 0)
 
-      assert %{can_select_dice: true, can_roll: true} =
-               Permission.permissions(scope("p1"), session)
+      assert %{can_roll: true} = Permission.permissions(scope("p1"), session)
 
-      assert %{can_select_dice: false, can_roll: false} =
-               Permission.permissions(scope("p2"), session)
+      assert %{can_roll: false} = Permission.permissions(scope("p2"), session)
     end
 
-    test "exposes rolled result visibility during decision and result phases" do
-      decision = session(:decision, order: ["p1", "p2"], cursor: 0, attempt: 1)
+    test "exposes rolled result visibility during write/pass and result phases" do
+      choice = session(:write_or_pass, order: ["p1", "p2"], cursor: 0, attempt: 1)
       result = session(:result, order: ["p1", "p2"], cursor: 0)
-      turn = session(:turn, order: ["p1", "p2"], cursor: 0)
+      roll = session(:roll, order: ["p1", "p2"], cursor: 0)
       finished = session(:finished, order: ["p1", "p2"], cursor: 0)
 
-      assert %{can_see_result: true} = Permission.permissions(scope("p1"), decision)
-      assert %{can_see_result: true} = Permission.permissions(scope("p2"), decision)
-      assert %{can_see_result: true} = Permission.permissions(scope("p1"), result)
-      assert %{can_see_result: false} = Permission.permissions(scope("p1"), turn)
-      assert %{can_see_result: false} = Permission.permissions(scope("p1"), finished)
+      assert %{can_see_roll: true} = Permission.permissions(scope("p1"), choice)
+      assert %{can_see_roll: true} = Permission.permissions(scope("p2"), choice)
+      assert %{can_see_roll: true} = Permission.permissions(scope("p1"), result)
+      assert %{can_see_roll: false} = Permission.permissions(scope("p1"), roll)
+      assert %{can_see_roll: false} = Permission.permissions(scope("p1"), finished)
     end
 
-    test "lets only the active player keep or reroll the first decision roll" do
-      session = session(:decision, order: ["p1", "p2"], cursor: 0, attempt: 1)
+    test "lets only the active player reroll the first choice roll" do
+      session = session(:write_or_pass, order: ["p1", "p2"], cursor: 0, attempt: 1)
 
-      assert %{can_keep: true, can_reroll: true} = Permission.permissions(scope("p1"), session)
-      assert %{can_keep: false, can_reroll: false} = Permission.permissions(scope("p2"), session)
+      assert %{can_reroll: true} = Permission.permissions(scope("p1"), session)
+      assert %{can_reroll: false} = Permission.permissions(scope("p2"), session)
 
-      session = session(:decision, order: ["p1", "p2"], cursor: 0, attempt: 2)
+      session = session(:write_or_pass, order: ["p1", "p2"], cursor: 0, attempt: 2)
 
-      assert %{can_keep: false, can_reroll: false} = Permission.permissions(scope("p1"), session)
+      assert %{can_reroll: false} = Permission.permissions(scope("p1"), session)
     end
 
-    test "lets active player write or take penalty in first decision" do
+    test "lets active player write or penalize in first choice phase" do
       session =
-        session(:decision,
+        session(:write_or_pass,
           order: ["p1", "p2"],
           cursor: 0,
           attempt: 1,
@@ -78,10 +74,10 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(), "p2" => player()}
         )
 
-      assert %{can_write_result: true, can_take_penalty: true, can_reroll: true} =
+      assert %{can_write: true, can_penalize: true, can_reroll: true} =
                Permission.permissions(scope("p1"), session)
 
-      assert %{can_write_result: false, can_take_penalty: false, can_reroll: false} =
+      assert %{can_write: false, can_penalize: false, can_reroll: false} =
                Permission.permissions(scope("p2"), session)
     end
 
@@ -95,10 +91,10 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(), "p2" => player()}
         )
 
-      assert %{can_write_result: true, can_pass_result: true, can_take_penalty: true} =
+      assert %{can_write: true, can_pass: true, can_penalize: true} =
                Permission.permissions(scope("p1"), session)
 
-      assert %{can_write_result: true, can_pass_result: true, can_take_penalty: false} =
+      assert %{can_write: true, can_pass: true, can_penalize: false} =
                Permission.permissions(scope("p2"), session)
     end
 
@@ -112,7 +108,7 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(%{orange: full_row()}), "p2" => player()}
         )
 
-      assert %{can_write_result: false, can_pass_result: true, can_take_penalty: true} =
+      assert %{can_write: false, can_pass: true, can_penalize: true} =
                Permission.permissions(scope("p1"), session)
     end
 
@@ -120,7 +116,7 @@ defmodule D20.Qwinto.PermissionTest do
       session =
         session(:result, dices: %{orange: 4}, sum: 4, players: %{"p1" => player(%{}, :wrote)})
 
-      assert %{can_write_result: false, can_pass_result: false, can_take_penalty: false} =
+      assert %{can_write: false, can_pass: false, can_penalize: false} =
                Permission.permissions(scope("p1"), session)
     end
   end

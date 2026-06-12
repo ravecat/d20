@@ -55,7 +55,7 @@ defmodule D20.Qwinto.Command do
   end
 
   def validate(%D20.Command{event: event} = command)
-      when event in ["keep", "reroll", "skip", "take_penalty"],
+      when event in ["reroll", "pass", "penalize"],
       do: {:ok, command}
 
   def validate(%D20.Command{}), do: {:error, :unknown_command}
