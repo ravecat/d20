@@ -461,6 +461,7 @@ components:
       description: Authoritative session projection.
       required:
         - id
+        - self
         - phase
         - owner_id
         - members
@@ -470,6 +471,9 @@ components:
         id:
           type: string
           format: uuid
+        self:
+          $ref: "#/components/schemas/participantId"
+          description: Actor id of the current caller for this projection.
         phase:
           type: string
           enum:

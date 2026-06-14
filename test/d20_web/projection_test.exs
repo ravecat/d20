@@ -25,6 +25,7 @@ defmodule D20Web.ProjectionTest do
 
       assert %{
                id: "session-1",
+               self: "owner",
                phase: :waiting_for_players,
                owner_id: "owner",
                members: %{},
@@ -82,6 +83,20 @@ defmodule D20Web.ProjectionTest do
       assert %{row: :orange, slot: 0} in available_slots
       assert %{row: :purple, slot: 8} in available_slots
       refute Enum.any?(available_slots, &(&1.row == :yellow))
+    end
+
+    test "renders self for non-player actors without deriving a sheet" do
+      session = %Session{
+        id: "session-1",
+        phase: :in_progress,
+        owner_id: "owner",
+        members: %{},
+        game: %Game{phase: :roll, order: ["owner"], players: %{"owner" => player()}}
+      }
+
+      scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
+
+      assert %{self: "spectator", available_slots: []} = Projection.render(scope, session)
     end
 
     test "returns the session unchanged without a game-specific projection" do

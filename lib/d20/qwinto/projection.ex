@@ -11,11 +11,12 @@ defmodule D20.Qwinto.Projection do
 
   @spec render(Scope.t(), Session.t()) :: map()
   def render(%Scope{} = scope, %Session{game: %Game{} = game} = session) do
+    actor_id = scope.actor.id
     permissions = Permission.permissions(scope, session)
-    available_slots = Rules.available_slots(game, scope.actor.id)
+    available_slots = Rules.available_slots(game, actor_id)
 
     session
     |> Map.from_struct()
-    |> Map.merge(%{permissions: permissions, available_slots: available_slots})
+    |> Map.merge(%{self: actor_id, permissions: permissions, available_slots: available_slots})
   end
 end
