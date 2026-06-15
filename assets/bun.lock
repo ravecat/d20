@@ -6,8 +6,8 @@
       "dependencies": {
         "@inertiajs/svelte": "2.3.21",
         "@rvct/d20sdk": "1.1.0-beta.5",
-        "@rvct/phoenix": "1.4.0-beta.2",
         "phoenix": "file:../deps/phoenix",
+        "phoenix-session": "1.1.0",
         "phoenix_html": "file:../deps/phoenix_html",
         "phoenix_live_view": "file:../deps/phoenix_live_view",
         "svelte": "^5.55.5",
@@ -1491,6 +1491,8 @@
 
     "phoenix": ["phoenix@file:../deps/phoenix", { "devDependencies": { "@babel/cli": "7.28.6", "@babel/core": "7.29.0", "@babel/preset-env": "7.29.0", "@eslint/js": "^10.0.1", "@stylistic/eslint-plugin": "^5.0.0", "documentation": "^14.0.3", "eslint": "10.0.2", "eslint-plugin-jest": "29.15.0", "jest": "^30.0.0", "jest-environment-jsdom": "^30.0.0", "jsdom": "^28.1.0", "mock-socket": "^9.3.1" } }],
 
+    "phoenix-session": ["phoenix-session@1.1.0", "", { "dependencies": { "@types/phoenix": "^1.6.7", "nanostores": "^1.0.1" } }, "sha512-6Ej1U06nthGuL3cAukLxIjC+LU8j5tvSaLbgxBTcAyo8DVM1AwEw++LLul7bIkpMOch4kaUXC6Ee92pdKE7k0A=="],
+
     "phoenix_html": ["phoenix_html@file:../deps/phoenix_html", {}],
 
     "phoenix_live_view": ["phoenix_live_view@file:../deps/phoenix_live_view", { "dependencies": { "morphdom": "2.7.8" }, "devDependencies": { "@babel/cli": "7.27.2", "@babel/core": "7.27.4", "@babel/preset-env": "7.27.2", "@babel/preset-typescript": "^7.27.1", "@eslint/js": "^9.29.0", "@playwright/test": "^1.56.1", "@types/jest": "^30.0.0", "@types/phoenix": "^1.6.6", "css.escape": "^1.5.1", "eslint": "9.29.0", "eslint-plugin-jest": "28.14.0", "eslint-plugin-playwright": "^2.2.0", "globals": "^16.2.0", "jest": "^30.0.0", "jest-environment-jsdom": "^30.0.0", "jest-monocart-coverage": "^1.1.1", "monocart-reporter": "^2.9.21", "phoenix": "1.7.21", "prettier": "3.5.3", "ts-jest": "^29.4.0", "typescript": "^5.8.3", "typescript-eslint": "^8.34.0" } }],
@@ -1874,6 +1876,8 @@
     "@jest/transform/slash": ["slash@3.0.0", "", {}, "sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q=="],
 
     "@jest/types/chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
+
+    "@rvct/d20sdk/phoenix": ["phoenix@file:../deps/phoenix", { "devDependencies": { "@babel/cli": "7.28.6", "@babel/core": "7.29.0", "@babel/preset-env": "7.29.0", "@eslint/js": "^10.0.1", "@stylistic/eslint-plugin": "^5.0.0", "documentation": "^14.0.3", "eslint": "10.0.2", "eslint-plugin-jest": "29.15.0", "jest": "^30.0.0", "jest-environment-jsdom": "^30.0.0", "jsdom": "^28.1.0", "mock-socket": "^9.3.1" } }],
 
     "@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" }, "bundled": true }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 

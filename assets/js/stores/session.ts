@@ -1,4 +1,4 @@
-import { session } from "@rvct/phoenix";
+import { session } from "phoenix-session";
 import socket from "~/user_socket.js";
 import type { Session } from "~types/game";
 
