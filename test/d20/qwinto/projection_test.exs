@@ -44,6 +44,6 @@ defmodule D20.Qwinto.ProjectionTest do
   end
 
   defp player do
-    %{rows: %{orange: %{}, yellow: %{}, purple: %{}}, penalties: 0, status: :ready}
+    %{rows: %{orange: %{}, yellow: %{}, purple: %{}}, penalties: 0, status: :pending}
   end
 end

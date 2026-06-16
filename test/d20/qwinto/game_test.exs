@@ -30,6 +30,7 @@ defmodule D20.Qwinto.GameTest do
       assert decoded["attempt"] == 1
       assert decoded["scores"] == %{}
       assert decoded["players"]["p1"]["status"] == "wrote"
+      assert decoded["players"]["p2"]["status"] == "pending"
       assert decoded["players"]["p1"]["rows"]["orange"]["0"] == game.sum
     end
 
@@ -37,6 +38,7 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, %Game{phase: :setup} = game} = Game.init()
 
       assert {:ok, %Game{phase: :setup, order: ["p1"]} = game} = dispatch(game, "join", "p1")
+      assert game.players["p1"].status == :idle
 
       assert {:ok, %Game{phase: :ready, order: ["p1", "p2"]} = game} =
                dispatch(game, "join", "p2")
@@ -44,6 +46,8 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, %Game{phase: :roll, order: ["p1", "p2"], cursor: 0} = game} =
                dispatch(game, "start", "p1")
 
+      assert game.players["p1"].status == :pending
+      assert game.players["p2"].status == :idle
       assert {:ok, ^game} = dispatch(game, "join", "p1")
       assert {:ok, ^game} = dispatch(game, "join", "p3")
     end
@@ -83,9 +87,27 @@ defmodule D20.Qwinto.GameTest do
       assert length(rolled_values) == 2
       assert Enum.all?(rolled_values, &(&1 in 1..6))
       assert game.sum == Enum.sum(rolled_values)
-      assert game.players["p1"].status == :ready
-      assert game.players["p2"].status == :ready
+      assert game.players["p1"].status == :pending
+      assert game.players["p2"].status == :idle
       assert game.scores == %{}
+    end
+
+    test "roll marks the active player pending for existing roll snapshots" do
+      game = %Game{
+        phase: :roll,
+        order: ["p1", "p2"],
+        cursor: 0,
+        players: %{
+          "p1" => player(:idle),
+          "p2" => player(:idle)
+        }
+      }
+
+      assert {:ok, %Game{phase: :write_or_pass} = game} =
+               dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
+
+      assert game.players["p1"].status == :pending
+      assert game.players["p2"].status == :idle
     end
 
     test "rejects malformed attrs before applying game rules" do
@@ -144,6 +166,7 @@ defmodule D20.Qwinto.GameTest do
 
       assert game.players["p1"].rows.orange[0] == game.sum
       assert game.players["p1"].status == :wrote
+      assert game.players["p2"].status == :pending
       assert game.phase == :result
 
       assert {:ok, game} = dispatch(game, "pass", "p2")
@@ -152,6 +175,8 @@ defmodule D20.Qwinto.GameTest do
       assert game.dices == %{}
       assert game.sum == nil
       assert game.attempt == 0
+      assert game.players["p1"].status == :idle
+      assert game.players["p2"].status == :pending
     end
 
     test "active player can write immediately from write/pass and opens result" do
@@ -166,7 +191,7 @@ defmodule D20.Qwinto.GameTest do
       assert game.phase == :result
       assert game.players["p1"].rows.orange[0] == game.sum
       assert game.players["p1"].status == :wrote
-      assert game.players["p2"].status == :ready
+      assert game.players["p2"].status == :pending
 
       assert {:ok, game} = dispatch(game, "pass", "p2")
       assert game.phase == :roll
@@ -184,8 +209,8 @@ defmodule D20.Qwinto.GameTest do
 
       assert game.phase == :result
       assert game.players["p1"].penalties == 1
-      assert game.players["p1"].status == :failed
-      assert game.players["p2"].status == :ready
+      assert game.players["p1"].status == :skipped
+      assert game.players["p2"].status == :pending
     end
 
     test "active player can take a penalty instead of writing the final result" do
@@ -195,13 +220,17 @@ defmodule D20.Qwinto.GameTest do
       {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:ok, game} = dispatch(game, "roll", "p1", %{"colors" => ["orange"]})
+      assert {:ok, game} = dispatch(game, "reroll", "p1")
       assert {:ok, game} = dispatch(game, "penalize", "p1")
+
+      assert game.phase == :result
       assert game.players["p1"].penalties == 1
-      assert game.players["p1"].status == :failed
+      assert game.players["p1"].status == :skipped
+      assert game.players["p2"].status == :pending
       assert game.players["p2"].penalties == 0
     end
 
-    test "pass keeps the existing result response semantics" do
+    test "pass marks only passive players skipped without penalty" do
       {:ok, game} = Game.init()
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
@@ -212,18 +241,14 @@ defmodule D20.Qwinto.GameTest do
       assert {:ok, game} = dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 0})
       assert {:ok, game} = dispatch(game, "pass", "p2")
 
-      assert game.players["p2"].status == :passed
+      assert game.phase == :result
+      assert game.players["p2"].penalties == 0
+      assert game.players["p2"].status == :skipped
+      assert game.players["p3"].status == :pending
 
-      game =
-        game
-        |> Map.put(:phase, :result)
-        |> Map.put(:cursor, 1)
-        |> put_in([Access.key!(:players), "p1", Access.key!(:status)], :ready)
-        |> put_in([Access.key!(:players), "p2", Access.key!(:status)], :ready)
-
-      assert {:ok, game} = dispatch(game, "pass", "p2")
-      assert game.players["p2"].penalties == 1
-      assert game.players["p2"].status == :failed
+      assert {:ok, game} = dispatch(game, "pass", "p3")
+      assert game.phase == :roll
+      assert game.cursor == 1
     end
 
     test "active player can reroll once with the same dice before result opens" do
@@ -242,6 +267,8 @@ defmodule D20.Qwinto.GameTest do
 
       assert game.phase == :result
       assert game.attempt == 2
+      assert game.players["p1"].status == :pending
+      assert game.players["p2"].status == :pending
       rolled_values = Map.values(game.dices)
 
       assert MapSet.new(Map.keys(game.dices)) == MapSet.new([:yellow, :purple])
@@ -389,8 +416,9 @@ defmodule D20.Qwinto.GameTest do
             purple: %{3 => 1}
           },
           penalties: 1,
-          status: :ready
+          status: :idle
         })
+        |> put_in([Access.key!(:players), "p2", Access.key!(:status)], :pending)
         |> put_in([Access.key!(:players), "p2", Access.key!(:penalties)], 3)
 
       assert {:ok, game} = dispatch(game, "roll", "p2", %{"colors" => ["orange"]})
@@ -413,5 +441,13 @@ defmodule D20.Qwinto.GameTest do
 
   defp dispatch(game, event, actor_id, attrs \\ %{}) do
     Game.dispatch(game, %D20.Command{event: event, actor_id: actor_id, attrs: attrs})
+  end
+
+  defp player(status) do
+    %{
+      rows: %{orange: %{}, yellow: %{}, purple: %{}},
+      penalties: 0,
+      status: status
+    }
   end
 end

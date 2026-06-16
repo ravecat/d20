@@ -84,7 +84,7 @@ defmodule D20.Qwinto.RulesTest do
       assert :ok = Rules.validate(game, command("write", "p1", %{row: :orange, slot: 8}))
     end
 
-    test "allows ready players to pass and only active players to penalize" do
+    test "allows passive players to pass and only active players to penalize" do
       game = %Game{
         phase: :result,
         order: ["p1", "p2"],
@@ -94,7 +94,7 @@ defmodule D20.Qwinto.RulesTest do
         players: %{"p1" => player(), "p2" => player()}
       }
 
-      assert :ok = Rules.validate(game, command("pass", "p1"))
+      assert {:error, :not_passive_player} = Rules.validate(game, command("pass", "p1"))
       assert :ok = Rules.validate(game, command("pass", "p2"))
       assert :ok = Rules.validate(game, command("penalize", "p1"))
 
@@ -104,6 +104,52 @@ defmodule D20.Qwinto.RulesTest do
 
       assert :ok = Rules.validate(game, command("penalize", "p1"))
       assert {:error, :not_active_player} = Rules.validate(game, command("penalize", "p2"))
+    end
+
+    test "rejects commands when the actor is not pending" do
+      write_game = %Game{
+        phase: :result,
+        dices: %{orange: 4},
+        sum: 4,
+        players: %{"p1" => player(%{}, :wrote)}
+      }
+
+      assert {:error, {:unexpected_player_status, :wrote}} =
+               Rules.validate(write_game, command("write", "p1", %{row: :orange, slot: 0}))
+
+      pass_game = %Game{
+        phase: :result,
+        order: ["active", "p1"],
+        cursor: 0,
+        players: %{"active" => player(), "p1" => player(%{}, :skipped)}
+      }
+
+      assert {:error, {:unexpected_player_status, :skipped}} =
+               Rules.validate(pass_game, command("pass", "p1"))
+
+      penalize_game = %Game{
+        phase: :result,
+        order: ["p1"],
+        cursor: 0,
+        players: %{"p1" => player(%{}, :idle)}
+      }
+
+      assert {:error, {:unexpected_player_status, :idle}} =
+               Rules.validate(penalize_game, command("penalize", "p1"))
+    end
+
+    test "reports whether a turn is complete" do
+      assert Rules.turn_complete?(%Game{
+               players: %{"p1" => player(%{}, :wrote), "p2" => player(%{}, :skipped)}
+             })
+
+      refute Rules.turn_complete?(%Game{
+               players: %{"p1" => player(%{}, :wrote), "p2" => player(%{}, :pending)}
+             })
+
+      refute Rules.turn_complete?(%Game{
+               players: %{"p1" => player(%{}, :wrote), "p2" => player(%{}, :idle)}
+             })
     end
 
     test "reports whether a legal write action is available now" do
@@ -176,23 +222,13 @@ defmodule D20.Qwinto.RulesTest do
       refute %{row: :orange, slot: 3} in available_slots
       refute %{row: :orange, slot: 5} in available_slots
     end
-
-    test "rejects a player that already responded" do
-      game = %Game{phase: :result, dices: %{orange: 4}, players: %{"p1" => player(%{}, :wrote)}}
-
-      assert {:error, :already_responded} =
-               Rules.validate(game, command("write", "p1", %{row: :orange, slot: 0}))
-
-      assert {:error, :already_responded} = Rules.validate(game, command("pass", "p1"))
-      assert {:error, :already_responded} = Rules.validate(game, command("penalize", "p1"))
-    end
   end
 
   defp command(event, actor_id, attrs \\ %{}) do
     %D20.Command{event: event, actor_id: actor_id, attrs: attrs}
   end
 
-  defp player(rows \\ %{}, status \\ :ready) do
+  defp player(rows \\ %{}, status \\ :pending) do
     %{
       rows: %{
         orange: Map.get(rows, :orange, %{}),

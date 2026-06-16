@@ -16,8 +16,9 @@ defmodule D20.Qwinto.Rules do
   @type reason ::
           setup_error()
           | :not_active_player
+          | :not_passive_player
           | :unknown_player
-          | :already_responded
+          | {:unexpected_player_status, Game.player_status()}
           | :invalid_slot
           | :occupied
           | :invalid_row_order
@@ -63,8 +64,8 @@ defmodule D20.Qwinto.Rules do
         attrs: %{row: row, slot: slot}
       }) do
     with :ok <- require_player(game, actor_id),
-         :ok <- require_ready(game, actor_id),
          :ok <- require_active_player(game, actor_id),
+         :ok <- require_player_status(game, actor_id, :pending),
          :ok <- require_valid_slot(game, row, slot),
          :ok <- require_available_slot(game, actor_id, row, slot),
          :ok <- require_valid_order(game, actor_id, row, slot),
@@ -79,7 +80,7 @@ defmodule D20.Qwinto.Rules do
         attrs: %{row: row, slot: slot}
       }) do
     with :ok <- require_player(game, actor_id),
-         :ok <- require_ready(game, actor_id),
+         :ok <- require_player_status(game, actor_id, :pending),
          :ok <- require_valid_slot(game, row, slot),
          :ok <- require_available_slot(game, actor_id, row, slot),
          :ok <- require_valid_order(game, actor_id, row, slot),
@@ -91,18 +92,19 @@ defmodule D20.Qwinto.Rules do
   def validate(%Game{}, %D20.Command{event: "write"}), do: {:error, :invalid_phase}
 
   def validate(game, %D20.Command{event: "pass", actor_id: actor_id}) do
-    with :ok <- require_phase(game, :result),
-         :ok <- require_player(game, actor_id),
-         :ok <- require_ready(game, actor_id) do
+    with :ok <- require_player(game, actor_id),
+         :ok <- require_passive_player(game, actor_id),
+         :ok <- require_phase(game, :result),
+         :ok <- require_player_status(game, actor_id, :pending) do
       :ok
     end
   end
 
   def validate(game, %D20.Command{event: "penalize", actor_id: actor_id}) do
-    with :ok <- require_phase(game, [:write_or_pass, :result]),
-         :ok <- require_player(game, actor_id),
-         :ok <- require_ready(game, actor_id),
-         :ok <- require_active_player(game, actor_id) do
+    with :ok <- require_player(game, actor_id),
+         :ok <- require_active_player(game, actor_id),
+         :ok <- require_phase(game, [:write_or_pass, :result]),
+         :ok <- require_player_status(game, actor_id, :pending) do
       :ok
     end
   end
@@ -125,9 +127,9 @@ defmodule D20.Qwinto.Rules do
 
   def available_slots(%Game{}, _actor_id), do: []
 
-  @spec turn_responses_complete?(D20.Qwinto.Game.t()) :: boolean()
-  def turn_responses_complete?(game) do
-    Enum.all?(game.players, fn {_player_id, player} -> player.status != :ready end)
+  @spec turn_complete?(D20.Qwinto.Game.t()) :: boolean()
+  def turn_complete?(game) do
+    Enum.all?(game.players, fn {_player_id, player} -> player.status in [:wrote, :skipped] end)
   end
 
   @spec ready_to_start?(D20.Qwinto.Game.t()) :: boolean()
@@ -168,18 +170,25 @@ defmodule D20.Qwinto.Rules do
     if Game.active_player?(game, player_id), do: :ok, else: {:error, :not_active_player}
   end
 
+  defp require_passive_player(game, player_id) do
+    if Game.active_player?(game, player_id), do: {:error, :not_passive_player}, else: :ok
+  end
+
   defp require_player(game, player_id) do
     if Map.has_key?(game.players, player_id), do: :ok, else: {:error, :unknown_player}
   end
 
-  defp require_ready(game, player_id) do
-    if game.players[player_id].status == :ready, do: :ok, else: {:error, :already_responded}
+  defp require_player_status(game, player_id, status) do
+    case game.players[player_id].status do
+      ^status -> :ok
+      actual -> {:error, {:unexpected_player_status, actual}}
+    end
   end
 
   defp can_write_now?(%Game{phase: :write_or_pass} = game, player_id) do
     with :ok <- require_player(game, player_id),
-         :ok <- require_ready(game, player_id),
-         :ok <- require_active_player(game, player_id) do
+         :ok <- require_active_player(game, player_id),
+         :ok <- require_player_status(game, player_id, :pending) do
       true
     else
       {:error, _reason} -> false
@@ -188,7 +197,7 @@ defmodule D20.Qwinto.Rules do
 
   defp can_write_now?(%Game{phase: :result} = game, player_id) do
     with :ok <- require_player(game, player_id),
-         :ok <- require_ready(game, player_id) do
+         :ok <- require_player_status(game, player_id, :pending) do
       true
     else
       {:error, _reason} -> false

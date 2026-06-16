@@ -33,7 +33,7 @@ defmodule D20.Qwinto.Game do
   @type player_id :: D20.Actors.Actor.id()
   @type roll :: %{optional(Ruleset.color()) => pos_integer()}
   @type phase :: :setup | :ready | :roll | :write_or_pass | :result | :finished
-  @type player_status :: :ready | :wrote | :failed | :passed
+  @type player_status :: :idle | :pending | :wrote | :skipped
   @type player :: %{
           required(:rows) => %{
             required(Ruleset.color()) => %{optional(non_neg_integer()) => integer()}
@@ -164,20 +164,31 @@ defmodule D20.Qwinto.Game do
     |> maybe_mark_ready()
   end
 
-  defp apply_command(game, %D20.Command{event: "start"}) do
+  defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
+    active = active_player_id(game, 0)
+
     %{game | phase: :roll, cursor: 0}
+    |> set_player_statuses(:idle)
+    |> set_player_statuses([{active, :pending}])
   end
 
-  defp apply_command(game, %D20.Command{event: "roll", attrs: %{colors: colors}}) do
-    game = game |> put_roll(colors, 1) |> reset_responses()
+  defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{
+         event: "roll",
+         attrs: %{colors: colors}
+       }) do
+    active = active_player_id(game, game.cursor)
 
-    %{game | phase: :write_or_pass}
+    game
+    |> apply_roll(colors, 1)
+    |> set_player_statuses([{active, :pending}])
+    |> apply_phase(:write_or_pass)
   end
 
-  defp apply_command(game, %D20.Command{event: "reroll"}) do
-    game = put_roll(game, Map.keys(game.dices), 2)
-
-    %{game | phase: :result}
+  defp apply_command(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: "reroll"}) do
+    game
+    |> apply_roll(Map.keys(game.dices), 2)
+    |> apply_phase(:result)
+    |> set_player_statuses(:pending)
   end
 
   defp apply_command(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{
@@ -185,26 +196,32 @@ defmodule D20.Qwinto.Game do
          actor_id: actor_id,
          attrs: %{row: row, slot: slot}
        }) do
+    pending_players =
+      for player_id <- game.order, player_id != actor_id, do: {player_id, :pending}
+
     game
-    |> put_entry(actor_id, row, slot)
-    |> set_player_status(actor_id, :wrote)
-    |> Map.put(:phase, :result)
+    |> apply_result(actor_id, row, slot)
+    |> apply_phase(:result)
+    |> set_player_statuses([{actor_id, :wrote} | pending_players])
   end
 
-  defp apply_command(game, %D20.Command{
+  defp apply_command(%__MODULE__{phase: :result} = game, %D20.Command{
          event: "write",
          actor_id: actor_id,
          attrs: %{row: row, slot: slot}
        }) do
     game
-    |> put_entry(actor_id, row, slot)
-    |> set_player_status(actor_id, :wrote)
+    |> apply_result(actor_id, row, slot)
+    |> set_player_statuses([{actor_id, :wrote}])
     |> maybe_resolve_turn()
   end
 
-  defp apply_command(game, %D20.Command{event: "pass", actor_id: actor_id}) do
+  defp apply_command(%__MODULE__{phase: :result} = game, %D20.Command{
+         event: "pass",
+         actor_id: actor_id
+       }) do
     game
-    |> apply_pass(actor_id)
+    |> set_player_statuses([{actor_id, :skipped}])
     |> maybe_resolve_turn()
   end
 
@@ -212,12 +229,19 @@ defmodule D20.Qwinto.Game do
          event: "penalize",
          actor_id: actor_id
        }) do
+    pending_players =
+      for player_id <- game.order, player_id != actor_id, do: {player_id, :pending}
+
     game
     |> apply_penalty(actor_id)
-    |> Map.put(:phase, :result)
+    |> apply_phase(:result)
+    |> set_player_statuses(pending_players)
   end
 
-  defp apply_command(game, %D20.Command{event: "penalize", actor_id: actor_id}) do
+  defp apply_command(%__MODULE__{phase: :result} = game, %D20.Command{
+         event: "penalize",
+         actor_id: actor_id
+       }) do
     game
     |> apply_penalty(actor_id)
     |> maybe_resolve_turn()
@@ -234,7 +258,7 @@ defmodule D20.Qwinto.Game do
             Map.put(game.players, player_id, %{
               rows: Map.new(Ruleset.colors(), &{&1, %{}}),
               penalties: 0,
-              status: :ready
+              status: :idle
             })
       }
     end
@@ -246,46 +270,50 @@ defmodule D20.Qwinto.Game do
 
   defp maybe_mark_ready(game), do: game
 
-  defp reset_responses(game) do
-    %{game | players: reset_player_statuses(game.players)}
+  defp active_player_id(game, cursor) do
+    Enum.at(game.order, cursor)
   end
 
-  defp reset_player_statuses(players) do
-    Map.new(players, fn {player_id, player} -> {player_id, %{player | status: :ready}} end)
-  end
-
-  defp put_roll(game, dices, attempt) do
+  defp apply_roll(game, dices, attempt) do
     %{sum: sum, d6: values} = Dice.roll!(d6: length(dices))
     dices = dices |> Enum.zip(values) |> Map.new()
 
     %{game | dices: dices, sum: sum, attempt: attempt}
   end
 
-  defp put_entry(game, actor_id, row, slot) do
-    put_in(game.players[actor_id][:rows][row][slot], game.sum)
+  defp apply_phase(game, phase) do
+    %{game | phase: phase}
   end
 
-  defp apply_pass(game, player_id) do
-    if active_player?(game, player_id) do
-      apply_penalty(game, player_id)
-    else
-      set_player_status(game, player_id, :passed)
-    end
+  defp apply_result(game, actor_id, row, slot) do
+    put_in(game.players[actor_id][:rows][row][slot], game.sum)
   end
 
   defp apply_penalty(game, player_id) do
     game
     |> update_in([Access.key!(:players), player_id, Access.key!(:penalties)], &(&1 + 1))
-    |> set_player_status(player_id, :failed)
+    |> set_player_statuses([{player_id, :skipped}])
   end
 
-  defp set_player_status(game, player_id, status) do
-    put_in(game.players[player_id][:status], status)
+  defp set_player_statuses(game, status) when status in [:idle, :pending, :wrote, :skipped] do
+    players =
+      Map.new(game.players, fn {player_id, player} -> {player_id, %{player | status: status}} end)
+
+    %{game | players: players}
+  end
+
+  defp set_player_statuses(game, assignments) when is_map(assignments) or is_list(assignments) do
+    players =
+      Enum.reduce(assignments, game.players, fn {player_id, status}, players ->
+        Map.update!(players, player_id, fn player -> %{player | status: status} end)
+      end)
+
+    %{game | players: players}
   end
 
   defp maybe_resolve_turn(game) do
     cond do
-      not Rules.turn_responses_complete?(game) -> game
+      not Rules.turn_complete?(game) -> game
       Rules.finished?(game) -> finish(game)
       true -> advance_turn(game)
     end
@@ -295,8 +323,11 @@ defmodule D20.Qwinto.Game do
 
   defp advance_turn(game) do
     next_cursor = rem(game.cursor + 1, length(game.order))
+    active = active_player_id(game, next_cursor)
 
     %{game | phase: :roll, cursor: next_cursor, dices: %{}, sum: nil, attempt: 0}
+    |> set_player_statuses(:idle)
+    |> set_player_statuses([{active, :pending}])
   end
 
   defp score_players(game) do

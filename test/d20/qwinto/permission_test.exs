@@ -81,7 +81,7 @@ defmodule D20.Qwinto.PermissionTest do
                Permission.permissions(scope("p2"), session)
     end
 
-    test "exposes result permissions for active and non-active ready players" do
+    test "exposes result permissions by active and passive role" do
       session =
         session(:result,
           order: ["p1", "p2"],
@@ -91,7 +91,7 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(), "p2" => player()}
         )
 
-      assert %{can_write: true, can_pass: true, can_penalize: true} =
+      assert %{can_write: true, can_pass: false, can_penalize: true} =
                Permission.permissions(scope("p1"), session)
 
       assert %{can_write: true, can_pass: true, can_penalize: false} =
@@ -108,7 +108,7 @@ defmodule D20.Qwinto.PermissionTest do
           players: %{"p1" => player(%{orange: full_row()}), "p2" => player()}
         )
 
-      assert %{can_write: false, can_pass: true, can_penalize: true} =
+      assert %{can_write: false, can_pass: false, can_penalize: true} =
                Permission.permissions(scope("p1"), session)
     end
 
@@ -159,7 +159,7 @@ defmodule D20.Qwinto.PermissionTest do
     }
   end
 
-  defp player(rows \\ %{}, status \\ :ready) do
+  defp player(rows \\ %{}, status \\ :pending) do
     %{
       rows: %{
         orange: Map.get(rows, :orange, %{}),
