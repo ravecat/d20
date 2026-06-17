@@ -43,7 +43,6 @@ defmodule D20.MixProject do
       {:phoenix_live_view, "~> 1.1.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:typeid_elixir, "~> 1.0"},
-      {:neo_faker, "~> 0.14.0"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:heroicons,
        github: "tailwindlabs/heroicons",

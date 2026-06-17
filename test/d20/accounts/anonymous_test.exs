@@ -17,11 +17,11 @@ defmodule D20.Accounts.AnonymousTest do
     assert is_binary(display_name)
     assert display_name =~ ~r/^.+ .+$/
     assert is_binary(avatar)
-    assert avatar =~ "https://gravatar.com/avatar/"
-    assert avatar =~ "d=robohash"
-    assert avatar =~ "s=80"
-    assert avatar =~ "r=g"
-    assert avatar =~ "f=y"
+
+    assert %URI{scheme: "https", host: "api.dicebear.com", path: "/10.x/thumbs/svg", query: query} =
+             URI.parse(avatar)
+
+    assert URI.decode_query(query) == %{"seed" => id, "size" => "80"}
   end
 
   test "generates anonymous data from a new id" do

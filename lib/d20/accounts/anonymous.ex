@@ -35,8 +35,6 @@ defmodule D20.Accounts.Anonymous do
     Wolf Wren Yak Zebra
   )
 
-  @avatar_fallback :robohash
-  @avatar_size 80
   @prefix "anon"
 
   @spec new() :: t()
@@ -62,16 +60,17 @@ defmodule D20.Accounts.Anonymous do
   end
 
   defp avatar_url(id) do
-    NeoFaker.Gravatar.display("anonymous-#{id}@d20.local",
-      fallback: @avatar_fallback,
-      force_default: true,
-      rating: :g,
-      size: @avatar_size
-    )
+    %URI{
+      scheme: "https",
+      host: "api.dicebear.com",
+      path: "/10.x/thumbs/svg",
+      query: URI.encode_query(seed: id, size: 80)
+    }
+    |> URI.to_string()
   end
 
   defp pick(values, seed, offset) do
-    <<_::binary-size(offset), value::32, _::binary>> = seed
+    <<_::binary-size(^offset), value::32, _::binary>> = seed
     Enum.at(values, rem(value, length(values)))
   end
 end
