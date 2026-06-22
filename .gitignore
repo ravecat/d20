@@ -31,6 +31,7 @@ yarn-error.log*
 logs/
 **/logs/
 .plans/
+/.garden/
 
 # Local environment and secrets
 /envs/*
@@ -48,6 +49,7 @@ logs/
 # Dependencies
 node_modules/
 **/node_modules/
+.pnpm-store/
 /assets/node_modules/
 /deps/
 

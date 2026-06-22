@@ -15,6 +15,6 @@ ports:
       - loadbalancer
 registries:
   create:
-    name: d20-registry
+    name: d20-registry.localhost
     host: 127.0.0.1
     hostPort: "5001"

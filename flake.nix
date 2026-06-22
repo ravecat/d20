@@ -15,6 +15,44 @@
         # Match the BEAM major we want to run locally before adding Phoenix deps.
         beam = pkgs.beam.packages.erlang_28;
         elixir = beam.elixir_1_20;
+        gardenVersion = "0.13.64";
+        gardenPlatform = {
+          aarch64-darwin = "macos-arm64";
+          aarch64-linux = "linux-arm64";
+          x86_64-darwin = "macos-amd64";
+          x86_64-linux = "linux-amd64";
+        }.${system};
+        gardenHash = {
+          aarch64-darwin = "sha256-XgcQZzkvYI9jlqfK+51UmRT0VewgBG+YnKRdRynQmko=";
+          aarch64-linux = "sha256-iT8qn2EKbsgZ57TpslvoqB3taurLYYLXveYVpcnHn4M=";
+          x86_64-darwin = "sha256-QId83CukodZ0kBUTDTTjolf0wxF4zbMu4XLB4awmOzM=";
+          x86_64-linux = "sha256-8rmqdlUE+R0jWPJq0cJMdSzCQNe4HnUvJaNhUzyRd4o=";
+        }.${system};
+        garden = pkgs.stdenvNoCC.mkDerivation {
+          pname = "garden";
+          version = gardenVersion;
+
+          src = pkgs.fetchurl {
+            url = "https://download.garden.io/core/${gardenVersion}/garden-${gardenVersion}-${gardenPlatform}.tar.gz";
+            hash = gardenHash;
+          };
+
+          sourceRoot = gardenPlatform;
+          nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.autoPatchelfHook
+          ];
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.stdenv.cc.cc.lib
+          ];
+
+          installPhase = ''
+            runHook preInstall
+
+            install -Dm755 garden "$out/bin/garden"
+
+            runHook postInstall
+          '';
+        };
 
         commonShellHook = ''
           # C.UTF-8 is available without pulling glibcLocales into the shell.
@@ -29,14 +67,21 @@
           beam.erlang
           elixir
           pkgs.docker-client
+          garden
           pkgs.git
           pkgs.just
           pkgs.k3d
           pkgs.kubectl
+          (pkgs.python3.withPackages (pythonPackages: [
+            pythonPackages.pyyaml
+          ]))
+          pkgs.telepresence2
           # Phoenix uses PostgreSQL locally by default.
           pkgs.postgresql
         ];
       in {
+        packages.garden = garden;
+
         devShells.default = pkgs.mkShell {
           packages = hostPackages;
 

@@ -14,6 +14,8 @@ Required dependencies:
 
 Recommended:
 
+- Nix flake environment for the optional Garden/Telepresence local workflow. The flake provides pinned Garden and Telepresence CLIs.
+
 <details>
 <summary>Prepare Nix environment</summary>
 
@@ -75,6 +77,28 @@ just serve
 Open [http://localhost:5000](http://localhost:5000).
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `VITE_PORT` or defaults to `5174`.
+
+## Local Cluster Workflow
+
+Use the local cluster workflow when you want D20 and its module projects behind stable local ingress names:
+
+```sh
+just up
+```
+
+Open [http://d20.localhost](http://d20.localhost). `just up` creates the k3d cluster when needed, runs module discovery, deploys the Garden graph, intercepts the cluster `backend` service with Telepresence, and starts the local Phoenix backend in the foreground.
+
+Discovery is source-name based. `scripts/discovery.py` reads every source declared in `garden.yml`, looks for a sibling directory with the same name and its own `garden.yml`, and links it with `garden link source`. If no local match exists, the source is unlinked so Garden uses the source `repositoryUrl`.
+
+Module-specific build and deploy behavior lives in each linked Garden source project. The local workflow uses the PostgreSQL instance from the Nix shell and does not start a database workload in the cluster.
+
+References: [Garden](https://docs.garden.io/) and [Telepresence](https://telepresence.io/docs/).
+
+Stop the Garden/Telepresence mode and delete the local k3d cluster with:
+
+```sh
+just down
+```
 
 ## Features
 
