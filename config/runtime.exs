@@ -54,11 +54,13 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "5000")
+  url_scheme = System.get_env("PHX_URL_SCHEME") || "https"
+  url_port = String.to_integer(System.get_env("PHX_URL_PORT") || "443")
 
   config :d20, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :d20, D20Web.Endpoint,
-    url: [host: host, port: 443, scheme: "https"],
+  endpoint_config = [
+    url: [host: host, port: url_port, scheme: url_scheme],
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
@@ -69,6 +71,24 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base,
     cache_static_manifest_latest: PhoenixVite.cache_static_manifest_latest(:d20)
+  ]
+
+  endpoint_config =
+    case System.get_env("PHX_CHECK_ORIGIN") do
+      nil ->
+        endpoint_config
+
+      "" ->
+        endpoint_config
+
+      "false" ->
+        Keyword.put(endpoint_config, :check_origin, false)
+
+      origins ->
+        Keyword.put(endpoint_config, :check_origin, String.split(origins, ",", trim: true))
+    end
+
+  config :d20, D20Web.Endpoint, endpoint_config
 
   # ## SSL Support
   #

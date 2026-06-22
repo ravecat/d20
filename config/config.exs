@@ -23,6 +23,7 @@ config :d20, :scopes,
 
 config :bun,
   version: "1.3.13",
+  path: System.get_env("MIX_BUN_PATH"),
   assets: [args: [], cd: Path.expand("../assets", __DIR__)],
   vite: [
     args: ~w(x vite),

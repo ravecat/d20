@@ -1,14 +1,26 @@
 import Config
 
-# Configure your database
-config :d20, D20.Repo,
+database_url = System.get_env("DATABASE_URL")
+
+repo_config = [
   username: "postgres",
   password: "postgres",
-  hostname: "localhost",
-  database: "d20_dev",
+  hostname: System.get_env("DATABASE_HOST") || "localhost",
+  database: System.get_env("DATABASE_NAME") || "d20_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
+]
+
+repo_config =
+  if database_url do
+    Keyword.put(repo_config, :url, database_url)
+  else
+    repo_config
+  end
+
+# Configure your database
+config :d20, D20.Repo, repo_config
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -17,15 +29,18 @@ config :d20, D20.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :d20, D20Web.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "5000")],
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "5000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "RZXzxEVZl4aXp2UuKUMw7ZSOmHInhs9ucNJFcFA9+BAd7TbNNq9Ek82JYcygjlfW",
   watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}],
-  static_url: [host: "localhost", port: String.to_integer(System.get_env("VITE_PORT") || "5174")]
+  static_url: [
+    scheme: System.get_env("PHX_URL_SCHEME") || "http",
+    host: System.get_env("VITE_URL_HOST") || "localhost",
+    port:
+      String.to_integer(System.get_env("PHX_URL_PORT") || System.get_env("VITE_PORT") || "5174")
+  ]
 
 # ## SSL Support
 #

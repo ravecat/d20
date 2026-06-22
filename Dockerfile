@@ -1,101 +1,91 @@
-# Find eligible builder and runner images on Docker Hub. We use Ubuntu/Debian
-# instead of Alpine to avoid DNS resolution issues in production.
-#
-# https://hub.docker.com/r/hexpm/elixir/tags?name=ubuntu
-# https://hub.docker.com/_/ubuntu/tags
-#
-# This file is based on these images:
-#
-#   - https://hub.docker.com/r/hexpm/elixir/tags - for the build image
-#   - https://hub.docker.com/_/debian/tags?name=bookworm-20260223-slim - for the release image
-#   - https://pkgs.org/ - resource for finding needed packages
-#   - Ex: docker.io/hexpm/elixir:1.19.5-erlang-28.3.3-debian-bookworm-20260223-slim
-#
-# NOTE: Keep in sync with the BEAM versions in flake.nix.
-ARG ELIXIR_VERSION=1.19.5
-ARG OTP_VERSION=28.3.3
-ARG DEBIAN_VERSION=bookworm-20260223-slim
+FROM d20/toolchain:latest AS base
 
-ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
-
-FROM ${BUILDER_IMAGE} AS builder
-
-# install build dependencies
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential git \
-  && rm -rf /var/lib/apt/lists/*
-
-# prepare build dir
 WORKDIR /app
 
-# install hex + rebar
+ENV CI="true"
+
+RUN printf "[safe]\n\tdirectory = /app\n" > /root/.gitconfig
+
+COPY mix.exs mix.lock ./
+
 RUN mix local.hex --force \
   && mix local.rebar --force
 
-# set build ENV
+FROM base AS dependencies
+
+ENV MIX_ENV="dev"
+
+COPY config/config.exs config/dev.exs config/
+COPY assets/package.json assets/bun.lock assets/
+
+RUN mix deps.get
+RUN mix deps.compile
+RUN mix assets.setup
+
+FROM dependencies AS development
+
+COPY . .
+
+RUN mix compile
+
+RUN mkdir -p /app/bin \
+  && printf '#!/bin/sh\nset -eu\ncd /app\nexec mix ecto.migrate\n' > /app/bin/migrate \
+  && chmod +x /app/bin/migrate
+
+EXPOSE 5000 5174
+
+CMD ["mix", "phx.server"]
+
+FROM base AS build
+
 ENV MIX_ENV="prod"
 
-# install mix dependencies
-COPY mix.exs mix.lock ./
-RUN mix deps.get --only $MIX_ENV
-RUN mkdir config
+COPY config/config.exs config/prod.exs config/
+COPY assets/package.json assets/bun.lock assets/
 
-# copy compile-time config files before we compile dependencies
-# to ensure any relevant config change will trigger the dependencies
-# to be re-compiled.
-COPY config/config.exs config/${MIX_ENV}.exs config/
+RUN mix deps.get --only prod
 RUN mix deps.compile
 
 COPY priv priv
 COPY assets assets
 COPY lib lib
 
-# Compile the release
 RUN mix compile
-
-# Prepare assets
 RUN mix assets.setup
-
-# Build static assets
 RUN mix assets.deploy
 
-# Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
-
 COPY rel rel
+
 RUN mix release
 
-# start a new build stage so that the final image will only contain
-# the compiled release and other runtime necessities
-FROM ${RUNNER_IMAGE} AS final
+FROM d20/runtime:latest
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-# Set the locale
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
-  && locale-gen
-
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
-
-WORKDIR "/app"
-RUN chown nobody /app
-
-# set runner ENV
 ENV MIX_ENV="prod"
 
-# Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/d20 ./
+ENV LANG="C.UTF-8"
+ENV LANGUAGE="C"
+ENV LC_ALL="C.UTF-8"
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-bundle.crt"
+ENV NIX_SSL_CERT_FILE="/etc/ssl/certs/ca-bundle.crt"
+ENV PATH="/bin"
 
-USER nobody
+COPY --from=build --chown=65534:65534 /app/_build/prod/rel/d20 ./
 
-# If using an environment that doesn't automatically reap zombie processes, it is
-# advised to add an init process such as tini via `apt-get install`
-# above and adding an entrypoint. See https://github.com/krallin/tini for details
-# ENTRYPOINT ["/tini", "--"]
+RUN find /app/bin /app/releases -type f -perm -0100 -print \
+  | while IFS= read -r path; do \
+    sed -i -e '1s|^#!.*/bin/sh$|#!/bin/sh|' -e '1s|^#!.*/bin/bash$|#!/bin/sh|' "$path"; \
+  done
+
+RUN find /app/erts-* /app/lib -type f \( -perm -0100 -o -name '*.so' \) -print \
+  | while IFS= read -r path; do \
+    if rpath="$(patchelf --print-rpath "$path" 2>/dev/null)"; then \
+      patchelf --set-rpath "/lib${rpath:+:$rpath}" "$path"; \
+    fi; \
+  done
+
+USER 65534:65534
 
 CMD ["/app/bin/server"]
