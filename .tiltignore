@@ -1,8 +1,0 @@
-**/node_modules
-**/.direnv
-**/.elixir_ls
-**/.nx
-**/.pg_data
-**/_build
-**/deps
-**/tmp
