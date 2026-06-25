@@ -14,7 +14,8 @@ Required dependencies:
 
 Recommended:
 
-- Nix flake environment for the optional Garden/Telepresence local workflow. The flake provides pinned Garden and Telepresence CLIs.
+- Docker Engine or Docker Desktop when using the Docker Compose module workflow.
+- Nix flake environment for local development tooling. The flake provides Elixir, Erlang/OTP, Just, Docker Compose tooling, and PostgreSQL.
 
 <details>
 <summary>Prepare Nix environment</summary>
@@ -78,23 +79,23 @@ Open [http://localhost:5000](http://localhost:5000).
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `VITE_PORT` or defaults to `5174`.
 
-## Local Cluster Workflow
+## Local Module Development
 
-Use the local cluster workflow when you want D20 and its module projects behind stable local ingress names:
+Use this workflow when you want the D20 shell and one or more local iframe module projects running together:
 
 ```sh
 just up
 ```
 
-Open [http://d20.localhost](http://d20.localhost). `just up` creates the k3d cluster when needed, runs module discovery, deploys the Garden graph, intercepts the cluster `backend` service with Telepresence, and starts the local Phoenix backend in the foreground.
+Open [http://localhost:5000](http://localhost:5000). `just up` starts the shared Traefik container and then runs the local Phoenix backend in the foreground.
 
-Discovery is source-name based. `scripts/discovery.py` reads every source declared in `garden.yml`, looks for a sibling directory with the same name and its own `garden.yml`, and links it with `garden link source`. If no local match exists, the source is unlinked so Garden uses the source `repositoryUrl`.
+Each local module project should start its own Compose service and join the shared external `d20` Docker network. D20 derives iframe hosts from module slugs and the shell request host: when D20 is opened at `localhost:5000`, a module with slug `<module-slug>` resolves to `http://<module-slug>.localhost`.
 
-Module-specific build and deploy behavior lives in each linked Garden source project. The local workflow uses the PostgreSQL instance from the Nix shell and does not start a database workload in the cluster.
+The local workflow uses the PostgreSQL instance from the Nix shell and does not start a database container.
 
-References: [Garden](https://docs.garden.io/) and [Telepresence](https://telepresence.io/docs/).
+If another local workflow is still using port 80, stop it before starting Compose.
 
-Stop the Garden/Telepresence mode and delete the local k3d cluster with:
+Stop the Compose services with:
 
 ```sh
 just down
@@ -132,6 +133,8 @@ just down
 
 | Command          | Purpose                                                                                |
 | ---------------- | -------------------------------------------------------------------------------------- |
+| `just up`        | Start shared Docker Compose routing and run the development server.                    |
+| `just down`      | Stop the shared Docker Compose routing.                                                |
 | `just serve`     | Set up dependencies and start the development server.                                  |
 | `just setup`     | Fetch dependencies, set up the database, install asset dependencies, and build assets. |
 | `just test`      | Run ExUnit tests.                                                                      |
