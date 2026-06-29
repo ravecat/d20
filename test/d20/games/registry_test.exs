@@ -12,7 +12,15 @@ defmodule D20.Games.RegistryTest do
   test "lists registered games with available rules" do
     entries = Registry.list()
 
-    assert Enum.map(entries, & &1.slug) == ["koala-rescue-club", "next-station-london", "qwinto"]
+    assert Enum.map(entries, & &1.slug) == [
+             "fliptown",
+             "koala-rescue-club",
+             "next-station-london",
+             "qwinto"
+           ]
+
+    assert %Registry.Entry{bgg_id: 352_418, engine: D20.Fliptown.Game, sandbox: fliptown_sandbox} =
+             entry_by_slug(entries, "fliptown")
 
     assert %Registry.Entry{
              bgg_id: 425_873,
@@ -29,12 +37,17 @@ defmodule D20.Games.RegistryTest do
     assert %Registry.Entry{bgg_id: 183_006, engine: D20.Qwinto.Game, sandbox: qwinto_sandbox} =
              entry_by_slug(entries, "qwinto")
 
+    assert "allow-scripts" in fliptown_sandbox
     assert "allow-scripts" in koala_sandbox
     assert "allow-scripts" in next_station_sandbox
     assert "allow-scripts" in qwinto_sandbox
   end
 
   test "fetches registered games by internal slug" do
+    assert {:ok, %Registry.Entry{} = entry} = Registry.fetch("fliptown")
+    assert entry.slug == "fliptown"
+    assert entry.bgg_id == 352_418
+
     assert {:ok, %Registry.Entry{} = entry} = Registry.fetch("qwinto")
     assert entry.slug == "qwinto"
     assert entry.bgg_id == 183_006
@@ -47,11 +60,13 @@ defmodule D20.Games.RegistryTest do
   end
 
   test "exposes configured engines for workflow-specific validation" do
+    assert {:ok, %Registry.Entry{engine: D20.Fliptown.Game}} = Registry.fetch("fliptown")
     assert {:ok, %Registry.Entry{engine: D20.Qwinto.Game}} = Registry.fetch("qwinto")
 
     assert {:ok, %Registry.Entry{engine: D20.KoalaRescueClub.Game}} =
              Registry.fetch("koala-rescue-club")
 
+    assert D20.Game.ensure_engine(D20.Fliptown.Game) == {:ok, D20.Fliptown.Game}
     assert D20.Game.ensure_engine(D20.KoalaRescueClub.Game) == {:ok, D20.KoalaRescueClub.Game}
 
     put_games(qwinto: [engine: String, bgg_id: 183_006, sandbox: ["allow-scripts"]])

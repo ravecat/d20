@@ -29,6 +29,7 @@ defmodule D20Web.PageControllerTest do
   """
 
   @registered_game_names %{
+    "352418" => "Fliptown",
     "183006" => "Qwinto",
     "353545" => "Next Station: London",
     "425873" => "Koala Rescue Club"
@@ -74,7 +75,12 @@ defmodule D20Web.PageControllerTest do
     assert inertia_component(conn) == "games"
     assert %{games: games} = inertia_props(conn)
 
-    assert Enum.map(games, & &1.slug) == ["koala-rescue-club", "next-station-london", "qwinto"]
+    assert Enum.map(games, & &1.slug) == [
+             "fliptown",
+             "koala-rescue-club",
+             "next-station-london",
+             "qwinto"
+           ]
 
     game = game_by_slug(games, "qwinto")
 

@@ -26,6 +26,7 @@ defmodule D20.GamesTest do
   """
 
   @registered_game_names %{
+    "352418" => "Fliptown",
     "183006" => "Qwinto",
     "353545" => "Next Station: London",
     "425873" => "Koala Rescue Club"
@@ -68,8 +69,14 @@ defmodule D20.GamesTest do
 
     games = Games.list()
 
-    assert Enum.map(games, & &1.slug) == ["koala-rescue-club", "next-station-london", "qwinto"]
+    assert Enum.map(games, & &1.slug) == [
+             "fliptown",
+             "koala-rescue-club",
+             "next-station-london",
+             "qwinto"
+           ]
 
+    assert %Game{name: "Fliptown"} = game_by_slug(games, "fliptown")
     assert %Game{name: "Koala Rescue Club"} = game_by_slug(games, "koala-rescue-club")
     assert %Game{name: "Next Station: London"} = game_by_slug(games, "next-station-london")
     assert %Game{name: "Qwinto"} = game_by_slug(games, "qwinto")

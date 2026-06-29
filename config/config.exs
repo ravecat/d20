@@ -41,6 +41,11 @@ config :d20, D20.Actors.Token,
 
 config :d20, D20.Games.Registry,
   games: [
+    fliptown: [
+      engine: D20.Fliptown.Game,
+      bgg_id: 352_418,
+      sandbox: ["allow-scripts", "allow-same-origin"]
+    ],
     "koala-rescue-club": [
       engine: D20.KoalaRescueClub.Game,
       bgg_id: 425_873,
