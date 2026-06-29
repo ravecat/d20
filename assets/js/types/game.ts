@@ -1,9 +1,9 @@
 export interface GameMetadata {
-  externalId?: number;
-  slug: string;
-  name: string;
+  name: string | null;
   alternateNames: string[];
-  description: string;
+  categories: string[];
+  mechanics: string[];
+  description?: string | null;
   thumbnailUrl?: string | null;
   imageUrl?: string | null;
   yearPublished?: number | null;
@@ -13,6 +13,11 @@ export interface GameMetadata {
   minPlayTime?: number | null;
   maxPlayTime?: number | null;
   minAge?: number | null;
+}
+
+export interface GameCatalogEntry {
+  slug: string;
+  game: GameMetadata;
 }
 
 export interface SessionMember {

@@ -3,8 +3,6 @@ defmodule D20Web.Module do
   Builds iframe embed data for modules.
   """
 
-  alias D20.Module.Manifest
-
   @module_socket_path "/module"
 
   @type entry :: %{
@@ -18,11 +16,11 @@ defmodule D20Web.Module do
           required(:token) => String.t()
         }
 
-  @spec entry(Plug.Conn.t(), Manifest.entry()) :: entry()
-  def entry(conn, manifest) do
-    embed_url = embed_url(conn, manifest.slug)
+  @spec entry(Plug.Conn.t(), D20.Games.Registry.Entry.t()) :: entry()
+  def entry(conn, %D20.Games.Registry.Entry{slug: slug, sandbox: sandbox}) do
+    embed_url = embed_url(conn, slug)
 
-    %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: manifest.sandbox}
+    %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: sandbox}
   end
 
   @spec connection(Plug.Conn.t(), String.t(), String.t()) :: connection()

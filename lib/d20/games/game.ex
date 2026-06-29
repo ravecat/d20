@@ -8,13 +8,32 @@ defmodule D20.Games.Game do
 
   use Ecto.Schema
 
+  import Ecto.Changeset
+
   @primary_key false
 
+  @fields [
+    :name,
+    :alternate_names,
+    :categories,
+    :mechanics,
+    :description,
+    :thumbnail_url,
+    :image_url,
+    :year_published,
+    :min_players,
+    :max_players,
+    :playing_time,
+    :min_play_time,
+    :max_play_time,
+    :min_age
+  ]
+
   embedded_schema do
-    field :external_id, :integer
-    field :slug, :string
     field :name, :string
     field :alternate_names, {:array, :string}, default: []
+    field :categories, {:array, :string}, default: []
+    field :mechanics, {:array, :string}, default: []
     field :description, :string
     field :thumbnail_url, :string
     field :image_url, :string
@@ -28,10 +47,10 @@ defmodule D20.Games.Game do
   end
 
   @type t :: %__MODULE__{
-          external_id: integer() | nil,
-          slug: String.t() | nil,
           name: String.t() | nil,
           alternate_names: [String.t()],
+          categories: [String.t()],
+          mechanics: [String.t()],
           description: String.t() | nil,
           thumbnail_url: String.t() | nil,
           image_url: String.t() | nil,
@@ -43,4 +62,16 @@ defmodule D20.Games.Game do
           max_play_time: integer() | nil,
           min_age: integer() | nil
         }
+
+  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def new(attrs) when is_map(attrs) do
+    %__MODULE__{}
+    |> changeset(attrs)
+    |> apply_action(:insert)
+  end
+
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
+  def changeset(game, attrs) do
+    cast(game, attrs, @fields)
+  end
 end

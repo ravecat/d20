@@ -6,13 +6,18 @@ defmodule D20Web.ModuleTest do
   alias D20Web.Module
 
   test "builds an iframe entry from the request host", %{conn: conn} do
-    manifest = %{slug: "qwinto", sandbox: ["allow-scripts"]}
+    registry_entry = %D20.Games.Registry.Entry{
+      slug: "qwinto",
+      engine: D20.Qwinto.Game,
+      bgg_id: 183_006,
+      sandbox: ["allow-scripts"]
+    }
 
     assert %{
              embed_url: "http://qwinto.example.com/",
              allowed_origins: ["http://qwinto.example.com"],
              sandbox: ["allow-scripts"]
-           } = entry = Module.entry(conn, manifest)
+           } = entry = Module.entry(conn, registry_entry)
 
     refute Map.has_key?(entry, :bootstrap)
     refute Map.has_key?(entry, :connection)

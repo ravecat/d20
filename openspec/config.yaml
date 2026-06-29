@@ -1,0 +1,24 @@
+schema: spec-driven
+
+context: |
+  d20 is a Phoenix application shell for embedded tabletop and board-game modules.
+  The shell owns routing, users, actors, sessions, permissions, module discovery,
+  and runtime framing. Game modules stay focused on game behavior and run inside
+  configured iframe entries.
+
+  Stack: Elixir >= 1.18, Phoenix 1.8, Ecto, PostgreSQL 17.9, Inertia,
+  Phoenix Vite, Svelte 5, TypeScript, Tailwind CSS 4, daisyUI, Bun, Docker
+  Compose, and Nix flakes.
+
+  Use repository-native commands from justfile and mix.exs. Prefer targeted
+  validation first, then broader checks when behavior or contracts change.
+
+  Preserve existing public APIs, routes, schemas, session behavior, iframe module
+  contracts, and operational semantics unless a change explicitly requires them.
+
+rules:
+  proposal:
+    - Ground proposals in the current Phoenix/Elixir and assets/Svelte boundaries.
+    - Call out migrations, session/runtime compatibility, iframe module contract changes, and rollback impact when relevant.
+  tasks:
+    - Include validation using existing just, mix, or Bun commands for touched areas.

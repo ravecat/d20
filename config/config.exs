@@ -39,9 +39,24 @@ config :d20, D20.Actors.Token,
   salt: "actor",
   max_age: 1_209_600
 
-config :d20, D20.Module.Manifest,
-  path: "priv/modules/registry.json",
-  engines: [qwinto: D20.Qwinto.Game]
+config :d20, D20.Games.Registry,
+  games: [
+    "koala-rescue-club": [
+      engine: D20.KoalaRescueClub.Game,
+      bgg_id: 425_873,
+      sandbox: ["allow-scripts", "allow-same-origin"]
+    ],
+    "next-station-london": [
+      engine: D20.NextStationLondon.Game,
+      bgg_id: 353_545,
+      sandbox: ["allow-scripts", "allow-same-origin"]
+    ],
+    qwinto: [
+      engine: D20.Qwinto.Game,
+      bgg_id: 183_006,
+      sandbox: ["allow-scripts", "allow-same-origin"]
+    ]
+  ]
 
 config :d20, D20.Module.Token,
   salt: "module",

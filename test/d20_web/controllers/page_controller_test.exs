@@ -3,6 +3,59 @@ defmodule D20Web.PageControllerTest do
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.Games.Registry
+  alias D20.Games.Sources.BoardGameGeek
+
+  @qwinto_xml """
+  <?xml version="1.0" encoding="utf-8"?>
+  <items>
+    <item type="boardgame" id="183006">
+      <thumbnail>https://example.invalid/qwinto-thumb.jpg</thumbnail>
+      <name type="primary" value="Qwinto" />
+    </item>
+  </items>
+  """
+
+  @resolved_qwinto_xml """
+  <?xml version="1.0" encoding="utf-8"?>
+  <items>
+    <item type="boardgame" id="183006">
+      <thumbnail>https://example.invalid/qwinto-thumb.jpg</thumbnail>
+      <image>https://example.invalid/qwinto-image.jpg</image>
+      <name type="primary" value="Resolved Qwinto" />
+      <description>Resolved details.</description>
+    </item>
+  </items>
+  """
+
+  @registered_game_names %{
+    "183006" => "Qwinto",
+    "353545" => "Next Station: London",
+    "425873" => "Koala Rescue Club"
+  }
+
+  setup context do
+    Req.Test.set_req_test_from_context(context)
+    Req.Test.verify_on_exit!()
+
+    original_bgg_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
+    original_req_options = Req.default_options()
+    original_registry_config = Application.fetch_env!(:d20, Registry)
+
+    Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+    Req.default_options(plug: {Req.Test, __MODULE__})
+    Req.Test.stub(__MODULE__, fn conn -> Req.Test.text(conn, @qwinto_xml) end)
+
+    on_exit(fn ->
+      Req.default_options(original_req_options)
+      Application.put_env(:d20, Registry, original_registry_config)
+
+      case original_bgg_config do
+        :not_configured -> Application.delete_env(:d20, BoardGameGeek)
+        config -> Application.put_env(:d20, BoardGameGeek, config)
+      end
+    end)
+  end
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
@@ -14,25 +67,53 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "GET /games renders game metadata", %{conn: conn} do
+    stub_registered_bgg_games()
+
     conn = get(conn, ~p"/games")
 
     assert inertia_component(conn) == "games"
-    assert %{games: [game]} = inertia_props(conn)
-    assert game[:slug] == "qwinto"
+    assert %{games: games} = inertia_props(conn)
+
+    assert Enum.map(games, & &1.slug) == ["koala-rescue-club", "next-station-london", "qwinto"]
+
+    game = game_by_slug(games, "qwinto")
+
     assert game[:name] == "Qwinto"
-    assert game[:externalId] == 183_006
+    assert game[:thumbnailUrl] == "https://example.invalid/qwinto-thumb.jpg"
+    refute Map.has_key?(game, :slug)
+    refute Map.has_key?(game, :bggId)
     refute Map.has_key?(game, :embedUrl)
     refute Map.has_key?(game, :allowedOrigins)
     refute Map.has_key?(game, :bootstrap)
   end
 
+  test "GET /games renders runtime metadata when it is available", %{conn: conn} do
+    stub_registered_bgg_games(%{"183006" => @resolved_qwinto_xml})
+
+    conn = get(conn, ~p"/games")
+
+    assert %{games: games} = inertia_props(conn)
+    game = game_by_slug(games, "qwinto")
+
+    assert game[:name] == "Resolved Qwinto"
+    assert game[:thumbnailUrl] == "https://example.invalid/qwinto-thumb.jpg"
+    assert game[:imageUrl] == "https://example.invalid/qwinto-image.jpg"
+  end
+
   test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do
+    stub_bgg_game(@resolved_qwinto_xml)
+
     conn = get(conn, ~p"/games/qwinto")
 
     assert inertia_component(conn) == "game"
-    assert %{module: nil, connection: nil, game: game, session: nil} = inertia_props(conn)
-    assert game[:slug] == "qwinto"
-    assert game[:externalId] == 183_006
+
+    assert %{slug: "qwinto", module: nil, connection: nil, game: game, session: nil} =
+             inertia_props(conn)
+
+    refute Map.has_key?(game, :slug)
+    refute Map.has_key?(game, :bggId)
+    assert game[:name] == "Resolved Qwinto"
+    assert game[:description] == "Resolved details."
   end
 
   test "GET /games/:slug with a missing session redirects with errors", %{conn: conn} do
@@ -53,19 +134,6 @@ defmodule D20Web.PageControllerTest do
 
     assert redirected_to(conn, 303) == ~p"/games/qwinto"
     assert inertia_errors(conn) == %{session: "Session not found."}
-  end
-
-  test "GET /games/:slug with a session redirects with errors when the module manifest is unavailable",
-       %{conn: conn} do
-    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
-    put_empty_module_manifest_on_exit()
-
-    on_exit(fn -> D20.Sessions.stop(session.id) end)
-
-    conn = get(conn, ~p"/games/qwinto?session=#{session.id}")
-
-    assert redirected_to(conn, 303) == ~p"/games/qwinto"
-    assert inertia_errors(conn) == %{session: "Game module is not available."}
   end
 
   test "GET /games/:slug returns 404 for unknown games", %{conn: conn} do
@@ -94,30 +162,9 @@ defmodule D20Web.PageControllerTest do
     assert html_response(conn, 404) == "Not Found"
   end
 
-  test "POST /games/:slug/sessions redirects with errors when the module manifest is unavailable",
-       %{conn: conn} do
-    put_empty_module_manifest_on_exit()
-
-    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
-
-    assert redirected_to(conn, 303) == ~p"/games/qwinto"
-    assert inertia_errors(conn) == %{session: "Game module is not available."}
-  end
-
-  test "POST /games/:slug/sessions redirects with errors when the engine is unavailable", %{
-    conn: conn
-  } do
-    put_manifest_engines_on_exit([])
-
-    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
-
-    assert redirected_to(conn, 303) == ~p"/games/qwinto"
-    assert inertia_errors(conn) == %{session: "Game engine is not available."}
-  end
-
   test "POST /games/:slug/sessions redirects with errors when the configured engine is invalid",
        %{conn: conn} do
-    put_manifest_engines_on_exit(qwinto: String)
+    put_registry_games(qwinto: [engine: String, bgg_id: 183_006, sandbox: ["allow-scripts"]])
 
     conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
@@ -189,36 +236,46 @@ defmodule D20Web.PageControllerTest do
     assert connection[:topic] == "session:#{session_id}"
   end
 
-  defp put_empty_module_manifest_on_exit do
-    manifest_config = Application.fetch_env!(:d20, D20.Module.Manifest)
-    manifest_path = "tmp/empty-modules-#{System.unique_integer([:positive])}.json"
-    full_manifest_path = Application.app_dir(:d20, manifest_path)
+  defp put_registry_games(games) do
+    Application.put_env(:d20, Registry, games: games)
+  end
 
-    File.mkdir_p!(Path.dirname(full_manifest_path))
-    File.write!(full_manifest_path, "{}")
+  defp stub_bgg_game(xml) do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.params == %{"id" => "183006", "type" => "boardgame"}
 
-    Application.put_env(
-      :d20,
-      D20.Module.Manifest,
-      Keyword.put(manifest_config, :path, manifest_path)
-    )
-
-    on_exit(fn ->
-      File.rm(full_manifest_path)
-      Application.put_env(:d20, D20.Module.Manifest, manifest_config)
+      Req.Test.text(conn, xml)
     end)
   end
 
-  defp put_manifest_engines_on_exit(engines) do
-    manifest_config = Application.fetch_env!(:d20, D20.Module.Manifest)
+  defp stub_registered_bgg_games(overrides \\ %{}) do
+    Req.Test.expect(__MODULE__, map_size(@registered_game_names), fn conn ->
+      assert %{"id" => id, "type" => "boardgame"} = conn.params
 
-    Application.put_env(
-      :d20,
-      D20.Module.Manifest,
-      Keyword.put(manifest_config, :engines, engines)
-    )
+      xml =
+        Map.get_lazy(overrides, id, fn -> game_xml(id, Map.fetch!(@registered_game_names, id)) end)
 
-    on_exit(fn -> Application.put_env(:d20, D20.Module.Manifest, manifest_config) end)
+      Req.Test.text(conn, xml)
+    end)
+  end
+
+  defp game_xml("183006", "Qwinto"), do: @qwinto_xml
+
+  defp game_xml(id, name) do
+    """
+    <?xml version="1.0" encoding="utf-8"?>
+    <items>
+      <item type="boardgame" id="#{id}">
+        <name type="primary" value="#{name}" />
+      </item>
+    </items>
+    """
+  end
+
+  defp game_by_slug(games, slug) do
+    games
+    |> Enum.find(&(&1.slug == slug))
+    |> Map.fetch!(:game)
   end
 
   defp session_scope(session_id, actor_id) do

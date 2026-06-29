@@ -14,6 +14,9 @@
     <maxplaytime value="120" />
     <minage value="10" />
     <link type="boardgamecategory" id="1026" value="Negotiation" />
+    <link type="boardgamecategory" id="1021" value="Economic" />
+    <link type="boardgamemechanic" id="2008" value="Trading" />
+    <link type="boardgamemechanic" id="2072" value="Dice Rolling" />
     <statistics page="1">
       <ratings>
         <usersrated value="125000" />

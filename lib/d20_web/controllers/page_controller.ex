@@ -1,7 +1,7 @@
 defmodule D20Web.PageController do
   use D20Web, :controller
 
-  alias D20.Module.Manifest
+  alias D20.Games.Registry
 
   @typep params :: Plug.Conn.params()
 
@@ -13,19 +13,25 @@ defmodule D20Web.PageController do
   @spec games(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def games(conn, _params) do
     conn
-    |> assign_prop(:games, Enum.map(D20.Games.list(), &Map.from_struct/1))
+    |> assign_prop(
+      :games,
+      Enum.map(D20.Games.list(), fn %{slug: slug, game: game} ->
+        %{slug: slug, game: Map.from_struct(game)}
+      end)
+    )
     |> render_inertia("games")
   end
 
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def game(conn, %{"slug" => slug, "session" => session_id}) do
     with {:ok, game} <- D20.Games.fetch_by_slug(slug),
-         {:ok, manifest} <- Manifest.fetch(slug),
+         {:ok, %Registry.Entry{} = entry} <- Registry.fetch(slug),
          {:ok, {session, ^slug}} <- D20.Sessions.get(session_id) do
       conn
+      |> assign_prop(:slug, slug)
       |> assign_prop(:game, Map.from_struct(game))
       |> assign_prop(:session, session)
-      |> assign_prop(:module, D20Web.Module.entry(conn, manifest))
+      |> assign_prop(:module, D20Web.Module.entry(conn, entry))
       |> assign_prop(:connection, D20Web.Module.connection(conn, slug, session.id))
       |> render_inertia("game")
     else
@@ -38,9 +44,6 @@ defmodule D20Web.PageController do
       {:error, :game_not_found} ->
         send_not_found(conn)
 
-      {:error, :module_not_found} ->
-        redirect_to_game_with_error(conn, slug, "Game module is not available.")
-
       {:error, _reason} ->
         send_not_found(conn)
     end
@@ -49,6 +52,7 @@ defmodule D20Web.PageController do
   def game(conn, %{"slug" => slug}) do
     with {:ok, game} <- D20.Games.fetch_by_slug(slug) do
       conn
+      |> assign_prop(:slug, slug)
       |> assign_prop(:game, Map.from_struct(game))
       |> assign_prop(:session, nil)
       |> assign_prop(:module, nil)
@@ -64,25 +68,15 @@ defmodule D20Web.PageController do
   def create_game_session(conn, %{"slug" => slug}) do
     actor = conn.assigns.current_scope.actor
 
-    with {:ok, _game} <- D20.Games.fetch_by_slug(slug),
-         {:ok, _manifest} <- Manifest.fetch(slug),
-         {:ok, engine} <- Manifest.fetch_engine(slug),
+    with {:ok, %Registry.Entry{engine: configured_engine}} <- Registry.fetch(slug),
+         {:ok, engine} <- D20.Game.ensure_engine(configured_engine),
          {:ok, session} <- D20.Sessions.create(slug, engine, actor.id) do
       conn
       |> put_status(303)
       |> redirect(to: ~p"/games/#{slug}?session=#{session.id}")
     else
-      {:error, :game_not_found} ->
-        send_not_found(conn)
-
-      {:error, :module_not_found} ->
-        redirect_to_game_with_error(conn, slug, "Game module is not available.")
-
-      {:error, :engine_not_found} ->
-        redirect_to_game_with_error(conn, slug, "Game engine is not available.")
-
-      {:error, _reason} ->
-        redirect_to_game_with_error(conn, slug, "Could not start session.")
+      {:error, :game_not_found} -> send_not_found(conn)
+      {:error, _reason} -> redirect_to_game_with_error(conn, slug, "Could not start session.")
     end
   end
 
