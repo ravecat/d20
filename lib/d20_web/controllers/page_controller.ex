@@ -7,19 +7,14 @@ defmodule D20Web.PageController do
 
   @spec home(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def home(conn, _params) do
-    render_inertia(conn, "home")
+    conn
+    |> assign_games_prop()
+    |> render_inertia("home")
   end
 
   @spec games(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def games(conn, _params) do
-    conn
-    |> assign_prop(
-      :games,
-      Enum.map(D20.Games.list(), fn %{slug: slug, game: game} ->
-        %{slug: slug, game: Map.from_struct(game)}
-      end)
-    )
-    |> render_inertia("games")
+    redirect(conn, to: ~p"/")
   end
 
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
@@ -86,6 +81,16 @@ defmodule D20Web.PageController do
     |> assign_errors(%{session: message})
     |> put_status(303)
     |> redirect(to: ~p"/games/#{slug}")
+  end
+
+  defp assign_games_prop(conn) do
+    assign_prop(
+      conn,
+      :games,
+      Enum.map(D20.Games.list(), fn %{slug: slug, game: game} ->
+        %{slug: slug, game: Map.from_struct(game)}
+      end)
+    )
   end
 
   @spec send_not_found(Plug.Conn.t()) :: Plug.Conn.t()

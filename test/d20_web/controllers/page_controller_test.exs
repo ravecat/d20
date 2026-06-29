@@ -58,21 +58,15 @@ defmodule D20Web.PageControllerTest do
     end)
   end
 
-  test "GET /", %{conn: conn} do
+  test "GET / renders game metadata", %{conn: conn} do
+    stub_registered_bgg_games()
+
     conn = get(conn, ~p"/")
 
     assert html_response(conn, 200) =~ ~s(id="app")
     assert inertia_component(conn) == "home"
     assert token = conn.assigns.actor_token
     assert html_response(conn, 200) =~ ~s(window.actorToken = "#{token}")
-  end
-
-  test "GET /games renders game metadata", %{conn: conn} do
-    stub_registered_bgg_games()
-
-    conn = get(conn, ~p"/games")
-
-    assert inertia_component(conn) == "games"
     assert %{games: games} = inertia_props(conn)
 
     assert Enum.map(games, & &1.slug) == [
@@ -93,10 +87,10 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(game, :bootstrap)
   end
 
-  test "GET /games renders runtime metadata when it is available", %{conn: conn} do
+  test "GET / renders runtime metadata when it is available", %{conn: conn} do
     stub_registered_bgg_games(%{"183006" => @resolved_qwinto_xml})
 
-    conn = get(conn, ~p"/games")
+    conn = get(conn, ~p"/")
 
     assert %{games: games} = inertia_props(conn)
     game = game_by_slug(games, "qwinto")
@@ -104,6 +98,12 @@ defmodule D20Web.PageControllerTest do
     assert game[:name] == "Resolved Qwinto"
     assert game[:thumbnailUrl] == "https://example.invalid/qwinto-thumb.jpg"
     assert game[:imageUrl] == "https://example.invalid/qwinto-image.jpg"
+  end
+
+  test "GET /games redirects to the home showcase", %{conn: conn} do
+    conn = get(conn, ~p"/games")
+
+    assert redirected_to(conn) == ~p"/"
   end
 
   test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do

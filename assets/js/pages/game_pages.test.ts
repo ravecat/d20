@@ -1,7 +1,7 @@
 import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import GamePage from "~pages/game.svelte";
-import GamesPage from "~pages/games.svelte";
+import HomePage from "~pages/home.svelte";
 import type { GameCatalogEntry, GameMetadata } from "~types/game";
 import inertiaMock from "../test/mocks/inertia";
 
@@ -13,9 +13,9 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-describe("games page", () => {
+describe("home page", () => {
   it("renders game tiles with preview images and slug links", () => {
-    render(GamesPage, {
+    render(HomePage, {
       games: [
         catalogEntry(
           gameMetadata({
@@ -46,7 +46,7 @@ describe("games page", () => {
   });
 
   it("renders fallback preview state when metadata has no image", () => {
-    render(GamesPage, {
+    render(HomePage, {
       games: [catalogEntry(gameMetadata({ thumbnailUrl: null, imageUrl: null }))],
     });
 

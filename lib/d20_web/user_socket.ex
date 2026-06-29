@@ -3,7 +3,6 @@ defmodule D20Web.UserSocket do
 
   alias D20.Accounts.Scope
 
-  channel "cursors", D20Web.CursorsChannel
   channel "session:*", D20Web.SessionChannel
 
   @impl true
