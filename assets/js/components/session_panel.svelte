@@ -26,21 +26,17 @@
   );
   const status = $derived($session.status);
   const phase = $derived($session.value?.phase);
-
-  function handleStart() {
-    session.start();
-  }
 </script>
 
 {#if phase === "waiting_for_players"}
-  <section class="mt-6 min-w-0 rounded-sm border border-base-300 bg-base-100 px-4 py-3">
+  <section class="mt-6 min-w-0 rounded-sm bg-base-100 px-4 py-3">
     <div class="flex min-w-0 items-start gap-4">
       <button
         class="inline-flex min-h-10 min-w-20 flex-none items-center justify-center gap-2 rounded-sm border border-base-content bg-base-content px-3 py-2 text-sm font-medium text-base-100 transition-colors hover:bg-base-content/85 focus:outline-none focus:ring-2 focus:ring-base-content/40 disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
-        disabled={$session.processing.start}
+        disabled={$session.processing.start || !$session.value?.permissions?.can_start_game}
         aria-busy={$session.processing.start}
-        onclick={handleStart}
+        onclick={() => session.start()}
       >
         {#if $session.processing.start}
           <span
@@ -63,12 +59,12 @@
         {:else if status === "failed" && members.length === 0}
           <p class="py-2 text-sm text-error">Presence unavailable</p>
         {:else}
-          <ul class="flex min-w-0 flex-wrap items-start gap-3">
+          <ul class="flex min-w-0 flex-wrap items-start gap-3" aria-label="Joined players">
             {#each members as member (member.id)}
               <li class="flex w-16 min-w-0 flex-none flex-col items-center gap-1.5">
                 {#if member.avatar}
                   <img
-                    class="size-10 flex-none rounded-sm border border-base-300 bg-base-200 object-cover"
+                    class="size-10 flex-none rounded-sm bg-base-200 object-cover"
                     src={member.avatar}
                     alt=""
                     loading="lazy"
@@ -76,13 +72,15 @@
                   >
                 {:else}
                   <span
-                    class="flex size-10 flex-none items-center justify-center rounded-sm border border-base-300 bg-base-200 text-xs font-medium uppercase text-base-content/70"
+                    class="flex size-10 flex-none items-center justify-center rounded-sm bg-base-200 text-xs font-medium uppercase text-base-content/70"
                     aria-hidden="true"
                   >
                     {member.letter}
                   </span>
                 {/if}
-                <span class="block max-w-full truncate text-center text-xs text-base-content">
+                <span
+                  class="line-clamp-2 max-w-full text-balance text-center text-xs leading-tight break-words text-base-content"
+                >
                   {member.name}
                 </span>
               </li>

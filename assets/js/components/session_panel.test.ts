@@ -19,6 +19,7 @@ const sessionMock = vi.hoisted(() => {
         subscribe: Writable<SessionState>["subscribe"];
       }
     | undefined;
+  const start = vi.fn();
 
   return {
     createSession: vi.fn((topic: string) => {
@@ -28,9 +29,10 @@ const sessionMock = vi.hoisted(() => {
 
       return {
         subscribe: store.subscribe,
-        start: vi.fn(),
+        start,
       };
     }),
+    start,
     setStore(nextStore: { subscribe: Writable<SessionState>["subscribe"] }) {
       store = nextStore;
     },
@@ -64,6 +66,7 @@ afterEach(async () => {
   cleanup = undefined;
   document.body.innerHTML = "";
   sessionMock.createSession.mockClear();
+  sessionMock.start.mockClear();
 });
 
 describe("SessionPanel", () => {
@@ -79,7 +82,76 @@ describe("SessionPanel", () => {
     expect(document.body.textContent).toContain("Start");
     expect(document.body.textContent).toContain("Ada");
     expect(document.body.textContent).toContain("Grace");
+    expect(document.querySelector("button")?.hasAttribute("disabled")).toBe(false);
     expect(document.querySelector('iframe[title="Game module"]')).toBeNull();
+  });
+
+  it("renders the start panel without a surrounding border", () => {
+    renderPanel({
+      value: sessionWithPhase("waiting_for_players"),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    const startButton = document.querySelector("button");
+    const startPanel = startButton?.closest("section");
+
+    expect(startButton?.textContent).toContain("Start");
+    expect(startPanel?.className).not.toContain("border");
+  });
+
+  it("disables start when permissions do not allow starting the game", () => {
+    renderPanel({
+      value: sessionWithPhase("waiting_for_players", { can_start_game: false }),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    const startButton = document.querySelector("button");
+
+    expect(startButton?.textContent).toContain("Start");
+    expect(startButton?.hasAttribute("disabled")).toBe(true);
+
+    startButton?.click();
+    flushSync();
+
+    expect(sessionMock.start).not.toHaveBeenCalled();
+  });
+
+  it("renders joined players without media borders and allows two-line names", () => {
+    renderPanel({
+      value: sessionWithPhase("waiting_for_players"),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    const joinedPlayers = document.querySelector('ul[aria-label="Joined players"]');
+
+    if (!joinedPlayers) {
+      throw new Error("Expected joined players list to be rendered.");
+    }
+
+    const avatar = joinedPlayers.querySelector("img");
+    const fallbackAvatar = joinedPlayers.querySelector('span[aria-hidden="true"]');
+    const name = [...joinedPlayers.querySelectorAll("li > span:not([aria-hidden])")].find(
+      (element) => element.textContent?.trim() === "Ada Lovelace",
+    );
+
+    if (!avatar || !fallbackAvatar || !name) {
+      throw new Error("Expected joined player avatar, fallback avatar, and long name.");
+    }
+
+    expect(avatar.className).not.toContain("border");
+    expect(fallbackAvatar.className).not.toContain("border");
+    expect(name.className).toContain("line-clamp-2");
+    expect(name.className).toContain("break-words");
+    expect(name.className).not.toContain("truncate");
   });
 
   it("hides active members once the session is in progress", () => {
@@ -135,7 +207,10 @@ function renderPanel(state: SessionState) {
   };
 }
 
-function sessionWithPhase(phase: Session["phase"]): Session {
+function sessionWithPhase(
+  phase: Session["phase"],
+  permissions: Session["permissions"] = { can_start_game: true },
+): Session {
   return {
     id: `session-${phase}`,
     phase,
@@ -143,8 +218,8 @@ function sessionWithPhase(phase: Session["phase"]): Session {
     members: {
       "player-1": {
         online_at: 1,
-        display_name: "Ada",
-        avatar: null,
+        display_name: "Ada Lovelace",
+        avatar: "https://example.invalid/ada.png",
       },
       "player-2": {
         online_at: 2,
@@ -152,6 +227,7 @@ function sessionWithPhase(phase: Session["phase"]): Session {
         avatar: null,
       },
     },
+    permissions,
     game: {},
   };
 }

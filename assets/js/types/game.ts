@@ -26,10 +26,16 @@ export interface SessionMember {
   avatar?: string | null;
 }
 
+export interface SessionPermissions {
+  can_start_game?: boolean;
+  [permission: string]: boolean | undefined;
+}
+
 export interface Session<TGame = unknown> {
   id: string;
   phase: "waiting_for_players" | "in_progress" | "finished";
   owner_id: string;
   members: Record<string, SessionMember>;
+  permissions?: SessionPermissions;
   game: TGame;
 }
