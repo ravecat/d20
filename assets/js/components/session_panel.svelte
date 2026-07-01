@@ -29,42 +29,38 @@
 </script>
 
 {#if phase === "waiting_for_players"}
-  <section class="mt-6 min-w-0 rounded-sm bg-base-100 px-4 py-3">
-    <div class="flex min-w-0 items-start gap-4">
+  <section class="session-panel-start">
+    <div class="session-panel-start__content">
       <button
-        class="inline-flex min-h-10 min-w-20 flex-none items-center justify-center gap-2 rounded-sm border border-base-content bg-base-content px-3 py-2 text-sm font-medium text-base-100 transition-colors hover:bg-base-content/85 focus:outline-none focus:ring-2 focus:ring-base-content/40 disabled:cursor-not-allowed disabled:opacity-50"
+        class="session-panel-start__action"
         type="button"
-        disabled={$session.processing.start || !$session.value?.permissions?.can_start_game}
+        disabled={$session.processing.start ||
+          !$session.value?.permissions?.can_start_game}
         aria-busy={$session.processing.start}
         onclick={() => session.start()}
       >
         {#if $session.processing.start}
-          <span
-            class="size-3 animate-spin rounded-full border-2 border-base-100/35 border-t-base-100"
-            aria-hidden="true"
-          ></span>
+          <span class="session-panel-start__spinner" aria-hidden="true"></span>
         {/if}
         Start
       </button>
 
-      <div class="min-w-0 flex-1">
+      <div class="session-panel-start__players">
         {#if $session.timeouts.start}
-          <p class="mb-3 text-sm text-error">timeout</p>
+          <p class="session-panel-start__error">timeout</p>
         {:else if $session.errors.start?.reason}
-          <p class="mb-3 text-sm text-error">{$session.errors.start.reason}</p>
+          <p class="session-panel-start__error">{$session.errors.start.reason}</p>
         {/if}
 
         {#if status === "loading"}
-          <p class="py-2 text-sm text-base-content/60">Joining session...</p>
-        {:else if status === "failed" && members.length === 0}
-          <p class="py-2 text-sm text-error">Presence unavailable</p>
+          <p class="session-panel-start__loading">Joining session...</p>
         {:else}
-          <ul class="flex min-w-0 flex-wrap items-start gap-3" aria-label="Joined players">
+          <ul class="session-panel-players" aria-label="Joined players">
             {#each members as member (member.id)}
-              <li class="flex w-16 min-w-0 flex-none flex-col items-center gap-1.5">
+              <li class="session-panel-players__item">
                 {#if member.avatar}
                   <img
-                    class="size-10 flex-none rounded-sm bg-base-200 object-cover"
+                    class="session-panel-players__avatar"
                     src={member.avatar}
                     alt=""
                     loading="lazy"
@@ -72,17 +68,13 @@
                   >
                 {:else}
                   <span
-                    class="flex size-10 flex-none items-center justify-center rounded-sm bg-base-200 text-xs font-medium uppercase text-base-content/70"
+                    class="session-panel-players__avatar session-panel-players__avatar--fallback"
                     aria-hidden="true"
                   >
                     {member.letter}
                   </span>
                 {/if}
-                <span
-                  class="line-clamp-2 max-w-full text-balance text-center text-xs leading-tight break-words text-base-content"
-                >
-                  {member.name}
-                </span>
+                <span class="session-panel-players__name"> {member.name} </span>
               </li>
             {/each}
           </ul>
@@ -93,7 +85,171 @@
 {/if}
 
 {#if phase === "in_progress"}
-  <section class="mt-6 h-136 min-h-0 overflow-hidden rounded-sm border border-base-300">
+  <section class="session-panel-frame">
     <Frame {module} {connection} />
   </section>
 {/if}
+
+<style>
+  .session-panel-start {
+    min-inline-size: 0;
+    border-radius: var(--radius-sm);
+    background: var(--color-base-100);
+    padding: 0;
+  }
+
+  .session-panel-start__content {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .session-panel-start__action {
+    display: inline-flex;
+    min-block-size: 2.5rem;
+    inline-size: 100%;
+    min-inline-size: 0;
+    align-self: stretch;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid var(--color-base-content);
+    border-radius: var(--radius-sm);
+    background: var(--color-base-content);
+    padding: 0.5rem 1rem;
+    color: var(--color-base-100);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .session-panel-start__action:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--color-base-content) 86%, transparent);
+  }
+
+  .session-panel-start__action:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-base-content) 42%, transparent);
+    outline-offset: 2px;
+  }
+
+  .session-panel-start__action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .session-panel-start__spinner {
+    inline-size: 0.875rem;
+    block-size: 0.875rem;
+    flex: none;
+    animation: session-panel-spin 700ms linear infinite;
+    border: 2px solid color-mix(in oklab, var(--color-base-100) 35%, transparent);
+    border-block-start-color: var(--color-base-100);
+    border-radius: 999px;
+  }
+
+  .session-panel-start__players {
+    min-inline-size: 0;
+    flex: 1;
+  }
+
+  .session-panel-start__error {
+    margin: 0 0 0.75rem;
+    color: var(--color-error);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .session-panel-start__loading {
+    margin: 0;
+    padding-block: 0.5rem;
+    color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .session-panel-players {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .session-panel-players__item {
+    display: flex;
+    inline-size: 4rem;
+    min-inline-size: 0;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .session-panel-players__avatar {
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    flex: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-base-200);
+    object-fit: cover;
+  }
+
+  .session-panel-players__avatar--fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .session-panel-players__name {
+    display: -webkit-box;
+    max-inline-size: 100%;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    color: var(--color-base-content);
+    font-size: 0.75rem;
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .session-panel-frame {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: rgb(0 0 0 / 0.42);
+    box-sizing: border-box;
+  }
+
+  @keyframes session-panel-spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .session-panel-start__action,
+    .session-panel-start__spinner {
+      animation: none;
+      transition: none;
+    }
+  }
+</style>

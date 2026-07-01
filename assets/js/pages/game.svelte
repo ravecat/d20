@@ -1,5 +1,10 @@
 <script lang="ts">
   import { useForm } from "@inertiajs/svelte";
+  import AgeLabel from "~components/age_label.svelte";
+  import BggRatingLabel from "~components/bgg_rating_label.svelte";
+  import ComplexityLabel from "~components/complexity_label.svelte";
+  import PlayTimeLabel from "~components/play_time_label.svelte";
+  import PlayerCountLabel from "~components/player_count_label.svelte";
   import SessionPanel from "~components/session_panel.svelte";
   import type { GameMetadata, Session } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
@@ -26,8 +31,8 @@
   };
 </script>
 
-<main class="bg-base-100 text-base-content">
-  <section class="mx-auto w-full max-w-185 px-6 py-6 max-[34rem]:px-4">
+<main class="game-detail-page bg-base-100 text-base-content">
+  <section class="game-detail-shell">
     <article class="min-w-0">
       <div class="game-detail-preview">
         {#if game.imageUrl ?? game.thumbnailUrl}
@@ -75,43 +80,75 @@
         {/if}
       </div>
 
-      {#if game.description}
-        <p class="game-detail-description">{game.description}</p>
-      {/if}
+      <div class="game-detail-layout">
+        <aside class="game-detail-activation" aria-label="Game activation">
+          <div class="game-detail-activation__metadata">
+            <PlayerCountLabel {game} />
+            <PlayTimeLabel {game} />
+            <AgeLabel {game} />
+            <ComplexityLabel {game} />
+            <BggRatingLabel {game} />
+          </div>
 
-      {#if session && module && connection}
-        {#key session.id}
-          <SessionPanel {module} {connection} />
-        {/key}
-      {:else}
-        <div class="mt-6">
-          <button
-            class="inline-flex min-h-10 min-w-28 items-center justify-center gap-2 rounded-sm border border-base-content bg-base-content px-5 py-2 text-sm font-medium text-base-100 transition-colors hover:bg-base-content/85 focus:outline-none focus:ring-2 focus:ring-base-content/40"
-            type="button"
-            aria-busy={$sessionForm.processing}
-            onclick={handleStartSession}
-          >
-            {#if $sessionForm.processing}
-              <span
-                class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-base-100/35 border-t-base-100"
-                aria-hidden="true"
-              ></span>
-              Cancel
+          <div class="game-detail-activation__body">
+            {#if session && module && connection}
+              {#key session.id}
+                <SessionPanel {module} {connection} />
+              {/key}
             {:else}
-              Play
-            {/if}
-          </button>
-        </div>
-      {/if}
+              <button
+                class="game-detail-action"
+                type="button"
+                aria-busy={$sessionForm.processing}
+                onclick={handleStartSession}
+              >
+                {#if $sessionForm.processing}
+                  <span class="game-detail-action__spinner" aria-hidden="true"></span>
+                  Cancel
+                {:else}
+                  Play
+                {/if}
+              </button>
 
-      {#if $sessionForm.errors.startSession}
-        <p class="mt-3 text-sm text-error">{$sessionForm.errors.startSession}</p>
-      {/if}
+              {#if $sessionForm.errors.startSession}
+                <p class="game-detail-activation__error">{$sessionForm.errors.startSession}</p>
+              {/if}
+            {/if}
+          </div>
+        </aside>
+
+        <section class="game-detail-description-panel" aria-labelledby="game-detail-description">
+          <h2 id="game-detail-description" class="sr-only">Description</h2>
+          {#if game.description}
+            <p class="game-detail-description">{game.description}</p>
+          {:else}
+            <p class="game-detail-description game-detail-description--empty">
+              Description not listed.
+            </p>
+          {/if}
+        </section>
+      </div>
     </article>
   </section>
 </main>
 
 <style>
+  .game-detail-shell {
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 64rem;
+    margin-inline: auto;
+    padding: 1.5rem;
+  }
+
+  .game-detail-page {
+    overflow-x: clip;
+  }
+
+  .game-detail-shell * {
+    box-sizing: border-box;
+  }
+
   .game-detail-preview {
     position: relative;
     display: block;
@@ -190,18 +227,16 @@
   }
 
   .game-detail-description {
-    display: -webkit-box;
-    inline-size: 100%;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-    margin-block-start: 1.25rem;
+    margin: 0;
     color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
     font-size: 0.875rem;
     line-height: 1.7;
-    text-overflow: ellipsis;
     text-wrap: pretty;
+    white-space: pre-line;
+  }
+
+  .game-detail-description--empty {
+    color: color-mix(in oklab, var(--color-base-content) 48%, transparent);
   }
 
   .game-detail-metadata {
@@ -244,6 +279,157 @@
     background: oklch(44% 0.15 33 / 0.9);
   }
 
+  .game-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(17rem, 3fr);
+    gap: 1rem;
+    align-items: start;
+    margin-block-start: 1rem;
+  }
+
+  .game-detail-description-panel,
+  .game-detail-activation {
+    min-inline-size: 0;
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--color-base-100) 94%, var(--color-base-200));
+  }
+
+  .game-detail-description-panel {
+    max-block-size: clamp(18rem, calc(100dvb - 18rem), 38rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 1rem;
+  }
+
+  .game-detail-activation {
+    container: game-detail-activation / inline-size;
+    display: flex;
+    min-block-size: clamp(18rem, calc(100dvb - 18rem), 38rem);
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .game-detail-activation__metadata {
+    display: flex;
+    min-inline-size: 0;
+    align-items: safe center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.55em;
+    font-size: 0.8rem;
+  }
+
+  .game-detail-activation__metadata:empty {
+    display: none;
+  }
+
+  @supports selector(:has(*)) {
+    .game-detail-activation__metadata:not(:has(> *)) {
+      display: none;
+    }
+  }
+
+  .game-detail-activation__body {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  @container game-detail-activation (min-width: 22rem) {
+    .game-detail-activation__metadata {
+      flex-wrap: nowrap;
+      gap: 0.45em;
+      font-size: clamp(0.8rem, 3.75cqi, 0.9rem);
+    }
+  }
+
+  .game-detail-action {
+    display: inline-flex;
+    min-block-size: 2.5rem;
+    inline-size: 100%;
+    min-inline-size: 0;
+    align-self: stretch;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid var(--color-base-content);
+    border-radius: var(--radius-sm);
+    background: var(--color-base-content);
+    padding: 0.5rem 1rem;
+    color: var(--color-base-100);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .game-detail-action:hover {
+    background: color-mix(in oklab, var(--color-base-content) 86%, transparent);
+  }
+
+  .game-detail-action:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-base-content) 42%, transparent);
+    outline-offset: 2px;
+  }
+
+  .game-detail-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .game-detail-action__spinner {
+    inline-size: 0.875rem;
+    block-size: 0.875rem;
+    flex: none;
+    animation: game-detail-spin 700ms linear infinite;
+    border: 2px solid color-mix(in oklab, var(--color-base-100) 35%, transparent);
+    border-block-start-color: var(--color-base-100);
+    border-radius: 999px;
+  }
+
+  .game-detail-activation__error {
+    margin: 0;
+    color: var(--color-error);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  @keyframes game-detail-spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .game-detail-shell {
+      padding-inline: 1rem;
+    }
+
+    .game-detail-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .game-detail-description-panel {
+      max-block-size: none;
+      overflow: visible;
+    }
+
+    .game-detail-activation {
+      min-block-size: 18rem;
+    }
+
+    .game-detail-activation__metadata {
+      align-items: flex-start;
+    }
+  }
+
   @media (max-width: 34rem) {
     .game-detail-preview {
       aspect-ratio: 1.75 / 1;
@@ -258,6 +444,14 @@
       max-inline-size: calc(100% - 1.5rem);
       flex-wrap: wrap;
       row-gap: 0.35rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .game-detail-action,
+    .game-detail-action__spinner {
+      animation: none;
+      transition: none;
     }
   }
 </style>

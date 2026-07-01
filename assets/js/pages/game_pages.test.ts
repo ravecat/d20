@@ -85,6 +85,15 @@ describe("game detail page", () => {
     expect(document.querySelector(".game-detail-description")?.textContent).toBe(
       "Resolved details.",
     );
+    expect(document.querySelector(".game-detail-layout")).not.toBeNull();
+    expect(document.querySelector(".game-detail-description-panel")).not.toBeNull();
+    expect(document.querySelector(".game-detail-activation")).not.toBeNull();
+    expect(document.querySelector(".game-detail-layout")?.children[0]?.classList).toContain(
+      "game-detail-activation",
+    );
+    expect(document.querySelector(".game-detail-layout")?.children[1]?.classList).toContain(
+      "game-detail-description-panel",
+    );
     expect(
       document
         .querySelector(".game-detail-preview")
@@ -107,20 +116,143 @@ describe("game detail page", () => {
     ).toEqual(["Dice", "Number"]);
   });
 
-  it("renders a fallback detail page without provider metadata", () => {
+  it("renders provider metadata labels in the activation panel", () => {
     inertiaMock.prepareForm();
 
     render(GamePage, {
       slug: "qwinto",
-      game: gameMetadata({ name: null, imageUrl: null, thumbnailUrl: null, description: null }),
+      game: gameMetadata({
+        minPlayers: 2,
+        maxPlayers: 6,
+        playingTime: 30,
+        minPlayTime: 20,
+        maxPlayTime: 40,
+        minAge: 8,
+        complexity: 2.14,
+        rating: 7.42,
+      }),
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("2-6");
+    const playTime = document.querySelector('[aria-label="Play time"]')?.textContent;
+    expect(playTime).toContain("20-40");
+    expect(playTime).not.toContain("min");
+    const age = document.querySelector('[aria-label="Age"]');
+    expect(age?.textContent).toContain("8+");
+    expect(age?.querySelector(".game-metadata-label__age-value")).toBeNull();
+    expect(age?.querySelector("svg")).toBeNull();
+    expect(document.querySelector('[aria-label="Complexity"]')?.textContent).toContain("2.1/5");
+    expect(document.querySelector('[aria-label="BGG rating"]')?.textContent).toContain("7.4/10");
+  });
+
+  it("renders single metadata values without fake ranges", () => {
+    inertiaMock.prepareForm();
+
+    render(GamePage, {
+      slug: "qwinto",
+      game: gameMetadata({
+        minPlayers: 1,
+        maxPlayers: 1,
+        playingTime: 15,
+        minPlayTime: 15,
+        maxPlayTime: 15,
+      }),
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("1");
+    expect(document.querySelector('[aria-label="Players"]')?.textContent).not.toContain("1-1");
+    expect(document.querySelector('[aria-label="Play time"]')?.textContent).toContain("15");
+  });
+
+  it("renders minimum-only play time as an open-ended value", () => {
+    inertiaMock.prepareForm();
+
+    render(GamePage, {
+      slug: "qwinto",
+      game: gameMetadata({
+        playingTime: null,
+        minPlayTime: 20,
+        maxPlayTime: null,
+      }),
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    const playTime = document.querySelector('[aria-label="Play time"]')?.textContent;
+    expect(playTime).toContain("20+");
+    expect(playTime).not.toContain("min");
+  });
+
+  it("omits missing provider metadata labels", () => {
+    inertiaMock.prepareForm();
+
+    render(GamePage, {
+      slug: "qwinto",
+      game: gameMetadata({
+        name: null,
+        imageUrl: null,
+        thumbnailUrl: null,
+        description: null,
+        minPlayers: null,
+        maxPlayers: null,
+        playingTime: null,
+        minPlayTime: null,
+        maxPlayTime: null,
+        minAge: null,
+        complexity: null,
+        rating: null,
+      }),
       module: null,
       connection: null,
       session: null,
     });
 
     expect(document.body.textContent).toContain("Play");
+    expect(document.body.textContent).toContain("Description not listed.");
+    expect(document.body.textContent).not.toContain("Not listed");
+    expect(document.querySelector('[aria-label="Game metadata"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Players"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Play time"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Age"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Complexity"]')).toBeNull();
+    expect(document.querySelector('[aria-label="BGG rating"]')).toBeNull();
     expect(document.querySelector("img")).toBeNull();
     expect(document.querySelector(".game-detail-chip")).toBeNull();
+  });
+
+  it("keeps available metadata while omitting missing metadata labels", () => {
+    inertiaMock.prepareForm();
+
+    render(GamePage, {
+      slug: "qwinto",
+      game: gameMetadata({
+        minPlayers: 2,
+        maxPlayers: 6,
+        playingTime: null,
+        minPlayTime: null,
+        maxPlayTime: null,
+        minAge: null,
+        complexity: null,
+        rating: null,
+      }),
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("2-6");
+    expect(document.querySelector('[aria-label="Play time"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Age"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Complexity"]')).toBeNull();
+    expect(document.querySelector('[aria-label="BGG rating"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("Not listed");
   });
 
   it("posts session creation to the internal slug route", () => {
@@ -133,6 +265,8 @@ describe("game detail page", () => {
       connection: null,
       session: null,
     });
+
+    expect(document.querySelector("button")?.textContent).toContain("Play");
 
     document.querySelector("button")?.click();
     flushSync();
@@ -171,6 +305,8 @@ function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {
     minPlayTime: 15,
     maxPlayTime: 15,
     minAge: 8,
+    complexity: 2.1,
+    rating: 7.4,
     ...overrides,
   };
 }

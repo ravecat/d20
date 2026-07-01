@@ -102,6 +102,21 @@ describe("SessionPanel", () => {
     expect(startPanel?.className).not.toContain("border");
   });
 
+  it("styles the start action as the primary full-width game action", () => {
+    renderPanel({
+      value: sessionWithPhase("waiting_for_players"),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    const startButton = document.querySelector("button");
+
+    expect(startButton?.textContent).toContain("Start");
+    expect(startButton?.className).toContain("session-panel-start__action");
+  });
+
   it("disables start when permissions do not allow starting the game", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players", { can_start_game: false }),
@@ -149,9 +164,20 @@ describe("SessionPanel", () => {
 
     expect(avatar.className).not.toContain("border");
     expect(fallbackAvatar.className).not.toContain("border");
-    expect(name.className).toContain("line-clamp-2");
-    expect(name.className).toContain("break-words");
-    expect(name.className).not.toContain("truncate");
+    expect(name.className).toContain("session-panel-players__name");
+  });
+
+  it("omits unavailable presence copy when no members are visible", () => {
+    renderPanel({
+      value: { ...sessionWithPhase("waiting_for_players"), members: {} },
+      status: "failed",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    expect(document.body.textContent).not.toContain("Presence unavailable");
+    expect(document.querySelector('ul[aria-label="Joined players"]')).not.toBeNull();
   });
 
   it("hides active members once the session is in progress", () => {
