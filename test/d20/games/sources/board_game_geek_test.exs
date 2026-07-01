@@ -42,7 +42,9 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
              playing_time: 120,
              min_play_time: 60,
              max_play_time: 120,
-             min_age: 10
+             min_age: 10,
+             complexity: 2.14,
+             rating: 7.42
            } = attrs
 
     refute Map.has_key?(attrs, :ratings)
@@ -79,7 +81,7 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
         assert conn.method == "GET"
         assert conn.host == "boardgamegeek.com"
         assert conn.request_path == "/xmlapi2/thing"
-        assert conn.params == %{"id" => "999999", "type" => "boardgame"}
+        assert conn.params == %{"id" => "999999", "type" => "boardgame", "stats" => "1"}
         assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer test-token"]
         assert Plug.Conn.get_req_header(conn, "accept") == ["application/xml"]
 

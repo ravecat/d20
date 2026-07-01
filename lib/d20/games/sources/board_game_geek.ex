@@ -22,7 +22,9 @@ defmodule D20.Games.Sources.BoardGameGeek do
           optional(:playing_time) => integer(),
           optional(:min_play_time) => integer(),
           optional(:max_play_time) => integer(),
-          optional(:min_age) => integer()
+          optional(:min_age) => integer(),
+          optional(:complexity) => float(),
+          optional(:rating) => float()
         }
 
   @spec fetch_game_details(integer()) :: {:ok, game_attrs()} | {:error, term()}
@@ -44,7 +46,7 @@ defmodule D20.Games.Sources.BoardGameGeek do
   defp request_game_details(bgg_id, api_key) do
     case Req.get("https://boardgamegeek.com/xmlapi2/thing",
            headers: [{"authorization", "Bearer #{api_key}"}, {"accept", "application/xml"}],
-           params: [id: bgg_id, type: "boardgame"],
+           params: [id: bgg_id, type: "boardgame", stats: 1],
            retry: false,
            receive_timeout: 10_000
          ) do
@@ -102,7 +104,9 @@ defmodule D20.Games.Sources.BoardGameGeek do
         playing_time: xpath(item, ~x"./playingtime/@value"Io),
         min_play_time: xpath(item, ~x"./minplaytime/@value"Io),
         max_play_time: xpath(item, ~x"./maxplaytime/@value"Io),
-        min_age: xpath(item, ~x"./minage/@value"Io)
+        min_age: xpath(item, ~x"./minage/@value"Io),
+        complexity: xpath(item, ~x"./statistics/ratings/averageweight/@value"Fo),
+        rating: xpath(item, ~x"./statistics/ratings/average/@value"Fo)
       }
     end
 

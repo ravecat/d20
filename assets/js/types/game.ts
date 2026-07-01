@@ -13,6 +13,8 @@ export interface GameMetadata {
   minPlayTime?: number | null;
   maxPlayTime?: number | null;
   minAge?: number | null;
+  complexity?: number | null;
+  rating?: number | null;
 }
 
 export interface GameCatalogEntry {

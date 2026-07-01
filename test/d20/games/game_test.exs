@@ -20,7 +20,9 @@ defmodule D20.Games.GameTest do
                playing_time: 15,
                min_play_time: 15,
                max_play_time: 15,
-               min_age: 8
+               min_age: 8,
+               complexity: 2.1,
+               rating: 7.4
              })
 
     assert game.name == "Qwinto"
@@ -30,6 +32,8 @@ defmodule D20.Games.GameTest do
     assert game.description == "Resolved from BGG."
     assert game.thumbnail_url == "https://example.invalid/thumb.jpg"
     assert game.image_url == "https://example.invalid/image.jpg"
+    assert game.complexity == 2.1
+    assert game.rating == 7.4
     refute Map.has_key?(game, :bgg_id)
     refute Map.has_key?(game, :slug)
   end
@@ -48,5 +52,7 @@ defmodule D20.Games.GameTest do
     assert game.mechanics == []
     assert game.description == nil
     assert game.image_url == nil
+    assert game.complexity == nil
+    assert game.rating == nil
   end
 end

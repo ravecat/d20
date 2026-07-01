@@ -26,7 +26,9 @@ defmodule D20.Games.Game do
     :playing_time,
     :min_play_time,
     :max_play_time,
-    :min_age
+    :min_age,
+    :complexity,
+    :rating
   ]
 
   embedded_schema do
@@ -44,6 +46,8 @@ defmodule D20.Games.Game do
     field :min_play_time, :integer
     field :max_play_time, :integer
     field :min_age, :integer
+    field :complexity, :float
+    field :rating, :float
   end
 
   @type t :: %__MODULE__{
@@ -60,7 +64,9 @@ defmodule D20.Games.Game do
           playing_time: integer() | nil,
           min_play_time: integer() | nil,
           max_play_time: integer() | nil,
-          min_age: integer() | nil
+          min_age: integer() | nil,
+          complexity: float() | nil,
+          rating: float() | nil
         }
 
   @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}

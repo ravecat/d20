@@ -17,6 +17,13 @@ defmodule D20.GamesTest do
       <minplayers value="2" />
       <maxplayers value="6" />
       <playingtime value="15" />
+      <minage value="8" />
+      <statistics page="1">
+        <ratings>
+          <average value="7.42" />
+          <averageweight value="1.47" />
+        </ratings>
+      </statistics>
       <link type="boardgamecategory" id="1017" value="Dice" />
       <link type="boardgamecategory" id="1098" value="Number" />
       <link type="boardgamemechanic" id="2072" value="Dice Rolling" />
@@ -61,6 +68,9 @@ defmodule D20.GamesTest do
     assert game.mechanics == ["Dice Rolling", "Paper-and-Pencil"]
     assert game.description == "Resolved from BGG."
     assert game.thumbnail_url == "https://example.invalid/thumb.jpg"
+    assert game.min_age == 8
+    assert game.complexity == 1.47
+    assert game.rating == 7.42
     refute Map.has_key?(game, :slug)
   end
 
@@ -94,7 +104,7 @@ defmodule D20.GamesTest do
 
   defp stub_bgg_game(xml) do
     Req.Test.expect(__MODULE__, fn conn ->
-      assert conn.params == %{"id" => "183006", "type" => "boardgame"}
+      assert conn.params == %{"id" => "183006", "type" => "boardgame", "stats" => "1"}
 
       Req.Test.text(conn, xml)
     end)
@@ -102,7 +112,7 @@ defmodule D20.GamesTest do
 
   defp stub_registered_bgg_games do
     Req.Test.expect(__MODULE__, map_size(@registered_game_names), fn conn ->
-      assert %{"id" => id, "type" => "boardgame"} = conn.params
+      assert %{"id" => id, "type" => "boardgame", "stats" => "1"} = conn.params
 
       Req.Test.text(conn, game_xml(id, Map.fetch!(@registered_game_names, id)))
     end)

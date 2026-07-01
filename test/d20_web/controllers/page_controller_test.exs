@@ -24,6 +24,18 @@ defmodule D20Web.PageControllerTest do
       <image>https://example.invalid/qwinto-image.jpg</image>
       <name type="primary" value="Resolved Qwinto" />
       <description>Resolved details.</description>
+      <minplayers value="2" />
+      <maxplayers value="6" />
+      <playingtime value="30" />
+      <minplaytime value="20" />
+      <maxplaytime value="40" />
+      <minage value="8" />
+      <statistics page="1">
+        <ratings>
+          <average value="7.42" />
+          <averageweight value="1.47" />
+        </ratings>
+      </statistics>
     </item>
   </items>
   """
@@ -120,6 +132,14 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(game, :bggId)
     assert game[:name] == "Resolved Qwinto"
     assert game[:description] == "Resolved details."
+    assert game[:minPlayers] == 2
+    assert game[:maxPlayers] == 6
+    assert game[:playingTime] == 30
+    assert game[:minPlayTime] == 20
+    assert game[:maxPlayTime] == 40
+    assert game[:minAge] == 8
+    assert game[:complexity] == 1.47
+    assert game[:rating] == 7.42
   end
 
   test "GET /games/:slug with a missing session redirects with errors", %{conn: conn} do
@@ -248,7 +268,7 @@ defmodule D20Web.PageControllerTest do
 
   defp stub_bgg_game(xml) do
     Req.Test.expect(__MODULE__, fn conn ->
-      assert conn.params == %{"id" => "183006", "type" => "boardgame"}
+      assert conn.params == %{"id" => "183006", "type" => "boardgame", "stats" => "1"}
 
       Req.Test.text(conn, xml)
     end)
@@ -256,7 +276,7 @@ defmodule D20Web.PageControllerTest do
 
   defp stub_registered_bgg_games(overrides \\ %{}) do
     Req.Test.expect(__MODULE__, map_size(@registered_game_names), fn conn ->
-      assert %{"id" => id, "type" => "boardgame"} = conn.params
+      assert %{"id" => id, "type" => "boardgame", "stats" => "1"} = conn.params
 
       xml =
         Map.get_lazy(overrides, id, fn -> game_xml(id, Map.fetch!(@registered_game_names, id)) end)
