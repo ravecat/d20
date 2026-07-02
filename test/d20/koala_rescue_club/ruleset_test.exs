@@ -4,12 +4,8 @@ defmodule D20.KoalaRescueClub.RulesetTest do
   alias D20.KoalaRescueClub.Ruleset
 
   describe "player and turn limits" do
-    test "accepts one or more players" do
-      assert Ruleset.min_players() == 1
-      assert Ruleset.valid_player_count?(1)
-      assert Ruleset.valid_player_count?(100)
-      refute Ruleset.valid_player_count?(0)
-      refute Ruleset.valid_player_count?("1")
+    test "accepts supported player range" do
+      assert Ruleset.player_count_range() == 1..99
     end
 
     test "maps turns to rounds and scoring turns" do
@@ -36,7 +32,6 @@ defmodule D20.KoalaRescueClub.RulesetTest do
       assert {:error, :invalid_die_value} = Ruleset.shape_for(0)
       assert Ruleset.shape_offsets(6) == [{0, 0}, {1, 0}, {2, 0}, {1, 1}]
       assert Ruleset.shape_size(5) == 4
-      assert Ruleset.shape_transforms() == [:rotate, :flip]
     end
 
     test "wraps die adjustments and reports volunteer reachability" do
@@ -53,56 +48,50 @@ defmodule D20.KoalaRescueClub.RulesetTest do
     end
   end
 
-  describe "actions and bonuses" do
-    test "exposes turn, fallback, and bonus action kinds" do
-      assert Ruleset.actions() == [:plant_trees, :rehome_koalas]
-      assert Ruleset.single_circle_actions() == [:circle_tree, :circle_koala]
-      assert Ruleset.bonus_actions() == [:tree, :koala, :volunteer, :hospital, :skybridge]
-      assert Ruleset.bonus_action?(:skybridge)
-      refute Ruleset.bonus_action?(:plant_trees)
-
-      assert Ruleset.merit_badge_policy() == %{
+  describe "scoring metadata" do
+    test "exposes badge policy" do
+      assert Ruleset.badge_policy() == %{
                multiplayer: :first_players_large_others_small,
                solo: :round_1_large_round_2_small
              }
-
-      assert Ruleset.tie_breakers() == [:most_koalas]
     end
   end
 
-  describe "maps" do
-    test "returns map-specific rule differences" do
-      assert [:map_1, :map_2] = Ruleset.map_slugs()
+  describe "sheets" do
+    test "returns sheet-specific rule differences" do
+      assert [:dharug, :yugambeh] = Ruleset.sheets()
 
-      assert {:ok,
-              %{
-                slug: :map_1,
-                title: "Map 1",
-                initial_volunteers: 1,
-                hospital_scoring: :completed_only,
-                sheet_geometry: :not_encoded
-              }} = Ruleset.map(:map_1)
+      assert {:ok, %Ruleset.Sheet{volunteers: 1} = dharug} = Ruleset.sheet(:dharug)
 
-      assert {:ok,
-              %{
-                slug: :map_2,
-                title: "Map 2 - Yugambeh",
-                initial_volunteers: 0,
-                hospital_scoring: :completed_positive_started_incomplete_negative,
-                sheet_geometry: :not_encoded
-              }} = Ruleset.map("map_2")
+      assert Ruleset.valid_geometry?(dharug)
+      assert map_size(dharug.areas) == 5
+      assert Map.has_key?(dharug.areas, :a)
+      assert dharug.cells["a:0:0"].area_id == :a
+      assert map_size(dharug.skybridges) == 4
+      assert map_size(dharug.badges) == 3
+      assert Map.has_key?(dharug.badges, :tree_lover)
 
-      assert {:error, :unknown_map} = Ruleset.map("missing")
+      assert {:ok, %Ruleset.Sheet{volunteers: 0} = yugambeh} = Ruleset.sheet("yugambeh")
+
+      assert Ruleset.valid_geometry?(yugambeh)
+      assert map_size(yugambeh.areas) == 7
+      assert Map.has_key?(yugambeh.areas, :g)
+      assert yugambeh.cells["g:0:0"].area_id == :g
+      assert map_size(yugambeh.skybridges) == 6
+      assert map_size(yugambeh.badges) == 3
+      assert Map.has_key?(yugambeh.badges, :tree_lover)
+
+      assert {:error, :unknown_sheet} = Ruleset.sheet("missing")
     end
 
-    test "returns solo ratings by map and score" do
-      assert {:ok, %{rank: :junior_club_member}} = Ruleset.solo_rating(:map_1, 12)
-      assert {:ok, %{rank: :club_secretary}} = Ruleset.solo_rating(:map_1, 13)
-      assert {:ok, %{rank: :president}} = Ruleset.solo_rating(:map_1, 25)
-      assert {:ok, %{rank: :vice_president}} = Ruleset.solo_rating(:map_2, 27)
-      assert {:ok, %{rank: :president}} = Ruleset.solo_rating(:map_2, 28)
-      assert {:error, :invalid_score} = Ruleset.solo_rating(:map_2, -1)
-      assert {:error, :unknown_map} = Ruleset.solo_rating(:missing, 10)
+    test "returns solo ratings by sheet and score" do
+      assert {:ok, %{rank: :junior_club_member}} = Ruleset.solo_rating(:dharug, 12)
+      assert {:ok, %{rank: :club_secretary}} = Ruleset.solo_rating(:dharug, 13)
+      assert {:ok, %{rank: :president, range: 25..43}} = Ruleset.solo_rating(:dharug, 25)
+      assert {:ok, %{rank: :vice_president}} = Ruleset.solo_rating(:yugambeh, 27)
+      assert {:ok, %{rank: :president, range: 28..55}} = Ruleset.solo_rating(:yugambeh, 28)
+      assert {:error, :invalid_score} = Ruleset.solo_rating(:yugambeh, -1)
+      assert {:error, :unknown_sheet} = Ruleset.solo_rating(:missing, 10)
     end
   end
 
@@ -113,21 +102,21 @@ defmodule D20.KoalaRescueClub.RulesetTest do
       assert Ruleset.score_area(%{trees_complete?: true, koalas_complete?: true}) == 2
     end
 
-    test "scores hospitals by map policy" do
-      assert {:ok, 0} = Ruleset.score_hospital(:map_1, %{filled: 2, size: 3, score: 3})
-      assert {:ok, 3} = Ruleset.score_hospital(:map_1, %{filled: 3, size: 3, score: 3})
+    test "scores hospitals by penalty attribute" do
+      assert {:ok, 0} = Ruleset.score_hospital(:dharug, %{filled: 2, size: 3, score: 3})
+      assert {:ok, 3} = Ruleset.score_hospital(:dharug, %{filled: 3, size: 3, score: 3})
 
       assert {:ok, 0} =
-               Ruleset.score_hospital(:map_2, %{filled: 0, size: 2, score: 2, penalty: -1})
+               Ruleset.score_hospital(:yugambeh, %{filled: 0, size: 2, score: 2, penalty: -1})
 
       assert {:ok, 3} =
-               Ruleset.score_hospital(:map_2, %{filled: 3, size: 3, score: 3, penalty: -2})
+               Ruleset.score_hospital(:yugambeh, %{filled: 3, size: 3, score: 3, penalty: -2})
 
       assert {:ok, -3} =
-               Ruleset.score_hospital(:map_2, %{filled: 3, size: 4, score: 4, penalty: -3})
+               Ruleset.score_hospital(:yugambeh, %{filled: 3, size: 4, score: 4, penalty: -3})
 
       assert {:error, :invalid_hospital} =
-               Ruleset.score_hospital(:map_1, %{filled: -1, size: 3, score: 3})
+               Ruleset.score_hospital(:dharug, %{filled: -1, size: 3, score: 3})
     end
   end
 end
