@@ -1,29 +1,18 @@
 <script lang="ts">
-  import type { FormDataConvertible } from "@inertiajs/core";
+  import type {
+    FormComponentProps,
+    FormComponentSlotProps,
+    FormDataConvertible,
+  } from "@inertiajs/core";
   import type { Snippet } from "svelte";
   import inertiaMock from "./inertia";
 
-  type SlotProps = {
-    errors: Record<string, string>;
-    hasErrors: boolean;
-    processing: boolean;
-    progress: null;
-    wasSuccessful: boolean;
-    recentlySuccessful: boolean;
-    isDirty: boolean;
-    clearErrors: (...fields: string[]) => void;
-    resetAndClearErrors: (...fields: string[]) => void;
-    setError: (fieldOrFields: string | Record<string, string>, value?: string) => void;
-    submit: (submitter?: HTMLElement | null) => void;
-    defaults: () => void;
-    reset: (...fields: string[]) => void;
-    getData: (submitter?: HTMLElement | null) => Record<string, FormDataConvertible>;
-    getFormData: (submitter?: HTMLElement | null) => FormData;
-  };
+  type FormFields = Record<string, FormDataConvertible>;
+  type SlotProps = FormComponentSlotProps<FormFields>;
 
   type Props = {
-    action?: string;
-    method?: string;
+    action?: FormComponentProps["action"];
+    method?: FormComponentProps["method"];
     disableWhileProcessing?: boolean;
     class?: string;
     children?: Snippet<[SlotProps]>;
@@ -40,9 +29,9 @@
   }: Props = $props();
   let formElement: HTMLFormElement;
 
-  const errors: Record<string, string> = {};
+  const errors: SlotProps["errors"] = {};
   const processing = false;
-  const slotProps = $derived({
+  const slotProps = $derived<SlotProps>({
     errors,
     hasErrors: Object.keys(errors).length > 0,
     processing,
@@ -58,12 +47,19 @@
     reset: () => undefined,
     getData,
     getFormData,
+    validating: false,
+    valid: () => false,
+    invalid: (field) => field in errors,
+    validate: () => undefined,
+    touch: () => undefined,
+    touched: () => false,
+    validator: () => ({}) as ReturnType<SlotProps["validator"]>,
   });
 
   function submit() {
     inertiaMock.formSubmit({
-      action,
-      method: method.toLowerCase(),
+      action: actionUrl(action),
+      method: formMethod(action, method),
       data: getData(),
     });
   }
@@ -95,8 +91,21 @@
     return data as Record<string, FormDataConvertible>;
   }
 
-  function htmlFormMethod(method: string): HtmlFormMethod {
-    const normalized = method.toLowerCase();
+  function actionUrl(action: FormComponentProps["action"]) {
+    return typeof action === "string" ? action : (action?.url ?? "");
+  }
+
+  function formMethod(action: FormComponentProps["action"], method: FormComponentProps["method"]) {
+    return (
+      typeof action === "string" ? (method ?? "get") : (action?.method ?? method ?? "get")
+    ).toLowerCase();
+  }
+
+  function htmlFormMethod(
+    action: FormComponentProps["action"],
+    method: FormComponentProps["method"],
+  ): HtmlFormMethod {
+    const normalized = formMethod(action, method);
 
     if (normalized === "post" || normalized === "dialog") {
       return normalized;
@@ -108,8 +117,8 @@
 
 <form
   bind:this={formElement}
-  {action}
-  method={htmlFormMethod(method)}
+  action={actionUrl(action)}
+  method={htmlFormMethod(action, method)}
   onsubmit={handleSubmit}
   {...rest}
 >

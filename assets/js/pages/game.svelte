@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { FormComponentSlotProps } from "@inertiajs/core";
   import { Form } from "@inertiajs/svelte";
   import AgeLabel from "~components/age_label.svelte";
   import BggRatingLabel from "~components/bgg_rating_label.svelte";
@@ -17,6 +18,8 @@
     connection: ModuleConnection | null;
     session: Session | null;
   }>;
+  type SessionFormFields = Record<string, string>;
+  type SessionFormSlotProps = FormComponentSlotProps<SessionFormFields>;
 
   const { slug, game, attrs = {}, module, connection, session }: Props = $props();
   const formId = $props.id();
@@ -101,10 +104,7 @@
                 {#snippet children({
                   errors,
                   processing,
-                }: {
-                  errors: Record<string, string>;
-                  processing: boolean;
-                })}
+                }: SessionFormSlotProps)}
                   <div class="game-detail-start">
                     {#if attrFields.length > 0}
                       <div class="game-detail-start__fields">

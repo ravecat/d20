@@ -32,7 +32,7 @@ defmodule D20.MixProject do
   defp deps do
     [
       {:bcrypt_elixir, "~> 3.0"},
-      {:inertia, "~> 2.6"},
+      {:inertia, "~> 3.0.0-rc"},
       {:phoenix_vite, "~> 0.4"},
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.5"},

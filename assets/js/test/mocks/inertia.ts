@@ -1,6 +1,12 @@
-import type { FormDataConvertible, FormDataErrors, Page, PageProps, Router } from "@inertiajs/core";
+import type {
+  ErrorValue,
+  FormDataConvertible,
+  FormDataErrors,
+  Page,
+  PageProps,
+  Router,
+} from "@inertiajs/core";
 import type { InertiaForm, InertiaFormProps } from "@inertiajs/svelte";
-import { type Writable, writable } from "svelte/store";
 import { vi } from "vitest";
 
 type MockFunction = ReturnType<typeof vi.fn>;
@@ -38,7 +44,7 @@ type MethodMocks<T> = {
 
 export type InertiaFormMockState<TForm extends object = object> = InertiaForm<TForm>;
 
-export type InertiaFormMock<TForm extends object = object> = Writable<InertiaForm<TForm>> & {
+export type InertiaFormMock<TForm extends object = object> = InertiaForm<TForm> & {
   getState: () => InertiaForm<TForm>;
   setState: (state: Partial<InertiaForm<TForm>>) => void;
 };
@@ -57,11 +63,12 @@ const defaultPage = (): Page<PageProps> => ({
   props: {
     errors: {},
   },
+  rescuedProps: [],
   rememberedState: {},
   version: null,
 });
 
-const pageStore = writable<Page<PageProps>>(defaultPage());
+const page = defaultPage() as typeof import("@inertiajs/svelte")["page"];
 const preparedForms: InertiaFormMock[] = [];
 const createdForms: InertiaFormMock[] = [];
 const formSubmit = vi.fn((_submission: FormSubmission) => undefined);
@@ -93,12 +100,12 @@ const useForm = vi.fn((...args: unknown[]) => {
   return form;
 }) as UseFormMock;
 
-const usePage = vi.fn(() => ({ subscribe: pageStore.subscribe })) as UsePageMock;
+const usePage = vi.fn(() => page) as UsePageMock;
 
 const inertiaMock = {
   inertia,
   useForm,
-  page: { subscribe: pageStore.subscribe },
+  page,
   usePage,
   router,
   formSubmit,
@@ -112,12 +119,12 @@ const inertiaMock = {
     return createdForms.at(-1) ?? preparedForms.at(-1);
   },
   setPage(page: Partial<Page<PageProps>>) {
-    pageStore.update((current) => ({ ...current, ...page }));
+    Object.assign(this.page, page);
   },
   reset() {
     preparedForms.length = 0;
     createdForms.length = 0;
-    pageStore.set(defaultPage());
+    Object.assign(this.page, defaultPage());
     this.inertia.mockClear();
     this.useForm.mockClear();
     this.usePage.mockClear();
@@ -138,18 +145,21 @@ function createForm<TForm extends object = InertiaFormFields>(
   const fieldKeys = new Set(Object.keys(fields));
   const defaults = { ...fields };
   let form: InertiaFormMock<TForm>;
-  let current: InertiaForm<TForm>;
-  let store: Writable<InertiaForm<TForm>>;
 
   const setState = (state: Partial<InertiaForm<TForm>>) => {
-    store.update((previous) => normalizeFormState({ ...previous, ...state }));
+    Object.assign(form, normalizeFormState({ ...form, ...state }));
   };
 
-  const returnCurrent = () => current;
+  const returnCurrent = () => form;
   const setStore = vi.fn((keyOrData: string | Partial<TForm>, value?: unknown) => {
     if (typeof keyOrData === "string") {
+      fieldKeys.add(keyOrData);
       setState({ [keyOrData]: value } as Partial<InertiaForm<TForm>>);
       return;
+    }
+
+    for (const key of Object.keys(keyOrData)) {
+      fieldKeys.add(key);
     }
 
     setState(keyOrData as Partial<InertiaForm<TForm>>);
@@ -157,7 +167,7 @@ function createForm<TForm extends object = InertiaFormFields>(
   const data = vi.fn(
     () =>
       Array.from(fieldKeys).reduce<Partial<TForm>>((values, key) => {
-        values[key as keyof TForm] = current[key as keyof TForm] as TForm[keyof TForm];
+        values[key as keyof TForm] = form[key as keyof TForm] as TForm[keyof TForm];
         return values;
       }, {}) as TForm,
   );
@@ -180,25 +190,18 @@ function createForm<TForm extends object = InertiaFormFields>(
     const errors =
       keys.length === 0
         ? {}
-        : (Object.entries(current.errors).reduce<Record<string, string>>(
-            (remaining, [key, error]) => {
-              if (!keys.includes(key)) {
-                remaining[key] = error as string;
-              }
-
-              return remaining;
-            },
-            {},
+        : (Object.fromEntries(
+            Object.entries(form.errors).filter(([key]) => !keys.includes(key)),
           ) as FormDataErrors<TForm>);
 
     setState({ errors } as Partial<InertiaForm<TForm>>);
     return returnCurrent();
   });
-  const setError = vi.fn((fieldOrErrors: string | FormDataErrors<TForm>, value?: string) => {
+  const setError = vi.fn((fieldOrErrors: string | FormDataErrors<TForm>, value?: ErrorValue) => {
     const errors =
       typeof fieldOrErrors === "string" ? { [fieldOrErrors]: value ?? "" } : fieldOrErrors;
 
-    setState({ errors: { ...current.errors, ...errors } } as Partial<InertiaForm<TForm>>);
+    setState({ errors: { ...form.errors, ...errors } } as Partial<InertiaForm<TForm>>);
     return returnCurrent();
   });
   const resetAndClearErrors = vi.fn((...keys: string[]) => {
@@ -224,12 +227,13 @@ function createForm<TForm extends object = InertiaFormFields>(
     delete: vi.fn(returnCurrent),
     cancel: vi.fn(returnCurrent),
     dontRemember: vi.fn(() => form),
+    optimistic: vi.fn(() => form),
     withPrecognition,
-  } as MethodMocks<InertiaFormProps<TForm>>;
+  } as unknown as MethodMocks<InertiaFormProps<TForm>>;
   const { fields: _fields, state: stateOptions = {} } = options;
 
-  store = writable(
-    normalizeFormState({
+  form = {
+    ...normalizeFormState({
       ...fields,
       isDirty: false,
       errors: {},
@@ -241,16 +245,9 @@ function createForm<TForm extends object = InertiaFormFields>(
       ...methods,
       ...stateOptions,
     } as InertiaForm<TForm>),
-  );
-
-  store.subscribe((state) => {
-    current = state;
-  });
-
-  form = Object.assign(store, {
-    getState: () => current,
+    getState: () => form,
     setState,
-  });
+  } as InertiaFormMock<TForm>;
 
   return form;
 }

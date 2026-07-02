@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json"
   },
   "dependencies": {
-    "@inertiajs/svelte": "2.3.21",
+    "@inertiajs/svelte": "3.6.0",
     "@rvct/d20sdk": "1.1.0-beta.5",
     "phoenix-session": "1.1.0",
     "phoenix": "file:../deps/phoenix",
