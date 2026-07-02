@@ -117,6 +117,21 @@ describe("SessionPanel", () => {
     expect(startButton?.className).toContain("session-panel-start__action");
   });
 
+  it("starts the session without creation attrs", () => {
+    renderPanel({
+      value: sessionWithPhase("waiting_for_players"),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    document.querySelector("button")?.click();
+    flushSync();
+
+    expect(sessionMock.start).toHaveBeenCalledWith();
+  });
+
   it("disables start when permissions do not allow starting the game", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players", { can_start_game: false }),

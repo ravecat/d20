@@ -4,6 +4,7 @@ defmodule D20.SessionsTest do
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20.Command
+  alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions
   alias D20.Sessions.Server
   alias D20.Sessions.Session
@@ -14,7 +15,10 @@ defmodule D20.SessionsTest do
     @behaviour D20.Game
 
     @impl D20.Game
-    def init, do: {:ok, %{events: []}}
+    def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+    @impl D20.Game
+    def init(_attrs), do: {:ok, %{events: []}}
 
     @impl D20.Game
     def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
@@ -49,6 +53,24 @@ defmodule D20.SessionsTest do
 
     test "returns engine validation errors" do
       assert {:error, :invalid_engine} = Sessions.create("qwinto", String, "p1")
+    end
+
+    test "passes creation attrs into the game before starting the session process" do
+      assert {:ok, %Session{game: %KoalaGame{sheet: :yugambeh}} = session} =
+               Sessions.create("koala-rescue-club", KoalaGame, "p1", %{"sheet" => "yugambeh"})
+
+      on_exit(fn -> Sessions.stop(session.id) end)
+
+      assert {:ok, {^session, "koala-rescue-club"}} = Sessions.get(session.id)
+    end
+
+    test "does not start a session process when creation attrs are invalid" do
+      before_count = Registry.count(D20.Registry)
+
+      assert {:error, %Ecto.Changeset{valid?: false}} =
+               Sessions.create("koala-rescue-club", KoalaGame, "p1", %{"sheet" => "missing"})
+
+      assert Registry.count(D20.Registry) == before_count
     end
   end
 

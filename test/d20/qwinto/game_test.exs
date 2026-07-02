@@ -12,7 +12,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "encodes the full game state as JSON" do
-      assert {:ok, game} = Game.init()
+      assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, game} = dispatch(game, "join", "p1")
       assert {:ok, game} = dispatch(game, "join", "p2")
       assert {:ok, game} = dispatch(game, "start", "p1")
@@ -35,7 +35,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "moves from setup to ready at the minimum player count, then starts" do
-      assert {:ok, %Game{phase: :setup} = game} = Game.init()
+      assert {:ok, %Game{phase: :setup} = game} = D20.Game.init(Game)
 
       assert {:ok, %Game{phase: :setup, order: ["p1"]} = game} = dispatch(game, "join", "p1")
       assert game.players["p1"].status == :idle
@@ -53,14 +53,14 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "rejects start before the game is ready" do
-      assert {:ok, game} = Game.init()
+      assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "join", "p1")
 
       assert {:error, :invalid_phase} = dispatch(game, "start", "p1")
     end
 
     test "accepts additional players while ready until max player count" do
-      assert {:ok, game} = Game.init()
+      assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "join", "p1")
       assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "join", "p2")
       assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "join", "p3")
@@ -73,7 +73,7 @@ defmodule D20.Qwinto.GameTest do
 
   describe "dispatch/2" do
     test "active player rolls server dice and chooses how to resolve the result" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -97,10 +97,7 @@ defmodule D20.Qwinto.GameTest do
         phase: :roll,
         order: ["p1", "p2"],
         cursor: 0,
-        players: %{
-          "p1" => player(:idle),
-          "p2" => player(:idle)
-        }
+        players: %{"p1" => player(:idle), "p2" => player(:idle)}
       }
 
       assert {:ok, %Game{phase: :write_or_pass} = game} =
@@ -111,7 +108,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "rejects malformed attrs before applying game rules" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -123,7 +120,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "rejects commands outside their matching phases" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
 
       assert {:error, :invalid_phase} = dispatch(game, "roll", "p1")
 
@@ -143,7 +140,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "rejects non-active player roll without changing game state" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -156,7 +153,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "players write or pass once, then turn advances" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -180,7 +177,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "active player can write immediately from write/pass and opens result" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -199,7 +196,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "active player can cancel from write/pass and opens result with penalty" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -214,7 +211,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "active player can take a penalty instead of writing the final result" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -231,7 +228,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "pass marks only passive players skipped without penalty" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "join", "p3")
@@ -252,7 +249,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "active player can reroll once with the same dice before result opens" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -277,7 +274,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "rejects writes outside the rolled rows without changing game state" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -291,7 +288,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "rejects row order violations and column duplicates" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -306,7 +303,7 @@ defmodule D20.Qwinto.GameTest do
       assert {:error, :invalid_row_order} =
                dispatch(game, "write", "p1", %{"row" => "orange", "slot" => 5})
 
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -323,7 +320,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "finishes after the turn containing the active player's fourth penalty is resolved" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -348,7 +345,7 @@ defmodule D20.Qwinto.GameTest do
     end
 
     test "finishes after the turn where any player completes a second colored row" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -382,7 +379,7 @@ defmodule D20.Qwinto.GameTest do
 
   describe "finished?/1" do
     test "reports whether the internal game state is terminal" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -401,7 +398,7 @@ defmodule D20.Qwinto.GameTest do
 
   describe "scores" do
     test "stores row, bonus, penalty, and total scores in finished game state" do
-      {:ok, game} = Game.init()
+      {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
       {:ok, game} = dispatch(game, "join", "p2")
       {:ok, game} = dispatch(game, "start", "p1")
@@ -444,10 +441,6 @@ defmodule D20.Qwinto.GameTest do
   end
 
   defp player(status) do
-    %{
-      rows: %{orange: %{}, yellow: %{}, purple: %{}},
-      penalties: 0,
-      status: status
-    }
+    %{rows: %{orange: %{}, yellow: %{}, purple: %{}}, penalties: 0, status: status}
   end
 end

@@ -16,15 +16,21 @@ defmodule D20.Sessions do
           | :session_not_found
           | Session.reason()
 
-  @spec create(slug(), D20.Game.engine(), Session.player_id()) ::
+  @spec create(slug(), D20.Game.engine(), Session.player_id(), map()) ::
           {:ok, Session.t()} | {:error, reason()}
-  def create(slug, engine, owner_id) when is_binary(slug) do
-    with {:ok, session} <- Session.new(engine, owner_id),
+  def create(slug, engine, owner_id, attrs \\ %{})
+
+  def create(slug, engine, owner_id, attrs) when is_binary(slug) and is_map(attrs) do
+    with {:ok, session} <- Session.new(engine, owner_id, attrs),
          {:ok, _pid} <- start_child(slug, engine, session) do
       {:ok, session}
     else
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  def create(slug, _engine, _owner_id, _attrs) when is_binary(slug) do
+    {:error, :invalid_creation_attrs}
   end
 
   @spec get(id()) :: {:ok, state()} | {:error, reason()}

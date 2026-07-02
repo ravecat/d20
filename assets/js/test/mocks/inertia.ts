@@ -9,6 +9,11 @@ type InertiaFormFields = Record<string, FormDataConvertible>;
 type InertiaActionMock = InertiaSvelte["inertia"] & MockFunction;
 type UseFormMock = InertiaSvelte["useForm"] & MockFunction;
 type UsePageMock = InertiaSvelte["usePage"] & MockFunction;
+export type FormSubmission = {
+  action: string;
+  method: string;
+  data: Record<string, FormDataConvertible | FormDataConvertible[]>;
+};
 type RouterMockKey =
   | "delete"
   | "get"
@@ -33,14 +38,14 @@ type MethodMocks<T> = {
 
 export type InertiaFormMockState<TForm extends object = object> = InertiaForm<TForm>;
 
-export type InertiaFormMock<TForm extends object = object> = Writable<InertiaForm<TForm>> &
-  MethodMocks<InertiaFormProps<TForm>> & {
-    getState: () => InertiaForm<TForm>;
-    setState: (state: Partial<InertiaForm<TForm>>) => void;
-  };
+export type InertiaFormMock<TForm extends object = object> = Writable<InertiaForm<TForm>> & {
+  getState: () => InertiaForm<TForm>;
+  setState: (state: Partial<InertiaForm<TForm>>) => void;
+};
 
-type InertiaFormMockOptions<TForm extends object = object> = Partial<InertiaForm<TForm>> & {
+type InertiaFormMockOptions<TForm extends object = object> = {
   fields?: TForm;
+  state?: Partial<InertiaForm<TForm>>;
 };
 
 const defaultPage = (): Page<PageProps> => ({
@@ -59,6 +64,7 @@ const defaultPage = (): Page<PageProps> => ({
 const pageStore = writable<Page<PageProps>>(defaultPage());
 const preparedForms: InertiaFormMock[] = [];
 const createdForms: InertiaFormMock[] = [];
+const formSubmit = vi.fn((_submission: FormSubmission) => undefined);
 
 const router = {
   visit: vi.fn(),
@@ -95,6 +101,7 @@ const inertiaMock = {
   page: { subscribe: pageStore.subscribe },
   usePage,
   router,
+  formSubmit,
   prepareForm<TForm extends object = object>(options: InertiaFormMockOptions<TForm> = {}) {
     const form = createForm<TForm>((options.fields ?? {}) as TForm, options);
     preparedForms.push(form as unknown as InertiaFormMock);
@@ -114,6 +121,7 @@ const inertiaMock = {
     this.inertia.mockClear();
     this.useForm.mockClear();
     this.usePage.mockClear();
+    this.formSubmit.mockClear();
 
     for (const mock of Object.values(this.router)) {
       mock.mockClear();
@@ -140,13 +148,8 @@ function createForm<TForm extends object = InertiaFormFields>(
   const returnCurrent = () => current;
   const setStore = vi.fn((keyOrData: string | Partial<TForm>, value?: unknown) => {
     if (typeof keyOrData === "string") {
-      fieldKeys.add(keyOrData);
       setState({ [keyOrData]: value } as Partial<InertiaForm<TForm>>);
       return;
-    }
-
-    for (const key of Object.keys(keyOrData)) {
-      fieldKeys.add(key);
     }
 
     setState(keyOrData as Partial<InertiaForm<TForm>>);
@@ -223,7 +226,7 @@ function createForm<TForm extends object = InertiaFormFields>(
     dontRemember: vi.fn(() => form),
     withPrecognition,
   } as MethodMocks<InertiaFormProps<TForm>>;
-  const { fields: _fields, ...stateOptions } = options;
+  const { fields: _fields, state: stateOptions = {} } = options;
 
   store = writable(
     normalizeFormState({
@@ -244,7 +247,7 @@ function createForm<TForm extends object = InertiaFormFields>(
     current = state;
   });
 
-  form = Object.assign(store, methods, {
+  form = Object.assign(store, {
     getState: () => current,
     setState,
   });

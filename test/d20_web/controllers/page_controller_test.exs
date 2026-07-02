@@ -5,6 +5,8 @@ defmodule D20Web.PageControllerTest do
   alias D20.Actors.Actor
   alias D20.Games.Registry
   alias D20.Games.Sources.BoardGameGeek
+  alias D20.KoalaRescueClub.Game, as: KoalaGame
+  alias D20.Sessions.Session
 
   @qwinto_xml """
   <?xml version="1.0" encoding="utf-8"?>
@@ -36,6 +38,15 @@ defmodule D20Web.PageControllerTest do
           <averageweight value="1.47" />
         </ratings>
       </statistics>
+    </item>
+  </items>
+  """
+
+  @koala_xml """
+  <?xml version="1.0" encoding="utf-8"?>
+  <items>
+    <item type="boardgame" id="425873">
+      <name type="primary" value="Koala Rescue Club" />
     </item>
   </items>
   """
@@ -142,6 +153,26 @@ defmodule D20Web.PageControllerTest do
     assert game[:rating] == 7.42
   end
 
+  test "GET /games/:slug renders game-owned creation attrs", %{conn: conn} do
+    stub_bgg_game(@koala_xml, "425873")
+
+    conn = get(conn, ~p"/games/koala-rescue-club")
+
+    assert %{
+             attrs: %{
+               sheet: %{
+                 id: "attrs_sheet",
+                 name: "sheet",
+                 type: "enum",
+                 value: "dharug",
+                 required: true,
+                 values: ["dharug", "yugambeh"],
+                 errors: []
+               }
+             }
+           } = inertia_props(conn)
+  end
+
   test "GET /games/:slug with a missing session redirects with errors", %{conn: conn} do
     session_id = Ecto.UUID.generate()
 
@@ -180,6 +211,37 @@ defmodule D20Web.PageControllerTest do
     conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
     assert redirected_to(conn, 303) =~ ~r"^/games/qwinto\?session="
+  end
+
+  test "POST /games/:slug/sessions creates a Koala session with submitted attrs", %{conn: conn} do
+    conn =
+      conn
+      |> put_req_header("x-inertia", "true")
+      |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "yugambeh"})
+
+    redirected = redirected_to(conn, 303)
+    assert redirected =~ ~r"^/games/koala-rescue-club\?session="
+    [_, session_id] = Regex.run(~r/session=([^&]+)/, redirected)
+
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
+
+    assert {:ok, {%Session{game: %KoalaGame{sheet: :yugambeh}}, "koala-rescue-club"}} =
+             D20.Sessions.get(session_id)
+  end
+
+  test "POST /games/:slug/sessions redirects with errors when creation attrs are invalid", %{
+    conn: conn
+  } do
+    before_count = Elixir.Registry.count(D20.Registry)
+
+    conn =
+      conn
+      |> put_req_header("x-inertia", "true")
+      |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "missing"})
+
+    assert redirected_to(conn, 303) == ~p"/games/koala-rescue-club"
+    assert inertia_errors(conn) == %{sheet: "is invalid"}
+    assert Elixir.Registry.count(D20.Registry) == before_count
   end
 
   test "POST /games/:slug/sessions returns 404 for unknown games", %{conn: conn} do
@@ -266,9 +328,9 @@ defmodule D20Web.PageControllerTest do
     Application.put_env(:d20, Registry, games: games)
   end
 
-  defp stub_bgg_game(xml) do
+  defp stub_bgg_game(xml, id \\ "183006") do
     Req.Test.expect(__MODULE__, fn conn ->
-      assert conn.params == %{"id" => "183006", "type" => "boardgame", "stats" => "1"}
+      assert conn.params == %{"id" => id, "type" => "boardgame", "stats" => "1"}
 
       Req.Test.text(conn, xml)
     end)

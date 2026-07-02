@@ -61,8 +61,12 @@ defmodule D20.Qwinto.Game do
   @type reason :: :finished | :invalid_phase
 
   @impl D20.Game
-  @spec init() :: {:ok, t()}
-  def init, do: {:ok, %__MODULE__{}}
+  @spec attrs(map()) :: Ecto.Changeset.t()
+  def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+  @impl D20.Game
+  @spec init(D20.Game.attrs()) :: {:ok, t()}
+  def init(_attrs), do: {:ok, %__MODULE__{}}
 
   @impl D20.Game
   @spec dispatch(t(), D20.Command.t()) ::

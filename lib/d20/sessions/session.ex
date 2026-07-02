@@ -23,6 +23,7 @@ defmodule D20.Sessions.Session do
   @type engine_reason :: term()
   @type reason ::
           :invalid_engine
+          | :invalid_creation_attrs
           | :invalid_owner_id
           | :invalid_command
           | :invalid_identity
@@ -38,15 +39,20 @@ defmodule D20.Sessions.Session do
           game: term()
         }
 
-  @spec new(D20.Game.engine(), player_id()) :: {:ok, t()} | {:error, reason()}
-  def new(engine, owner_id) when is_player_id(owner_id) do
+  @spec new(D20.Game.engine(), player_id(), map()) :: {:ok, t()} | {:error, reason()}
+  def new(engine, owner_id, attrs \\ %{})
+
+  def new(engine, owner_id, attrs) when is_player_id(owner_id) and is_map(attrs) do
     with {:ok, engine} <- D20.Game.ensure_engine(engine),
-         {:ok, game} <- engine.init() do
+         {:ok, game} <- D20.Game.init(engine, attrs) do
       {:ok, %__MODULE__{id: Ecto.UUID.generate(), owner_id: owner_id, members: %{}, game: game}}
     end
   end
 
-  def new(_engine, _owner_id), do: {:error, :invalid_owner_id}
+  def new(_engine, owner_id, _attrs) when not is_player_id(owner_id),
+    do: {:error, :invalid_owner_id}
+
+  def new(_engine, _owner_id, _attrs), do: {:error, :invalid_creation_attrs}
 
   @spec dispatch(t(), D20.Game.engine(), Command.t()) :: {:ok, t()} | {:error, reason()}
   def dispatch(%__MODULE__{}, _engine, %Command{event: event}) when not is_binary(event) do

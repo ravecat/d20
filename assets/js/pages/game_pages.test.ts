@@ -2,10 +2,22 @@ import { flushSync, mount, type Component as SvelteComponent, unmount } from "sv
 import { afterEach, describe, expect, it } from "vitest";
 import GamePage from "~pages/game.svelte";
 import HomePage from "~pages/home.svelte";
-import type { GameCatalogEntry, GameMetadata } from "~types/game";
+import type { Attrs, GameCatalogEntry, GameMetadata } from "~types/game";
 import inertiaMock from "../test/mocks/inertia";
 
 let cleanup: (() => Promise<void>) | undefined;
+
+const koalaAttrs: Attrs = {
+  sheet: {
+    id: "attrs_sheet",
+    name: "sheet",
+    type: "enum",
+    value: "dharug",
+    required: true,
+    values: ["dharug", "yugambeh"],
+    errors: [],
+  },
+};
 
 afterEach(async () => {
   await cleanup?.();
@@ -58,8 +70,6 @@ describe("home page", () => {
 
 describe("game detail page", () => {
   it("renders runtime title, preview image, and description", () => {
-    inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata({
@@ -117,8 +127,6 @@ describe("game detail page", () => {
   });
 
   it("renders provider metadata labels in the activation panel", () => {
-    inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata({
@@ -149,8 +157,6 @@ describe("game detail page", () => {
   });
 
   it("renders single metadata values without fake ranges", () => {
-    inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata({
@@ -171,8 +177,6 @@ describe("game detail page", () => {
   });
 
   it("renders minimum-only play time as an open-ended value", () => {
-    inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata({
@@ -191,8 +195,6 @@ describe("game detail page", () => {
   });
 
   it("omits missing provider metadata labels", () => {
-    inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata({
@@ -228,8 +230,6 @@ describe("game detail page", () => {
   });
 
   it("keeps available metadata while omitting missing metadata labels", () => {
-    inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata({
@@ -256,8 +256,6 @@ describe("game detail page", () => {
   });
 
   it("posts session creation to the internal slug route", () => {
-    const form = inertiaMock.prepareForm();
-
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata(),
@@ -271,8 +269,46 @@ describe("game detail page", () => {
     document.querySelector("button")?.click();
     flushSync();
 
-    expect(form.clearErrors).toHaveBeenCalled();
-    expect(form.post).toHaveBeenCalledWith("/games/qwinto/sessions");
+    expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
+      action: "/games/qwinto/sessions",
+      method: "post",
+      data: {},
+    });
+  });
+
+  it("posts selected creation attrs when creating a session", () => {
+    render(GamePage, {
+      slug: "koala-rescue-club",
+      game: gameMetadata({ name: "Koala Rescue Club" }),
+      attrs: koalaAttrs,
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    const defaultOption = document.querySelector('input[value="dharug"]');
+    const selectedOption = document.querySelector('input[value="yugambeh"]');
+
+    if (!(defaultOption instanceof HTMLInputElement)) {
+      throw new Error("Expected Dharug radio option.");
+    }
+
+    if (!(selectedOption instanceof HTMLInputElement)) {
+      throw new Error("Expected Yugambeh radio option.");
+    }
+
+    expect(defaultOption.checked).toBe(true);
+
+    selectedOption.click();
+    flushSync();
+    document.querySelector("button")?.click();
+    flushSync();
+
+    expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
+      action: "/games/koala-rescue-club/sessions",
+      method: "post",
+      data: { sheet: "yugambeh" },
+    });
   });
 });
 

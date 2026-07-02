@@ -2,6 +2,7 @@ defmodule D20.Sessions.SessionTest do
   use ExUnit.Case, async: true
 
   alias D20.Command
+  alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Qwinto.Game, as: QwintoGame
   alias D20.Sessions.Session
 
@@ -9,7 +10,10 @@ defmodule D20.Sessions.SessionTest do
     @behaviour D20.Game
 
     @impl D20.Game
-    def init, do: {:ok, %{players: [], left: [], started?: false, finished?: false}}
+    def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+    @impl D20.Game
+    def init(_attrs), do: {:ok, %{players: [], left: [], started?: false, finished?: false}}
 
     @impl D20.Game
     def dispatch(state, %Command{event: "join", actor_id: actor_id}) do
@@ -70,6 +74,17 @@ defmodule D20.Sessions.SessionTest do
       assert decoded["members"] == %{}
       assert decoded["game"]["phase"] == "setup"
       refute Map.has_key?(decoded, "engine")
+    end
+
+    test "initializes games with creation attrs before the session starts" do
+      assert {:ok, %Session{game: %KoalaGame{sheet: :yugambeh}}} =
+               Session.new(KoalaGame, "p1", %{"sheet" => "yugambeh"})
+
+      assert {:error, %Ecto.Changeset{valid?: false}} =
+               Session.new(KoalaGame, "p1", %{"sheet" => "missing"})
+
+      assert {:ok, %Session{game: %{players: []}}} =
+               Session.new(TestGame, "p1", %{"sheet" => "dharug"})
     end
   end
 
@@ -214,6 +229,30 @@ defmodule D20.Sessions.SessionTest do
 
       assert {:error, :invalid_command} =
                Session.dispatch(session, TestGame, command("fail", "p1"))
+    end
+
+    test "runs Koala Rescue Club through the generic session lifecycle" do
+      {:ok, session} = Session.new(KoalaGame, "p1", %{"sheet" => "dharug"})
+      {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p1"))
+
+      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :roll}} = session} =
+               Session.dispatch(session, KoalaGame, command("start", "p1"))
+
+      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :submit}} = session} =
+               Session.dispatch(session, KoalaGame, command("roll", "p1"))
+
+      value = session.game.roll.value
+
+      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, turn: 2}}} =
+               Session.dispatch(
+                 session,
+                 KoalaGame,
+                 command("circle_tree", "p1", %{
+                   "die_value" => value,
+                   "volunteers_used" => 0,
+                   "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+                 })
+               )
     end
 
     test "moves to finished when the hosted game becomes finished" do

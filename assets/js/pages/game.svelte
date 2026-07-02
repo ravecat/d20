@@ -1,34 +1,35 @@
 <script lang="ts">
-  import { useForm } from "@inertiajs/svelte";
+  import { Form } from "@inertiajs/svelte";
   import AgeLabel from "~components/age_label.svelte";
   import BggRatingLabel from "~components/bgg_rating_label.svelte";
   import ComplexityLabel from "~components/complexity_label.svelte";
   import PlayTimeLabel from "~components/play_time_label.svelte";
   import PlayerCountLabel from "~components/player_count_label.svelte";
   import SessionPanel from "~components/session_panel.svelte";
-  import type { GameMetadata, Session } from "~types/game";
+  import type { AttrConfig, Attrs, GameMetadata, Session } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   type Props = InertiaProps<{
     slug: string;
     game: GameMetadata;
+    attrs?: Attrs;
     module: ModuleEntry | null;
     connection: ModuleConnection | null;
     session: Session | null;
   }>;
 
-  const { slug, game, module, connection, session }: Props = $props();
-  const sessionForm = useForm<Record<string, string>>({});
+  const { slug, game, attrs = {}, module, connection, session }: Props = $props();
+  const formId = $props.id();
+  const attrFields = $derived(Object.entries(attrs));
 
-  const handleStartSession = () => {
-    if ($sessionForm.processing) {
-      $sessionForm.cancel();
-      return;
-    }
+  function fieldValue(attr: AttrConfig) {
+    return attr.value == null ? "" : String(attr.value);
+  }
 
-    $sessionForm.clearErrors();
-    $sessionForm.post(`/games/${slug}/sessions`);
-  };
+  function fieldLabel(value: string) {
+    const label = value.replace(/_/g, " ");
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
 </script>
 
 <main class="game-detail-page bg-base-100 text-base-content">
@@ -96,23 +97,75 @@
                 <SessionPanel {module} {connection} />
               {/key}
             {:else}
-              <button
-                class="game-detail-action"
-                type="button"
-                aria-busy={$sessionForm.processing}
-                onclick={handleStartSession}
-              >
-                {#if $sessionForm.processing}
-                  <span class="game-detail-action__spinner" aria-hidden="true"></span>
-                  Cancel
-                {:else}
-                  Play
-                {/if}
-              </button>
+              <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>
+                {#snippet children({
+                  errors,
+                  processing,
+                }: {
+                  errors: Record<string, string>;
+                  processing: boolean;
+                })}
+                  <div class="game-detail-start">
+                    {#if attrFields.length > 0}
+                      <div class="game-detail-start__fields">
+                        {#each attrFields as [name, attr] (name)}
+                          {@const fieldName = attr.name ?? name}
+                          {#if attr.type === "enum"}
+                            <fieldset class="game-detail-start__field">
+                              <legend>{fieldLabel(name)}</legend>
+                              <div class="game-detail-start__options">
+                                {#each attr.values ?? [] as value, optionIndex (value)}
+                                  {@const optionId = `${formId}-${name}-${optionIndex}`}
+                                  <label class="game-detail-start__option" for={optionId}>
+                                    <input
+                                      id={optionId}
+                                      type="radio"
+                                      name={fieldName}
+                                      {value}
+                                      defaultChecked={fieldValue(attr) === value}
+                                      required={attr.required ?? false}
+                                    >
+                                    <span>{fieldLabel(value)}</span>
+                                  </label>
+                                {/each}
+                              </div>
+                              {#if errors[name]}
+                                <p class="game-detail-activation__error">{errors[name]}</p>
+                              {/if}
+                            </fieldset>
+                          {:else}
+                            <label class="game-detail-start__field">
+                              <span>{fieldLabel(name)}</span>
+                              <input
+                                id={attr.id}
+                                name={fieldName}
+                                value={fieldValue(attr)}
+                                required={attr.required ?? false}
+                              >
+                              {#if errors[name]}
+                                <p class="game-detail-activation__error">{errors[name]}</p>
+                              {/if}
+                            </label>
+                          {/if}
+                        {/each}
+                      </div>
+                    {/if}
 
-              {#if $sessionForm.errors.startSession}
-                <p class="game-detail-activation__error">{$sessionForm.errors.startSession}</p>
-              {/if}
+                    <button class="game-detail-action" type="submit" aria-busy={processing}>
+                      {#if processing}
+                        <span class="game-detail-action__spinner" aria-hidden="true"></span>
+                        Starting
+                      {:else}
+                        Play
+                      {/if}
+                    </button>
+
+                    {#if errors.session}
+                      <p class="game-detail-activation__error">{errors.session}</p>
+                    {/if}
+                  </div>
+                {/snippet}
+              </Form>
             {/if}
           </div>
         </aside>
@@ -203,18 +256,8 @@
     inset-inline-start: 1rem;
     inset-block-start: 1rem;
     z-index: 2;
-    display: inline-flex;
     max-inline-size: calc(100% - 2rem);
-    align-items: baseline;
-    gap: 0.65rem;
-    border: 1px solid rgb(255 255 255 / 0.34);
-    border-radius: 0.35rem;
-    padding: 0.45rem 0.8rem;
-    background: rgb(10 10 10 / 0.68);
     color: white;
-    text-shadow: 0 1px 1px rgb(0 0 0 / 0.5);
-    backdrop-filter: blur(10px) saturate(1.25);
-    box-shadow: 0 8px 18px rgb(0 0 0 / 0.22);
   }
 
   .game-detail-chip__title {
@@ -339,6 +382,76 @@
     gap: 1rem;
   }
 
+  .game-detail-start {
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .game-detail-start__fields {
+    display: grid;
+    min-inline-size: 0;
+    gap: 0.75rem;
+  }
+
+  .game-detail-start__field {
+    min-inline-size: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .game-detail-start__field legend,
+  .game-detail-start__field > span {
+    display: block;
+    margin-block-end: 0.5rem;
+    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .game-detail-start__field > input {
+    inline-size: 100%;
+    min-block-size: 2.25rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.65rem;
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    font: inherit;
+  }
+
+  .game-detail-start__options {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .game-detail-start__option {
+    display: inline-flex;
+    min-block-size: 2.25rem;
+    min-inline-size: 0;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.65rem;
+    color: var(--color-base-content);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+  }
+
+  .game-detail-start__option input {
+    inline-size: 1rem;
+    block-size: 1rem;
+    flex: none;
+    accent-color: var(--color-base-content);
+  }
+
   @container game-detail-activation (min-width: 22rem) {
     .game-detail-activation__metadata {
       flex-wrap: nowrap;
@@ -442,8 +555,6 @@
       inset-block-start: 0.75rem;
       inset-block-end: auto;
       max-inline-size: calc(100% - 1.5rem);
-      flex-wrap: wrap;
-      row-gap: 0.35rem;
     }
   }
 

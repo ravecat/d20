@@ -22,6 +22,18 @@ export interface GameCatalogEntry {
   game: GameMetadata;
 }
 
+export interface AttrConfig {
+  id: string;
+  name: string;
+  type: string;
+  value?: string | number | boolean | null;
+  required?: boolean;
+  values?: string[];
+  errors?: string[];
+}
+
+export type Attrs = Record<string, AttrConfig>;
+
 export interface SessionMember {
   online_at: number;
   display_name?: string;

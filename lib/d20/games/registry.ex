@@ -6,10 +6,14 @@ defmodule D20.Games.Registry do
   separately from external providers such as BoardGameGeek.
   """
 
-  @slug_pattern ~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
-
   defmodule Entry do
     @moduledoc false
+
+    import Ecto.Changeset
+
+    @slug_pattern ~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
+    @fields [:slug, :engine, :bgg_id, :sandbox]
+    @types %{slug: :string, engine: :any, bgg_id: :integer, sandbox: {:array, :string}}
 
     @enforce_keys [:slug, :engine, :bgg_id, :sandbox]
     defstruct [:slug, :engine, :bgg_id, :sandbox]
@@ -20,6 +24,53 @@ defmodule D20.Games.Registry do
             bgg_id: integer(),
             sandbox: [String.t()]
           }
+
+    @spec changeset(map()) :: Ecto.Changeset.t()
+    def changeset(attrs) when is_map(attrs) do
+      {struct(__MODULE__), @types}
+      |> change(Map.take(attrs, @fields))
+      |> validate_required(@fields)
+      |> validate_slug()
+      |> validate_bgg_id()
+      |> validate_sandbox()
+    end
+
+    @spec new!(map()) :: t()
+    def new!(attrs) when is_map(attrs) do
+      attrs
+      |> changeset()
+      |> apply_action!(:insert)
+    end
+
+    defp validate_slug(changeset) do
+      validate_change(changeset, :slug, fn :slug, slug ->
+        if is_binary(slug) and Regex.match?(@slug_pattern, slug) do
+          []
+        else
+          [slug: "has invalid format"]
+        end
+      end)
+    end
+
+    defp validate_bgg_id(changeset) do
+      validate_change(changeset, :bgg_id, fn :bgg_id, bgg_id ->
+        if is_integer(bgg_id) and bgg_id > 0 do
+          []
+        else
+          [bgg_id: "must be a positive integer"]
+        end
+      end)
+    end
+
+    defp validate_sandbox(changeset) do
+      validate_change(changeset, :sandbox, fn :sandbox, sandbox ->
+        if is_list(sandbox) and sandbox != [] and Enum.all?(sandbox, &is_binary/1) do
+          []
+        else
+          [sandbox: "must be a non-empty list of strings"]
+        end
+      end)
+    end
   end
 
   @type entry :: Entry.t()
@@ -29,59 +80,30 @@ defmodule D20.Games.Registry do
     :games
     |> config!()
     |> Enum.sort_by(fn {slug, _attrs} -> Atom.to_string(slug) end)
-    |> Enum.map(fn {slug, attrs} -> normalize!(slug, attrs) end)
+    |> Enum.map(fn {key, attrs} ->
+      attrs |> Map.new() |> Map.put(:slug, Atom.to_string(key)) |> Entry.new!()
+    end)
   end
 
   @spec fetch(String.t()) :: {:ok, entry()} | {:error, :game_not_found}
   def fetch(slug) when is_binary(slug) do
-    with {:ok, config_slug} <- existing_atom(slug),
-         {:ok, attrs} <- Keyword.fetch(config!(:games), config_slug) do
-      {:ok, normalize!(config_slug, attrs)}
+    with {:ok, attrs} <- lookup(slug) do
+      {:ok, Entry.new!(attrs)}
     else
       :error -> {:error, :game_not_found}
     end
   end
 
-  defp normalize!(slug, attrs) when is_atom(slug) and is_list(attrs) do
-    slug = Atom.to_string(slug)
-    validate_slug!(slug)
+  defp lookup(slug) do
+    :games
+    |> config!()
+    |> Enum.find_value(:error, fn {key, attrs} ->
+      key_slug = Atom.to_string(key)
 
-    %Entry{
-      slug: slug,
-      engine: Keyword.fetch!(attrs, :engine),
-      bgg_id: validate_bgg_id!(Keyword.fetch!(attrs, :bgg_id), slug),
-      sandbox: validate_sandbox!(Keyword.fetch!(attrs, :sandbox), slug)
-    }
-  end
-
-  defp validate_slug!(slug) do
-    unless Regex.match?(@slug_pattern, slug) do
-      raise ArgumentError, "invalid game registry slug #{inspect(slug)}"
-    end
-  end
-
-  defp validate_bgg_id!(bgg_id, _slug) when is_integer(bgg_id) and bgg_id > 0, do: bgg_id
-
-  defp validate_bgg_id!(bgg_id, slug) do
-    raise ArgumentError, "invalid BGG id #{inspect(bgg_id)} for game #{inspect(slug)}"
-  end
-
-  defp validate_sandbox!(sandbox, slug) when is_list(sandbox) and sandbox != [] do
-    if Enum.all?(sandbox, &is_binary/1) do
-      sandbox
-    else
-      raise ArgumentError, "invalid iframe sandbox #{inspect(sandbox)} for game #{inspect(slug)}"
-    end
-  end
-
-  defp validate_sandbox!(sandbox, slug) do
-    raise ArgumentError, "invalid iframe sandbox #{inspect(sandbox)} for game #{inspect(slug)}"
-  end
-
-  defp existing_atom(slug) do
-    {:ok, String.to_existing_atom(slug)}
-  rescue
-    ArgumentError -> :error
+      if key_slug == slug do
+        {:ok, attrs |> Map.new() |> Map.put(:slug, key_slug)}
+      end
+    end)
   end
 
   defp config!(key) do

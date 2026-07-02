@@ -25,6 +25,7 @@ defmodule D20Web.PageController do
       conn
       |> assign_prop(:slug, slug)
       |> assign_prop(:game, Map.from_struct(game))
+      |> assign_prop(:attrs, %{})
       |> assign_prop(:session, session)
       |> assign_prop(:module, D20Web.Module.entry(conn, entry))
       |> assign_prop(:connection, D20Web.Module.connection(conn, slug, session.id))
@@ -45,10 +46,13 @@ defmodule D20Web.PageController do
   end
 
   def game(conn, %{"slug" => slug}) do
-    with {:ok, game} <- D20.Games.fetch_by_slug(slug) do
+    with {:ok, game} <- D20.Games.fetch_by_slug(slug),
+         {:ok, %Registry.Entry{engine: engine}} <- Registry.fetch(slug),
+         {:ok, changeset} <- D20.Game.attrs(engine) do
       conn
       |> assign_prop(:slug, slug)
       |> assign_prop(:game, Map.from_struct(game))
+      |> assign_prop(:attrs, D20.Form.to_form(changeset))
       |> assign_prop(:session, nil)
       |> assign_prop(:module, nil)
       |> assign_prop(:connection, nil)
@@ -60,18 +64,25 @@ defmodule D20Web.PageController do
   end
 
   @spec create_game_session(Plug.Conn.t(), params()) :: Plug.Conn.t()
-  def create_game_session(conn, %{"slug" => slug}) do
+  def create_game_session(conn, %{"slug" => slug} = params) do
     actor = conn.assigns.current_scope.actor
+    attrs = Map.delete(params, "slug")
 
     with {:ok, %Registry.Entry{engine: configured_engine}} <- Registry.fetch(slug),
          {:ok, engine} <- D20.Game.ensure_engine(configured_engine),
-         {:ok, session} <- D20.Sessions.create(slug, engine, actor.id) do
+         {:ok, session} <- D20.Sessions.create(slug, engine, actor.id, attrs) do
       conn
       |> put_status(303)
       |> redirect(to: ~p"/games/#{slug}?session=#{session.id}")
     else
-      {:error, :game_not_found} -> send_not_found(conn)
-      {:error, _reason} -> redirect_to_game_with_error(conn, slug, "Could not start session.")
+      {:error, :game_not_found} ->
+        send_not_found(conn)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        redirect_to_game_with_errors(conn, slug, changeset)
+
+      {:error, _reason} ->
+        redirect_to_game_with_error(conn, slug, "Could not start session.")
     end
   end
 
@@ -79,6 +90,13 @@ defmodule D20Web.PageController do
   defp redirect_to_game_with_error(conn, slug, message) do
     conn
     |> assign_errors(%{session: message})
+    |> put_status(303)
+    |> redirect(to: ~p"/games/#{slug}")
+  end
+
+  defp redirect_to_game_with_errors(conn, slug, changeset) do
+    conn
+    |> assign_errors(changeset)
     |> put_status(303)
     |> redirect(to: ~p"/games/#{slug}")
   end

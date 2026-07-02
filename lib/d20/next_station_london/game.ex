@@ -6,8 +6,12 @@ defmodule D20.NextStationLondon.Game do
   @behaviour D20.Game
 
   @impl D20.Game
-  @spec init() :: {:error, :not_implemented}
-  def init, do: {:error, :not_implemented}
+  @spec attrs(map()) :: Ecto.Changeset.t()
+  def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+  @impl D20.Game
+  @spec init(D20.Game.attrs()) :: {:error, :not_implemented}
+  def init(_attrs), do: {:error, :not_implemented}
 
   @impl D20.Game
   @spec dispatch(term(), D20.Command.t()) :: {:error, :not_implemented}
