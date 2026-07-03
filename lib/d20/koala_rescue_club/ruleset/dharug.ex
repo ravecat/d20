@@ -17,7 +17,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Dharug do
 
   @areas [
     a: %{
-      initial_access: true,
+      access: true,
       rows: [0..3, 0..3, 0..3, 1..3],
       column_bonuses: [:tree, :koala, :hospital, :volunteer],
       row_bonuses: [{:skybridge, :b}, :tree, :koala, {:skybridge, :d}]
@@ -54,9 +54,18 @@ defmodule D20.KoalaRescueClub.Ruleset.Dharug do
   @skybridges [%{from: :a, to: :b}, %{from: :a, to: :d}, %{from: :b, to: :c}, %{from: :d, to: :e}]
 
   @badges [
-    koala_carer: %{large_points: 3, small_points: 2, requirement: {:complete_koalas, :a}},
-    tree_lover: %{large_points: 3, small_points: 2, requirement: {:complete_trees, :c}},
-    bridge_buddy: %{large_points: 3, small_points: 2, requirement: {:skybridges_claimed, 4}}
+    koala_carer: %{
+      awards: %{large: 3, small: 2},
+      requirement: %{complete: %{area: :a, mark: :koalas}}
+    },
+    tree_lover: %{
+      awards: %{large: 3, small: 2},
+      requirement: %{complete: %{area: :c, mark: :trees}}
+    },
+    bridge_buddy: %{
+      awards: %{large: 3, small: 2},
+      requirement: %{count: %{field: :skybridges, at_least: 4}}
+    }
   ]
 
   @impl true

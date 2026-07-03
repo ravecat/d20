@@ -34,50 +34,37 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   @type player_id :: D20.Actors.Actor.id()
-  @type phase :: :setup | :ready | :roll | :submit | :finished
-  @type player_status :: :ready | :pending | :submitted
-  @type cell_ref :: Ruleset.cell_ref()
-  @type bonus_axis :: :row | :column
-  @type bonus_ref :: %{
-          required(:area) => Ruleset.area_id(),
-          required(:axis) => bonus_axis(),
+  @type skybridge :: %{required(:from) => Ruleset.area(), required(:to) => Ruleset.area()}
+  @type bonus :: %{
+          required(:area) => Ruleset.area(),
+          required(:axis) => :row | :column,
           required(:index) => non_neg_integer()
         }
-  @type bonus :: %{
-          required(:area) => Ruleset.area_id(),
-          required(:axis) => bonus_axis(),
-          required(:index) => non_neg_integer(),
-          required(:state) => :claimed | :skipped
-        }
   @type sheet :: %{
-          required(:trees) => [cell_ref()],
-          required(:koalas) => [cell_ref()],
-          required(:volunteers_claimed) => non_neg_integer(),
-          required(:volunteers_used) => non_neg_integer(),
+          required(:trees) => [Ruleset.cell()],
+          required(:koalas) => [Ruleset.cell()],
+          required(:volunteers) => [:available | :locked | :used],
           required(:hospitals) => %{optional(String.t()) => non_neg_integer()},
-          required(:skybridges) => [String.t()],
+          required(:skybridges) => [skybridge()],
           required(:bonuses) => [bonus()]
-        }
-  @type badge_award :: %{
-          required(:points) => non_neg_integer(),
-          required(:award_size) => :large | :small
-        }
-  @type round_score :: %{
-          required(:trees) => non_neg_integer(),
-          required(:koalas) => non_neg_integer(),
-          required(:hospitals) => integer(),
-          required(:total) => integer()
         }
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
   @type player :: %{
-          required(:status) => player_status(),
+          required(:status) => :ready | :pending | :submitted,
           required(:sheet) => sheet(),
-          required(:badges) => %{optional(Ruleset.badge()) => badge_award()},
-          required(:rounds) => [round_score()]
+          required(:badges) => %{optional(Ruleset.badge()) => atom()},
+          required(:rounds) => [
+            %{
+              required(:trees) => non_neg_integer(),
+              required(:koalas) => non_neg_integer(),
+              required(:hospitals) => integer(),
+              required(:total) => integer()
+            }
+          ]
         }
   @type roll :: %{required(:value) => 1..6}
   @type t :: %__MODULE__{
-          phase: phase(),
+          phase: :setup | :ready | :roll | :submit | :finished,
           sheet: Ruleset.id(),
           round: 1..2,
           turn: 0..30,
@@ -256,10 +243,7 @@ defmodule D20.KoalaRescueClub.Game do
     koalas = score_complete_areas(rulesheet, player.sheet, &Ruleset.koalas_complete?/3)
 
     hospitals =
-      rulesheet.hospitals
-      |> Map.values()
-      |> Enum.map(&score_hospital(sheet_id, player.sheet, &1))
-      |> Enum.sum()
+      rulesheet.hospitals |> Enum.map(&score_hospital(sheet_id, player.sheet, &1)) |> Enum.sum()
 
     %{trees: trees, koalas: koalas, hospitals: hospitals, total: trees + koalas + hospitals}
   end
@@ -270,8 +254,8 @@ defmodule D20.KoalaRescueClub.Game do
     |> Enum.count(&complete?.(rulesheet, player_sheet, &1))
   end
 
-  defp score_hospital(sheet_id, player_sheet, hospital) do
-    filled = Map.get(player_sheet.hospitals, hospital.id, 0)
+  defp score_hospital(sheet_id, player_sheet, {hospital_id, hospital}) do
+    filled = Map.get(player_sheet.hospitals, hospital_id, 0)
 
     hospital = hospital |> Map.take([:size, :score, :penalty]) |> Map.put(:filled, filled)
 
@@ -298,9 +282,8 @@ defmodule D20.KoalaRescueClub.Game do
              not Rules.badge_satisfied?(map, player.sheet, badge) do
           player
         else
-          size = if game.round == 1, do: :large, else: :small
-          points = points_for_badge(badge, size)
-          put_badge(player, badge, size, points)
+          award = if game.round == 1, do: :large, else: :small
+          put_badge(player, badge, award)
         end
       end)
 
@@ -321,9 +304,7 @@ defmodule D20.KoalaRescueClub.Game do
         if first_achievers == [] do
           game
         else
-          update_players(game, first_achievers, fn player ->
-            put_badge(player, badge, :large, badge.large_points)
-          end)
+          update_players(game, first_achievers, fn player -> put_badge(player, badge, :large) end)
         end
       end
     end)
@@ -338,31 +319,28 @@ defmodule D20.KoalaRescueClub.Game do
           Rules.badge_satisfied?(map, player.sheet, badge)
       end)
 
-    update_players(game, late_achievers, fn player ->
-      put_badge(player, badge, :small, badge.small_points)
-    end)
+    update_players(game, late_achievers, fn player -> put_badge(player, badge, :small) end)
   end
 
   defp large_badge_awarded?(game, badge_name) do
     Enum.any?(game.players, fn {_player_id, player} ->
-      match?(%{award_size: :large}, Map.get(player.badges, badge_name))
+      Map.get(player.badges, badge_name) == :large
     end)
   end
 
-  defp put_badge(player, badge, size, points) do
-    put_in(player.badges[badge.id], %{points: points, award_size: size})
+  defp put_badge(player, badge, award) do
+    put_in(player.badges[badge.id], award)
   end
-
-  defp points_for_badge(badge, :large), do: badge.large_points
-  defp points_for_badge(badge, :small), do: badge.small_points
 
   defp score_players(game) do
-    Map.new(game.order, &{&1, score_player(game, &1)})
+    {:ok, rulesheet} = Ruleset.sheet(game.sheet)
+
+    Map.new(game.order, &{&1, score_player(game, rulesheet, &1)})
   end
 
-  defp score_player(game, player_id) do
+  defp score_player(game, rulesheet, player_id) do
     player = Map.fetch!(game.players, player_id)
-    badge_total = badge_total(player)
+    badge_total = badge_total(rulesheet, player)
     round_total = player.rounds |> Enum.map(& &1.total) |> Enum.sum()
     total = round_total + badge_total
     rank = solo_rank(game, total)
@@ -370,12 +348,15 @@ defmodule D20.KoalaRescueClub.Game do
     %{total: total, rank: rank}
   end
 
-  defp badge_total(player) do
+  defp badge_total(rulesheet, player) do
     player.badges
-    |> Map.values()
-    |> Enum.map(& &1.points)
+    |> Enum.map(fn {badge_id, award} ->
+      rulesheet.badges |> Map.fetch!(badge_id) |> points_for_badge(award)
+    end)
     |> Enum.sum()
   end
+
+  defp points_for_badge(badge, award), do: Map.fetch!(badge.awards, award)
 
   defp solo_rank(%__MODULE__{order: [_one], sheet: sheet}, total) do
     {:ok, %{rank: rank}} = Ruleset.solo_rating(sheet, total)
@@ -401,21 +382,18 @@ defmodule D20.KoalaRescueClub.Game do
     %{status: :ready, sheet: sheet, rounds: [], badges: %{}}
   end
 
+  defp volunteer_slots(claimed) do
+    List.duplicate(:available, claimed) ++
+      List.duplicate(:locked, Ruleset.volunteer_limit() - claimed)
+  end
+
   defp empty_sheet do
-    %{
-      trees: [],
-      koalas: [],
-      volunteers_claimed: 0,
-      volunteers_used: 0,
-      hospitals: %{},
-      skybridges: [],
-      bonuses: []
-    }
+    %{trees: [], koalas: [], volunteers: [], hospitals: %{}, skybridges: [], bonuses: []}
   end
 
   defp empty_sheet(rulesheet) do
     empty_sheet()
-    |> Map.put(:volunteers_claimed, rulesheet.volunteers)
+    |> Map.put(:volunteers, volunteer_slots(rulesheet.volunteers))
     |> Map.put(:hospitals, Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end))
   end
 end

@@ -82,25 +82,25 @@ defmodule D20.KoalaRescueClub.Ruleset.Sheet do
   end
 
   @spec cell_id(atom(), integer(), integer()) :: String.t()
-  def cell_id(area_id, q, r), do: "#{area_id}:#{q}:#{r}"
+  def cell_id(area, q, r), do: "#{area}:#{q}:#{r}"
 
-  defp area({area_id, spec}) do
-    {area_id, %{id: area_id, initial_access: Map.get(spec, :initial_access, false)}}
+  defp area({area, spec}) do
+    {area, %{id: area, access: Map.get(spec, :access, false)}}
   end
 
-  defp cells({area_id, spec}) do
+  defp cells({area, spec}) do
     for {qs, r} <- Enum.with_index(spec.rows), q <- qs do
-      %{id: cell_id(area_id, q, r), area_id: area_id, q: q, r: r, contains_koala: true}
+      %{id: cell_id(area, q, r), area: area, q: q, r: r, contains_koala: true}
     end
   end
 
-  defp lines({area_id, spec}, :row) do
+  defp lines({area, spec}, :row) do
     for {qs, r} <- Enum.with_index(spec.rows) do
-      line(area_id, :row, r, Enum.map(qs, &cell_id(area_id, &1, r)), Enum.at(spec.row_bonuses, r))
+      line(area, :row, r, Enum.map(qs, &cell_id(area, &1, r)), Enum.at(spec.row_bonuses, r))
     end
   end
 
-  defp lines({area_id, spec}, :column) do
+  defp lines({area, spec}, :column) do
     columns = spec.rows |> Enum.flat_map(&Enum.to_list/1) |> Enum.uniq() |> Enum.sort()
 
     for q <- columns do
@@ -108,51 +108,51 @@ defmodule D20.KoalaRescueClub.Ruleset.Sheet do
         spec.rows
         |> Enum.with_index()
         |> Enum.filter(fn {qs, _r} -> q in qs end)
-        |> Enum.map(fn {_qs, r} -> cell_id(area_id, q, r) end)
+        |> Enum.map(fn {_qs, r} -> cell_id(area, q, r) end)
 
-      line(area_id, :column, q, cell_ids, Enum.at(spec.column_bonuses, q))
+      line(area, :column, q, cell_ids, Enum.at(spec.column_bonuses, q))
     end
   end
 
-  defp line(area_id, kind, index, cell_ids, bonus_spec) do
-    id = "#{area_id}:#{kind}:#{index}"
+  defp line(area, kind, index, cell_ids, bonus_spec) do
+    id = "#{area}:#{kind}:#{index}"
 
     %{
       id: id,
-      area_id: area_id,
+      area: area,
       kind: kind,
       index: index,
       cell_ids: cell_ids,
-      bonus: normalize_bonus(area_id, kind, index, id, bonus_spec)
+      bonus: normalize_bonus(area, kind, index, id, bonus_spec)
     }
   end
 
-  defp normalize_bonus(_area_id, _axis, _index, _line_id, nil), do: nil
+  defp normalize_bonus(_area, _axis, _index, _line_id, nil), do: nil
 
-  defp normalize_bonus(area_id, axis, index, line_id, {:skybridge, to}) do
+  defp normalize_bonus(area, axis, index, line_id, {:skybridge, to}) do
     %{
-      ref: %{area: area_id, axis: axis, index: index},
+      ref: %{area: area, axis: axis, index: index},
       line_id: line_id,
       kind: :skybridge,
-      target_area_id: to
+      target_area: to
     }
   end
 
-  defp normalize_bonus(area_id, axis, index, line_id, {:skybridge, area_id, to}) do
-    normalize_bonus(area_id, axis, index, line_id, {:skybridge, to})
+  defp normalize_bonus(area, axis, index, line_id, {:skybridge, area, to}) do
+    normalize_bonus(area, axis, index, line_id, {:skybridge, to})
   end
 
-  defp normalize_bonus(area_id, axis, index, line_id, {kind, target_id}) do
+  defp normalize_bonus(area, axis, index, line_id, {kind, target_id}) do
     %{
-      ref: %{area: area_id, axis: axis, index: index},
+      ref: %{area: area, axis: axis, index: index},
       line_id: line_id,
       kind: kind,
       target_id: target_id
     }
   end
 
-  defp normalize_bonus(area_id, axis, index, line_id, kind) do
-    %{ref: %{area: area_id, axis: axis, index: index}, line_id: line_id, kind: kind}
+  defp normalize_bonus(area, axis, index, line_id, kind) do
+    %{ref: %{area: area, axis: axis, index: index}, line_id: line_id, kind: kind}
   end
 
   defp bonuses(rows, columns) do
@@ -171,7 +171,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Sheet do
   @spec hospital(hospital()) :: {String.t(), map()}
   defp hospital({id, hospital}) do
     id = hospital_id(id)
-    {id, Map.put(hospital, :id, id)}
+    {id, hospital}
   end
 
   @spec hospital_id(atom()) :: String.t()
@@ -180,7 +180,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Sheet do
   @spec skybridge(skybridge()) :: {String.t(), map()}
   defp skybridge(%{from: from, to: to}) do
     id = skybridge_id(from, to)
-    {id, %{id: id, from_area_id: from, to_area_id: to}}
+    {id, %{from: from, to: to}}
   end
 
   @spec skybridge_id(atom(), atom()) :: String.t()

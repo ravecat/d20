@@ -43,11 +43,11 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @sheets [:dharug, :yugambeh]
 
   @type id :: :dharug | :yugambeh
-  @type area_id :: atom()
+  @type area :: atom()
   @type badge :: atom()
   @type offset :: {integer(), integer()}
-  @type cell_ref :: %{
-          required(:area) => area_id(),
+  @type cell :: %{
+          required(:area) => area(),
           required(:row) => non_neg_integer(),
           required(:column) => non_neg_integer()
         }
@@ -196,23 +196,23 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   @doc "Returns all cells for one area."
   @spec area_cells(Sheet.t(), atom()) :: [map()]
-  def area_cells(%{cells: cells}, area_id) do
+  def area_cells(%{cells: cells}, area) do
     cells
     |> Map.values()
-    |> Enum.filter(&(&1.area_id == area_id))
+    |> Enum.filter(&(&1.area == area))
     |> Enum.sort_by(&{&1.r, &1.q})
   end
 
-  @doc "Returns the canonical internal cell id for a coordinate reference."
-  @spec cell_id(cell_ref()) :: String.t()
-  def cell_id(%{area: area_id, row: row, column: column}) do
-    Sheet.cell_id(area_id, column, row)
+  @doc "Returns the canonical internal cell id for a cell coordinate."
+  @spec cell_id(cell()) :: String.t()
+  def cell_id(%{area: area, row: row, column: column}) do
+    Sheet.cell_id(area, column, row)
   end
 
-  @doc "Returns the coordinate reference for a sheet cell."
-  @spec cell_ref(map()) :: cell_ref()
-  def cell_ref(%{area_id: area_id, q: column, r: row}) do
-    %{area: area_id, row: row, column: column}
+  @doc "Returns the player-state cell coordinate for a sheet cell."
+  @spec cell(map()) :: cell()
+  def cell(%{area: area, q: column, r: row}) do
+    %{area: area, row: row, column: column}
   end
 
   @doc "Returns all lines that carry bonuses."
@@ -231,21 +231,17 @@ defmodule D20.KoalaRescueClub.Ruleset do
       valid_skybridge_refs?(sheet) and valid_badges?(sheet)
   end
 
-  @doc "Returns all area ids accessible for a sheet through claimed skybridges."
-  @spec accessible_area_ids(Sheet.t(), map()) :: [atom()]
-  def accessible_area_ids(sheet, player_sheet) do
+  @doc "Returns all areas accessible for a sheet through claimed skybridges."
+  @spec accessible_areas(Sheet.t(), map()) :: [atom()]
+  def accessible_areas(sheet, player_sheet) do
     initial =
-      sheet.areas
-      |> Map.values()
-      |> Enum.filter(& &1.initial_access)
-      |> Enum.map(& &1.id)
-      |> MapSet.new()
+      sheet.areas |> Map.values() |> Enum.filter(& &1.access) |> Enum.map(& &1.id) |> MapSet.new()
 
     claimed = MapSet.new(player_sheet.skybridges)
 
     sheet.skybridges
     |> Map.values()
-    |> Enum.filter(&MapSet.member?(claimed, &1.id))
+    |> Enum.filter(&MapSet.member?(claimed, &1))
     |> expand_access(initial)
     |> MapSet.to_list()
     |> Enum.sort()
@@ -253,14 +249,14 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   @doc "Returns true when all tree cells in an area have circled trees."
   @spec trees_complete?(Sheet.t(), map(), atom()) :: boolean()
-  def trees_complete?(map, player_sheet, area_id) do
-    complete_area?(map, player_sheet.trees, area_id)
+  def trees_complete?(map, player_sheet, area) do
+    complete_area?(map, player_sheet.trees, area)
   end
 
   @doc "Returns true when all tree cells in an area have circled koalas."
   @spec koalas_complete?(Sheet.t(), map(), atom()) :: boolean()
-  def koalas_complete?(map, player_sheet, area_id) do
-    complete_area?(map, player_sheet.koalas, area_id)
+  def koalas_complete?(map, player_sheet, area) do
+    complete_area?(map, player_sheet.koalas, area)
   end
 
   @doc "Returns true when the target cells match a die shape under rotation or flip."
@@ -325,7 +321,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
   defp normalize_sheet(_id), do: {:error, :unknown_sheet}
 
   defp valid_area_refs?(%{areas: areas, cells: cells}) do
-    Enum.all?(cells, fn {_id, cell} -> Map.has_key?(areas, cell.area_id) end)
+    Enum.all?(cells, fn {_id, cell} -> Map.has_key?(areas, cell.area) end)
   end
 
   defp valid_line_refs?(%{cells: cells, rows: rows, columns: columns}) do
@@ -354,27 +350,47 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   defp valid_skybridge_refs?(%{areas: areas, skybridges: skybridges}) do
     Enum.all?(skybridges, fn {_id, skybridge} ->
-      Map.has_key?(areas, skybridge.from_area_id) and Map.has_key?(areas, skybridge.to_area_id)
+      Map.has_key?(areas, skybridge.from) and Map.has_key?(areas, skybridge.to)
     end)
   end
 
-  defp valid_badges?(%{badges: badges}) do
+  defp valid_badges?(%{badges: badges} = sheet) do
     Enum.all?(badges, fn
-      {_id, %{requirement: requirement, large_points: large, small_points: small}}
-      when is_tuple(requirement) and is_integer(large) and large >= 0 and is_integer(small) and
-             small >= 0 ->
-        true
+      {_id, %{requirement: requirement, awards: awards}} ->
+        valid_awards?(awards) and valid_badge_requirement?(sheet, requirement)
 
       _badge ->
         false
     end)
   end
 
+  defp valid_awards?(awards) when is_map(awards) and map_size(awards) > 0 do
+    Enum.all?(awards, fn {award, points} ->
+      is_atom(award) and is_integer(points) and points >= 0
+    end)
+  end
+
+  defp valid_awards?(_awards), do: false
+
+  defp valid_badge_requirement?(%{areas: areas}, %{complete: %{area: area, mark: mark}}) do
+    Map.has_key?(areas, area) and mark in [:trees, :koalas]
+  end
+
+  defp valid_badge_requirement?(_sheet, %{count: %{field: field, at_least: at_least}}) do
+    field in [:skybridges, :volunteers] and is_integer(at_least) and at_least >= 0
+  end
+
+  defp valid_badge_requirement?(%{hospitals: hospitals}, %{filled: %{hospital: hospital_id}}) do
+    Map.has_key?(hospitals, hospital_id)
+  end
+
+  defp valid_badge_requirement?(_sheet, _requirement), do: false
+
   defp expand_access(skybridges, accessible) do
     next =
       Enum.reduce(skybridges, accessible, fn skybridge, accessible ->
-        if MapSet.member?(accessible, skybridge.from_area_id) do
-          MapSet.put(accessible, skybridge.to_area_id)
+        if MapSet.member?(accessible, skybridge.from) do
+          MapSet.put(accessible, skybridge.to)
         else
           accessible
         end
@@ -383,8 +399,8 @@ defmodule D20.KoalaRescueClub.Ruleset do
     if MapSet.equal?(next, accessible), do: next, else: expand_access(skybridges, next)
   end
 
-  defp complete_area?(map, cell_ids, area_id) do
-    required = map |> area_cells(area_id) |> Enum.map(&cell_ref/1) |> MapSet.new()
+  defp complete_area?(map, cell_ids, area) do
+    required = map |> area_cells(area) |> Enum.map(&cell/1) |> MapSet.new()
 
     required != MapSet.new() and MapSet.subset?(required, MapSet.new(cell_ids))
   end

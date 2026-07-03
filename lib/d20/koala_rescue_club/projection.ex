@@ -10,43 +10,72 @@ defmodule D20.KoalaRescueClub.Projection do
   alias D20.Sessions.Session
 
   @spec render(Scope.t(), Session.t()) :: map()
-  def render(%Scope{} = scope, %Session{game: %Game{}} = session) do
+  def render(%Scope{} = scope, %Session{game: %Game{} = game} = session) do
     actor_id = scope.actor.id
     permissions = Permission.permissions(scope, session)
-    sheet_projection = render_sheet_projection(session.game, actor_id)
+    {:ok, rulesheet} = Ruleset.sheet(game.sheet)
 
-    session
-    |> Map.from_struct()
-    |> Map.merge(%{
+    %{
+      id: session.id,
+      phase: session.phase,
+      owner_id: session.owner_id,
+      members: session.members,
       self: actor_id,
       permissions: permissions,
-      available_turn_actions: [],
-      sheet_projection: sheet_projection
-    })
+      game: render_game(rulesheet, game)
+    }
   end
 
-  defp render_sheet_projection(%Game{} = game, actor_id) do
-    with {:ok, rulesheet} <- Ruleset.sheet(game.sheet),
-         %{sheet: player_sheet} <- Map.get(game.players, actor_id) do
-      %{areas: render_areas(rulesheet, player_sheet)}
-    else
-      _missing -> nil
-    end
+  defp render_game(rulesheet, %Game{} = game) do
+    %{
+      phase: game.phase,
+      round: game.round,
+      turn: game.turn,
+      order: game.order,
+      players: render_players(rulesheet, game.players),
+      roll: game.roll,
+      scores: game.scores
+    }
   end
 
-  defp render_areas(rulesheet, player_sheet) do
-    Map.new(rulesheet.areas, fn {area_id, _area} ->
-      {area_id,
+  defp render_players(rulesheet, players) do
+    Map.new(players, fn {player_id, player} -> {player_id, render_player(rulesheet, player)} end)
+  end
+
+  defp render_player(rulesheet, player) do
+    %{
+      status: player.status,
+      sheet: render_sheet(rulesheet, player.sheet),
+      badges: player.badges,
+      rounds: player.rounds
+    }
+  end
+
+  defp render_sheet(rulesheet, player_sheet) do
+    accessible_areas = Ruleset.accessible_areas(rulesheet, player_sheet)
+
+    %{
+      volunteers: player_sheet.volunteers,
+      hospitals: render_hospitals(rulesheet, player_sheet),
+      skybridges: player_sheet.skybridges,
+      areas: render_areas(rulesheet, player_sheet, accessible_areas)
+    }
+  end
+
+  defp render_areas(rulesheet, player_sheet, accessible_areas) do
+    Map.new(rulesheet.areas, fn {area, _area} ->
+      {area,
        %{
-         matrix: render_matrix(rulesheet, player_sheet, area_id),
-         row_bonuses: render_line_bonuses(rulesheet.rows, player_sheet, area_id),
-         column_bonuses: render_line_bonuses(rulesheet.columns, player_sheet, area_id)
+         accessible: area in accessible_areas,
+         rows: render_rows(rulesheet, player_sheet, area),
+         row_bonuses: render_line_bonuses(rulesheet.rows, player_sheet, area),
+         column_bonuses: render_line_bonuses(rulesheet.columns, player_sheet, area)
        }}
     end)
   end
 
-  defp render_matrix(rulesheet, player_sheet, area_id) do
-    cells = Ruleset.area_cells(rulesheet, area_id)
+  defp render_rows(rulesheet, player_sheet, area) do
+    cells = Ruleset.area_cells(rulesheet, area)
     max_row = cells |> Enum.map(& &1.r) |> Enum.max()
     max_column = cells |> Enum.map(& &1.q) |> Enum.max()
     by_coordinate = Map.new(cells, &{{&1.r, &1.q}, &1})
@@ -61,14 +90,23 @@ defmodule D20.KoalaRescueClub.Projection do
     end
   end
 
-  defp render_cell(player_sheet, cell) do
-    cell_ref = Ruleset.cell_ref(cell)
+  defp render_cell(player_sheet, ruleset_cell) do
+    cell = Ruleset.cell(ruleset_cell)
 
-    %{tree: cell_ref in player_sheet.trees, koala: cell_ref in player_sheet.koalas}
+    %{cell: cell, tree: cell in player_sheet.trees, koala: cell in player_sheet.koalas}
   end
 
-  defp render_line_bonuses(lines, player_sheet, area_id) do
-    area_lines = lines |> Map.values() |> Enum.filter(&(&1.area_id == area_id))
+  defp render_hospitals(rulesheet, player_sheet) do
+    Map.new(rulesheet.hospitals, fn {id, hospital} ->
+      {id,
+       hospital
+       |> Map.take([:size, :score, :penalty])
+       |> Map.put(:filled, Map.get(player_sheet.hospitals, id, 0))}
+    end)
+  end
+
+  defp render_line_bonuses(lines, player_sheet, area) do
+    area_lines = lines |> Map.values() |> Enum.filter(&(&1.area == area))
 
     max_index = area_lines |> Enum.map(& &1.index) |> Enum.max(fn -> -1 end)
     by_index = Map.new(area_lines, &{&1.index, &1})
@@ -89,7 +127,7 @@ defmodule D20.KoalaRescueClub.Projection do
 
   defp render_bonus(%{bonus: bonus} = line, player_sheet) do
     %{kind: bonus.kind, state: bonus_state(line, player_sheet)}
-    |> maybe_put(:to_area, Map.get(bonus, :target_area_id))
+    |> maybe_put(:to_area, Map.get(bonus, :target_area))
     |> maybe_put(:target_id, Map.get(bonus, :target_id))
   end
 

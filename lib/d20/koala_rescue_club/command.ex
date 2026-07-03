@@ -7,7 +7,7 @@ defmodule D20.KoalaRescueClub.Command do
 
   alias Ecto.Changeset
 
-  @area_ids ~w(a b c d e f g)a
+  @areas ~w(a b c d e f g)a
   @bonus_axes ~w(row column)a
 
   @type reason :: Changeset.t() | :unknown_command | :invalid_command
@@ -85,7 +85,7 @@ defmodule D20.KoalaRescueClub.Command do
 
   defp normalize_target_cells(%{target_cells: cells}) do
     cells
-    |> normalize_cell_refs()
+    |> normalize_cells()
     |> case do
       {:ok, cells} -> {:ok, %{target_cells: cells}}
       {:error, reason} -> {:error, reason}
@@ -93,14 +93,14 @@ defmodule D20.KoalaRescueClub.Command do
   end
 
   defp normalize_target_cells(%{target_cell: cell}) do
-    with {:ok, cell} <- normalize_cell_ref(cell) do
+    with {:ok, cell} <- normalize_cell(cell) do
       {:ok, %{target_cell: cell}}
     end
   end
 
-  defp normalize_cell_refs(cells) when is_list(cells) do
+  defp normalize_cells(cells) when is_list(cells) do
     Enum.reduce_while(cells, {:ok, []}, fn cell, {:ok, cells} ->
-      case normalize_cell_ref(cell) do
+      case normalize_cell(cell) do
         {:ok, cell} -> {:cont, {:ok, [cell | cells]}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
@@ -111,9 +111,9 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  defp normalize_cell_refs(_cells), do: {:error, :invalid_command}
+  defp normalize_cells(_cells), do: {:error, :invalid_command}
 
-  defp normalize_cell_ref(attrs) when is_map(attrs) do
+  defp normalize_cell(attrs) when is_map(attrs) do
     with {:ok, area} <- fetch_area(attrs, :area),
          {:ok, row} <- fetch_non_neg_integer(attrs, :row),
          {:ok, column} <- fetch_non_neg_integer(attrs, :column) do
@@ -121,7 +121,7 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  defp normalize_cell_ref(_attrs), do: {:error, :invalid_command}
+  defp normalize_cell(_attrs), do: {:error, :invalid_command}
 
   defp normalize_bonus_actions(actions) when is_list(actions) do
     Enum.reduce_while(actions, {:ok, []}, fn action, {:ok, actions} ->
@@ -150,13 +150,13 @@ defmodule D20.KoalaRescueClub.Command do
   defp normalize_bonus_action(_attrs), do: {:error, :invalid_command}
 
   defp normalize_bonus_action_kind("tree", attrs) do
-    with {:ok, target_cell} <- fetch_cell_ref(attrs, :target_cell) do
+    with {:ok, target_cell} <- fetch_cell(attrs, :target_cell) do
       {:ok, %{kind: :tree, target_cell: target_cell}}
     end
   end
 
   defp normalize_bonus_action_kind("koala", attrs) do
-    with {:ok, target_cell} <- fetch_cell_ref(attrs, :target_cell) do
+    with {:ok, target_cell} <- fetch_cell(attrs, :target_cell) do
       {:ok, %{kind: :koala, target_cell: target_cell}}
     end
   end
@@ -186,22 +186,22 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  defp fetch_cell_ref(attrs, key) do
+  defp fetch_cell(attrs, key) do
     with {:ok, attrs} <- fetch_map(attrs, key) do
-      normalize_cell_ref(attrs)
+      normalize_cell(attrs)
     end
   end
 
   defp fetch_area(attrs, key) do
     case fetch_value(attrs, key) do
-      area when is_atom(area) and area in @area_ids -> {:ok, area}
+      area when is_atom(area) and area in @areas -> {:ok, area}
       area when is_binary(area) -> normalize_area(area)
       _value -> {:error, :invalid_command}
     end
   end
 
   defp normalize_area(area) do
-    Enum.find_value(@area_ids, {:error, :invalid_command}, fn id ->
+    Enum.find_value(@areas, {:error, :invalid_command}, fn id ->
       if Atom.to_string(id) == area, do: {:ok, id}
     end)
   end

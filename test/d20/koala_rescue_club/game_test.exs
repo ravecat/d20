@@ -15,7 +15,14 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, %Game{phase: :roll, sheet: :yugambeh, turn: 1, round: 1} = game} =
                dispatch(game, "start", "p1")
 
-      assert game.players["p1"].sheet.volunteers_claimed == 0
+      assert game.players["p1"].sheet.volunteers == [
+               :locked,
+               :locked,
+               :locked,
+               :locked,
+               :locked,
+               :locked
+             ]
 
       decoded = game |> Jason.encode!() |> Jason.decode!()
 
@@ -122,6 +129,26 @@ defmodule D20.KoalaRescueClub.GameTest do
                })
     end
 
+    test "marks available volunteers as used when adjusting die value" do
+      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
+
+      assert {:ok, game} =
+               dispatch(game, "circle_tree", "p1", %{
+                 "die_value" => 2,
+                 "volunteers_used" => 1,
+                 "target_cell" => cell("a", 0, 0)
+               })
+
+      assert game.players["p1"].sheet.volunteers == [
+               :used,
+               :locked,
+               :locked,
+               :locked,
+               :locked,
+               :locked
+             ]
+    end
+
     test "rejects bonus actions that are not unlocked" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
@@ -139,7 +166,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                })
     end
 
-    test "stores claimed and skipped bonus resolutions by coordinates" do
+    test "stores resolved bonus coordinates" do
       row_0 = row_cells("a", 0, 0..3)
 
       game =
@@ -162,7 +189,8 @@ defmodule D20.KoalaRescueClub.GameTest do
                  ]
                })
 
-      assert %{area: :a, axis: :row, index: 0, state: :claimed} in game.players["p1"].sheet.bonuses
+      assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
+      assert %{from: :a, to: :b} in game.players["p1"].sheet.skybridges
 
       game =
         "dharug"
@@ -173,12 +201,15 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
 
-      assert %{area: :a, axis: :row, index: 0, state: :skipped} in game.players["p1"].sheet.bonuses
+      refute Enum.any?(
+               game.players["p1"].sheet.bonuses,
+               &match?(%{area: :a, axis: :row, index: 0}, &1)
+             )
     end
 
     test "awards badges from selected sheet predicates" do
       {:ok, map} = Ruleset.sheet(:dharug)
-      c_trees = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell_ref/1)
+      c_trees = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell/1)
 
       game =
         "dharug"
@@ -191,15 +222,15 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
 
-      assert %{tree_lover: %{award_size: :large, points: 3}} = game.players["p1"].badges
+      assert %{tree_lover: :large} = game.players["p1"].badges
     end
   end
 
   describe "scores" do
     test "stores separate tree, koala, hospital, and total scores for scoring turns" do
       {:ok, map} = Ruleset.sheet(:dharug)
-      c_cells = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell_ref/1)
-      d_cells = Enum.map(Ruleset.area_cells(map, :d), &Ruleset.cell_ref/1)
+      c_cells = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell/1)
+      d_cells = Enum.map(Ruleset.area_cells(map, :d), &Ruleset.cell/1)
 
       game =
         "dharug"
@@ -231,15 +262,13 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
 
     test "stores computed total in final scores" do
-      badge = %{points: 3, award_size: :large}
-
       game =
         "dharug"
         |> started_game()
         |> put_in([Access.key!(:players), "p1", Access.key!(:rounds)], [
           %{trees: 1, koalas: 2, hospitals: 3, total: 6}
         ])
-        |> put_in([Access.key!(:players), "p1", Access.key!(:badges)], %{tree_lover: badge})
+        |> put_in([Access.key!(:players), "p1", Access.key!(:badges)], %{tree_lover: :large})
         |> force_submit_turn(30, 2, 1)
 
       assert {:ok,

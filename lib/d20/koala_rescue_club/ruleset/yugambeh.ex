@@ -17,7 +17,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
 
   @areas [
     a: %{
-      initial_access: true,
+      access: true,
       rows: [0..3, 0..3, 1..3, 2..3],
       column_bonuses: [:tree, :volunteer, :hospital, :koala],
       row_bonuses: [{:skybridge, :b}, :tree, {:skybridge, :c}, {:skybridge, :d}]
@@ -66,9 +66,18 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
   ]
 
   @badges [
-    tree_lover: %{large_points: 3, small_points: 2, requirement: {:complete_trees, :b}},
-    koala_carer: %{large_points: 3, small_points: 2, requirement: {:complete_koalas, :f}},
-    people_person: %{large_points: 3, small_points: 2, requirement: {:volunteers_claimed, 6}}
+    tree_lover: %{
+      awards: %{large: 3, small: 2},
+      requirement: %{complete: %{area: :b, mark: :trees}}
+    },
+    koala_carer: %{
+      awards: %{large: 3, small: 2},
+      requirement: %{complete: %{area: :f, mark: :koalas}}
+    },
+    people_person: %{
+      awards: %{large: 3, small: 2},
+      requirement: %{count: %{field: :volunteers, at_least: 6}}
+    }
   ]
 
   @impl true

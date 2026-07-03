@@ -66,8 +66,9 @@ defmodule D20.KoalaRescueClub.RulesetTest do
       assert Ruleset.valid_geometry?(dharug)
       assert map_size(dharug.areas) == 5
       assert Map.has_key?(dharug.areas, :a)
-      assert dharug.cells["a:0:0"].area_id == :a
+      assert dharug.cells["a:0:0"].area == :a
       assert map_size(dharug.skybridges) == 4
+      assert dharug.skybridges["a-b"] == %{from: :a, to: :b}
       assert map_size(dharug.badges) == 3
       assert Map.has_key?(dharug.badges, :tree_lover)
 
@@ -76,7 +77,7 @@ defmodule D20.KoalaRescueClub.RulesetTest do
       assert Ruleset.valid_geometry?(yugambeh)
       assert map_size(yugambeh.areas) == 7
       assert Map.has_key?(yugambeh.areas, :g)
-      assert yugambeh.cells["g:0:0"].area_id == :g
+      assert yugambeh.cells["g:0:0"].area == :g
       assert map_size(yugambeh.skybridges) == 6
       assert map_size(yugambeh.badges) == 3
       assert Map.has_key?(yugambeh.badges, :tree_lover)

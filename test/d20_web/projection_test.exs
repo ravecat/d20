@@ -104,6 +104,7 @@ defmodule D20Web.ProjectionTest do
     test "renders a session envelope with caller-specific Koala permissions" do
       {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
       {:ok, game} = dispatch_koala(game, "join", "owner")
+      {:ok, game} = dispatch_koala(game, "join", "p2")
       {:ok, game} = dispatch_koala(game, "start", "owner")
       {:ok, game} = dispatch_koala(game, "roll", "owner")
 
@@ -117,40 +118,68 @@ defmodule D20Web.ProjectionTest do
 
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
+      projection = Projection.render(scope, session)
+
       assert %{
                id: "session-1",
                self: "owner",
                phase: :in_progress,
                owner_id: "owner",
                members: %{},
-               game: %KoalaGame{phase: :submit},
                permissions: %{can_start_game: false, can_roll: false, can_submit_turn: true},
-               available_turn_actions: [],
-               sheet_projection: %{
-                 areas: %{
-                   a: %{
-                     matrix: [
-                       [%{tree: false, koala: false} | _rest],
-                       _row_1,
-                       _row_2,
-                       [nil | _row_3]
-                     ],
-                     row_bonuses: [
-                       %{kind: :skybridge, to_area: :b, state: :locked},
-                       %{kind: :tree, state: :locked},
-                       %{kind: :koala, state: :locked},
-                       %{kind: :skybridge, to_area: :d, state: :locked}
-                     ],
-                     column_bonuses: [
-                       %{kind: :tree, state: :locked},
-                       %{kind: :koala, state: :locked},
-                       %{kind: :hospital, state: :locked},
-                       %{kind: :volunteer, state: :locked}
-                     ]
-                   }
+               game: %{
+                 phase: :submit,
+                 round: 1,
+                 turn: 1,
+                 order: ["owner", "p2"],
+                 roll: %{value: _value},
+                 scores: %{},
+                 players: %{
+                   "owner" => %{
+                     status: :pending,
+                     badges: %{},
+                     rounds: [],
+                     sheet: %{
+                       volunteers: [:available, :locked, :locked, :locked, :locked, :locked],
+                       skybridges: [],
+                       hospitals: %{"hospital-2" => %{size: 3, score: 2, filled: 0}},
+                       areas: %{
+                         a: %{
+                           accessible: true,
+                           rows: [
+                             [
+                               %{cell: %{area: :a, row: 0, column: 0}, tree: false, koala: false}
+                               | _rest
+                             ],
+                             _row_1,
+                             _row_2,
+                             [nil | _row_3]
+                           ],
+                           row_bonuses: [
+                             %{kind: :skybridge, to_area: :b, state: :locked},
+                             %{kind: :tree, state: :locked},
+                             %{kind: :koala, state: :locked},
+                             %{kind: :skybridge, to_area: :d, state: :locked}
+                           ],
+                           column_bonuses: [
+                             %{kind: :tree, state: :locked},
+                             %{kind: :koala, state: :locked},
+                             %{kind: :hospital, state: :locked},
+                             %{kind: :volunteer, state: :locked}
+                           ]
+                         },
+                         b: %{accessible: false}
+                       }
+                     }
+                   },
+                   "p2" => %{status: :pending, sheet: %{areas: %{a: %{accessible: true}}}}
                  }
                }
-             } = Projection.render(scope, session)
+             } = projection
+
+      refute Map.has_key?(projection, :available_turn_actions)
+      refute Map.has_key?(projection, :sheet_projection)
+      refute Map.has_key?(projection.game, :sheet)
     end
 
     test "returns the session unchanged without a game-specific projection" do
