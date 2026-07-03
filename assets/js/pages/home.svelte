@@ -1,3 +1,14 @@
+<script module lang="ts">
+  import Layout from "~components/layout.svelte";
+
+  export const layout = {
+    component: Layout,
+    props: {
+      variant: "catalog",
+    },
+  };
+</script>
+
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
   import type { GameCatalogEntry } from "~types/game";
@@ -9,15 +20,15 @@
   const { games }: Props = $props();
 </script>
 
-<main class="bg-base-100 text-base-content">
-  <section class="mx-auto w-full max-w-185 px-6 py-6 max-[34rem]:px-4">
+<main class="home-page">
+  <section class="home-shell">
     {#if games.length > 0}
-      <div class="grid w-full grid-cols-[repeat(auto-fill,minmax(min(14rem,100%),1fr))] gap-5">
+      <div class="home-grid">
         {#each games as entry (entry.slug)}
           {@const imageUrl = entry.game.imageUrl ?? entry.game.thumbnailUrl}
           {@const gameTitle = entry.game.name}
           <a
-            class="game-card group"
+            class="game-card"
             href={`/games/${entry.slug}`}
             aria-label={gameTitle ? `Open ${gameTitle}` : "Open game"}
             use:inertia={{ href: `/games/${entry.slug}` }}
@@ -57,12 +68,40 @@
         {/each}
       </div>
     {:else}
-      <div class="grid min-h-[50vh] place-items-center text-sm text-base-content/60">No games</div>
+      <div class="home-empty">No games</div>
     {/if}
   </section>
 </main>
 
 <style>
+  .home-page {
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  .home-shell {
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 46.25rem;
+    margin-inline: auto;
+    padding: 1.5rem;
+  }
+
+  .home-grid {
+    display: grid;
+    inline-size: 100%;
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+    gap: 1.25rem;
+  }
+
+  .home-empty {
+    display: grid;
+    min-block-size: 50vh;
+    place-items: center;
+    color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+    font-size: 0.875rem;
+  }
+
   .game-card {
     display: block;
     overflow: clip;
@@ -201,5 +240,11 @@
     text-shadow: 0 1px 1px rgb(0 0 0 / 0.5);
     backdrop-filter: saturate(1.3);
     box-shadow: 0 8px 18px rgb(0 0 0 / 0.22);
+  }
+
+  @media (max-width: 48rem) {
+    .home-shell {
+      padding-inline: 1rem;
+    }
   }
 </style>

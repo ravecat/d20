@@ -2,11 +2,18 @@
   import type { Snippet } from "svelte";
   import Header from "~components/header.svelte";
 
-  const { children }: { children?: Snippet } = $props();
+  type Variant = "default" | "catalog";
+
+  type Props = {
+    children?: Snippet;
+    variant?: Variant;
+  };
+
+  const { children, variant = "default" }: Props = $props();
 </script>
 
 <div class="layout">
-  <Header />
+  <Header {variant} />
   {@render children?.()}
 </div>
 

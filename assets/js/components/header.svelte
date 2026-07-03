@@ -1,10 +1,23 @@
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
 
-  const { overlay = false }: { overlay?: boolean } = $props();
+  type Variant = "default" | "catalog";
+
+  type Props = {
+    overlay?: boolean;
+    variant?: Variant;
+  };
+
+  const { overlay = false, variant = "default" }: Props = $props();
 </script>
 
-<header class={{ header: true, "header--overlay": overlay }}>
+<header
+  class={{
+    header: true,
+    "header--catalog": variant === "catalog",
+    "header--overlay": overlay,
+  }}
+>
   <div class="inner"><a class="brand" href="/" use:inertia={{ href: "/" }}>
     <span class="icon hero-puzzle-piece" aria-hidden="true"></span>
     <span>D20</span>
@@ -27,12 +40,17 @@
 
   .inner {
     display: flex;
-    width: 100%;
-    max-width: 46.25rem;
-    margin: 0 auto;
-    padding: 1.375rem 1.5rem;
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 64rem;
+    margin-inline: auto;
+    padding: 1rem 1.5rem;
     align-items: center;
     gap: 1.5rem;
+  }
+
+  .header--catalog .inner {
+    max-inline-size: 46.25rem;
   }
 
   .brand {
@@ -53,9 +71,14 @@
     outline-offset: 0.375rem;
   }
 
-  @media (max-width: 34rem) {
+  @media (max-width: 48rem) {
     .inner {
       padding-inline: 1rem;
+    }
+  }
+
+  @media (max-width: 34rem) {
+    .inner {
       gap: 1rem;
     }
   }
