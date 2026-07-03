@@ -1,5 +1,6 @@
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
+  import D20 from "~components/d20.svelte";
 
   type Variant = "default" | "catalog";
 
@@ -19,7 +20,7 @@
   }}
 >
   <div class="inner"><a class="brand" href="/" use:inertia={{ href: "/" }}>
-    <span class="icon hero-puzzle-piece" aria-hidden="true"></span>
+    <D20 />
     <span>D20</span>
   </a></div>
 </header>
