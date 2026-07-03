@@ -77,7 +77,7 @@ defmodule D20.GamesTest do
   test "lists registered game metadata by registry slug" do
     stub_registered_bgg_games()
 
-    games = Games.list()
+    assert {:ok, games} = Games.list()
 
     assert Enum.map(games, & &1.slug) == [
              "fliptown",
@@ -90,6 +90,12 @@ defmodule D20.GamesTest do
     assert %Game{name: "Koala Rescue Club"} = game_by_slug(games, "koala-rescue-club")
     assert %Game{name: "Next Station: London"} = game_by_slug(games, "next-station-london")
     assert %Game{name: "Qwinto"} = game_by_slug(games, "qwinto")
+  end
+
+  test "returns metadata source errors while listing registered games" do
+    Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
+
+    assert Games.list() == {:error, {:game_metadata_unavailable, "fliptown", {:http_error, 401}}}
   end
 
   test "returns metadata source errors for registered games" do

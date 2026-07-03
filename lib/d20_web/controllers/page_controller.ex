@@ -1,6 +1,8 @@
 defmodule D20Web.PageController do
   use D20Web, :controller
 
+  require Logger
+
   alias D20.Games.Registry
 
   @typep params :: Plug.Conn.params()
@@ -102,13 +104,20 @@ defmodule D20Web.PageController do
   end
 
   defp assign_games_prop(conn) do
-    assign_prop(
-      conn,
-      :games,
-      Enum.map(D20.Games.list(), fn %{slug: slug, game: game} ->
-        %{slug: slug, game: Map.from_struct(game)}
-      end)
-    )
+    case D20.Games.list() do
+      {:ok, games} ->
+        assign_prop(
+          conn,
+          :games,
+          Enum.map(games, fn %{slug: slug, game: game} ->
+            %{slug: slug, game: Map.from_struct(game)}
+          end)
+        )
+
+      {:error, reason} ->
+        Logger.error("Failed to load game metadata: #{inspect(reason)}")
+        assign_prop(conn, :games, [])
+    end
   end
 
   @spec send_not_found(Plug.Conn.t()) :: Plug.Conn.t()

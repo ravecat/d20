@@ -11,12 +11,15 @@ defmodule D20.Games do
   alias D20.Games.Sources.BoardGameGeek
 
   @type playable_game :: %{slug: String.t(), game: Game.t()}
+  @type list_error :: {:game_metadata_unavailable, String.t(), term()}
 
-  @spec list() :: [playable_game()]
+  @spec list() :: {:ok, [playable_game()]} | {:error, list_error()}
   def list do
-    Enum.map(Registry.list(), fn entry ->
-      {:ok, game} = fetch_by_slug(entry.slug)
-      %{slug: entry.slug, game: game}
+    Enum.reduce_while(Registry.list(), {:ok, []}, fn entry, {:ok, games} ->
+      case fetch_by_slug(entry.slug) do
+        {:ok, game} -> {:cont, {:ok, games ++ [%{slug: entry.slug, game: game}]}}
+        {:error, reason} -> {:halt, {:error, {:game_metadata_unavailable, entry.slug, reason}}}
+      end
     end)
   end
 

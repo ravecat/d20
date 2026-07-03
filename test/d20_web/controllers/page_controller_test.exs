@@ -1,6 +1,8 @@
 defmodule D20Web.PageControllerTest do
   use D20Web.ConnCase
 
+  import ExUnit.CaptureLog
+
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20.Games.Registry
@@ -121,6 +123,21 @@ defmodule D20Web.PageControllerTest do
     assert game[:name] == "Resolved Qwinto"
     assert game[:thumbnailUrl] == "https://example.invalid/qwinto-thumb.jpg"
     assert game[:imageUrl] == "https://example.invalid/qwinto-image.jpg"
+  end
+
+  test "GET / renders an empty catalog when runtime metadata is unavailable", %{conn: conn} do
+    Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
+
+    log =
+      capture_log(fn ->
+        conn = get(conn, ~p"/")
+
+        assert html_response(conn, 200) =~ ~s(id="app")
+        assert inertia_component(conn) == "home"
+        assert %{games: []} = inertia_props(conn)
+      end)
+
+    assert log =~ "Failed to load game metadata"
   end
 
   test "GET /games redirects to the home showcase", %{conn: conn} do

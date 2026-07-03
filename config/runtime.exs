@@ -20,9 +20,18 @@ if System.get_env("PHX_SERVER") do
   config :d20, D20Web.Endpoint, server: true
 end
 
-config :d20, D20.Games.Sources.BoardGameGeek, api_key: System.get_env("BGG_API_KEY")
+bgg_api_key = System.get_env("BGG_API_KEY")
+
+config :d20, D20.Games.Sources.BoardGameGeek, api_key: bgg_api_key
 
 if config_env() == :prod do
+  if bgg_api_key in [nil, ""] do
+    raise """
+    environment variable BGG_API_KEY is missing.
+    Register a BoardGameGeek API application and set its access token.
+    """
+  end
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

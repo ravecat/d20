@@ -122,7 +122,7 @@ just down
 | `SECRET_KEY_BASE`   | Yes                  | Phoenix secret key base. Generate with `mix phx.gen.secret`.           |
 | `PORT`              | No                   | Phoenix HTTP port. Defaults to `5000`.                                 |
 | `VITE_PORT`         | No                   | Vite development server port. Defaults to `5174`.                      |
-| `BGG_API_KEY`       | No                   | API key for the board-game metadata source.                            |
+| `BGG_API_KEY`       | Yes                  | API key for the board-game metadata source.                            |
 | `PHX_HOST`          | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.   |
 | `PHX_SERVER`        | No                   | Enables the endpoint server when running a release.                    |
 | `POOL_SIZE`         | No                   | Ecto pool size. Defaults to `10`.                                      |
