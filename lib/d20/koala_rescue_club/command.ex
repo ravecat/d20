@@ -171,8 +171,8 @@ defmodule D20.KoalaRescueClub.Command do
   end
 
   defp normalize_bonus_action_kind("skybridge", attrs) do
-    with {:ok, to_area} <- fetch_area(attrs, :to_area) do
-      {:ok, %{kind: :skybridge, to_area: to_area}}
+    with {:ok, to} <- fetch_area(attrs, :to) do
+      {:ok, %{kind: :skybridge, to: to}}
     end
   end
 

@@ -143,6 +143,7 @@ defmodule D20Web.ProjectionTest do
                        volunteers: [:available, :locked, :locked, :locked, :locked, :locked],
                        skybridges: [],
                        hospitals: %{hospital_2: %{size: 3, score: 2, filled: 0}},
+                       bonuses: bonuses,
                        areas: %{
                          a: %{
                            accessible: true,
@@ -154,18 +155,6 @@ defmodule D20Web.ProjectionTest do
                              _row_1,
                              _row_2,
                              [nil | _row_3]
-                           ],
-                           row_bonuses: [
-                             %{kind: :skybridge, to_area: :b, state: :locked},
-                             %{kind: :tree, state: :locked},
-                             %{kind: :koala, state: :locked},
-                             %{kind: :skybridge, to_area: :d, state: :locked}
-                           ],
-                           column_bonuses: [
-                             %{kind: :tree, state: :locked},
-                             %{kind: :koala, state: :locked},
-                             %{kind: :hospital, state: :locked},
-                             %{kind: :volunteer, state: :locked}
                            ]
                          },
                          b: %{accessible: false}
@@ -177,6 +166,22 @@ defmodule D20Web.ProjectionTest do
                }
              } = projection
 
+      a_area = projection.game.players["owner"].sheet.areas.a
+
+      assert %{
+               ref: %{area: :a, axis: :row, index: 0},
+               state: :locked,
+               bonus: %{kind: :skybridge, from: :a, to: :b}
+             } in bonuses
+
+      assert %{
+               ref: %{area: :a, axis: :column, index: 2},
+               state: :locked,
+               bonus: %{kind: :hospital}
+             } in bonuses
+
+      refute Map.has_key?(a_area, :row_bonuses)
+      refute Map.has_key?(a_area, :column_bonuses)
       refute Map.has_key?(projection, :available_turn_actions)
       refute Map.has_key?(projection, :sheet_projection)
       refute Map.has_key?(projection.game, :sheet)

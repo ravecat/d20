@@ -58,6 +58,7 @@ defmodule D20.KoalaRescueClub.Projection do
       volunteers: player_sheet.volunteers,
       hospitals: render_hospitals(rulesheet, player_sheet),
       skybridges: player_sheet.skybridges,
+      bonuses: render_bonuses(rulesheet, player_sheet),
       areas: render_areas(rulesheet, player_sheet, accessible_areas)
     }
   end
@@ -65,14 +66,7 @@ defmodule D20.KoalaRescueClub.Projection do
   defp render_areas(rulesheet, player_sheet, accessible_areas) do
     Map.new(rulesheet.areas, fn {area, _area} ->
       {area,
-       %{
-         accessible: area in accessible_areas,
-         rows: render_rows(rulesheet, player_sheet, area),
-         row_bonuses:
-           render_line_bonuses(Ruleset.area_lines(rulesheet, area, :row), player_sheet),
-         column_bonuses:
-           render_line_bonuses(Ruleset.area_lines(rulesheet, area, :column), player_sheet)
-       }}
+       %{accessible: area in accessible_areas, rows: render_rows(rulesheet, player_sheet, area)}}
     end)
   end
 
@@ -105,34 +99,31 @@ defmodule D20.KoalaRescueClub.Projection do
     end)
   end
 
-  defp render_line_bonuses(lines, player_sheet) do
-    max_index = lines |> Enum.map(& &1.index) |> Enum.max(fn -> -1 end)
-    by_index = Map.new(lines, &{&1.index, &1})
-
-    if max_index < 0 do
-      []
-    else
-      for index <- 0..max_index do
-        by_index
-        |> Map.get(index)
-        |> render_bonus(player_sheet)
-      end
-    end
+  defp render_bonuses(rulesheet, player_sheet) do
+    rulesheet
+    |> Ruleset.bonuses()
+    |> Enum.sort_by(&{&1.ref.area, &1.ref.axis, &1.ref.index})
+    |> Enum.map(&render_bonus(rulesheet, &1, player_sheet))
   end
 
-  defp render_bonus(nil, _player_sheet), do: nil
-  defp render_bonus(%{bonus: nil}, _player_sheet), do: nil
-
-  defp render_bonus(%{bonus: bonus} = line, player_sheet) do
-    %{kind: bonus.kind, state: bonus_state(line, player_sheet)}
-    |> maybe_put(:to_area, Map.get(bonus, :target_area))
-    |> maybe_put(:target_id, Map.get(bonus, :target_id))
+  defp render_bonus(rulesheet, %{ref: ref, bonus: bonus}, player_sheet) do
+    %{
+      ref: ref,
+      state: bonus_state(rulesheet, ref, player_sheet),
+      bonus: render_bonus_details(ref, bonus)
+    }
   end
 
-  defp bonus_state(%{bonus: bonus} = line, player_sheet) do
+  defp render_bonus_details(%{area: from}, %{kind: :skybridge, to: to}) do
+    %{kind: :skybridge, from: from, to: to}
+  end
+
+  defp render_bonus_details(_ref, %{kind: kind}), do: %{kind: kind}
+
+  defp bonus_state(rulesheet, bonus_ref, player_sheet) do
     cond do
-      bonus_resolved?(player_sheet, bonus.ref) -> :resolved
-      line_unlocked?(line, player_sheet) -> :unlocked
+      bonus_resolved?(player_sheet, bonus_ref) -> :resolved
+      bonus_unlocked?(rulesheet, bonus_ref, player_sheet) -> :unlocked
       true -> :locked
     end
   end
@@ -141,16 +132,14 @@ defmodule D20.KoalaRescueClub.Projection do
     Enum.any?(player_sheet.bonuses, &(bonus_ref(&1) == bonus_ref))
   end
 
-  defp line_unlocked?(line, player_sheet) do
-    koala_cell_keys = player_sheet.koalas |> Enum.map(&Ruleset.cell_key/1) |> MapSet.new()
+  defp bonus_unlocked?(rulesheet, bonus_ref, player_sheet) do
+    koalas = MapSet.new(player_sheet.koalas)
+    cells = Ruleset.line_cells(rulesheet, bonus_ref)
 
-    Enum.all?(line.cells, &MapSet.member?(koala_cell_keys, &1))
+    cells != [] and Enum.all?(cells, &MapSet.member?(koalas, &1))
   end
 
   defp bonus_ref(%{area: area, axis: axis, index: index}) do
     %{area: area, axis: axis, index: index}
   end
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

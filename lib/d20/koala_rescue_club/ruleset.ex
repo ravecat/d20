@@ -15,7 +15,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @player_count_range 1..99
   @turns_per_round 15
   @turn_range 1..30
-  @scoring_turns [15, 30]
+  @round_end_turns [15, 30]
   @die_value_range 1..6
   @volunteer 6
 
@@ -29,7 +29,6 @@ defmodule D20.KoalaRescueClub.Ruleset do
   }
 
   @sheet_modules %{dharug: Dharug, yugambeh: Yugambeh}
-  @sheets [:dharug, :yugambeh]
 
   @type id :: :dharug | :yugambeh
   @type area :: atom()
@@ -39,25 +38,16 @@ defmodule D20.KoalaRescueClub.Ruleset do
           required(:row) => non_neg_integer(),
           required(:column) => non_neg_integer()
         }
-  @type line_ref :: %{
+  @type bonus_ref :: %{
           required(:area) => area(),
           required(:axis) => :row | :column,
           required(:index) => non_neg_integer()
         }
   @type bonus :: %{
-          required(:ref) => line_ref(),
           required(:kind) => :tree | :koala | :volunteer | :hospital | :skybridge,
-          optional(:target_area) => area(),
-          optional(:target_id) => String.t()
+          optional(:to) => area()
         }
-  @type line :: %{
-          required(:ref) => line_ref(),
-          required(:area) => area(),
-          required(:axis) => :row | :column,
-          required(:index) => non_neg_integer(),
-          required(:cells) => [cell()],
-          required(:bonus) => bonus() | nil
-        }
+  @type bonus_entry :: %{required(:ref) => bonus_ref(), required(:bonus) => bonus()}
   @type rank ::
           :junior_club_member
           | :club_secretary
@@ -84,9 +74,9 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   def round(_turn), do: {:error, :invalid_turn}
 
-  @doc "Returns true when the given turn triggers round scoring."
-  @spec scoring_turn?(term()) :: boolean()
-  def scoring_turn?(turn), do: turn in @scoring_turns
+  @doc "Returns true when the given turn ends a round."
+  @spec round_end_turn?(term()) :: boolean()
+  def round_end_turn?(turn), do: turn in @round_end_turns
 
   @doc "Returns true when the given turn is the final turn."
   @spec final_turn?(term()) :: boolean()
@@ -108,7 +98,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   @doc "Returns supported sheet ids."
   @spec sheets() :: [id()]
-  def sheets, do: @sheets
+  def sheets, do: @sheet_modules |> Map.keys() |> Enum.sort()
 
   @doc "Returns a supported sheet definition or raises when the sheet is unknown."
   @spec sheet!(id()) :: Sheet.t()
@@ -130,58 +120,50 @@ defmodule D20.KoalaRescueClub.Ruleset do
     end
   end
 
-  @doc "Returns the canonical internal key for a cell coordinate."
-  @spec cell_key(cell()) :: cell()
-  def cell_key(%{area: area, row: row, column: column}) do
-    Sheet.cell_key(area, column, row)
-  end
-
-  @doc "Returns the player-state cell coordinate for a sheet cell."
-  @spec cell(map()) :: cell()
-  def cell(%{area: area, row: row, column: column}) do
-    %{area: area, row: row, column: column}
-  end
-
-  def cell(%{area: area, q: column, r: row}) do
-    %{area: area, row: row, column: column}
-  end
-
   @doc "Returns true when the cell exists on the sheet."
   @spec cell_exists?(Sheet.t(), cell()) :: boolean()
   def cell_exists?(%Sheet{} = sheet, %{area: area} = cell) do
     cell in area_cells(sheet, area)
   end
 
-  @doc "Returns all row or column lines for one area."
-  @spec area_lines(Sheet.t(), area(), :row | :column) :: [line()]
-  def area_lines(%Sheet{areas: areas} = sheet, area, axis) when axis in [:row, :column] do
-    case Map.fetch(areas, area) do
-      {:ok, area_sheet} -> lines(sheet, area, axis, area_sheet)
-      :error -> []
-    end
-  end
-
-  @doc "Returns all lines that carry bonuses."
-  @spec bonus_lines(Sheet.t()) :: [line()]
-  def bonus_lines(%Sheet{areas: areas} = sheet) do
-    areas
-    |> Map.keys()
-    |> Enum.flat_map(fn area ->
-      area_lines(sheet, area, :row) ++ area_lines(sheet, area, :column)
+  @doc "Returns all bonuses placed on sheet lines."
+  @spec bonuses(Sheet.t()) :: [bonus_entry()]
+  def bonuses(%Sheet{bonuses: bonuses}) do
+    Enum.flat_map(bonuses, fn {area, area_bonuses} ->
+      Enum.map(area_bonuses, fn %{axis: axis, index: index, bonus: bonus} ->
+        %{ref: %{area: area, axis: axis, index: index}, bonus: bonus}
+      end)
     end)
-    |> Enum.filter(& &1.bonus)
   end
 
-  @doc "Returns the bonus attached to a reference."
-  @spec bonus(Sheet.t(), line_ref()) :: {:ok, bonus()} | {:error, :invalid_bonus}
-  def bonus(%Sheet{} = sheet, %{axis: axis} = ref) when axis in [:row, :column] do
-    case find_bonus(sheet, ref) do
-      nil -> {:error, :invalid_bonus}
-      bonus -> {:ok, bonus}
+  @doc "Returns all cells in a row or column reference."
+  @spec line_cells(Sheet.t(), bonus_ref()) :: [cell()]
+  def line_cells(%Sheet{areas: areas}, %{area: area, axis: :row, index: index})
+      when is_integer(index) and index >= 0 do
+    case Map.fetch(areas, area) do
+      {:ok, area_sheet} ->
+        area_sheet.rows |> Enum.at(index, []) |> Enum.map(&%{area: area, row: index, column: &1})
+
+      :error ->
+        []
     end
   end
 
-  def bonus(%Sheet{}, _ref), do: {:error, :invalid_bonus}
+  def line_cells(%Sheet{areas: areas}, %{area: area, axis: :column, index: index})
+      when is_integer(index) and index >= 0 do
+    case Map.fetch(areas, area) do
+      {:ok, area_sheet} ->
+        area_sheet.rows
+        |> Enum.with_index()
+        |> Enum.filter(fn {columns, _row} -> index in columns end)
+        |> Enum.map(fn {_columns, row} -> %{area: area, row: row, column: index} end)
+
+      :error ->
+        []
+    end
+  end
+
+  def line_cells(%Sheet{}, _ref), do: []
 
   @doc "Returns all areas accessible for a sheet through claimed skybridges."
   @spec accessible_areas(Sheet.t(), map()) :: [atom()]
@@ -215,10 +197,10 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   @doc "Returns true when the target cells match a die shape under rotation or flip."
   @spec shape_match?(Sheet.t(), [cell()], pos_integer()) :: boolean()
-  def shape_match?(%Sheet{} = sheet, cell_keys, die_value) do
+  def shape_match?(%Sheet{} = sheet, cells, die_value) do
     with {:ok, shape} <- shape_for(die_value),
-         true <- length(cell_keys) == length(shape),
-         {:ok, coords} <- target_coords(sheet, cell_keys) do
+         true <- length(cells) == length(shape),
+         {:ok, coords} <- target_coords(sheet, cells) do
       normalized = normalize_offsets(coords)
 
       die_value
@@ -274,71 +256,21 @@ defmodule D20.KoalaRescueClub.Ruleset do
     if MapSet.equal?(next, accessible), do: next, else: expand_access(skybridges, next)
   end
 
-  defp complete_area?(map, cell_keys, area) do
+  defp complete_area?(map, cells, area) do
     required = map |> area_cells(area) |> MapSet.new()
 
-    required != MapSet.new() and MapSet.subset?(required, MapSet.new(cell_keys))
+    required != MapSet.new() and MapSet.subset?(required, MapSet.new(cells))
   end
 
-  defp target_coords(sheet, cell_keys) do
-    Enum.reduce_while(cell_keys, {:ok, []}, fn cell_key, {:ok, coords} ->
-      if cell_exists?(sheet, cell_key) do
-        {:cont, {:ok, [{cell_key.column, cell_key.row} | coords]}}
+  defp target_coords(sheet, cells) do
+    Enum.reduce_while(cells, {:ok, []}, fn cell, {:ok, coords} ->
+      if cell_exists?(sheet, cell) do
+        {:cont, {:ok, [{cell.column, cell.row} | coords]}}
       else
         {:halt, {:error, :unknown_cell}}
       end
     end)
   end
-
-  defp lines(sheet, area, :row, area_sheet) do
-    area_sheet.rows
-    |> Enum.with_index()
-    |> Enum.map(fn {columns, index} ->
-      cells = Enum.map(columns, &%{area: area, row: index, column: &1})
-      line(sheet, area, :row, index, cells)
-    end)
-  end
-
-  defp lines(sheet, area, :column, area_sheet) do
-    area_sheet
-    |> column_range()
-    |> Enum.map(fn index ->
-      cells =
-        area_sheet.rows
-        |> Enum.with_index()
-        |> Enum.filter(fn {columns, _row} -> index in columns end)
-        |> Enum.map(fn {_columns, row} -> %{area: area, row: row, column: index} end)
-
-      line(sheet, area, :column, index, cells)
-    end)
-  end
-
-  defp column_range(%{rows: rows}) do
-    max_column = rows |> Enum.flat_map(&Enum.to_list/1) |> Enum.max(fn -> -1 end)
-
-    if max_column < 0, do: [], else: 0..max_column
-  end
-
-  defp line(sheet, area, axis, index, cells) do
-    ref = %{area: area, axis: axis, index: index}
-    %{ref: ref, area: area, axis: axis, index: index, cells: cells, bonus: find_bonus(sheet, ref)}
-  end
-
-  defp find_bonus(%Sheet{bonuses: bonuses}, ref) do
-    bonuses
-    |> Map.get(ref.area, [])
-    |> Enum.find(&(&1.axis == ref.axis and &1.index == ref.index))
-    |> case do
-      nil -> nil
-      bonus -> expand_bonus(ref, bonus.bonus)
-    end
-  end
-
-  defp expand_bonus(ref, {:skybridge, target_area}),
-    do: %{ref: ref, kind: :skybridge, target_area: target_area}
-
-  defp expand_bonus(ref, {kind, target_id}), do: %{ref: ref, kind: kind, target_id: target_id}
-  defp expand_bonus(ref, kind), do: %{ref: ref, kind: kind}
 
   defp transforms(offsets) do
     rotations =

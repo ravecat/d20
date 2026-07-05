@@ -16,45 +16,75 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
   ]
 
   @areas [
-    a: %{
-      access: true,
-      rows: [0..3, 0..3, 1..3, 2..3],
-      column_bonuses: [:tree, :volunteer, :hospital, :koala],
-      row_bonuses: [{:skybridge, :b}, :tree, {:skybridge, :c}, {:skybridge, :d}]
-    },
-    b: %{
-      rows: [0..3, 0..3],
-      column_bonuses: [:volunteer, :tree, :tree, :tree],
-      row_bonuses: [:koala, {:skybridge, :e}]
-    },
-    c: %{
-      rows: [0..3, 0..3],
-      column_bonuses: [:volunteer, :koala, :tree, :tree],
-      row_bonuses: [:hospital, {:skybridge, :f}]
-    },
-    d: %{
-      rows: [0..3, 0..3],
-      column_bonuses: [:volunteer, :tree, :tree, :koala],
-      row_bonuses: [:hospital, {:skybridge, :g}]
-    },
-    e: %{
-      rows: [0..3, 0..3, 1..3],
-      column_bonuses: [:tree, :hospital, :tree, :tree],
-      row_bonuses: [:hospital, :hospital, :volunteer]
-    },
-    f: %{rows: [0..5], column_bonuses: [], row_bonuses: []},
-    g: %{
-      rows: [0..3, 0..3],
-      column_bonuses: [:volunteer, :tree, :koala, :koala],
-      row_bonuses: [:koala, :hospital]
-    }
+    a: %{access: true, rows: [0..3, 0..3, 1..3, 2..3]},
+    b: %{rows: [0..3, 0..3]},
+    c: %{rows: [0..3, 0..3]},
+    d: %{rows: [0..3, 0..3]},
+    e: %{rows: [0..3, 0..3, 1..3]},
+    f: %{rows: [0..5]},
+    g: %{rows: [0..3, 0..3]}
   ]
 
-  @hospitals [
+  @bonuses %{
+    a: [
+      %{axis: :row, index: 0, bonus: %{kind: :skybridge, to: :b}},
+      %{axis: :row, index: 1, bonus: %{kind: :tree}},
+      %{axis: :row, index: 2, bonus: %{kind: :skybridge, to: :c}},
+      %{axis: :row, index: 3, bonus: %{kind: :skybridge, to: :d}},
+      %{axis: :column, index: 0, bonus: %{kind: :tree}},
+      %{axis: :column, index: 1, bonus: %{kind: :volunteer}},
+      %{axis: :column, index: 2, bonus: %{kind: :hospital}},
+      %{axis: :column, index: 3, bonus: %{kind: :koala}}
+    ],
+    b: [
+      %{axis: :row, index: 0, bonus: %{kind: :koala}},
+      %{axis: :row, index: 1, bonus: %{kind: :skybridge, to: :e}},
+      %{axis: :column, index: 0, bonus: %{kind: :volunteer}},
+      %{axis: :column, index: 1, bonus: %{kind: :tree}},
+      %{axis: :column, index: 2, bonus: %{kind: :tree}},
+      %{axis: :column, index: 3, bonus: %{kind: :tree}}
+    ],
+    c: [
+      %{axis: :row, index: 0, bonus: %{kind: :hospital}},
+      %{axis: :row, index: 1, bonus: %{kind: :skybridge, to: :f}},
+      %{axis: :column, index: 0, bonus: %{kind: :volunteer}},
+      %{axis: :column, index: 1, bonus: %{kind: :koala}},
+      %{axis: :column, index: 2, bonus: %{kind: :tree}},
+      %{axis: :column, index: 3, bonus: %{kind: :tree}}
+    ],
+    d: [
+      %{axis: :row, index: 0, bonus: %{kind: :hospital}},
+      %{axis: :row, index: 1, bonus: %{kind: :skybridge, to: :g}},
+      %{axis: :column, index: 0, bonus: %{kind: :volunteer}},
+      %{axis: :column, index: 1, bonus: %{kind: :tree}},
+      %{axis: :column, index: 2, bonus: %{kind: :tree}},
+      %{axis: :column, index: 3, bonus: %{kind: :koala}}
+    ],
+    e: [
+      %{axis: :row, index: 0, bonus: %{kind: :hospital}},
+      %{axis: :row, index: 1, bonus: %{kind: :hospital}},
+      %{axis: :row, index: 2, bonus: %{kind: :volunteer}},
+      %{axis: :column, index: 0, bonus: %{kind: :tree}},
+      %{axis: :column, index: 1, bonus: %{kind: :hospital}},
+      %{axis: :column, index: 2, bonus: %{kind: :tree}},
+      %{axis: :column, index: 3, bonus: %{kind: :tree}}
+    ],
+    f: [],
+    g: [
+      %{axis: :row, index: 0, bonus: %{kind: :koala}},
+      %{axis: :row, index: 1, bonus: %{kind: :hospital}},
+      %{axis: :column, index: 0, bonus: %{kind: :volunteer}},
+      %{axis: :column, index: 1, bonus: %{kind: :tree}},
+      %{axis: :column, index: 2, bonus: %{kind: :koala}},
+      %{axis: :column, index: 3, bonus: %{kind: :koala}}
+    ]
+  }
+
+  @hospitals %{
     hospital_4: %{size: 4, score: 4, penalty: -3},
     hospital_3: %{size: 3, score: 3, penalty: -2},
     hospital_2: %{size: 2, score: 2, penalty: -1}
-  ]
+  }
 
   @skybridges [
     %{from: :a, to: :b},
@@ -65,7 +95,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
     %{from: :d, to: :g}
   ]
 
-  @badges [
+  @badges %{
     tree_lover: %{
       awards: %{large: 3, small: 2},
       requirement: %{complete: %{area: :b, mark: :trees}}
@@ -78,7 +108,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
       awards: %{large: 3, small: 2},
       requirement: %{count: %{field: :volunteers, at_least: 6}}
     }
-  ]
+  }
 
   @impl true
   @spec init() :: Sheet.source()
@@ -87,6 +117,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
       volunteers: 0,
       solo_ratings: @solo_ratings,
       areas: @areas,
+      bonuses: @bonuses,
       hospitals: @hospitals,
       skybridges: @skybridges,
       badges: @badges

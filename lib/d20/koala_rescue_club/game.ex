@@ -35,18 +35,14 @@ defmodule D20.KoalaRescueClub.Game do
 
   @type player_id :: D20.Actors.Actor.id()
   @type skybridge :: %{required(:from) => Ruleset.area(), required(:to) => Ruleset.area()}
-  @type bonus :: %{
-          required(:area) => Ruleset.area(),
-          required(:axis) => :row | :column,
-          required(:index) => non_neg_integer()
-        }
+  @type bonus_ref :: Ruleset.bonus_ref()
   @type sheet :: %{
           required(:trees) => [Ruleset.cell()],
           required(:koalas) => [Ruleset.cell()],
           required(:volunteers) => [:available | :locked | :used],
           required(:hospitals) => %{optional(atom()) => non_neg_integer()},
           required(:skybridges) => [skybridge()],
-          required(:bonuses) => [bonus()]
+          required(:bonuses) => [bonus_ref()]
         }
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
   @type player :: %{
@@ -212,19 +208,19 @@ defmodule D20.KoalaRescueClub.Game do
       game
       |> award_badges()
       |> maybe_score_round()
-      |> advance_or_finish()
+      |> maybe_finish()
     else
       game
     end
   end
 
   defp maybe_score_round(game) do
-    if Ruleset.scoring_turn?(game.turn), do: score_round(game), else: game
+    if Ruleset.round_end_turn?(game.turn), do: score_round(game), else: game
   end
 
-  defp advance_or_finish(game) do
+  defp maybe_finish(game) do
     if Ruleset.final_turn?(game.turn) do
-      finish(game)
+      %{game | phase: :finished, scores: score_players(game)}
     else
       {:ok, next_round} = Ruleset.round(game.turn + 1)
 
@@ -233,11 +229,6 @@ defmodule D20.KoalaRescueClub.Game do
         :ready
       )
     end
-  end
-
-  defp finish(game) do
-    scores = score_players(game)
-    %{game | phase: :finished, scores: scores}
   end
 
   defp score_round(game) do

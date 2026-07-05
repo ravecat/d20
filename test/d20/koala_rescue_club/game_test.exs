@@ -160,7 +160,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                  "bonus_actions" => [
                    %{
                      "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
-                     "action" => %{"kind" => "skybridge", "to_area" => "b"}
+                     "action" => %{"kind" => "skybridge", "to" => "b"}
                    }
                  ]
                })
@@ -184,7 +184,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                  "bonus_actions" => [
                    %{
                      "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
-                     "action" => %{"kind" => "skybridge", "to_area" => "b"}
+                     "action" => %{"kind" => "skybridge", "to" => "b"}
                    }
                  ]
                })
@@ -209,7 +209,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
     test "awards badges from selected sheet predicates" do
       map = Ruleset.sheet!(:dharug)
-      c_trees = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell/1)
+      c_trees = Ruleset.area_cells(map, :c)
 
       game =
         "dharug"
@@ -229,8 +229,8 @@ defmodule D20.KoalaRescueClub.GameTest do
   describe "scores" do
     test "stores separate tree, koala, hospital, and total scores for scoring turns" do
       map = Ruleset.sheet!(:dharug)
-      c_cells = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell/1)
-      d_cells = Enum.map(Ruleset.area_cells(map, :d), &Ruleset.cell/1)
+      c_cells = Ruleset.area_cells(map, :c)
+      d_cells = Ruleset.area_cells(map, :d)
 
       game =
         "dharug"
