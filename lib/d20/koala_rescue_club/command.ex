@@ -9,6 +9,7 @@ defmodule D20.KoalaRescueClub.Command do
 
   @areas ~w(a b c d e f g)a
   @bonus_axes ~w(row column)a
+  @hospital_ids ~w(hospital_1_left hospital_1_right hospital_2 hospital_3 hospital_4)a
 
   @type reason :: Changeset.t() | :unknown_command | :invalid_command
 
@@ -164,7 +165,7 @@ defmodule D20.KoalaRescueClub.Command do
   defp normalize_bonus_action_kind("volunteer", _attrs), do: {:ok, %{kind: :volunteer}}
 
   defp normalize_bonus_action_kind("hospital", attrs) do
-    with {:ok, hospital_id} <- fetch_string(attrs, :hospital_id) do
+    with {:ok, hospital_id} <- fetch_hospital_id(attrs, :hospital_id) do
       {:ok, %{kind: :hospital, hospital_id: hospital_id}}
     end
   end
@@ -217,6 +218,20 @@ defmodule D20.KoalaRescueClub.Command do
   defp normalize_axis(axis) do
     Enum.find_value(@bonus_axes, {:error, :invalid_command}, fn id ->
       if Atom.to_string(id) == axis, do: {:ok, id}
+    end)
+  end
+
+  defp fetch_hospital_id(attrs, key) do
+    case fetch_value(attrs, key) do
+      hospital_id when is_atom(hospital_id) and hospital_id in @hospital_ids -> {:ok, hospital_id}
+      hospital_id when is_binary(hospital_id) -> normalize_hospital_id(hospital_id)
+      _value -> {:error, :invalid_command}
+    end
+  end
+
+  defp normalize_hospital_id(hospital_id) do
+    Enum.find_value(@hospital_ids, {:error, :invalid_command}, fn id ->
+      if Atom.to_string(id) == hospital_id, do: {:ok, id}
     end)
   end
 

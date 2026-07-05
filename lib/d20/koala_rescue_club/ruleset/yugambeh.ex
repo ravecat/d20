@@ -81,7 +81,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Yugambeh do
   ]
 
   @impl true
-  @spec init() :: Sheet.init()
+  @spec init() :: Sheet.source()
   def init do
     %{
       volunteers: 0,

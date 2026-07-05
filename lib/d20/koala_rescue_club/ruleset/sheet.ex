@@ -3,186 +3,89 @@ defmodule D20.KoalaRescueClub.Ruleset.Sheet do
   Koala Rescue Club sheet contract and geometry builder.
   """
 
-  defstruct [
-    :volunteers,
-    :solo_ratings,
-    :areas,
-    :cells,
-    :rows,
-    :columns,
-    :bonuses,
-    :hospitals,
-    :skybridges,
-    :badges
-  ]
+  defstruct [:volunteers, :solo_ratings, :areas, :bonuses, :hospitals, :skybridges, :badges]
 
   @type t :: %__MODULE__{
           volunteers: non_neg_integer(),
           solo_ratings: keyword(Range.t()),
-          areas: map(),
-          cells: map(),
-          rows: map(),
-          columns: map(),
-          bonuses: map(),
-          hospitals: map(),
-          skybridges: map(),
+          areas: %{optional(atom()) => area()},
+          bonuses: %{optional(atom()) => [bonus()]},
+          hospitals: %{optional(atom()) => map()},
+          skybridges: [skybridge()],
           badges: %{optional(atom()) => map()}
         }
-  @type bonus_kind :: :tree | :koala | :volunteer | :hospital | :skybridge
-  @type area :: {atom(), map()}
+  @type bonus_value :: :tree | :koala | :volunteer | :hospital | {:skybridge, atom()}
+  @type bonus :: %{
+          required(:axis) => :row | :column,
+          required(:index) => non_neg_integer(),
+          required(:bonus) => bonus_value()
+        }
+  @type area :: %{required(:access) => boolean(), required(:rows) => [Range.t()]}
+  @type area_definition ::
+          {atom(),
+           %{
+             required(:rows) => [Range.t()],
+             required(:row_bonuses) => [bonus_value() | nil],
+             required(:column_bonuses) => [bonus_value() | nil],
+             optional(:access) => boolean()
+           }}
   @type badge :: {atom(), map()}
-  @type bonus_spec ::
-          bonus_kind()
-          | {bonus_kind(), String.t()}
-          | {:skybridge, atom()}
-          | {:skybridge, atom(), atom()}
-          | nil
   @type hospital :: {atom(), map()}
   @type skybridge :: %{required(:from) => atom(), required(:to) => atom()}
-  @type init :: %{
+  @type source :: %{
           required(:volunteers) => non_neg_integer(),
           required(:solo_ratings) => keyword(Range.t()),
-          required(:areas) => [area()],
+          required(:areas) => [area_definition()],
           required(:hospitals) => [hospital()],
           required(:skybridges) => [skybridge()],
           required(:badges) => [badge()]
         }
 
-  @callback init() :: init()
+  @callback init() :: source()
 
   @spec from_module(module()) :: t()
-  def from_module(module), do: build(module.init())
-
-  @spec build(init()) :: t()
-  def build(%{
-        volunteers: volunteers,
-        solo_ratings: solo_ratings,
-        areas: areas,
-        hospitals: hospitals,
-        skybridges: skybridges,
-        badges: badges
-      }) do
-    area_map = Map.new(areas, &area/1)
-    cells = areas |> Enum.flat_map(&cells/1) |> Map.new(&{&1.id, &1})
-    rows = areas |> Enum.flat_map(&lines(&1, :row)) |> Map.new(&{&1.id, &1})
-    columns = areas |> Enum.flat_map(&lines(&1, :column)) |> Map.new(&{&1.id, &1})
-
-    %__MODULE__{
+  def from_module(module) do
+    %{
       volunteers: volunteers,
       solo_ratings: solo_ratings,
-      areas: area_map,
-      cells: cells,
-      rows: rows,
-      columns: columns,
-      bonuses: bonuses(rows, columns),
-      hospitals: Map.new(hospitals, &hospital/1),
-      skybridges: Map.new(skybridges, &skybridge/1),
-      badges: Map.new(badges, &badge/1)
+      areas: areas,
+      hospitals: hospitals,
+      skybridges: skybridges,
+      badges: badges
+    } = module.init()
+
+    %__MODULE__{
+      areas: Map.new(areas, &area/1),
+      bonuses: bonuses(areas),
+      volunteers: volunteers,
+      solo_ratings: solo_ratings,
+      hospitals: Map.new(hospitals),
+      skybridges: skybridges,
+      badges: Map.new(badges)
     }
   end
 
-  @spec cell_id(atom(), integer(), integer()) :: String.t()
-  def cell_id(area, q, r), do: "#{area}:#{q}:#{r}"
+  @spec cell_key(atom(), integer(), integer()) :: map()
+  def cell_key(area, column, row), do: %{area: area, row: row, column: column}
 
   defp area({area, spec}) do
-    {area, %{id: area, access: Map.get(spec, :access, false)}}
+    {area, %{access: Map.get(spec, :access, false), rows: spec.rows}}
   end
 
-  defp cells({area, spec}) do
-    for {qs, r} <- Enum.with_index(spec.rows), q <- qs do
-      %{id: cell_id(area, q, r), area: area, q: q, r: r, contains_koala: true}
-    end
+  defp bonuses(areas) do
+    Map.new(areas, fn {area, spec} ->
+      bonuses = line_bonuses(:row, spec.row_bonuses) ++ line_bonuses(:column, spec.column_bonuses)
+
+      {area, bonuses}
+    end)
   end
 
-  defp lines({area, spec}, :row) do
-    for {qs, r} <- Enum.with_index(spec.rows) do
-      line(area, :row, r, Enum.map(qs, &cell_id(area, &1, r)), Enum.at(spec.row_bonuses, r))
-    end
+  defp line_bonuses(axis, bonuses) do
+    bonuses
+    |> Enum.with_index()
+    |> Enum.flat_map(fn
+      {nil, _index} -> []
+      {bonus, index} -> [%{axis: axis, index: index, bonus: bonus}]
+    end)
   end
-
-  defp lines({area, spec}, :column) do
-    columns = spec.rows |> Enum.flat_map(&Enum.to_list/1) |> Enum.uniq() |> Enum.sort()
-
-    for q <- columns do
-      cell_ids =
-        spec.rows
-        |> Enum.with_index()
-        |> Enum.filter(fn {qs, _r} -> q in qs end)
-        |> Enum.map(fn {_qs, r} -> cell_id(area, q, r) end)
-
-      line(area, :column, q, cell_ids, Enum.at(spec.column_bonuses, q))
-    end
-  end
-
-  defp line(area, kind, index, cell_ids, bonus_spec) do
-    id = "#{area}:#{kind}:#{index}"
-
-    %{
-      id: id,
-      area: area,
-      kind: kind,
-      index: index,
-      cell_ids: cell_ids,
-      bonus: normalize_bonus(area, kind, index, id, bonus_spec)
-    }
-  end
-
-  defp normalize_bonus(_area, _axis, _index, _line_id, nil), do: nil
-
-  defp normalize_bonus(area, axis, index, line_id, {:skybridge, to}) do
-    %{
-      ref: %{area: area, axis: axis, index: index},
-      line_id: line_id,
-      kind: :skybridge,
-      target_area: to
-    }
-  end
-
-  defp normalize_bonus(area, axis, index, line_id, {:skybridge, area, to}) do
-    normalize_bonus(area, axis, index, line_id, {:skybridge, to})
-  end
-
-  defp normalize_bonus(area, axis, index, line_id, {kind, target_id}) do
-    %{
-      ref: %{area: area, axis: axis, index: index},
-      line_id: line_id,
-      kind: kind,
-      target_id: target_id
-    }
-  end
-
-  defp normalize_bonus(area, axis, index, line_id, kind) do
-    %{ref: %{area: area, axis: axis, index: index}, line_id: line_id, kind: kind}
-  end
-
-  defp bonuses(rows, columns) do
-    rows
-    |> Map.values()
-    |> Kernel.++(Map.values(columns))
-    |> Enum.filter(& &1.bonus)
-    |> Map.new(&{&1.bonus.line_id, &1.bonus})
-  end
-
-  @spec badge(badge()) :: {atom(), map()}
-  defp badge({id, badge}) do
-    {id, Map.put(badge, :id, id)}
-  end
-
-  @spec hospital(hospital()) :: {String.t(), map()}
-  defp hospital({id, hospital}) do
-    id = hospital_id(id)
-    {id, hospital}
-  end
-
-  @spec hospital_id(atom()) :: String.t()
-  defp hospital_id(id), do: id |> Atom.to_string() |> String.replace("_", "-")
-
-  @spec skybridge(skybridge()) :: {String.t(), map()}
-  defp skybridge(%{from: from, to: to}) do
-    id = skybridge_id(from, to)
-    {id, %{from: from, to: to}}
-  end
-
-  @spec skybridge_id(atom(), atom()) :: String.t()
-  defp skybridge_id(from, to), do: "#{from}-#{to}"
 end

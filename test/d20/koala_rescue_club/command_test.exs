@@ -27,7 +27,11 @@ defmodule D20.KoalaRescueClub.CommandTest do
                   volunteers_used: 0,
                   target_cell: %{area: :a, row: 0, column: 0},
                   bonus_actions: [
-                    %{bonus: %{area: :a, axis: :row, index: 0}, action: %{kind: :volunteer}}
+                    %{bonus: %{area: :a, axis: :row, index: 0}, action: %{kind: :volunteer}},
+                    %{
+                      bonus: %{area: :a, axis: :column, index: 2},
+                      action: %{kind: :hospital, hospital_id: :hospital_2}
+                    }
                   ]
                 }
               }} =
@@ -42,6 +46,10 @@ defmodule D20.KoalaRescueClub.CommandTest do
                      %{
                        "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
                        "action" => %{"kind" => "volunteer"}
+                     },
+                     %{
+                       "bonus" => %{"area" => "a", "axis" => "column", "index" => 2},
+                       "action" => %{"kind" => "hospital", "hospital_id" => "hospital_2"}
                      }
                    ]
                  }

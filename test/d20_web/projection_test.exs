@@ -142,7 +142,7 @@ defmodule D20Web.ProjectionTest do
                      sheet: %{
                        volunteers: [:available, :locked, :locked, :locked, :locked, :locked],
                        skybridges: [],
-                       hospitals: %{"hospital-2" => %{size: 3, score: 2, filled: 0}},
+                       hospitals: %{hospital_2: %{size: 3, score: 2, filled: 0}},
                        areas: %{
                          a: %{
                            accessible: true,

@@ -69,7 +69,7 @@ defmodule D20.KoalaRescueClub.Ruleset.Dharug do
   ]
 
   @impl true
-  @spec init() :: Sheet.init()
+  @spec init() :: Sheet.source()
   def init do
     %{
       volunteers: 1,

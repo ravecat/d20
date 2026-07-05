@@ -9,7 +9,6 @@ defmodule D20.KoalaRescueClub.Rules do
   @type reason ::
           :invalid_player_count
           | :invalid_phase
-          | :invalid_sheet
           | :not_joined
           | :unknown_player
           | :already_submitted
@@ -98,11 +97,11 @@ defmodule D20.KoalaRescueClub.Rules do
     with :ok <- require_phase(game, :submit),
          :ok <- require_roll(game),
          :ok <- require_player_status(game, actor_id, :pending),
-         {:ok, map} <- fetch_sheet(game.sheet),
+         rulesheet = Ruleset.sheet!(game.sheet),
          player <- Map.fetch!(game.players, actor_id),
          {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, attrs),
-         {:ok, sheet} <- apply_turn_action(map, sheet, event, attrs, attrs.die_value),
-         {:ok, sheet} <- apply_bonus_actions(map, sheet, attrs.bonus_actions) do
+         {:ok, sheet} <- apply_turn_action(rulesheet, sheet, event, attrs, attrs.die_value),
+         {:ok, sheet} <- apply_bonus_actions(rulesheet, sheet, attrs.bonus_actions) do
       {:ok, %{player | sheet: sheet, status: :submitted}}
     end
   end
@@ -180,13 +179,6 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_roll(%{roll: %{value: value}}) when value in 1..6, do: :ok
   defp require_roll(%{roll: _roll}), do: {:error, :missing_roll}
 
-  defp fetch_sheet(sheet) do
-    case Ruleset.sheet(sheet) do
-      {:ok, map} -> {:ok, map}
-      {:error, :unknown_sheet} -> {:error, :invalid_sheet}
-    end
-  end
-
   defp spend_volunteers(sheet, value, %{die_value: die_value, volunteers_used: volunteers_used}) do
     with {:ok, needed} <- Ruleset.volunteers_needed(value, die_value),
          true <- needed == volunteers_used,
@@ -219,53 +211,53 @@ defmodule D20.KoalaRescueClub.Rules do
 
   defp apply_turn_action(map, sheet, event, %{target_cells: cells}, die_value)
        when event in ["plant_trees", "rehome_koalas"] do
-    with {:ok, cell_ids} <- cell_ids(map, cells),
+    with {:ok, cell_keys} <- cell_keys(map, cells),
          :ok <- require_unique_targets(cells),
-         :ok <- require_shape(map, cell_ids, die_value),
-         :ok <- require_one_accessible_area(map, sheet, cell_ids) do
+         :ok <- require_shape(map, cell_keys, die_value),
+         :ok <- require_one_accessible_area(map, sheet, cell_keys) do
       apply_shape_action(map, sheet, event, cells)
     end
   end
 
   defp apply_turn_action(map, sheet, event, %{target_cell: cell}, _die_value)
        when event in ["circle_tree", "circle_koala"] do
-    cell_id = Ruleset.cell_id(cell)
+    cell_key = Ruleset.cell_key(cell)
 
-    with :ok <- require_one_accessible_area(map, sheet, [cell_id]) do
+    with :ok <- require_one_accessible_area(map, sheet, [cell_key]) do
       apply_single_action(map, sheet, event, cell)
     end
   end
 
   defp apply_turn_action(_map, _sheet, _event, _attrs, _die_value), do: {:error, :invalid_action}
 
-  defp require_unique_targets(cell_ids) do
-    if Enum.uniq(cell_ids) == cell_ids, do: :ok, else: {:error, :invalid_target}
+  defp require_unique_targets(cells) do
+    if Enum.uniq(cells) == cells, do: :ok, else: {:error, :invalid_target}
   end
 
-  defp require_shape(map, cell_ids, die_value) do
-    if Ruleset.shape_match?(map, cell_ids, die_value), do: :ok, else: {:error, :invalid_shape}
+  defp require_shape(map, cell_keys, die_value) do
+    if Ruleset.shape_match?(map, cell_keys, die_value), do: :ok, else: {:error, :invalid_shape}
   end
 
-  defp cell_ids(%{cells: cells_by_id}, target_cells) do
-    Enum.reduce_while(target_cells, {:ok, []}, fn cell, {:ok, cell_ids} ->
-      cell_id = Ruleset.cell_id(cell)
+  defp cell_keys(rulesheet, target_cells) do
+    Enum.reduce_while(target_cells, {:ok, []}, fn cell, {:ok, cell_keys} ->
+      cell_key = Ruleset.cell_key(cell)
 
-      if Map.has_key?(cells_by_id, cell_id) do
-        {:cont, {:ok, [cell_id | cell_ids]}}
+      if Ruleset.cell_exists?(rulesheet, cell_key) do
+        {:cont, {:ok, [cell_key | cell_keys]}}
       else
         {:halt, {:error, :invalid_target}}
       end
     end)
     |> case do
-      {:ok, cell_ids} -> {:ok, Enum.reverse(cell_ids)}
+      {:ok, cell_keys} -> {:ok, Enum.reverse(cell_keys)}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp require_one_accessible_area(%{cells: cells} = map, player_sheet, cell_ids) do
-    with {:ok, areas} <- target_areas(cells, cell_ids),
+  defp require_one_accessible_area(rulesheet, player_sheet, cell_keys) do
+    with {:ok, areas} <- target_areas(rulesheet, cell_keys),
          [area] <- Enum.uniq(areas),
-         true <- area in Ruleset.accessible_areas(map, player_sheet) do
+         true <- area in Ruleset.accessible_areas(rulesheet, player_sheet) do
       :ok
     else
       {:error, reason} -> {:error, reason}
@@ -275,11 +267,12 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp target_areas(cells, cell_ids) do
-    Enum.reduce_while(cell_ids, {:ok, []}, fn cell_id, {:ok, areas} ->
-      case Map.fetch(cells, cell_id) do
-        {:ok, cell} -> {:cont, {:ok, [cell.area | areas]}}
-        :error -> {:halt, {:error, :invalid_target}}
+  defp target_areas(rulesheet, cell_keys) do
+    Enum.reduce_while(cell_keys, {:ok, []}, fn cell_key, {:ok, areas} ->
+      if Ruleset.cell_exists?(rulesheet, cell_key) do
+        {:cont, {:ok, [cell_key.area | areas]}}
+      else
+        {:halt, {:error, :invalid_target}}
       end
     end)
   end
@@ -316,19 +309,22 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp require_koala_target(%{cells: cells}, player_sheet, target_cell) do
-    cell_id = Ruleset.cell_id(target_cell)
+  defp require_koala_target(rulesheet, player_sheet, target_cell) do
+    cell_key = Ruleset.cell_key(target_cell)
 
-    with {:ok, ruleset_cell} <- Map.fetch(cells, cell_id),
-         true <- ruleset_cell.contains_koala,
+    with :ok <- require_cell_exists(rulesheet, cell_key),
          true <- target_cell in player_sheet.trees,
          false <- target_cell in player_sheet.koalas do
       :ok
     else
-      :error -> {:error, :invalid_target}
+      {:error, reason} -> {:error, reason}
       false -> {:error, :koala_requires_tree}
       true -> {:error, :occupied}
     end
+  end
+
+  defp require_cell_exists(rulesheet, cell) do
+    if Ruleset.cell_exists?(rulesheet, cell), do: :ok, else: {:error, :invalid_target}
   end
 
   defp apply_bonus_actions(map, sheet, bonus_actions) do
@@ -356,17 +352,7 @@ defmodule D20.KoalaRescueClub.Rules do
     cond do
       bonus_resolved?(player_sheet, bonus_ref) -> {:error, :bonus_already_resolved}
       bonus_ref not in unlocked_bonus_refs(map, player_sheet) -> {:error, :bonus_not_unlocked}
-      true -> fetch_bonus(map.bonuses, bonus_ref)
-    end
-  end
-
-  defp fetch_bonus(bonuses, bonus_ref) do
-    bonuses
-    |> Map.values()
-    |> Enum.find(&(Map.get(&1, :ref) == bonus_ref))
-    |> case do
-      nil -> {:error, :invalid_bonus}
-      bonus -> {:ok, bonus}
+      true -> Ruleset.bonus(map, bonus_ref)
     end
   end
 
@@ -389,17 +375,17 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_bonus_action_match(_bonus, _action), do: {:error, :invalid_bonus}
 
   defp apply_bonus_effect(map, sheet, _bonus, %{kind: :tree, target_cell: cell}) do
-    cell_id = Ruleset.cell_id(cell)
+    cell_key = Ruleset.cell_key(cell)
 
-    with :ok <- require_one_accessible_area(map, sheet, [cell_id]) do
+    with :ok <- require_one_accessible_area(map, sheet, [cell_key]) do
       apply_single_action(map, sheet, "circle_tree", cell)
     end
   end
 
   defp apply_bonus_effect(map, sheet, _bonus, %{kind: :koala, target_cell: cell}) do
-    cell_id = Ruleset.cell_id(cell)
+    cell_key = Ruleset.cell_key(cell)
 
-    with :ok <- require_one_accessible_area(map, sheet, [cell_id]) do
+    with :ok <- require_one_accessible_area(map, sheet, [cell_key]) do
       apply_single_action(map, sheet, "circle_koala", cell)
     end
   end
@@ -449,7 +435,6 @@ defmodule D20.KoalaRescueClub.Rules do
 
   defp fetch_skybridge(skybridges, from_area, to_area) do
     skybridges
-    |> Map.values()
     |> Enum.find(&(&1.from == from_area and &1.to == to_area))
     |> case do
       nil -> {:error, :invalid_skybridge}
@@ -457,16 +442,14 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp unlocked_bonus_refs(%{rows: rows, columns: columns}, player_sheet) do
-    koala_cell_ids = player_sheet.koalas |> Enum.map(&Ruleset.cell_id/1) |> MapSet.new()
+  defp unlocked_bonus_refs(map, player_sheet) do
+    koala_cell_keys = player_sheet.koalas |> Enum.map(&Ruleset.cell_key/1) |> MapSet.new()
 
-    rows
-    |> Map.values()
-    |> Kernel.++(Map.values(columns))
-    |> Enum.filter(& &1.bonus)
+    map
+    |> Ruleset.bonus_lines()
     |> Enum.filter(fn line ->
       not bonus_resolved?(player_sheet, line.bonus.ref) and
-        Enum.all?(line.cell_ids, &MapSet.member?(koala_cell_ids, &1))
+        Enum.all?(line.cells, &MapSet.member?(koala_cell_keys, &1))
     end)
     |> Enum.map(& &1.bonus.ref)
   end

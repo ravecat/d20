@@ -13,7 +13,7 @@ defmodule D20.KoalaRescueClub.Projection do
   def render(%Scope{} = scope, %Session{game: %Game{} = game} = session) do
     actor_id = scope.actor.id
     permissions = Permission.permissions(scope, session)
-    {:ok, rulesheet} = Ruleset.sheet(game.sheet)
+    rulesheet = Ruleset.sheet!(game.sheet)
 
     %{
       id: session.id,
@@ -68,17 +68,19 @@ defmodule D20.KoalaRescueClub.Projection do
        %{
          accessible: area in accessible_areas,
          rows: render_rows(rulesheet, player_sheet, area),
-         row_bonuses: render_line_bonuses(rulesheet.rows, player_sheet, area),
-         column_bonuses: render_line_bonuses(rulesheet.columns, player_sheet, area)
+         row_bonuses:
+           render_line_bonuses(Ruleset.area_lines(rulesheet, area, :row), player_sheet),
+         column_bonuses:
+           render_line_bonuses(Ruleset.area_lines(rulesheet, area, :column), player_sheet)
        }}
     end)
   end
 
   defp render_rows(rulesheet, player_sheet, area) do
     cells = Ruleset.area_cells(rulesheet, area)
-    max_row = cells |> Enum.map(& &1.r) |> Enum.max()
-    max_column = cells |> Enum.map(& &1.q) |> Enum.max()
-    by_coordinate = Map.new(cells, &{{&1.r, &1.q}, &1})
+    max_row = cells |> Enum.map(& &1.row) |> Enum.max()
+    max_column = cells |> Enum.map(& &1.column) |> Enum.max()
+    by_coordinate = Map.new(cells, &{{&1.row, &1.column}, &1})
 
     for row <- 0..max_row do
       for column <- 0..max_column do
@@ -90,9 +92,7 @@ defmodule D20.KoalaRescueClub.Projection do
     end
   end
 
-  defp render_cell(player_sheet, ruleset_cell) do
-    cell = Ruleset.cell(ruleset_cell)
-
+  defp render_cell(player_sheet, cell) do
     %{cell: cell, tree: cell in player_sheet.trees, koala: cell in player_sheet.koalas}
   end
 
@@ -105,11 +105,9 @@ defmodule D20.KoalaRescueClub.Projection do
     end)
   end
 
-  defp render_line_bonuses(lines, player_sheet, area) do
-    area_lines = lines |> Map.values() |> Enum.filter(&(&1.area == area))
-
-    max_index = area_lines |> Enum.map(& &1.index) |> Enum.max(fn -> -1 end)
-    by_index = Map.new(area_lines, &{&1.index, &1})
+  defp render_line_bonuses(lines, player_sheet) do
+    max_index = lines |> Enum.map(& &1.index) |> Enum.max(fn -> -1 end)
+    by_index = Map.new(lines, &{&1.index, &1})
 
     if max_index < 0 do
       []
@@ -144,9 +142,9 @@ defmodule D20.KoalaRescueClub.Projection do
   end
 
   defp line_unlocked?(line, player_sheet) do
-    koala_cell_ids = player_sheet.koalas |> Enum.map(&Ruleset.cell_id/1) |> MapSet.new()
+    koala_cell_keys = player_sheet.koalas |> Enum.map(&Ruleset.cell_key/1) |> MapSet.new()
 
-    Enum.all?(line.cell_ids, &MapSet.member?(koala_cell_ids, &1))
+    Enum.all?(line.cells, &MapSet.member?(koala_cell_keys, &1))
   end
 
   defp bonus_ref(%{area: area, axis: axis, index: index}) do

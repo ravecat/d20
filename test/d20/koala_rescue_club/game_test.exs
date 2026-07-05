@@ -208,7 +208,7 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
 
     test "awards badges from selected sheet predicates" do
-      {:ok, map} = Ruleset.sheet(:dharug)
+      map = Ruleset.sheet!(:dharug)
       c_trees = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell/1)
 
       game =
@@ -228,7 +228,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
   describe "scores" do
     test "stores separate tree, koala, hospital, and total scores for scoring turns" do
-      {:ok, map} = Ruleset.sheet(:dharug)
+      map = Ruleset.sheet!(:dharug)
       c_cells = Enum.map(Ruleset.area_cells(map, :c), &Ruleset.cell/1)
       d_cells = Enum.map(Ruleset.area_cells(map, :d), &Ruleset.cell/1)
 
@@ -249,7 +249,7 @@ defmodule D20.KoalaRescueClub.GameTest do
             "p1",
             Access.key!(:sheet),
             Access.key!(:hospitals),
-            "hospital-2"
+            :hospital_2
           ],
           3
         )

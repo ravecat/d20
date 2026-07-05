@@ -44,7 +44,7 @@ defmodule D20.KoalaRescueClub.Game do
           required(:trees) => [Ruleset.cell()],
           required(:koalas) => [Ruleset.cell()],
           required(:volunteers) => [:available | :locked | :used],
-          required(:hospitals) => %{optional(String.t()) => non_neg_integer()},
+          required(:hospitals) => %{optional(atom()) => non_neg_integer()},
           required(:skybridges) => [skybridge()],
           required(:bonuses) => [bonus()]
         }
@@ -176,12 +176,27 @@ defmodule D20.KoalaRescueClub.Game do
     if Map.has_key?(game.players, player_id) do
       game
     else
-      {:ok, rulesheet} = Ruleset.sheet(game.sheet)
+      rulesheet = Ruleset.sheet!(game.sheet)
+
+      volunteers =
+        List.duplicate(:available, rulesheet.volunteers) ++
+          List.duplicate(:locked, Ruleset.volunteer() - rulesheet.volunteers)
+
+      sheet = %{
+        trees: [],
+        koalas: [],
+        volunteers: volunteers,
+        hospitals: Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end),
+        skybridges: [],
+        bonuses: []
+      }
+
+      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}}
 
       %{
         game
         | order: game.order ++ [player_id],
-          players: Map.put(game.players, player_id, new_player(empty_sheet(rulesheet)))
+          players: Map.put(game.players, player_id, player)
       }
     end
   end
@@ -211,7 +226,7 @@ defmodule D20.KoalaRescueClub.Game do
     if Ruleset.final_turn?(game.turn) do
       finish(game)
     else
-      {:ok, next_round} = Ruleset.round_for_turn(game.turn + 1)
+      {:ok, next_round} = Ruleset.round(game.turn + 1)
 
       set_player_statuses(
         %{game | phase: :roll, round: next_round, turn: game.turn + 1, roll: nil},
@@ -226,11 +241,11 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   defp score_round(game) do
-    {:ok, rulesheet} = Ruleset.sheet(game.sheet)
+    rulesheet = Ruleset.sheet!(game.sheet)
 
     players =
       Map.new(game.players, fn {player_id, player} ->
-        round = score_round_for_player(game.sheet, rulesheet, player)
+        round = score_round_for_player(rulesheet, player)
 
         {player_id, %{player | rounds: player.rounds ++ [round]}}
       end)
@@ -238,12 +253,11 @@ defmodule D20.KoalaRescueClub.Game do
     %{game | players: players}
   end
 
-  defp score_round_for_player(sheet_id, rulesheet, player) do
+  defp score_round_for_player(rulesheet, player) do
     trees = score_complete_areas(rulesheet, player.sheet, &Ruleset.trees_complete?/3)
     koalas = score_complete_areas(rulesheet, player.sheet, &Ruleset.koalas_complete?/3)
 
-    hospitals =
-      rulesheet.hospitals |> Enum.map(&score_hospital(sheet_id, player.sheet, &1)) |> Enum.sum()
+    hospitals = rulesheet.hospitals |> Enum.map(&score_hospital(player.sheet, &1)) |> Enum.sum()
 
     %{trees: trees, koalas: koalas, hospitals: hospitals, total: trees + koalas + hospitals}
   end
@@ -254,17 +268,17 @@ defmodule D20.KoalaRescueClub.Game do
     |> Enum.count(&complete?.(rulesheet, player_sheet, &1))
   end
 
-  defp score_hospital(sheet_id, player_sheet, {hospital_id, hospital}) do
+  defp score_hospital(player_sheet, {hospital_id, hospital}) do
     filled = Map.get(player_sheet.hospitals, hospital_id, 0)
 
     hospital = hospital |> Map.take([:size, :score, :penalty]) |> Map.put(:filled, filled)
 
-    {:ok, score} = Ruleset.score_hospital(sheet_id, hospital)
+    {:ok, score} = Ruleset.score_hospital(hospital)
     score
   end
 
   defp award_badges(game) do
-    {:ok, rulesheet} = Ruleset.sheet(game.sheet)
+    rulesheet = Ruleset.sheet!(game.sheet)
 
     if length(game.order) == 1 do
       award_solo_badges(game, rulesheet)
@@ -277,13 +291,13 @@ defmodule D20.KoalaRescueClub.Game do
     [player_id] = game.order
 
     player =
-      Enum.reduce(map.badges, game.players[player_id], fn {_badge_name, badge}, player ->
-        if Map.has_key?(player.badges, badge.id) or
+      Enum.reduce(map.badges, game.players[player_id], fn {badge_id, badge}, player ->
+        if Map.has_key?(player.badges, badge_id) or
              not Rules.badge_satisfied?(map, player.sheet, badge) do
           player
         else
           award = if game.round == 1, do: :large, else: :small
-          put_badge(player, badge, award)
+          put_badge(player, badge_id, award)
         end
       end)
 
@@ -291,9 +305,9 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   defp award_multiplayer_badges(game, map) do
-    Enum.reduce(map.badges, game, fn {_badge_name, badge}, game ->
-      if large_badge_awarded?(game, badge.id) do
-        award_late_badges(game, map, badge)
+    Enum.reduce(map.badges, game, fn {badge_id, badge}, game ->
+      if large_badge_awarded?(game, badge_id) do
+        award_late_badges(game, map, badge_id, badge)
       else
         first_achievers =
           Enum.filter(game.order, fn player_id ->
@@ -304,22 +318,24 @@ defmodule D20.KoalaRescueClub.Game do
         if first_achievers == [] do
           game
         else
-          update_players(game, first_achievers, fn player -> put_badge(player, badge, :large) end)
+          update_players(game, first_achievers, fn player ->
+            put_badge(player, badge_id, :large)
+          end)
         end
       end
     end)
   end
 
-  defp award_late_badges(game, map, badge) do
+  defp award_late_badges(game, map, badge_id, badge) do
     late_achievers =
       Enum.filter(game.order, fn player_id ->
         player = game.players[player_id]
 
-        not Map.has_key?(player.badges, badge.id) and
+        not Map.has_key?(player.badges, badge_id) and
           Rules.badge_satisfied?(map, player.sheet, badge)
       end)
 
-    update_players(game, late_achievers, fn player -> put_badge(player, badge, :small) end)
+    update_players(game, late_achievers, fn player -> put_badge(player, badge_id, :small) end)
   end
 
   defp large_badge_awarded?(game, badge_name) do
@@ -328,12 +344,12 @@ defmodule D20.KoalaRescueClub.Game do
     end)
   end
 
-  defp put_badge(player, badge, award) do
-    put_in(player.badges[badge.id], award)
+  defp put_badge(player, badge_id, award) do
+    put_in(player.badges[badge_id], award)
   end
 
   defp score_players(game) do
-    {:ok, rulesheet} = Ruleset.sheet(game.sheet)
+    rulesheet = Ruleset.sheet!(game.sheet)
 
     Map.new(game.order, &{&1, score_player(game, rulesheet, &1)})
   end
@@ -343,7 +359,7 @@ defmodule D20.KoalaRescueClub.Game do
     badge_total = badge_total(rulesheet, player)
     round_total = player.rounds |> Enum.map(& &1.total) |> Enum.sum()
     total = round_total + badge_total
-    rank = solo_rank(game, total)
+    rank = solo_rank(game, rulesheet, total)
 
     %{total: total, rank: rank}
   end
@@ -358,12 +374,12 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp points_for_badge(badge, award), do: Map.fetch!(badge.awards, award)
 
-  defp solo_rank(%__MODULE__{order: [_one], sheet: sheet}, total) do
-    {:ok, %{rank: rank}} = Ruleset.solo_rating(sheet, total)
+  defp solo_rank(%__MODULE__{order: [_one]}, rulesheet, total) do
+    {:ok, %{rank: rank}} = Ruleset.solo_rating(rulesheet, total)
     rank
   end
 
-  defp solo_rank(%__MODULE__{}, _total), do: nil
+  defp solo_rank(%__MODULE__{}, _rulesheet, _total), do: nil
 
   defp update_players(game, player_ids, fun) do
     Enum.reduce(player_ids, game, fn player_id, game ->
@@ -376,24 +392,5 @@ defmodule D20.KoalaRescueClub.Game do
       Map.new(game.players, fn {player_id, player} -> {player_id, %{player | status: status}} end)
 
     %{game | players: players}
-  end
-
-  defp new_player(sheet) do
-    %{status: :ready, sheet: sheet, rounds: [], badges: %{}}
-  end
-
-  defp volunteer_slots(claimed) do
-    List.duplicate(:available, claimed) ++
-      List.duplicate(:locked, Ruleset.volunteer_limit() - claimed)
-  end
-
-  defp empty_sheet do
-    %{trees: [], koalas: [], volunteers: [], hospitals: %{}, skybridges: [], bonuses: []}
-  end
-
-  defp empty_sheet(rulesheet) do
-    empty_sheet()
-    |> Map.put(:volunteers, volunteer_slots(rulesheet.volunteers))
-    |> Map.put(:hospitals, Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end))
   end
 end

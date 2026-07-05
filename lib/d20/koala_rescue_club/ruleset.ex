@@ -1,16 +1,11 @@
 defmodule D20.KoalaRescueClub.Ruleset do
   @moduledoc """
-  Static Koala Rescue Club ruleset data.
+  Static Koala Rescue Club rules and sheet definitions.
 
-  Keep game-wide facts here when they can be answered without mutable game
-  state: turn and round limits, die shapes, volunteer die adjustment, scoring
-  helpers, and sheet-specific rule differences.
-
-  The supplied PDFs describe rules and sheet-specific differences, but not a
-  machine-readable sheet geometry for areas, tree cells, koala cells, row and
-  column bonuses, badge requirements, or skybridge graph edges. Those
-  coordinates should be added separately before a full game reducer validates
-  placements.
+  Shared game rules live here when they do not depend on mutable game state.
+  Sheet-specific board data is exposed through `Sheet.t()` so each supported
+  sheet has the same attribute shape: areas, bonuses, hospitals, skybridges,
+  badges, solo ratings, and starting volunteers.
   """
 
   alias D20.KoalaRescueClub.Ruleset.Dharug
@@ -18,17 +13,11 @@ defmodule D20.KoalaRescueClub.Ruleset do
   alias D20.KoalaRescueClub.Ruleset.Yugambeh
 
   @player_count_range 1..99
-  @rounds 1..2
   @turns_per_round 15
   @turn_range 1..30
   @scoring_turns [15, 30]
   @die_value_range 1..6
-  @volunteer_limit 6
-
-  @badge_policy %{
-    multiplayer: :first_players_large_others_small,
-    solo: :round_1_large_round_2_small
-  }
+  @volunteer 6
 
   @shapes %{
     1 => [{0, 0}, {1, 0}],
@@ -45,11 +34,29 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @type id :: :dharug | :yugambeh
   @type area :: atom()
   @type badge :: atom()
-  @type offset :: {integer(), integer()}
   @type cell :: %{
           required(:area) => area(),
           required(:row) => non_neg_integer(),
           required(:column) => non_neg_integer()
+        }
+  @type line_ref :: %{
+          required(:area) => area(),
+          required(:axis) => :row | :column,
+          required(:index) => non_neg_integer()
+        }
+  @type bonus :: %{
+          required(:ref) => line_ref(),
+          required(:kind) => :tree | :koala | :volunteer | :hospital | :skybridge,
+          optional(:target_area) => area(),
+          optional(:target_id) => String.t()
+        }
+  @type line :: %{
+          required(:ref) => line_ref(),
+          required(:area) => area(),
+          required(:axis) => :row | :column,
+          required(:index) => non_neg_integer(),
+          required(:cells) => [cell()],
+          required(:bonus) => bonus() | nil
         }
   @type rank ::
           :junior_club_member
@@ -64,38 +71,18 @@ defmodule D20.KoalaRescueClub.Ruleset do
           required(:score) => integer(),
           optional(:penalty) => integer() | nil
         }
-  @type area_score_input :: %{
-          required(:trees_complete?) => boolean(),
-          required(:koalas_complete?) => boolean()
-        }
 
   @doc "Returns the supported player count range."
   @spec player_count_range() :: Range.t()
   def player_count_range, do: @player_count_range
 
-  @doc "Returns the round numbers."
-  @spec rounds() :: Range.t()
-  def rounds, do: @rounds
-
-  @doc "Returns the number of turns in each round."
-  @spec turns_per_round() :: pos_integer()
-  def turns_per_round, do: @turns_per_round
-
-  @doc "Returns the complete turn range."
-  @spec turn_range() :: Range.t()
-  def turn_range, do: @turn_range
-
-  @doc "Returns the turn numbers that trigger round scoring."
-  @spec scoring_turns() :: [pos_integer()]
-  def scoring_turns, do: @scoring_turns
-
   @doc "Returns the 1-based round for a valid turn."
-  @spec round_for_turn(term()) :: {:ok, pos_integer()} | {:error, :invalid_turn}
-  def round_for_turn(turn) when is_integer(turn) and turn in @turn_range do
+  @spec round(term()) :: {:ok, pos_integer()} | {:error, :invalid_turn}
+  def round(turn) when is_integer(turn) and turn in @turn_range do
     {:ok, div(turn - 1, @turns_per_round) + 1}
   end
 
-  def round_for_turn(_turn), do: {:error, :invalid_turn}
+  def round(_turn), do: {:error, :invalid_turn}
 
   @doc "Returns true when the given turn triggers round scoring."
   @spec scoring_turn?(term()) :: boolean()
@@ -104,36 +91,6 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @doc "Returns true when the given turn is the final turn."
   @spec final_turn?(term()) :: boolean()
   def final_turn?(turn), do: turn == Enum.max(@turn_range)
-
-  @doc "Returns the die face range."
-  @spec die_value_range() :: Range.t()
-  def die_value_range, do: @die_value_range
-
-  @doc "Returns true when the value is a legal die face."
-  @spec valid_die_value?(term()) :: boolean()
-  def valid_die_value?(value), do: is_integer(value) and value in @die_value_range
-
-  @doc "Returns the canonical cell offsets for a die face shape."
-  @spec shape_for(term()) :: {:ok, [offset()]} | {:error, :invalid_die_value}
-  def shape_for(value) when value in @die_value_range, do: {:ok, Map.fetch!(@shapes, value)}
-  def shape_for(_value), do: {:error, :invalid_die_value}
-
-  @doc "Returns the canonical cell offsets for a known die face shape."
-  @spec shape_offsets(pos_integer()) :: [offset()]
-  def shape_offsets(value), do: Map.fetch!(@shapes, value)
-
-  @doc "Returns the number of cells in a die face shape."
-  @spec shape_size(pos_integer()) :: pos_integer()
-  def shape_size(value), do: value |> shape_offsets() |> length()
-
-  @doc "Applies a volunteer die adjustment, wrapping between 1 and 6."
-  @spec adjust_die(term(), term()) :: {:ok, pos_integer()} | {:error, :invalid_die_adjustment}
-  def adjust_die(value, delta) when value in @die_value_range and is_integer(delta) do
-    adjusted = value - 1 + delta
-    {:ok, Integer.mod(adjusted, Enum.count(@die_value_range)) + 1}
-  end
-
-  def adjust_die(_value, _delta), do: {:error, :invalid_die_adjustment}
 
   @doc "Returns the minimum volunteers needed to change one die face into another."
   @spec volunteers_needed(term(), term()) ::
@@ -145,126 +102,123 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   def volunteers_needed(_from, _to), do: {:error, :invalid_die_value}
 
-  @doc "Returns all die faces reachable with up to the given number of volunteers."
-  @spec reachable_die_values(term(), term()) ::
-          {:ok, [pos_integer()]} | {:error, :invalid_volunteers}
-  def reachable_die_values(value, volunteers)
-      when value in @die_value_range and is_integer(volunteers) and volunteers >= 0 do
-    values =
-      Enum.filter(@die_value_range, fn candidate ->
-        {:ok, needed} = volunteers_needed(value, candidate)
-        needed <= volunteers
-      end)
-
-    {:ok, values}
-  end
-
-  def reachable_die_values(_value, _volunteers), do: {:error, :invalid_volunteers}
-
   @doc "Returns the maximum number of volunteer circles on the sheet."
-  @spec volunteer_limit() :: pos_integer()
-  def volunteer_limit, do: @volunteer_limit
-
-  @doc "Returns the badge scoring policy."
-  @spec badge_policy() :: map()
-  def badge_policy, do: @badge_policy
+  @spec volunteer() :: pos_integer()
+  def volunteer, do: @volunteer
 
   @doc "Returns supported sheet ids."
   @spec sheets() :: [id()]
   def sheets, do: @sheets
 
-  @doc "Returns all supported sheet definitions."
-  @spec sheet_definitions() :: [Sheet.t()]
-  def sheet_definitions, do: Enum.map(@sheets, &sheet!/1)
-
-  @doc "Fetches a supported sheet definition."
-  @spec sheet(id() | String.t()) :: {:ok, Sheet.t()} | {:error, :unknown_sheet}
-  def sheet(id) do
-    case normalize_sheet(id) do
-      {:ok, id} -> {:ok, sheet!(id)}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
   @doc "Returns a supported sheet definition or raises when the sheet is unknown."
   @spec sheet!(id()) :: Sheet.t()
   def sheet!(sheet), do: @sheet_modules |> Map.fetch!(sheet) |> Sheet.from_module()
 
-  @doc "Fetches the machine-readable geometry for a supported sheet."
-  @spec geometry(id() | String.t()) :: {:ok, Sheet.t()} | {:error, :unknown_sheet}
-  def geometry(id), do: sheet(id)
-
   @doc "Returns all cells for one area."
-  @spec area_cells(Sheet.t(), atom()) :: [map()]
-  def area_cells(%{cells: cells}, area) do
-    cells
-    |> Map.values()
-    |> Enum.filter(&(&1.area == area))
-    |> Enum.sort_by(&{&1.r, &1.q})
+  @spec area_cells(Sheet.t(), area()) :: [cell()]
+  def area_cells(%Sheet{areas: areas}, area) do
+    case Map.fetch(areas, area) do
+      {:ok, area_sheet} ->
+        area_sheet.rows
+        |> Enum.with_index()
+        |> Enum.flat_map(fn {row, index} ->
+          Enum.map(row, &%{area: area, row: index, column: &1})
+        end)
+
+      :error ->
+        []
+    end
   end
 
-  @doc "Returns the canonical internal cell id for a cell coordinate."
-  @spec cell_id(cell()) :: String.t()
-  def cell_id(%{area: area, row: row, column: column}) do
-    Sheet.cell_id(area, column, row)
+  @doc "Returns the canonical internal key for a cell coordinate."
+  @spec cell_key(cell()) :: cell()
+  def cell_key(%{area: area, row: row, column: column}) do
+    Sheet.cell_key(area, column, row)
   end
 
   @doc "Returns the player-state cell coordinate for a sheet cell."
   @spec cell(map()) :: cell()
+  def cell(%{area: area, row: row, column: column}) do
+    %{area: area, row: row, column: column}
+  end
+
   def cell(%{area: area, q: column, r: row}) do
     %{area: area, row: row, column: column}
   end
 
+  @doc "Returns true when the cell exists on the sheet."
+  @spec cell_exists?(Sheet.t(), cell()) :: boolean()
+  def cell_exists?(%Sheet{} = sheet, %{area: area} = cell) do
+    cell in area_cells(sheet, area)
+  end
+
+  @doc "Returns all row or column lines for one area."
+  @spec area_lines(Sheet.t(), area(), :row | :column) :: [line()]
+  def area_lines(%Sheet{areas: areas} = sheet, area, axis) when axis in [:row, :column] do
+    case Map.fetch(areas, area) do
+      {:ok, area_sheet} -> lines(sheet, area, axis, area_sheet)
+      :error -> []
+    end
+  end
+
   @doc "Returns all lines that carry bonuses."
-  @spec bonus_lines(Sheet.t()) :: [map()]
-  def bonus_lines(sheet) do
-    sheet.rows
-    |> Map.values()
-    |> Kernel.++(Map.values(sheet.columns))
+  @spec bonus_lines(Sheet.t()) :: [line()]
+  def bonus_lines(%Sheet{areas: areas} = sheet) do
+    areas
+    |> Map.keys()
+    |> Enum.flat_map(fn area ->
+      area_lines(sheet, area, :row) ++ area_lines(sheet, area, :column)
+    end)
     |> Enum.filter(& &1.bonus)
   end
 
-  @doc "Returns true when a supported sheet geometry is internally consistent."
-  @spec valid_geometry?(Sheet.t()) :: boolean()
-  def valid_geometry?(sheet) do
-    valid_area_refs?(sheet) and valid_line_refs?(sheet) and valid_bonus_refs?(sheet) and
-      valid_skybridge_refs?(sheet) and valid_badges?(sheet)
+  @doc "Returns the bonus attached to a reference."
+  @spec bonus(Sheet.t(), line_ref()) :: {:ok, bonus()} | {:error, :invalid_bonus}
+  def bonus(%Sheet{} = sheet, %{axis: axis} = ref) when axis in [:row, :column] do
+    case find_bonus(sheet, ref) do
+      nil -> {:error, :invalid_bonus}
+      bonus -> {:ok, bonus}
+    end
   end
+
+  def bonus(%Sheet{}, _ref), do: {:error, :invalid_bonus}
 
   @doc "Returns all areas accessible for a sheet through claimed skybridges."
   @spec accessible_areas(Sheet.t(), map()) :: [atom()]
   def accessible_areas(sheet, player_sheet) do
     initial =
-      sheet.areas |> Map.values() |> Enum.filter(& &1.access) |> Enum.map(& &1.id) |> MapSet.new()
+      sheet.areas
+      |> Enum.filter(fn {_id, area} -> area.access end)
+      |> Enum.map(fn {id, _area} -> id end)
+      |> MapSet.new()
 
     claimed = MapSet.new(player_sheet.skybridges)
 
     sheet.skybridges
-    |> Map.values()
     |> Enum.filter(&MapSet.member?(claimed, &1))
     |> expand_access(initial)
     |> MapSet.to_list()
     |> Enum.sort()
   end
 
-  @doc "Returns true when all tree cells in an area have circled trees."
+  @doc "Returns true when all cells in an area have circled trees."
   @spec trees_complete?(Sheet.t(), map(), atom()) :: boolean()
   def trees_complete?(map, player_sheet, area) do
     complete_area?(map, player_sheet.trees, area)
   end
 
-  @doc "Returns true when all tree cells in an area have circled koalas."
+  @doc "Returns true when all cells in an area have circled koalas."
   @spec koalas_complete?(Sheet.t(), map(), atom()) :: boolean()
   def koalas_complete?(map, player_sheet, area) do
     complete_area?(map, player_sheet.koalas, area)
   end
 
   @doc "Returns true when the target cells match a die shape under rotation or flip."
-  @spec shape_match?(Sheet.t(), [String.t()], pos_integer()) :: boolean()
-  def shape_match?(%{cells: cells}, cell_ids, die_value) do
+  @spec shape_match?(Sheet.t(), [cell()], pos_integer()) :: boolean()
+  def shape_match?(%Sheet{} = sheet, cell_keys, die_value) do
     with {:ok, shape} <- shape_for(die_value),
-         true <- length(cell_ids) == length(shape),
-         {:ok, coords} <- target_coords(cells, cell_ids) do
+         true <- length(cell_keys) == length(shape),
+         {:ok, coords} <- target_coords(sheet, cell_keys) do
       normalized = normalize_offsets(coords)
 
       die_value
@@ -275,116 +229,37 @@ defmodule D20.KoalaRescueClub.Ruleset do
     end
   end
 
-  @doc "Returns all transformed offsets for a die shape."
-  @spec transformed_shapes(pos_integer()) :: [[offset()]]
-  def transformed_shapes(die_value) do
-    die_value
-    |> shape_offsets()
-    |> transforms()
-    |> Enum.uniq()
-  end
-
-  @doc "Returns the solo rating for a supported sheet and score."
-  @spec solo_rating(id() | String.t(), term()) ::
-          {:ok, solo_rating()} | {:error, :unknown_sheet | :invalid_score}
-  def solo_rating(id, score) when is_integer(score) and score >= 0 do
-    with {:ok, sheet} <- sheet(id),
-         {rank, range} <- Enum.find(sheet.solo_ratings, &score_in_rating?(score, &1)) do
-      {:ok, %{rank: rank, range: range}}
-    else
-      {:error, reason} -> {:error, reason}
+  @doc "Returns the solo rating for a sheet and score."
+  @spec solo_rating(Sheet.t(), term()) :: {:ok, solo_rating()} | {:error, :invalid_score}
+  def solo_rating(%Sheet{solo_ratings: solo_ratings}, score)
+      when is_integer(score) and score >= 0 do
+    case Enum.find(solo_ratings, &score_in_rating?(score, &1)) do
+      {rank, range} -> {:ok, %{rank: rank, range: range}}
       nil -> {:error, :invalid_score}
     end
   end
 
   def solo_rating(_sheet, _score), do: {:error, :invalid_score}
 
-  @doc "Scores one area for a round."
-  @spec score_area(area_score_input()) :: 0..2
-  def score_area(%{trees_complete?: trees_complete?, koalas_complete?: koalas_complete?}) do
-    score_if(trees_complete?) + score_if(koalas_complete?)
-  end
-
   @doc "Scores one hospital."
-  @spec score_hospital(id() | String.t(), hospital()) ::
-          {:ok, integer()} | {:error, :unknown_sheet | :invalid_hospital}
-  def score_hospital(id, hospital) do
-    with {:ok, _sheet} <- sheet(id),
-         :ok <- validate_hospital(hospital) do
+  @spec score_hospital(hospital()) :: {:ok, integer()} | {:error, :invalid_hospital}
+  def score_hospital(hospital) do
+    with :ok <- validate_hospital(hospital) do
       {:ok, score_hospital_by_penalty(hospital)}
     end
   end
 
-  defp normalize_sheet(id) when is_atom(id) and id in @sheets, do: {:ok, id}
-  defp normalize_sheet("dharug"), do: {:ok, :dharug}
-  defp normalize_sheet("yugambeh"), do: {:ok, :yugambeh}
-  defp normalize_sheet(_id), do: {:error, :unknown_sheet}
+  defp shape_for(value) when value in @die_value_range, do: {:ok, Map.fetch!(@shapes, value)}
+  defp shape_for(_value), do: {:error, :invalid_die_value}
 
-  defp valid_area_refs?(%{areas: areas, cells: cells}) do
-    Enum.all?(cells, fn {_id, cell} -> Map.has_key?(areas, cell.area) end)
+  defp shape_offsets(value), do: Map.fetch!(@shapes, value)
+
+  defp transformed_shapes(die_value) do
+    die_value
+    |> shape_offsets()
+    |> transforms()
+    |> Enum.uniq()
   end
-
-  defp valid_line_refs?(%{cells: cells, rows: rows, columns: columns}) do
-    rows
-    |> Map.values()
-    |> Kernel.++(Map.values(columns))
-    |> Enum.all?(fn line ->
-      line.cell_ids != [] and Enum.all?(line.cell_ids, &Map.has_key?(cells, &1))
-    end)
-  end
-
-  defp valid_bonus_refs?(%{rows: rows, columns: columns, bonuses: bonuses}) do
-    line_ids = rows |> Map.keys() |> Kernel.++(Map.keys(columns)) |> MapSet.new()
-
-    Enum.all?(bonuses, fn {_id, bonus} ->
-      valid_bonus_kind?(bonus.kind) and MapSet.member?(line_ids, bonus.line_id)
-    end)
-  end
-
-  defp valid_bonus_kind?(:tree), do: true
-  defp valid_bonus_kind?(:koala), do: true
-  defp valid_bonus_kind?(:volunteer), do: true
-  defp valid_bonus_kind?(:hospital), do: true
-  defp valid_bonus_kind?(:skybridge), do: true
-  defp valid_bonus_kind?(_kind), do: false
-
-  defp valid_skybridge_refs?(%{areas: areas, skybridges: skybridges}) do
-    Enum.all?(skybridges, fn {_id, skybridge} ->
-      Map.has_key?(areas, skybridge.from) and Map.has_key?(areas, skybridge.to)
-    end)
-  end
-
-  defp valid_badges?(%{badges: badges} = sheet) do
-    Enum.all?(badges, fn
-      {_id, %{requirement: requirement, awards: awards}} ->
-        valid_awards?(awards) and valid_badge_requirement?(sheet, requirement)
-
-      _badge ->
-        false
-    end)
-  end
-
-  defp valid_awards?(awards) when is_map(awards) and map_size(awards) > 0 do
-    Enum.all?(awards, fn {award, points} ->
-      is_atom(award) and is_integer(points) and points >= 0
-    end)
-  end
-
-  defp valid_awards?(_awards), do: false
-
-  defp valid_badge_requirement?(%{areas: areas}, %{complete: %{area: area, mark: mark}}) do
-    Map.has_key?(areas, area) and mark in [:trees, :koalas]
-  end
-
-  defp valid_badge_requirement?(_sheet, %{count: %{field: field, at_least: at_least}}) do
-    field in [:skybridges, :volunteers] and is_integer(at_least) and at_least >= 0
-  end
-
-  defp valid_badge_requirement?(%{hospitals: hospitals}, %{filled: %{hospital: hospital_id}}) do
-    Map.has_key?(hospitals, hospital_id)
-  end
-
-  defp valid_badge_requirement?(_sheet, _requirement), do: false
 
   defp expand_access(skybridges, accessible) do
     next =
@@ -399,20 +274,71 @@ defmodule D20.KoalaRescueClub.Ruleset do
     if MapSet.equal?(next, accessible), do: next, else: expand_access(skybridges, next)
   end
 
-  defp complete_area?(map, cell_ids, area) do
-    required = map |> area_cells(area) |> Enum.map(&cell/1) |> MapSet.new()
+  defp complete_area?(map, cell_keys, area) do
+    required = map |> area_cells(area) |> MapSet.new()
 
-    required != MapSet.new() and MapSet.subset?(required, MapSet.new(cell_ids))
+    required != MapSet.new() and MapSet.subset?(required, MapSet.new(cell_keys))
   end
 
-  defp target_coords(cells, cell_ids) do
-    Enum.reduce_while(cell_ids, {:ok, []}, fn cell_id, {:ok, coords} ->
-      case Map.fetch(cells, cell_id) do
-        {:ok, cell} -> {:cont, {:ok, [{cell.q, cell.r} | coords]}}
-        :error -> {:halt, {:error, :unknown_cell}}
+  defp target_coords(sheet, cell_keys) do
+    Enum.reduce_while(cell_keys, {:ok, []}, fn cell_key, {:ok, coords} ->
+      if cell_exists?(sheet, cell_key) do
+        {:cont, {:ok, [{cell_key.column, cell_key.row} | coords]}}
+      else
+        {:halt, {:error, :unknown_cell}}
       end
     end)
   end
+
+  defp lines(sheet, area, :row, area_sheet) do
+    area_sheet.rows
+    |> Enum.with_index()
+    |> Enum.map(fn {columns, index} ->
+      cells = Enum.map(columns, &%{area: area, row: index, column: &1})
+      line(sheet, area, :row, index, cells)
+    end)
+  end
+
+  defp lines(sheet, area, :column, area_sheet) do
+    area_sheet
+    |> column_range()
+    |> Enum.map(fn index ->
+      cells =
+        area_sheet.rows
+        |> Enum.with_index()
+        |> Enum.filter(fn {columns, _row} -> index in columns end)
+        |> Enum.map(fn {_columns, row} -> %{area: area, row: row, column: index} end)
+
+      line(sheet, area, :column, index, cells)
+    end)
+  end
+
+  defp column_range(%{rows: rows}) do
+    max_column = rows |> Enum.flat_map(&Enum.to_list/1) |> Enum.max(fn -> -1 end)
+
+    if max_column < 0, do: [], else: 0..max_column
+  end
+
+  defp line(sheet, area, axis, index, cells) do
+    ref = %{area: area, axis: axis, index: index}
+    %{ref: ref, area: area, axis: axis, index: index, cells: cells, bonus: find_bonus(sheet, ref)}
+  end
+
+  defp find_bonus(%Sheet{bonuses: bonuses}, ref) do
+    bonuses
+    |> Map.get(ref.area, [])
+    |> Enum.find(&(&1.axis == ref.axis and &1.index == ref.index))
+    |> case do
+      nil -> nil
+      bonus -> expand_bonus(ref, bonus.bonus)
+    end
+  end
+
+  defp expand_bonus(ref, {:skybridge, target_area}),
+    do: %{ref: ref, kind: :skybridge, target_area: target_area}
+
+  defp expand_bonus(ref, {kind, target_id}), do: %{ref: ref, kind: kind, target_id: target_id}
+  defp expand_bonus(ref, kind), do: %{ref: ref, kind: kind}
 
   defp transforms(offsets) do
     rotations =
@@ -440,9 +366,6 @@ defmodule D20.KoalaRescueClub.Ruleset do
   end
 
   defp score_in_rating?(score, {_rank, range}), do: score in range
-
-  defp score_if(true), do: 1
-  defp score_if(false), do: 0
 
   defp validate_hospital(%{filled: filled, size: size, score: score} = hospital)
        when is_integer(filled) and filled >= 0 and is_integer(size) and size > 0 and
