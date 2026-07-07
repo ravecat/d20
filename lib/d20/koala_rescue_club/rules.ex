@@ -5,6 +5,7 @@ defmodule D20.KoalaRescueClub.Rules do
 
   alias D20.KoalaRescueClub.Game
   alias D20.KoalaRescueClub.Ruleset
+  alias D20.KoalaRescueClub.Ruleset.Sheet
 
   @type reason ::
           :invalid_player_count
@@ -108,35 +109,41 @@ defmodule D20.KoalaRescueClub.Rules do
 
   def resolve_turn(%Game{}, %D20.Command{}), do: {:error, :invalid_phase}
 
-  @spec badge_satisfied?(map(), map(), map()) :: boolean()
-  def badge_satisfied?(map, sheet, %{requirement: %{complete: %{area: area, mark: :trees}}}) do
-    Ruleset.trees_complete?(map, sheet, area)
+  @spec badge_satisfied?(Sheet.t(), Game.sheet(), map()) :: boolean()
+  def badge_satisfied?(rulesheet, player_sheet, %{
+        requirement: %{complete: %{area: area, mark: :trees}}
+      }) do
+    Ruleset.trees_complete?(rulesheet, player_sheet, area)
   end
 
-  def badge_satisfied?(map, sheet, %{requirement: %{complete: %{area: area, mark: :koalas}}}) do
-    Ruleset.koalas_complete?(map, sheet, area)
+  def badge_satisfied?(rulesheet, player_sheet, %{
+        requirement: %{complete: %{area: area, mark: :koalas}}
+      }) do
+    Ruleset.koalas_complete?(rulesheet, player_sheet, area)
   end
 
-  def badge_satisfied?(_map, sheet, %{
+  def badge_satisfied?(_rulesheet, player_sheet, %{
         requirement: %{count: %{field: :skybridges, at_least: at_least}}
       }) do
-    length(sheet.skybridges) >= at_least
+    length(player_sheet.skybridges) >= at_least
   end
 
-  def badge_satisfied?(_map, sheet, %{
+  def badge_satisfied?(_rulesheet, player_sheet, %{
         requirement: %{count: %{field: :volunteers, at_least: at_least}}
       }) do
-    claimed_volunteers(sheet) >= at_least
+    claimed_volunteers(player_sheet) >= at_least
   end
 
-  def badge_satisfied?(map, sheet, %{requirement: %{filled: %{hospital: hospital_id}}}) do
-    case Map.fetch(map.hospitals, hospital_id) do
-      {:ok, hospital} -> Map.get(sheet.hospitals, hospital_id, 0) >= hospital.size
+  def badge_satisfied?(rulesheet, player_sheet, %{
+        requirement: %{filled: %{hospital: hospital_id}}
+      }) do
+    case Map.fetch(rulesheet.hospitals, hospital_id) do
+      {:ok, hospital} -> Map.get(player_sheet.hospitals, hospital_id, 0) >= hospital.size
       :error -> false
     end
   end
 
-  def badge_satisfied?(_map, _sheet, _badge), do: false
+  def badge_satisfied?(_rulesheet, _player_sheet, _badge), do: false
 
   defp require_phase(%{phase: phase}, expected) when is_list(expected) do
     if phase in expected, do: :ok, else: {:error, :invalid_phase}
@@ -253,7 +260,7 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_one_accessible_area(rulesheet, player_sheet, cells) do
     with {:ok, areas} <- target_areas(rulesheet, cells),
          [area] <- Enum.uniq(areas),
-         true <- area in Ruleset.accessible_areas(rulesheet, player_sheet) do
+         true <- area in Ruleset.accessible_areas(player_sheet) do
       :ok
     else
       {:error, reason} -> {:error, reason}
@@ -369,26 +376,32 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_bonus_action_match(%{kind: kind}, %{kind: kind}), do: :ok
   defp require_bonus_action_match(_bonus, _action), do: {:error, :invalid_bonus}
 
-  defp apply_bonus_effect(map, sheet, _bonus, %{kind: :tree, target_cell: cell}) do
-    with :ok <- require_one_accessible_area(map, sheet, [cell]) do
-      apply_single_action(map, sheet, "circle_tree", cell)
+  defp apply_bonus_effect(%Sheet{} = rulesheet, player_sheet, _bonus, %{
+         kind: :tree,
+         target_cell: cell
+       }) do
+    with :ok <- require_one_accessible_area(rulesheet, player_sheet, [cell]) do
+      apply_single_action(rulesheet, player_sheet, "circle_tree", cell)
     end
   end
 
-  defp apply_bonus_effect(map, sheet, _bonus, %{kind: :koala, target_cell: cell}) do
-    with :ok <- require_one_accessible_area(map, sheet, [cell]) do
-      apply_single_action(map, sheet, "circle_koala", cell)
+  defp apply_bonus_effect(%Sheet{} = rulesheet, player_sheet, _bonus, %{
+         kind: :koala,
+         target_cell: cell
+       }) do
+    with :ok <- require_one_accessible_area(rulesheet, player_sheet, [cell]) do
+      apply_single_action(rulesheet, player_sheet, "circle_koala", cell)
     end
   end
 
-  defp apply_bonus_effect(_map, sheet, _bonus, %{kind: :volunteer}) do
-    case claim_volunteer(sheet.volunteers) do
-      {:ok, volunteers} -> {:ok, %{sheet | volunteers: volunteers}}
+  defp apply_bonus_effect(%Sheet{}, player_sheet, _bonus, %{kind: :volunteer}) do
+    case claim_volunteer(player_sheet.volunteers) do
+      {:ok, volunteers} -> {:ok, %{player_sheet | volunteers: volunteers}}
       :error -> {:error, :invalid_bonus}
     end
   end
 
-  defp apply_bonus_effect(%{hospitals: hospitals}, player_sheet, _bonus, %{
+  defp apply_bonus_effect(%Sheet{hospitals: hospitals}, player_sheet, _bonus, %{
          kind: :hospital,
          hospital_id: hospital_id
        }) do
@@ -402,14 +415,19 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp apply_bonus_effect(%{skybridges: skybridges} = map, player_sheet, bonus_entry, %{
+  defp apply_bonus_effect(%Sheet{skybridges: skybridges}, player_sheet, bonus_entry, %{
          kind: :skybridge,
          to: to
        }) do
     with {:ok, skybridge} <- fetch_skybridge(skybridges, bonus_entry.ref.area, to),
          false <- skybridge in player_sheet.skybridges,
-         true <- skybridge.from in Ruleset.accessible_areas(map, player_sheet) do
-      {:ok, %{player_sheet | skybridges: add_skybridges(player_sheet.skybridges, [skybridge])}}
+         true <- skybridge.from in Ruleset.accessible_areas(player_sheet) do
+      player_sheet =
+        player_sheet
+        |> Map.put(:skybridges, add_skybridges(player_sheet.skybridges, [skybridge]))
+        |> put_area_access(skybridge.to, true)
+
+      {:ok, player_sheet}
     else
       :error -> {:error, :invalid_skybridge}
       true -> {:error, :invalid_skybridge}
@@ -476,5 +494,9 @@ defmodule D20.KoalaRescueClub.Rules do
     |> Kernel.++(skybridges)
     |> Enum.uniq()
     |> Enum.sort_by(&{&1.from, &1.to})
+  end
+
+  defp put_area_access(player_sheet, area, access) do
+    Map.update!(player_sheet, :areas, &Map.put(&1, area, access))
   end
 end

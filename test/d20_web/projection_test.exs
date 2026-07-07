@@ -128,6 +128,7 @@ defmodule D20Web.ProjectionTest do
                members: %{},
                permissions: %{can_start_game: false, can_roll: false, can_submit_turn: true},
                game: %{
+                 sheet: :dharug,
                  phase: :submit,
                  round: 1,
                  turn: 1,
@@ -148,10 +149,7 @@ defmodule D20Web.ProjectionTest do
                          a: %{
                            accessible: true,
                            rows: [
-                             [
-                               %{cell: %{area: :a, row: 0, column: 0}, tree: false, koala: false}
-                               | _rest
-                             ],
+                             [%{tree: false, koala: false} | _rest],
                              _row_1,
                              _row_2,
                              [nil | _row_3]
@@ -184,7 +182,6 @@ defmodule D20Web.ProjectionTest do
       refute Map.has_key?(a_area, :column_bonuses)
       refute Map.has_key?(projection, :available_turn_actions)
       refute Map.has_key?(projection, :sheet_projection)
-      refute Map.has_key?(projection.game, :sheet)
     end
 
     test "returns the session unchanged without a game-specific projection" do

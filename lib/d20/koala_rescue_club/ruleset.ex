@@ -165,34 +165,25 @@ defmodule D20.KoalaRescueClub.Ruleset do
 
   def line_cells(%Sheet{}, _ref), do: []
 
-  @doc "Returns all areas accessible for a sheet through claimed skybridges."
-  @spec accessible_areas(Sheet.t(), map()) :: [atom()]
-  def accessible_areas(sheet, player_sheet) do
-    initial =
-      sheet.areas
-      |> Enum.filter(fn {_id, area} -> area.access end)
-      |> Enum.map(fn {id, _area} -> id end)
-      |> MapSet.new()
-
-    claimed = MapSet.new(player_sheet.skybridges)
-
-    sheet.skybridges
-    |> Enum.filter(&MapSet.member?(claimed, &1))
-    |> expand_access(initial)
-    |> MapSet.to_list()
+  @doc "Returns all areas marked accessible for a player sheet."
+  @spec accessible_areas(map()) :: [atom()]
+  def accessible_areas(%{areas: areas}) when is_map(areas) do
+    areas
+    |> Enum.filter(fn {_area, access} -> access end)
+    |> Enum.map(fn {area, _access} -> area end)
     |> Enum.sort()
   end
 
   @doc "Returns true when all cells in an area have circled trees."
   @spec trees_complete?(Sheet.t(), map(), atom()) :: boolean()
-  def trees_complete?(map, player_sheet, area) do
-    complete_area?(map, player_sheet.trees, area)
+  def trees_complete?(%Sheet{} = rulesheet, player_sheet, area) do
+    complete_area?(rulesheet, player_sheet.trees, area)
   end
 
   @doc "Returns true when all cells in an area have circled koalas."
   @spec koalas_complete?(Sheet.t(), map(), atom()) :: boolean()
-  def koalas_complete?(map, player_sheet, area) do
-    complete_area?(map, player_sheet.koalas, area)
+  def koalas_complete?(%Sheet{} = rulesheet, player_sheet, area) do
+    complete_area?(rulesheet, player_sheet.koalas, area)
   end
 
   @doc "Returns true when the target cells match a die shape under rotation or flip."
@@ -243,21 +234,8 @@ defmodule D20.KoalaRescueClub.Ruleset do
     |> Enum.uniq()
   end
 
-  defp expand_access(skybridges, accessible) do
-    next =
-      Enum.reduce(skybridges, accessible, fn skybridge, accessible ->
-        if MapSet.member?(accessible, skybridge.from) do
-          MapSet.put(accessible, skybridge.to)
-        else
-          accessible
-        end
-      end)
-
-    if MapSet.equal?(next, accessible), do: next, else: expand_access(skybridges, next)
-  end
-
-  defp complete_area?(map, cells, area) do
-    required = map |> area_cells(area) |> MapSet.new()
+  defp complete_area?(%Sheet{} = rulesheet, cells, area) do
+    required = rulesheet |> area_cells(area) |> MapSet.new()
 
     required != MapSet.new() and MapSet.subset?(required, MapSet.new(cells))
   end

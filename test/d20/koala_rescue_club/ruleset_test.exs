@@ -122,6 +122,10 @@ defmodule D20.KoalaRescueClub.RulesetTest do
                %{area: :a, row: 2, column: 0}
              ]
     end
+
+    test "returns areas marked accessible on the player sheet" do
+      assert Ruleset.accessible_areas(%{areas: %{a: true, b: true, c: false}}) == [:a, :b]
+    end
   end
 
   describe "scoring helpers" do

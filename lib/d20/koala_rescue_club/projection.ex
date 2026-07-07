@@ -28,6 +28,7 @@ defmodule D20.KoalaRescueClub.Projection do
 
   defp render_game(rulesheet, %Game{} = game) do
     %{
+      sheet: game.sheet,
       phase: game.phase,
       round: game.round,
       turn: game.turn,
@@ -52,7 +53,7 @@ defmodule D20.KoalaRescueClub.Projection do
   end
 
   defp render_sheet(rulesheet, player_sheet) do
-    accessible_areas = Ruleset.accessible_areas(rulesheet, player_sheet)
+    accessible_areas = Ruleset.accessible_areas(player_sheet)
 
     %{
       volunteers: player_sheet.volunteers,
@@ -87,7 +88,7 @@ defmodule D20.KoalaRescueClub.Projection do
   end
 
   defp render_cell(player_sheet, cell) do
-    %{cell: cell, tree: cell in player_sheet.trees, koala: cell in player_sheet.koalas}
+    %{tree: cell in player_sheet.trees, koala: cell in player_sheet.koalas}
   end
 
   defp render_hospitals(rulesheet, player_sheet) do

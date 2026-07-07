@@ -39,6 +39,7 @@ defmodule D20.KoalaRescueClub.Game do
   @type sheet :: %{
           required(:trees) => [Ruleset.cell()],
           required(:koalas) => [Ruleset.cell()],
+          required(:areas) => %{optional(Ruleset.area()) => true},
           required(:volunteers) => [:available | :locked | :used],
           required(:hospitals) => %{optional(atom()) => non_neg_integer()},
           required(:skybridges) => [skybridge()],
@@ -181,6 +182,10 @@ defmodule D20.KoalaRescueClub.Game do
       sheet = %{
         trees: [],
         koalas: [],
+        areas:
+          rulesheet.areas
+          |> Enum.filter(fn {_id, area} -> area.access end)
+          |> Map.new(fn {id, _area} -> {id, true} end),
         volunteers: volunteers,
         hospitals: Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end),
         skybridges: [],

@@ -24,6 +24,8 @@ defmodule D20.KoalaRescueClub.GameTest do
                :locked
              ]
 
+      assert game.players["p1"].sheet.areas == %{a: true}
+
       decoded = game |> Jason.encode!() |> Jason.decode!()
 
       assert decoded["phase"] == "roll"
@@ -191,6 +193,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
       assert %{from: :a, to: :b} in game.players["p1"].sheet.skybridges
+      assert game.players["p1"].sheet.areas == %{a: true, b: true}
 
       game =
         "dharug"
