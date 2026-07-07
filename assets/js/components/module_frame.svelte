@@ -17,7 +17,11 @@
     const bridge = expose({
       remoteWindow: iframe.contentWindow,
       allowedOrigins: module.allowedOrigins,
-      bootstrap: connection,
+      bootstrap: {
+        endpoint: connection.endpoint,
+        topic: connection.topic,
+        token: connection.token,
+      },
     });
 
     return () => {

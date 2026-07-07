@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@inertiajs/svelte": "3.6.0",
-    "@rvct/d20sdk": "1.1.0-beta.5",
-    "phoenix-session": "1.1.0",
+    "@rvct/d20sdk": "1.1.1",
     "phoenix": "file:../deps/phoenix",
+    "phoenix-session": "1.1.0",
     "phoenix_html": "file:../deps/phoenix_html",
     "phoenix_live_view": "file:../deps/phoenix_live_view",
     "svelte": "^5.55.5",

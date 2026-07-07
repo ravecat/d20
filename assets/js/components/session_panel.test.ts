@@ -1,3 +1,4 @@
+import { module as exposeModule } from "@rvct/d20sdk";
 import { flushSync, mount, unmount } from "svelte";
 import { type Writable, writable } from "svelte/store";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -67,6 +68,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
   sessionMock.createSession.mockClear();
   sessionMock.start.mockClear();
+  vi.mocked(exposeModule).mockClear();
 });
 
 describe("SessionPanel", () => {
@@ -208,6 +210,27 @@ describe("SessionPanel", () => {
     expect(document.body.textContent).not.toContain("Ada");
     expect(document.body.textContent).not.toContain("Grace");
     expect(document.querySelector('iframe[title="Game module"]')).not.toBeNull();
+  });
+
+  it("passes a cloneable bootstrap payload to the embedded module bridge", () => {
+    renderPanel({
+      value: sessionWithPhase("in_progress"),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    expect(exposeModule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bootstrap: {
+          endpoint: connection.endpoint,
+          topic: connection.topic,
+          token: connection.token,
+        },
+      }),
+    );
+    expect(vi.mocked(exposeModule).mock.calls[0]?.[0].bootstrap).not.toBe(connection);
   });
 
   it("does not show active members after the session is finished", () => {
