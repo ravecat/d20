@@ -219,14 +219,14 @@ defmodule D20Web.SessionChannelTest do
       assert_reply ref, :error, %{reason: "invalid_phase"}
     end
 
-    test "should reject invalid payloads" do
+    test "should route invalid payloads through session lifecycle" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       session_id = create_runtime_session(actor.id)
       assert {:ok, _payload, socket} = join_session_channel(session_id, actor)
 
       ref = push(socket, "roll", [])
 
-      assert_reply ref, :error, %{reason: "invalid_command"}
+      assert_reply ref, :error, %{reason: "invalid_phase"}
     end
   end
 

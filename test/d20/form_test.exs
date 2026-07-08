@@ -10,7 +10,7 @@ defmodule D20.FormTest do
   end
 
   test "builds form data from enum changeset fields" do
-    assert {:ok, changeset} = D20.Game.attrs(KoalaGame)
+    changeset = D20.Game.changeset(KoalaGame)
 
     assert D20.Form.to_form(changeset) == %{
              sheet: %{

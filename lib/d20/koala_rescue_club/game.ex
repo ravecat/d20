@@ -77,8 +77,8 @@ defmodule D20.KoalaRescueClub.Game do
   def init(attrs), do: {:ok, struct(__MODULE__, attrs)}
 
   @impl D20.Game
-  @spec attrs(map()) :: Ecto.Changeset.t()
-  def attrs(params) do
+  @spec changeset(map()) :: Ecto.Changeset.t()
+  def changeset(params) do
     types = %{sheet: Ecto.ParameterizedType.init(Ecto.Enum, values: Ruleset.sheets())}
 
     {%{sheet: :dharug}, types}

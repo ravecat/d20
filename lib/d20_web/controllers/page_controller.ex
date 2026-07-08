@@ -49,8 +49,9 @@ defmodule D20Web.PageController do
 
   def game(conn, %{"slug" => slug}) do
     with {:ok, game} <- D20.Games.fetch_by_slug(slug),
-         {:ok, %Registry.Entry{engine: engine}} <- Registry.fetch(slug),
-         {:ok, changeset} <- D20.Game.attrs(engine) do
+         {:ok, %Registry.Entry{engine: engine}} <- Registry.fetch(slug) do
+      changeset = D20.Game.changeset(engine)
+
       conn
       |> assign_prop(:slug, slug)
       |> assign_prop(:game, Map.from_struct(game))

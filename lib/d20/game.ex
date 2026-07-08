@@ -9,32 +9,23 @@ defmodule D20.Game do
   @type engine :: module()
   @type attrs :: map()
 
-  @callback attrs(map()) :: Ecto.Changeset.t()
+  @callback changeset(map()) :: Ecto.Changeset.t()
   @callback init(attrs()) :: {:ok, term()} | {:error, term()}
   @callback dispatch(term(), D20.Command.t()) :: {:ok, term()} | {:error, term()}
   @callback finished?(term()) :: boolean()
 
-  @spec attrs(term(), map()) ::
-          {:ok, Ecto.Changeset.t()} | {:error, :invalid_creation_attrs | :invalid_engine}
-  def attrs(engine, params \\ %{})
-
-  def attrs(engine, params) when is_map(params) do
-    with {:ok, engine} <- ensure_engine(engine) do
-      {:ok, engine.attrs(params)}
-    end
+  @spec changeset(engine(), map()) :: Ecto.Changeset.t()
+  def changeset(engine, params \\ %{}) do
+    engine.changeset(params)
   end
-
-  def attrs(_engine, _params), do: {:error, :invalid_creation_attrs}
 
   @spec init(term(), map()) ::
           {:ok, term()}
-          | {:error, :invalid_creation_attrs | :invalid_engine | Ecto.Changeset.t() | term()}
-  def init(engine, params \\ %{})
-
-  def init(engine, params) do
+          | {:error, :invalid_engine | Ecto.Changeset.t() | term()}
+  def init(engine, params \\ %{}) do
     with {:ok, engine} <- ensure_engine(engine),
-         {:ok, changeset} <- attrs(engine, params),
-         {:ok, attrs} <- Ecto.Changeset.apply_action(changeset, :create_session) do
+         {:ok, attrs} <-
+           engine |> changeset(params) |> Ecto.Changeset.apply_action(:create_session) do
       engine.init(attrs)
     end
   end

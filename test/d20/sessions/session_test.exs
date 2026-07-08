@@ -10,7 +10,7 @@ defmodule D20.Sessions.SessionTest do
     @behaviour D20.Game
 
     @impl D20.Game
-    def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+    def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
 
     @impl D20.Game
     def init(_attrs), do: {:ok, %{players: [], left: [], started?: false, finished?: false}}
@@ -142,11 +142,13 @@ defmodule D20.Sessions.SessionTest do
                Session.dispatch(session, TestGame, command("start", ""))
     end
 
-    test "rejects command payloads that are not maps" do
+    test "does not pre-validate command payloads" do
       {:ok, session} = Session.new(TestGame, "p1")
 
-      assert {:error, :invalid_command} =
-               Session.dispatch(session, TestGame, command("noop", "p1", []))
+      assert {:ok, session} = Session.dispatch(session, TestGame, command("join", "p2", []))
+
+      assert session.members["p2"] == []
+      assert session.game.players == ["p2"]
     end
 
     test "accepts string event names" do

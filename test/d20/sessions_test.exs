@@ -15,7 +15,7 @@ defmodule D20.SessionsTest do
     @behaviour D20.Game
 
     @impl D20.Game
-    def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+    def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
 
     @impl D20.Game
     def init(_attrs), do: {:ok, %{events: []}}

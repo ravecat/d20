@@ -6,8 +6,8 @@ defmodule D20.Fliptown.Game do
   @behaviour D20.Game
 
   @impl D20.Game
-  @spec attrs(map()) :: Ecto.Changeset.t()
-  def attrs(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+  @spec changeset(map()) :: Ecto.Changeset.t()
+  def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
 
   @impl D20.Game
   @spec init(D20.Game.attrs()) :: {:error, :not_implemented}
