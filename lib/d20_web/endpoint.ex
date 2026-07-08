@@ -49,6 +49,7 @@ defmodule D20Web.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug Plug.RewriteOn, [:x_forwarded_proto]
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],

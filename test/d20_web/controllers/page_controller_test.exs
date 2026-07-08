@@ -313,6 +313,29 @@ defmodule D20Web.PageControllerTest do
     assert is_binary(actor_id)
   end
 
+  test "GET /games/:slug with forwarded https attaches secure module URLs", %{conn: conn} do
+    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
+    session_id = session.id
+    session_ref = session_id
+
+    on_exit(fn -> D20.Sessions.stop(session_ref) end)
+
+    conn =
+      conn
+      |> put_req_header("x-forwarded-proto", "https")
+      |> get(~p"/games/qwinto?session=#{session_id}")
+
+    assert %{module: module, connection: connection} = inertia_props(conn)
+    assert module[:embedUrl] == "https://qwinto.example.com/"
+    assert module[:allowedOrigins] == ["https://qwinto.example.com"]
+    assert connection[:endpoint] == "wss://example.com/module"
+
+    topic = "session:#{session_id}"
+
+    assert {:ok, %{endpoint: "wss://example.com/module", topic: ^topic}} =
+             D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
+  end
+
   test "GET /games/:slug with an in-progress session attaches module connection", %{conn: conn} do
     assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
     session_id = session.id
