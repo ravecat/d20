@@ -3,8 +3,27 @@ defmodule D20.GameTest do
 
   alias D20.KoalaRescueClub.Game, as: KoalaGame
 
+  defmodule CustomServer do
+  end
+
   defmodule TestGame do
-    @behaviour D20.Game
+    use D20.Game
+
+    @impl D20.Game
+    def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+    @impl D20.Game
+    def init(_attrs), do: {:ok, %{phase: :setup}}
+
+    @impl D20.Game
+    def dispatch(state, %D20.Command{}), do: {:ok, state}
+
+    @impl D20.Game
+    def finished?(_state), do: false
+  end
+
+  defmodule CustomServerGame do
+    use D20.Game, server: CustomServer
 
     @impl D20.Game
     def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
@@ -35,6 +54,11 @@ defmodule D20.GameTest do
     assert D20.Game.ensure_engine(TestGame) == {:ok, TestGame}
     assert D20.Game.ensure_engine(InitZeroOnlyGame) == {:error, :invalid_engine}
     assert D20.Game.ensure_engine(MissingChangesetGame) == {:error, :invalid_engine}
+  end
+
+  test "uses the default session server unless an engine provides one" do
+    assert D20.Game.server(TestGame) == D20.Sessions.Server
+    assert D20.Game.server(CustomServerGame) == CustomServer
   end
 
   test "returns an empty attrs changeset for engines without creation fields" do

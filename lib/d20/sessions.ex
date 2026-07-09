@@ -5,7 +5,6 @@ defmodule D20.Sessions do
 
   alias D20.Accounts.Scope
   alias D20.Command
-  alias D20.Sessions.Server
   alias D20.Sessions.Session
 
   @type slug :: String.t()
@@ -15,6 +14,9 @@ defmodule D20.Sessions do
           :forbidden
           | :session_not_found
           | Session.reason()
+
+  @spec registry_key(id()) :: {:session, id()}
+  def registry_key(id) when is_binary(id), do: {:session, id}
 
   @spec create(slug(), D20.Game.engine(), Session.player_id(), map()) ::
           {:ok, Session.t()} | {:error, reason()}
@@ -31,7 +33,7 @@ defmodule D20.Sessions do
 
   @spec get(id()) :: {:ok, state()} | {:error, reason()}
   def get(id) when is_binary(id) do
-    call_if_exists(id, &Server.get/1)
+    call_if_exists(id, fn server, pid -> server.get(pid) end)
   end
 
   @spec dispatch(Scope.t(), Session.event(), term()) ::
@@ -40,16 +42,16 @@ defmodule D20.Sessions do
       when is_binary(id) and is_binary(actor_id) do
     command = %Command{event: event, actor_id: actor_id, attrs: attrs}
 
-    call_if_exists(id, &Server.dispatch(&1, command))
+    call_if_exists(id, fn server, pid -> server.dispatch(pid, command) end)
   end
 
   def dispatch(%Scope{}, _event, _attrs), do: {:error, :forbidden}
 
   @spec lookup(id()) :: {:ok, pid()} | {:error, :session_not_found}
   def lookup(id) when is_binary(id) do
-    case Registry.lookup(D20.Registry, Server.registry_key(id)) do
-      [{pid, _value}] -> {:ok, pid}
-      [] -> {:error, :session_not_found}
+    case lookup_server(id) do
+      {:ok, {pid, _server}} -> {:ok, pid}
+      {:error, :session_not_found} -> {:error, :session_not_found}
     end
   end
 
@@ -71,15 +73,26 @@ defmodule D20.Sessions do
   end
 
   defp call_if_exists(id, fun) do
-    with {:ok, pid} <- lookup(id) do
-      fun.(pid)
+    with {:ok, {pid, server}} <- lookup_server(id) do
+      fun.(server, pid)
+    end
+  end
+
+  defp lookup_server(id) do
+    case Registry.lookup(D20.Registry, registry_key(id)) do
+      [{pid, server}] when is_atom(server) -> {:ok, {pid, server}}
+      [{pid, _value}] -> {:ok, {pid, D20.Sessions.Server}}
+      [] -> {:error, :session_not_found}
     end
   end
 
   defp start_child(slug, engine, session) do
-    DynamicSupervisor.start_child(
-      D20.Sessions.Supervisor,
-      {Server, slug: slug, engine: engine, session: session}
-    )
+    server = D20.Game.server(engine)
+
+    DynamicSupervisor.start_child(D20.Sessions.Supervisor, %{
+      id: {server, session.id},
+      start: {server, :start_link, [[slug: slug, engine: engine, session: session]]},
+      restart: :temporary
+    })
   end
 end

@@ -12,7 +12,106 @@ defmodule D20.SessionsTest do
   alias D20Web.SessionChannel
 
   defmodule TestGame do
-    @behaviour D20.Game
+    use D20.Game
+
+    @impl D20.Game
+    def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+    @impl D20.Game
+    def init(_attrs), do: {:ok, %{events: []}}
+
+    @impl D20.Game
+    def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
+
+    def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
+      {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
+    end
+
+    @impl D20.Game
+    def finished?(_state), do: false
+  end
+
+  defmodule CustomServer do
+    use D20.Game.Server, otp: :gen_server
+
+    alias D20.Sessions.Session
+
+    @impl true
+    def init(state), do: {:ok, state}
+
+    @impl true
+    def handle_call(:get, _from, {slug, _engine, session} = state) do
+      {:reply, {:ok, {session, slug}}, state}
+    end
+
+    def handle_call({:dispatch, %Command{} = command}, _from, {slug, engine, session} = state) do
+      command = %{command | attrs: Map.put(command.attrs, :server, :custom)}
+
+      case Session.dispatch(session, engine, command) do
+        {:ok, updated_session} ->
+          {:reply, {:ok, updated_session}, {slug, engine, updated_session}}
+
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
+      end
+    end
+  end
+
+  defmodule CustomServerGame do
+    use D20.Game, server: CustomServer
+
+    @impl D20.Game
+    def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+
+    @impl D20.Game
+    def init(_attrs), do: {:ok, %{events: []}}
+
+    @impl D20.Game
+    def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
+
+    def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
+      {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
+    end
+
+    @impl D20.Game
+    def finished?(_state), do: false
+  end
+
+  defmodule CustomStatemServer do
+    use D20.Game.Server, otp: :gen_statem
+
+    alias D20.Sessions.Session
+
+    @impl :gen_statem
+    def init(state), do: {:ok, :running, state}
+
+    @impl :gen_statem
+    def handle_event(:enter, _old_state, _state, _data), do: :keep_state_and_data
+
+    def handle_event({:call, from}, :get, _state, {slug, _engine, session}) do
+      {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}]}
+    end
+
+    def handle_event(
+          {:call, from},
+          {:dispatch, %Command{} = command},
+          _state,
+          {slug, engine, session} = data
+        ) do
+      command = %{command | attrs: Map.put(command.attrs, :server, :statem)}
+
+      case Session.dispatch(session, engine, command) do
+        {:ok, updated_session} ->
+          {:keep_state, {slug, engine, updated_session}, [{:reply, from, {:ok, updated_session}}]}
+
+        {:error, reason} ->
+          {:keep_state, data, [{:reply, from, {:error, reason}}]}
+      end
+    end
+  end
+
+  defmodule CustomStatemServerGame do
+    use D20.Game, server: CustomStatemServer
 
     @impl D20.Game
     def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
@@ -44,6 +143,40 @@ defmodule D20.SessionsTest do
       assert {:ok, {^session, "qwinto"}} = Sessions.get(session_ref)
       assert {:ok, pid} = Sessions.lookup(session_ref)
       assert Process.alive?(pid)
+    end
+
+    test "starts the engine configured game server" do
+      assert {:ok, %Session{} = session} = Sessions.create("custom", CustomServerGame, "p1")
+      session_ref = session.id
+
+      on_exit(fn -> Sessions.stop(session_ref) end)
+
+      assert {:ok, pid} = Sessions.lookup(session_ref)
+
+      assert [{^pid, CustomServer}] =
+               Registry.lookup(D20.Registry, Sessions.registry_key(session_ref))
+
+      assert {:ok, %Session{} = session} =
+               session_ref |> scope("p1") |> Sessions.dispatch("start", %{})
+
+      assert {"start", "p1", %{server: :custom}} in session.game.events
+    end
+
+    test "starts a gen_statem game server" do
+      assert {:ok, %Session{} = session} = Sessions.create("statem", CustomStatemServerGame, "p1")
+      session_ref = session.id
+
+      on_exit(fn -> Sessions.stop(session_ref) end)
+
+      assert {:ok, pid} = Sessions.lookup(session_ref)
+
+      assert [{^pid, CustomStatemServer}] =
+               Registry.lookup(D20.Registry, Sessions.registry_key(session_ref))
+
+      assert {:ok, %Session{} = session} =
+               session_ref |> scope("p1") |> Sessions.dispatch("start", %{})
+
+      assert {"start", "p1", %{server: :statem}} in session.game.events
     end
 
     test "returns invalid owner errors" do

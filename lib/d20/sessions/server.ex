@@ -3,7 +3,7 @@ defmodule D20.Sessions.Server do
   Process wrapper that owns one `D20.Sessions.Session` state.
   """
 
-  use GenServer, restart: :temporary
+  use D20.Game.Server, otp: :gen_server
 
   alias D20.Accounts
   alias D20.Command
@@ -13,20 +13,6 @@ defmodule D20.Sessions.Server do
 
   @type id :: Session.id()
   @type slug :: String.t()
-  @type start_opts :: [slug: slug(), engine: D20.Game.engine(), session: Session.t()]
-  @type state :: {slug(), D20.Game.engine(), Session.t()}
-
-  @spec registry_key(id()) :: {:session, id()}
-  def registry_key(id) when is_binary(id), do: {:session, id}
-
-  @spec start_link(start_opts()) :: GenServer.on_start()
-  def start_link(opts) do
-    slug = Keyword.fetch!(opts, :slug)
-    engine = Keyword.fetch!(opts, :engine)
-    session = Keyword.fetch!(opts, :session)
-
-    GenServer.start_link(__MODULE__, {slug, engine, session}, name: via(session.id))
-  end
 
   @impl true
   @spec init(state()) :: {:ok, state(), timeout()} | {:stop, term()}
@@ -39,17 +25,6 @@ defmodule D20.Sessions.Server do
 
   def init(_state) do
     {:stop, :badarg}
-  end
-
-  @spec get(GenServer.server()) :: {:ok, {Session.t(), slug()}}
-  def get(server) do
-    GenServer.call(server, :get)
-  end
-
-  @spec dispatch(GenServer.server(), Command.t()) ::
-          {:ok, Session.t()} | {:error, Session.reason()}
-  def dispatch(server, %Command{} = command) do
-    GenServer.call(server, {:dispatch, command})
   end
 
   @impl true
@@ -114,9 +89,5 @@ defmodule D20.Sessions.Server do
   @spec timeout() :: timeout()
   defp timeout do
     Application.fetch_env!(:d20, :session_idle_timeout)
-  end
-
-  defp via(id) do
-    {:via, Registry, {D20.Registry, registry_key(id)}}
   end
 end

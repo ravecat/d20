@@ -94,23 +94,19 @@ defmodule D20.Sessions.Session do
         %Command{event: "start", actor_id: actor_id} = command
       ) do
     with :ok <- require_owner(session, actor_id),
-         {:ok, game} <- dispatch_to_engine(engine, session.game, command) do
+         {:ok, game} <- engine.dispatch(session.game, command) do
       {:ok, %{session | phase: :in_progress, game: game}}
     end
   end
 
   def dispatch(%__MODULE__{phase: :in_progress} = session, engine, %Command{} = command) do
-    case dispatch_to_engine(engine, session.game, command) do
+    case engine.dispatch(session.game, command) do
       {:ok, game} -> {:ok, maybe_finish(%{session | game: game}, engine)}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def dispatch(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
-
-  defp dispatch_to_engine(engine, game, %Command{} = command) do
-    engine.dispatch(game, command)
-  end
 
   defp maybe_finish(session, engine) do
     if engine.finished?(session.game) do
