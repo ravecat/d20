@@ -34,9 +34,8 @@ defmodule D20Web.SessionChannel do
   def join(
         "session:" <> session_id,
         _payload,
-        %{assigns: %{current_scope: %{actor: %{id: actor_id}}}} = socket
-      )
-      when is_binary(actor_id) do
+        %{assigns: %{current_scope: %{actor: %{id: _actor_id}}}} = socket
+      ) do
     with {:ok, {session, slug}} <- Sessions.get(session_id) do
       scope =
         socket.assigns.current_scope |> Scope.put_session(session.id) |> Scope.put_game(slug)
@@ -54,10 +53,6 @@ defmodule D20Web.SessionChannel do
   end
 
   @impl true
-  def handle_info(:after_join, %{handler: D20Web.ModuleSocket} = socket) do
-    {:noreply, socket}
-  end
-
   def handle_info(:after_join, socket) do
     {:ok, _} =
       Presence.track(socket, Scope.actor_id(socket.assigns.current_scope), %{

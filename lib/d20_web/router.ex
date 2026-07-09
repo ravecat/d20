@@ -1,6 +1,7 @@
 defmodule D20Web.Router do
   use D20Web, :router
 
+  import D20Web.Module, only: [put_module_cors_headers: 2]
   import D20Web.UserAuth
 
   pipeline :inertia do
@@ -26,8 +27,12 @@ defmodule D20Web.Router do
     plug :put_secure_browser_headers
   end
 
-  pipeline :api do
+  pipeline :modules do
+    plug :put_module_cors_headers
     plug :accepts, ["json"]
+    plug :fetch_session
+    plug :fetch_current_scope_for_actor
+    plug :put_secure_browser_headers
   end
 
   scope "/", D20Web do
@@ -39,10 +44,12 @@ defmodule D20Web.Router do
     post "/games/:slug/sessions", PageController, :create_game_session
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", D20Web do
-  #   pipe_through :api
-  # end
+  scope "/", D20Web do
+    pipe_through :modules
+
+    options "/modules/:slug", ModuleController, :options
+    post "/modules/:slug", ModuleController, :create
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:d20, :dev_routes) do

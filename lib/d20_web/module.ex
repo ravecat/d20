@@ -3,6 +3,8 @@ defmodule D20Web.Module do
   Builds iframe embed data for modules.
   """
 
+  import Plug.Conn, only: [get_req_header: 2, put_resp_header: 3]
+
   @module_socket_path "/module"
 
   @type entry :: %{
@@ -33,6 +35,26 @@ defmodule D20Web.Module do
 
     %{endpoint: endpoint, topic: topic, token: D20.Module.Token.sign(D20Web.Endpoint, claims)}
   end
+
+  @spec put_module_cors_headers(Plug.Conn.t()) :: Plug.Conn.t()
+  def put_module_cors_headers(conn) do
+    case get_req_header(conn, "origin") do
+      [] ->
+        conn
+
+      [origin | _] ->
+        conn
+        |> put_resp_header("access-control-allow-origin", origin)
+        |> put_resp_header("access-control-allow-methods", "POST, OPTIONS")
+        |> put_resp_header("access-control-allow-headers", "content-type")
+        |> put_resp_header("access-control-allow-credentials", "true")
+        |> put_resp_header("access-control-max-age", "600")
+        |> put_resp_header("vary", "origin")
+    end
+  end
+
+  @spec put_module_cors_headers(Plug.Conn.t(), term()) :: Plug.Conn.t()
+  def put_module_cors_headers(conn, _opts), do: put_module_cors_headers(conn)
 
   @spec embed_url(Plug.Conn.t(), String.t()) :: String.t()
   defp embed_url(conn, slug) do

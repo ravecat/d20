@@ -76,9 +76,12 @@ defmodule D20Web.SessionChannelTest do
                join_session_channel(Ecto.UUID.generate(), actor)
     end
 
-    test "should accept signed module tokens without tracking player presence" do
+    test "should track signed module token actors through presence" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      actor_id = actor.id
       session_id = create_runtime_session(actor.id)
+
+      :ok = Presence.subscribe(SessionChannel.topic(session_id))
 
       assert {:ok, socket} = connect_module_socket(session_id, actor)
 
@@ -100,9 +103,15 @@ defmodule D20Web.SessionChannelTest do
 
       assert socket.assigns.current_scope.game == %{slug: "qwinto"}
 
-      refute_push "projection", %{}, 50
+      assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
 
-      assert {:ok, {%Session{members: %{}}, "qwinto"}} = D20.Sessions.get(session_id)
+      assert_push "projection", %{members: members, permissions: permissions}
+
+      assert permissions.can_start_game == false
+      assert %{online_at: ^tracked_online_at} = members[actor_id]
+
+      assert {:ok, {%Session{members: members}, "qwinto"}} = D20.Sessions.get(session_id)
+      assert %{online_at: ^tracked_online_at} = members[actor_id]
     end
 
     test "should reject tokens for another session" do
