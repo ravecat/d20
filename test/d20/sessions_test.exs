@@ -211,20 +211,52 @@ defmodule D20.SessionsTest do
     end
   end
 
+  describe "idle timeout" do
+    setup do
+      original_timeout = Application.fetch_env!(:d20, :session_idle_timeout)
+
+      on_exit(fn -> Application.put_env(:d20, :session_idle_timeout, original_timeout) end)
+    end
+
+    test "stops a session process after the configured idle timeout" do
+      Application.put_env(:d20, :session_idle_timeout, 50)
+
+      %{ref: session_ref, pid: pid} = start_test_session(TestGame, "p1")
+
+      monitor_ref = Process.monitor(pid)
+
+      assert_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 300
+      assert_session_stopped(session_ref)
+    end
+
+    test "resets the idle timeout after session messages" do
+      Application.put_env(:d20, :session_idle_timeout, 500)
+
+      %{ref: session_ref, pid: pid} = start_test_session(TestGame, "p1")
+
+      monitor_ref = Process.monitor(pid)
+
+      refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 250
+      assert {:ok, {%Session{}, "test-game"}} = Sessions.get(session_ref)
+      refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 300
+      assert_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 500
+    end
+  end
+
   defp start_test_session(engine, owner_id) do
     assert {:ok, session} = Session.new(engine, owner_id)
 
-    assert {:ok, _pid} =
-             DynamicSupervisor.start_child(
-               D20.Sessions.Supervisor,
-               {Server, slug: "test-game", engine: engine, session: session}
-             )
-
+    pid = start_supervised!({Server, slug: "test-game", engine: engine, session: session})
     ref = session.id
 
-    on_exit(fn -> Sessions.stop(ref) end)
+    %{id: session.id, ref: ref, session: session, pid: pid}
+  end
 
-    %{id: session.id, ref: ref, session: session}
+  defp assert_session_stopped(session_ref) do
+    case Sessions.lookup(session_ref) do
+      {:ok, pid} -> refute Process.alive?(pid)
+      {:error, :session_not_found} -> :ok
+    end
   end
 
   defp scope(session_id, actor_id) do

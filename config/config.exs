@@ -33,7 +33,8 @@ config :bun,
 
 config :d20,
   ecto_repos: [D20.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  session_idle_timeout: :timer.minutes(5)
 
 config :d20, D20.Actors.Token,
   salt: "actor",

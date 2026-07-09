@@ -29,6 +29,8 @@ config :d20, D20Web.Endpoint,
 # In test we don't send emails
 config :d20, D20.Mailer, adapter: Swoosh.Adapters.Test
 
+config :d20, session_idle_timeout: :infinity
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

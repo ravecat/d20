@@ -29,10 +29,10 @@ defmodule D20.Sessions.Server do
   end
 
   @impl true
-  @spec init(state()) :: {:ok, state()} | {:stop, term()}
+  @spec init(state()) :: {:ok, state(), timeout()} | {:stop, term()}
   def init({slug, engine, %Session{} = session}) when is_binary(slug) and is_atom(engine) do
     case Presence.subscribe(SessionChannel.topic(session.id)) do
-      :ok -> {:ok, {slug, engine, session}}
+      :ok -> {:ok, {slug, engine, session}, timeout()}
       {:error, reason} -> {:stop, reason}
     end
   end
@@ -54,21 +54,26 @@ defmodule D20.Sessions.Server do
 
   @impl true
   def handle_call(:get, _from, {slug, _engine, session} = state) do
-    {:reply, {:ok, {session, slug}}, state}
+    {:reply, {:ok, {session, slug}}, state, timeout()}
   end
 
   def handle_call({:dispatch, %Command{} = command}, _from, {slug, engine, session} = state) do
     case Session.dispatch(session, engine, command) do
       {:ok, updated_session} ->
         broadcast_state(updated_session)
-        {:reply, {:ok, updated_session}, {slug, engine, updated_session}}
+
+        {:reply, {:ok, updated_session}, {slug, engine, updated_session}, timeout()}
 
       {:error, reason} ->
-        {:reply, {:error, reason}, state}
+        {:reply, {:error, reason}, state, timeout()}
     end
   end
 
   @impl true
+  def handle_info(:timeout, state) do
+    {:stop, :normal, state}
+  end
+
   def handle_info({:join, actor_id, member_attrs}, state) when is_map(member_attrs) do
     profile = Accounts.get_user_or_anonymous(actor_id)
 
@@ -83,17 +88,17 @@ defmodule D20.Sessions.Server do
   end
 
   @spec handle_presence_event(state(), String.t(), Session.player_id(), map()) ::
-          {:noreply, state()}
+          {:noreply, state(), timeout()}
   defp handle_presence_event({slug, engine, session} = state, event, actor_id, attrs) do
     command = %Command{event: event, actor_id: actor_id, attrs: attrs}
 
     case Session.dispatch(session, engine, command) do
       {:ok, updated_session} ->
         broadcast_state(updated_session)
-        {:noreply, {slug, engine, updated_session}}
+        {:noreply, {slug, engine, updated_session}, timeout()}
 
       {:error, _reason} ->
-        {:noreply, state}
+        {:noreply, state, timeout()}
     end
   end
 
@@ -104,6 +109,11 @@ defmodule D20.Sessions.Server do
       SessionChannel.topic(session.id),
       {:session, session}
     )
+  end
+
+  @spec timeout() :: timeout()
+  defp timeout do
+    Application.fetch_env!(:d20, :session_idle_timeout)
   end
 
   defp via(id) do
