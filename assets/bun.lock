@@ -5,7 +5,7 @@
     "": {
       "dependencies": {
         "@inertiajs/svelte": "3.6.0",
-        "@rvct/d20sdk": "1.1.1",
+        "@rvct/d20sdk": "1.2.0",
         "phoenix": "file:../deps/phoenix",
         "phoenix-session": "1.1.0",
         "phoenix_html": "file:../deps/phoenix_html",
@@ -497,7 +497,7 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.60.2", "", { "os": "win32", "cpu": "x64" }, "sha512-Nd/SgG27WoA9e+/TdK74KnHz852TLa94ovOYySo/yMPuTmpckK/jIF2jSwS3g7ELSKXK13/cVdmg1Z/DaCWKxA=="],
 
-    "@rvct/d20sdk": ["@rvct/d20sdk@1.1.1", "", { "dependencies": { "nanostores": "^1.0.1", "penpal": "^7.0.6", "phoenix-session": "1.1.0" }, "peerDependencies": { "phoenix": "^1.8.0" } }, "sha512-KeigXy22stfga+y/qjLUHlM2JHik44zdKS+mIvJfOYpo/RRQtBwfpD4d6UHA6+MLUE8XSh0pq4vTJ2AM4OkAGg=="],
+    "@rvct/d20sdk": ["@rvct/d20sdk@1.2.0", "", { "dependencies": { "nanostores": "^1.0.1", "penpal": "^7.0.6", "phoenix-session": "1.1.0" }, "peerDependencies": { "phoenix": "^1.8.0" } }, "sha512-pwEOKFNcQRRYc8kNjj/lltoYg9AW6nh2SyTgPs3jY7p0fDUpytcJS0MurjJnNvSJaEZMEe1YG4P7pYtY6Pqbbw=="],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.49", "", {}, "sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A=="],
 
