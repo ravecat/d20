@@ -1,0 +1,1033 @@
+asyncapi: 3.0.0
+info:
+  title: Koala Rescue Club Session Async API
+  version: 0.1.0
+  description: >
+    Real-time async API for Koala Rescue Club game sessions.
+
+    Clients join a session topic, start the game, submit Koala Rescue Club
+    turns, and receive authoritative caller-specific session projections. Die
+    rolls are scheduled and performed by the server.
+  license:
+    name: MIT
+  tags:
+    - name: session
+      description: Game-session messaging
+    - name: koala-rescue-club
+      description: Koala Rescue Club commands and projections
+    - name: channel-protocol
+      description: Channel protocol messages
+servers:
+  userProduction:
+    host: "{domain}"
+    pathname: /socket/websocket
+    protocol: wss
+    description: Production WebSocket endpoint for clients
+    variables:
+      domain:
+        $ref: "#/components/serverVariables/domain"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+  userDevelopment:
+    host: "{domain}:{port}"
+    pathname: /socket/websocket
+    protocol: ws
+    description: Local WebSocket endpoint for clients
+    variables:
+      domain:
+        default: localhost
+      port:
+        $ref: "#/components/serverVariables/port"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+defaultContentType: application/json
+channels:
+  gameSession:
+    address: "session:{session_id}"
+    title: Koala Rescue Club Game Session
+    summary: WebSocket channel for a single Koala Rescue Club session
+    description: >
+      Stateful channel for one game session. A successful join tracks player
+      presence and returns the initial session projection in the join response.
+      Accepted commands receive an empty success response. The updated state and
+      caller-specific permissions are delivered separately as the latest session
+      projection.
+    servers:
+      - $ref: "#/servers/userProduction"
+      - $ref: "#/servers/userDevelopment"
+    parameters:
+      session_id:
+        description: Session identifier assigned when the session is created.
+        examples:
+          - 6f218f3c-6b82-4d8d-9f9f-dc5af24118ee
+    messages:
+      joinSessionRequest:
+        $ref: "#/components/messages/joinSessionRequest"
+      joinSessionReply:
+        $ref: "#/components/messages/joinSessionReply"
+      channelError:
+        $ref: "#/components/messages/channelError"
+      channelClosed:
+        $ref: "#/components/messages/channelClosed"
+      sessionProjection:
+        $ref: "#/components/messages/sessionProjection"
+      startSession:
+        $ref: "#/components/messages/startSession"
+      plantTrees:
+        $ref: "#/components/messages/plantTrees"
+      rehomeKoalas:
+        $ref: "#/components/messages/rehomeKoalas"
+      circleTree:
+        $ref: "#/components/messages/circleTree"
+      circleKoala:
+        $ref: "#/components/messages/circleKoala"
+      commandReply:
+        $ref: "#/components/messages/commandReply"
+    bindings:
+      ws:
+        method: GET
+        bindingVersion: 0.1.0
+operations:
+  joinSession:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Join a Koala Rescue Club session topic
+    description: |
+      Client joins `session:{session_id}`. On success, the server replies with
+      the current caller-specific session projection and tracks player presence.
+    messages:
+      - $ref: "#/channels/gameSession/messages/joinSessionRequest"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/joinSessionReply"
+  startSession:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Start the session
+    description: |
+      The session owner sends `start` with an empty payload while the session is
+      waiting for players and the game is ready. The server then schedules the
+      first automatic die roll.
+    messages:
+      - $ref: "#/channels/gameSession/messages/startSession"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  plantTrees:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Plant trees in a die-shaped group of cells
+    description: |
+      A pending player sends `plant_trees` after the automatic roll. The target
+      cells must match the selected die shape and belong to one accessible area.
+      The payload can also resolve unlocked bonuses.
+    messages:
+      - $ref: "#/channels/gameSession/messages/plantTrees"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  rehomeKoalas:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Rehome koalas in a die-shaped group of cells
+    description: |
+      A pending player sends `rehome_koalas` after the automatic roll. The
+      target cells must match the selected die shape, contain trees, and belong
+      to one accessible area. The payload can also resolve unlocked bonuses.
+    messages:
+      - $ref: "#/channels/gameSession/messages/rehomeKoalas"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  circleTree:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Circle one tree cell
+    description: |
+      A pending player sends `circle_tree` after the automatic roll to circle a
+      single valid tree cell and optionally resolve unlocked bonuses.
+    messages:
+      - $ref: "#/channels/gameSession/messages/circleTree"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  circleKoala:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Circle one koala cell
+    description: |
+      A pending player sends `circle_koala` after the automatic roll to circle a
+      single valid koala cell containing a tree and optionally resolve unlocked
+      bonuses.
+    messages:
+      - $ref: "#/channels/gameSession/messages/circleKoala"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  receiveSessionProjection:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive the latest Koala Rescue Club session projection
+    description: |
+      Server pushes `projection` after accepted state changes, automatic rolls,
+      and player-presence changes. During the roll phase, `roll_due_at` contains
+      the Unix time in milliseconds at which the server expects to roll.
+    messages:
+      - $ref: "#/channels/gameSession/messages/sessionProjection"
+  receiveSessionError:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive a session-channel error
+    messages:
+      - $ref: "#/channels/gameSession/messages/channelError"
+  receiveSessionClose:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive a session-channel close
+    messages:
+      - $ref: "#/channels/gameSession/messages/channelClosed"
+components:
+  serverVariables:
+    domain:
+      description: Public server hostname.
+    port:
+      default: "5000"
+      description: Local endpoint port.
+  securitySchemes:
+    channelAuthToken:
+      type: httpApiKey
+      in: header
+      name: Sec-WebSocket-Protocol
+      description: >
+        Auth token transported as a WebSocket subprotocol bearer-token entry.
+  messages:
+    joinSessionRequest:
+      name: phx_join
+      title: Join Session
+      summary: Join request for a Koala Rescue Club session topic
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/joinPayload"
+    joinSessionReply:
+      name: phx_reply
+      title: Join Session Reply
+      summary: Session join success or failure
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/sessionJoinReply"
+    channelError:
+      name: phx_error
+      title: Channel Error
+      summary: Channel error event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    channelClosed:
+      name: phx_close
+      title: Channel Closed
+      summary: Channel close event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    sessionProjection:
+      name: projection
+      title: Koala Rescue Club Session Projection
+      summary: Authoritative session state with caller-specific turn options and permissions
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/session"
+    startSession:
+      name: start
+      title: Start Session
+      summary: Request to start the current session
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    plantTrees:
+      name: plant_trees
+      title: Plant Trees
+      summary: Place trees in cells matching the selected die shape
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/shapeTurnPayload"
+    rehomeKoalas:
+      name: rehome_koalas
+      title: Rehome Koalas
+      summary: Place koalas in cells matching the selected die shape
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/shapeTurnPayload"
+    circleTree:
+      name: circle_tree
+      title: Circle Tree
+      summary: Circle a tree in one cell
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/singleCellTurnPayload"
+    circleKoala:
+      name: circle_koala
+      title: Circle Koala
+      summary: Circle a koala in one cell
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/singleCellTurnPayload"
+    commandReply:
+      name: phx_reply
+      title: Command Reply
+      summary: Success or failure reply for session commands
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/commandReply"
+  schemas:
+    socketConnectQuery:
+      type: object
+      description: Transport query parameters.
+      properties:
+        vsn:
+          type: string
+          const: 2.0.0
+          description: Channel serializer version.
+      required:
+        - vsn
+      additionalProperties: true
+    joinPayload:
+      type: object
+      description: Channel join payload. Current channels ignore it.
+      additionalProperties: true
+    channelSystemPayload:
+      type: object
+      description: Channel protocol payload for lifecycle events.
+      additionalProperties: true
+    emptyPayload:
+      type: object
+      additionalProperties: false
+    emptyReplyResponse:
+      type: object
+      additionalProperties: false
+    sessionJoinReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/session"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/joinError"
+          additionalProperties: false
+    commandReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/emptyReplyResponse"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/commandError"
+          additionalProperties: false
+    joinError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          enum:
+            - forbidden
+            - session_not_found
+      additionalProperties: false
+    commandError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          $ref: "#/components/schemas/commandErrorReason"
+      additionalProperties: false
+    commandErrorReason:
+      type: string
+      enum:
+        - automatic_roll
+        - forbidden
+        - session_not_found
+        - invalid_command
+        - invalid_identity
+        - not_owner
+        - invalid_player_count
+        - invalid_phase
+        - not_joined
+        - unknown_player
+        - already_submitted
+        - roll_already_exists
+        - missing_roll
+        - invalid_die_value
+        - insufficient_volunteers
+        - invalid_action
+        - mixed_action
+        - invalid_shape
+        - invalid_target
+        - invalid_area
+        - inaccessible_area
+        - occupied
+        - koala_requires_tree
+        - bonus_not_unlocked
+        - bonus_already_resolved
+        - invalid_bonus
+        - invalid_hospital
+        - invalid_skybridge
+        - invalid_badge
+        - finished
+        - unknown_command
+    session:
+      type: object
+      description: Authoritative caller-specific Koala Rescue Club session projection.
+      required:
+        - id
+        - self
+        - phase
+        - owner_id
+        - members
+        - game
+        - permissions
+        - turn_options
+      properties:
+        id:
+          type: string
+          format: uuid
+        self:
+          $ref: "#/components/schemas/participantId"
+          description: Actor id of the current caller for this projection.
+        phase:
+          type: string
+          enum:
+            - waiting_for_players
+            - in_progress
+            - finished
+        owner_id:
+          $ref: "#/components/schemas/participantId"
+        members:
+          type: object
+          description: Session members keyed by participant id.
+          additionalProperties:
+            $ref: "#/components/schemas/sessionMember"
+        game:
+          $ref: "#/components/schemas/game"
+        permissions:
+          $ref: "#/components/schemas/permissions"
+        turn_options:
+          type: array
+          description: Caller-specific die values and shapes available for the pending turn.
+          items:
+            $ref: "#/components/schemas/turnOption"
+      additionalProperties: false
+    permissions:
+      type: object
+      description: Caller-specific permissions computed from session and game state.
+      required:
+        - can_start_game
+        - can_roll
+        - can_submit_turn
+      properties:
+        can_start_game:
+          type: boolean
+        can_roll:
+          type: boolean
+          const: false
+          description: Always false because Koala Rescue Club rolls are automatic.
+        can_submit_turn:
+          type: boolean
+      additionalProperties: false
+    sessionMember:
+      type: object
+      required:
+        - online_at
+      properties:
+        online_at:
+          type: integer
+          minimum: 0
+          description: Unix epoch time in seconds.
+        display_name:
+          type: string
+        avatar:
+          oneOf:
+            - type: string
+              format: uri
+            - type: "null"
+      additionalProperties: true
+    participantId:
+      type: string
+      description: Stable participant identifier.
+      minLength: 1
+    game:
+      type: object
+      description: Authoritative Koala Rescue Club game state.
+      required:
+        - sheet
+        - phase
+        - round
+        - turn
+        - order
+        - players
+        - roll
+        - roll_due_at
+        - scores
+      properties:
+        sheet:
+          $ref: "#/components/schemas/sheetId"
+        phase:
+          $ref: "#/components/schemas/gamePhase"
+        round:
+          type: integer
+          minimum: 1
+          maximum: 2
+        turn:
+          type: integer
+          minimum: 0
+          maximum: 30
+        order:
+          type: array
+          description: Player order as participant ids.
+          items:
+            $ref: "#/components/schemas/participantId"
+        players:
+          type: object
+          description: Game players keyed by participant id.
+          additionalProperties:
+            $ref: "#/components/schemas/player"
+        roll:
+          oneOf:
+            - $ref: "#/components/schemas/dieRoll"
+            - type: "null"
+        roll_due_at:
+          oneOf:
+            - type: integer
+              minimum: 0
+              description: Unix epoch time in milliseconds for the scheduled automatic roll.
+            - type: "null"
+        scores:
+          type: object
+          description: Final scores keyed by participant id. Empty until finished.
+          additionalProperties:
+            $ref: "#/components/schemas/finalScore"
+      additionalProperties: false
+    sheetId:
+      type: string
+      enum:
+        - dharug
+        - yugambeh
+    gamePhase:
+      type: string
+      enum:
+        - setup
+        - ready
+        - roll
+        - submit
+        - finished
+    dieRoll:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: integer
+          minimum: 1
+          maximum: 6
+      additionalProperties: false
+    player:
+      type: object
+      required:
+        - status
+        - sheet
+        - badges
+        - rounds
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - pending
+            - submitted
+        sheet:
+          $ref: "#/components/schemas/playerSheet"
+        badges:
+          type: object
+          description: Badge awards keyed by badge id.
+          propertyNames:
+            enum:
+              - koala_carer
+              - tree_lover
+              - bridge_buddy
+              - people_person
+          additionalProperties:
+            type: string
+            enum:
+              - large
+              - small
+        rounds:
+          type: array
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/roundScore"
+      additionalProperties: false
+    playerSheet:
+      type: object
+      required:
+        - volunteers
+        - hospitals
+        - skybridges
+        - bonuses
+        - areas
+      properties:
+        volunteers:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items:
+            type: string
+            enum:
+              - available
+              - locked
+              - used
+        hospitals:
+          type: object
+          properties:
+            hospital_1_left:
+              $ref: "#/components/schemas/hospital"
+            hospital_1_right:
+              $ref: "#/components/schemas/hospital"
+            hospital_2:
+              $ref: "#/components/schemas/hospital"
+            hospital_3:
+              $ref: "#/components/schemas/hospital"
+            hospital_4:
+              $ref: "#/components/schemas/hospital"
+          additionalProperties: false
+        skybridges:
+          type: array
+          items:
+            $ref: "#/components/schemas/skybridge"
+        bonuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/bonusProjection"
+        areas:
+          type: object
+          description: Sheet areas keyed by area id.
+          propertyNames:
+            $ref: "#/components/schemas/areaId"
+          additionalProperties:
+            $ref: "#/components/schemas/areaProjection"
+      additionalProperties: false
+    hospital:
+      type: object
+      required:
+        - size
+        - score
+        - filled
+      properties:
+        size:
+          type: integer
+          minimum: 1
+        score:
+          type: integer
+        penalty:
+          type: integer
+          maximum: 0
+        filled:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    skybridge:
+      type: object
+      required:
+        - from
+        - to
+      properties:
+        from:
+          $ref: "#/components/schemas/areaId"
+        to:
+          $ref: "#/components/schemas/areaId"
+      additionalProperties: false
+    bonusProjection:
+      type: object
+      required:
+        - ref
+        - state
+        - bonus
+      properties:
+        ref:
+          $ref: "#/components/schemas/bonusRef"
+        state:
+          type: string
+          enum:
+            - locked
+            - unlocked
+            - resolved
+        bonus:
+          $ref: "#/components/schemas/bonusDetails"
+      additionalProperties: false
+    bonusDetails:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          enum:
+            - tree
+            - koala
+            - volunteer
+            - hospital
+            - skybridge
+        from:
+          $ref: "#/components/schemas/areaId"
+        to:
+          $ref: "#/components/schemas/areaId"
+      additionalProperties: false
+    areaProjection:
+      type: object
+      required:
+        - accessible
+        - rows
+      properties:
+        accessible:
+          type: boolean
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              oneOf:
+                - $ref: "#/components/schemas/cellState"
+                - type: "null"
+      additionalProperties: false
+    cellState:
+      type: object
+      required:
+        - tree
+        - koala
+      properties:
+        tree:
+          type: boolean
+        koala:
+          type: boolean
+      additionalProperties: false
+    roundScore:
+      type: object
+      required:
+        - trees
+        - koalas
+        - hospitals
+        - total
+      properties:
+        trees:
+          type: integer
+          minimum: 0
+        koalas:
+          type: integer
+          minimum: 0
+        hospitals:
+          type: integer
+        total:
+          type: integer
+      additionalProperties: false
+    finalScore:
+      type: object
+      required:
+        - total
+        - rank
+      properties:
+        total:
+          type: integer
+        rank:
+          oneOf:
+            - $ref: "#/components/schemas/soloRank"
+            - type: "null"
+      additionalProperties: false
+    soloRank:
+      type: string
+      enum:
+        - junior_club_member
+        - club_secretary
+        - club_treasurer
+        - vice_president
+        - president
+    turnOption:
+      type: object
+      required:
+        - die_value
+        - volunteers_used
+        - shape
+      properties:
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        volunteers_used:
+          type: integer
+          minimum: 0
+          maximum: 3
+        shape:
+          type: array
+          minItems: 2
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/shapeOffset"
+      additionalProperties: false
+    shapeOffset:
+      type: object
+      required:
+        - row
+        - column
+      properties:
+        row:
+          type: integer
+          minimum: 0
+        column:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    shapeTurnPayload:
+      type: object
+      required:
+        - die_value
+        - volunteers_used
+        - target_cells
+      properties:
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        volunteers_used:
+          type: integer
+          minimum: 0
+          maximum: 3
+        target_cells:
+          type: array
+          minItems: 2
+          maxItems: 4
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/cellRef"
+        bonus_actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/bonusAction"
+      additionalProperties: false
+    singleCellTurnPayload:
+      type: object
+      required:
+        - die_value
+        - volunteers_used
+        - target_cell
+      properties:
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        volunteers_used:
+          type: integer
+          minimum: 0
+          maximum: 3
+        target_cell:
+          $ref: "#/components/schemas/cellRef"
+        bonus_actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/bonusAction"
+      additionalProperties: false
+    cellRef:
+      type: object
+      required:
+        - area
+        - row
+        - column
+      properties:
+        area:
+          $ref: "#/components/schemas/areaId"
+        row:
+          type: integer
+          minimum: 0
+        column:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    areaId:
+      type: string
+      enum:
+        - a
+        - b
+        - c
+        - d
+        - e
+        - f
+        - g
+    bonusRef:
+      type: object
+      required:
+        - area
+        - axis
+        - index
+      properties:
+        area:
+          $ref: "#/components/schemas/areaId"
+        axis:
+          type: string
+          enum:
+            - row
+            - column
+        index:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    bonusAction:
+      type: object
+      required:
+        - bonus
+        - action
+      properties:
+        bonus:
+          $ref: "#/components/schemas/bonusRef"
+        action:
+          $ref: "#/components/schemas/bonusActionDetails"
+      additionalProperties: false
+    bonusActionDetails:
+      oneOf:
+        - $ref: "#/components/schemas/treeBonusAction"
+        - $ref: "#/components/schemas/koalaBonusAction"
+        - $ref: "#/components/schemas/volunteerBonusAction"
+        - $ref: "#/components/schemas/hospitalBonusAction"
+        - $ref: "#/components/schemas/skybridgeBonusAction"
+        - $ref: "#/components/schemas/skipBonusAction"
+    treeBonusAction:
+      type: object
+      required:
+        - kind
+        - target_cell
+      properties:
+        kind:
+          const: tree
+        target_cell:
+          $ref: "#/components/schemas/cellRef"
+      additionalProperties: false
+    koalaBonusAction:
+      type: object
+      required:
+        - kind
+        - target_cell
+      properties:
+        kind:
+          const: koala
+        target_cell:
+          $ref: "#/components/schemas/cellRef"
+      additionalProperties: false
+    volunteerBonusAction:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          const: volunteer
+      additionalProperties: false
+    hospitalBonusAction:
+      type: object
+      required:
+        - kind
+        - hospital_id
+      properties:
+        kind:
+          const: hospital
+        hospital_id:
+          type: string
+          enum:
+            - hospital_1_left
+            - hospital_1_right
+            - hospital_2
+            - hospital_3
+            - hospital_4
+      additionalProperties: false
+    skybridgeBonusAction:
+      type: object
+      required:
+        - kind
+        - to
+      properties:
+        kind:
+          const: skybridge
+        to:
+          $ref: "#/components/schemas/areaId"
+      additionalProperties: false
+    skipBonusAction:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          const: skip
+      additionalProperties: false
