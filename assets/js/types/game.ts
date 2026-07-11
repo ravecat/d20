@@ -19,8 +19,11 @@ export interface GameMetadata {
 
 export interface GameCatalogEntry {
   slug: string;
+  status: GameStatus | null;
   game: GameMetadata;
 }
+
+export type GameStatus = "active" | "in_progress";
 
 export interface AttrConfig {
   id: string;

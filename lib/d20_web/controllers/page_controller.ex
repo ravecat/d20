@@ -3,6 +3,7 @@ defmodule D20Web.PageController do
 
   require Logger
 
+  alias D20.Games
   alias D20.Games.Registry
 
   @typep params :: Plug.Conn.params()
@@ -26,6 +27,8 @@ defmodule D20Web.PageController do
          {:ok, {session, ^slug}} <- D20.Sessions.get(session_id) do
       conn
       |> assign_prop(:slug, slug)
+      |> assign_prop(:status, entry.status)
+      |> assign_prop(:can_launch_game, Games.session_launch_available?(entry))
       |> assign_prop(:game, Map.from_struct(game))
       |> assign_prop(:attrs, %{})
       |> assign_prop(:session, session)
@@ -49,13 +52,20 @@ defmodule D20Web.PageController do
 
   def game(conn, %{"slug" => slug}) do
     with {:ok, game} <- D20.Games.fetch_by_slug(slug),
-         {:ok, %Registry.Entry{engine: engine}} <- Registry.fetch(slug) do
-      changeset = D20.Game.changeset(engine)
+         {:ok, %Registry.Entry{} = entry} <- Registry.fetch(slug) do
+      can_launch_game = Games.session_launch_available?(entry)
+
+      attrs =
+        if can_launch_game,
+          do: entry.engine |> D20.Game.changeset() |> D20.Form.to_form(),
+          else: %{}
 
       conn
       |> assign_prop(:slug, slug)
+      |> assign_prop(:status, entry.status)
+      |> assign_prop(:can_launch_game, can_launch_game)
       |> assign_prop(:game, Map.from_struct(game))
-      |> assign_prop(:attrs, D20.Form.to_form(changeset))
+      |> assign_prop(:attrs, attrs)
       |> assign_prop(:session, nil)
       |> assign_prop(:module, nil)
       |> assign_prop(:connection, nil)
@@ -71,7 +81,9 @@ defmodule D20Web.PageController do
     actor = conn.assigns.current_scope.actor
     attrs = Map.delete(params, "slug")
 
-    with {:ok, %Registry.Entry{engine: configured_engine}} <- Registry.fetch(slug),
+    with {:ok, %Registry.Entry{} = entry} <- Registry.fetch(slug),
+         :ok <- authorize_session_launch(entry),
+         %Registry.Entry{engine: configured_engine} <- entry,
          {:ok, engine} <- D20.Game.ensure_engine(configured_engine),
          {:ok, session} <- D20.Sessions.create(slug, engine, actor.id, attrs) do
       conn
@@ -80,6 +92,11 @@ defmodule D20Web.PageController do
     else
       {:error, :game_not_found} ->
         send_not_found(conn)
+
+      {:error, :session_launch_forbidden} ->
+        conn
+        |> put_resp_content_type("text/plain")
+        |> send_resp(:forbidden, "Game sessions are unavailable.")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         redirect_to_game_with_errors(conn, slug, changeset)
@@ -110,8 +127,8 @@ defmodule D20Web.PageController do
         assign_prop(
           conn,
           :games,
-          Enum.map(games, fn %{slug: slug, game: game} ->
-            %{slug: slug, game: Map.from_struct(game)}
+          Enum.map(games, fn %{slug: slug, status: status, game: game} ->
+            %{slug: slug, status: status, game: Map.from_struct(game)}
           end)
         )
 
@@ -119,6 +136,12 @@ defmodule D20Web.PageController do
         Logger.error("Failed to load game metadata: #{inspect(reason)}")
         assign_prop(conn, :games, [])
     end
+  end
+
+  defp authorize_session_launch(entry) do
+    if Games.session_launch_available?(entry),
+      do: :ok,
+      else: {:error, :session_launch_forbidden}
   end
 
   @spec send_not_found(Plug.Conn.t()) :: Plug.Conn.t()

@@ -3,6 +3,7 @@ defmodule D20.GamesTest do
 
   alias D20.Games
   alias D20.Games.Game
+  alias D20.Games.Registry
   alias D20.Games.Sources.BoardGameGeek
 
   @qwinto_xml """
@@ -33,9 +34,24 @@ defmodule D20.GamesTest do
   """
 
   @registered_game_names %{
-    "352418" => "Fliptown",
+    "50" => "Lost Cities",
+    "131260" => "Qwixx",
+    "169654" => "Deep Sea Adventure",
     "183006" => "Qwinto",
+    "245654" => "Railroad Ink: Deep Blue Edition",
+    "283864" => "Trails of Tucana",
+    "302280" => "Shifting Stones",
+    "322703" => "Death Valley",
+    "342200" => "Confusing Lands",
+    "350736" => "Voyages",
+    "352418" => "Fliptown",
+    "352454" => "Trailblazers",
     "353545" => "Next Station: London",
+    "360471" => "Aquamarine",
+    "361850" => "Nimalia",
+    "373106" => "Sky Team",
+    "388329" => "Waypoints",
+    "420087" => "Flip 7",
     "425873" => "Koala Rescue Club"
   }
 
@@ -44,6 +60,7 @@ defmodule D20.GamesTest do
     Req.Test.verify_on_exit!()
 
     original_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
+    original_launch_config = Application.fetch_env!(:d20, :game_session_launch_enabled)
     original_req_options = Req.default_options()
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
@@ -51,6 +68,7 @@ defmodule D20.GamesTest do
 
     on_exit(fn ->
       Req.default_options(original_req_options)
+      Application.put_env(:d20, :game_session_launch_enabled, original_launch_config)
 
       case original_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
@@ -74,28 +92,51 @@ defmodule D20.GamesTest do
     refute Map.has_key?(game, :slug)
   end
 
-  test "lists registered game metadata by registry slug" do
+  test "lists registered game metadata by availability and registry order" do
     stub_registered_bgg_games()
 
     assert {:ok, games} = Games.list()
 
     assert Enum.map(games, & &1.slug) == [
-             "fliptown",
+             "qwinto",
              "koala-rescue-club",
+             "aquamarine",
+             "confusing-lands",
+             "death-valley",
+             "deep-sea-adventure",
+             "flip-7",
+             "fliptown",
+             "lost-cities",
              "next-station-london",
-             "qwinto"
+             "nimalia",
+             "qwixx",
+             "railroad-ink",
+             "shifting-stones",
+             "sky-team",
+             "trailblazers",
+             "trails-of-tucana",
+             "voyages",
+             "waypoints"
            ]
 
+    assert %{status: nil, game: %Game{name: "Aquamarine"}} =
+             Enum.find(games, &(&1.slug == "aquamarine"))
+
     assert %Game{name: "Fliptown"} = game_by_slug(games, "fliptown")
-    assert %Game{name: "Koala Rescue Club"} = game_by_slug(games, "koala-rescue-club")
+
+    assert %{status: :in_progress, game: %Game{name: "Koala Rescue Club"}} =
+             Enum.find(games, &(&1.slug == "koala-rescue-club"))
+
     assert %Game{name: "Next Station: London"} = game_by_slug(games, "next-station-london")
-    assert %Game{name: "Qwinto"} = game_by_slug(games, "qwinto")
+
+    assert %{status: :active, game: %Game{name: "Qwinto"}} =
+             Enum.find(games, &(&1.slug == "qwinto"))
   end
 
-  test "returns metadata source errors while listing registered games" do
+  test "returns batch metadata source errors without a game slug" do
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
 
-    assert Games.list() == {:error, {:game_metadata_unavailable, "fliptown", {:http_error, 401}}}
+    assert Games.list() == {:error, {:http_error, 401}}
   end
 
   test "returns metadata source errors for registered games" do
@@ -108,6 +149,23 @@ defmodule D20.GamesTest do
     assert Games.fetch_by_slug("missing") == {:error, :game_not_found}
   end
 
+  test "allows active and in-progress session launch outside production" do
+    assert {:ok, active} = Registry.fetch("qwinto")
+    assert {:ok, in_progress} = Registry.fetch("koala-rescue-club")
+    assert {:ok, inactive} = Registry.fetch("voyages")
+
+    assert Games.session_launch_available?(active)
+    assert Games.session_launch_available?(in_progress)
+    refute Games.session_launch_available?(inactive)
+  end
+
+  test "disables session launch when application launch is disabled" do
+    Application.put_env(:d20, :game_session_launch_enabled, false)
+    assert {:ok, active} = Registry.fetch("qwinto")
+
+    refute Games.session_launch_available?(active)
+  end
+
   defp stub_bgg_game(xml) do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.params == %{"id" => "183006", "type" => "boardgame", "stats" => "1"}
@@ -117,21 +175,27 @@ defmodule D20.GamesTest do
   end
 
   defp stub_registered_bgg_games do
-    Req.Test.expect(__MODULE__, map_size(@registered_game_names), fn conn ->
-      assert %{"id" => id, "type" => "boardgame", "stats" => "1"} = conn.params
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert %{"id" => ids, "type" => "boardgame", "stats" => "1"} = conn.params
 
-      Req.Test.text(conn, game_xml(id, Map.fetch!(@registered_game_names, id)))
+      requested_ids = String.split(ids, ",")
+
+      assert MapSet.new(requested_ids) == MapSet.new(Map.keys(@registered_game_names))
+
+      items =
+        Enum.map_join(requested_ids, fn id ->
+          game_item_xml(id, Map.fetch!(@registered_game_names, id))
+        end)
+
+      Req.Test.text(conn, "<items>#{items}</items>")
     end)
   end
 
-  defp game_xml(id, name) do
+  defp game_item_xml(id, name) do
     """
-    <?xml version="1.0" encoding="utf-8"?>
-    <items>
-      <item type="boardgame" id="#{id}">
-        <name type="primary" value="#{name}" />
-      </item>
-    </items>
+    <item type="boardgame" id="#{id}">
+      <name type="primary" value="#{name}" />
+    </item>
     """
   end
 

@@ -7,11 +7,13 @@
   import PlayTimeLabel from "~components/play_time_label.svelte";
   import PlayerCountLabel from "~components/player_count_label.svelte";
   import SessionPanel from "~components/session_panel.svelte";
-  import type { AttrConfig, Attrs, GameMetadata, Session } from "~types/game";
+  import type { AttrConfig, Attrs, GameMetadata, GameStatus, Session } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   type Props = InertiaProps<{
     slug: string;
+    status: GameStatus | null;
+    canLaunchGame: boolean;
     game: GameMetadata;
     attrs?: Attrs;
     module: ModuleEntry | null;
@@ -21,7 +23,15 @@
   type SessionFormFields = Record<string, string>;
   type SessionFormSlotProps = FormComponentSlotProps<SessionFormFields>;
 
-  const { slug, game, attrs = {}, module, connection, session }: Props = $props();
+  const {
+    slug,
+    canLaunchGame = false,
+    game,
+    attrs = {},
+    module,
+    connection,
+    session,
+  }: Props = $props();
   const formId = $props.id();
   const attrFields = $derived(Object.entries(attrs));
 
@@ -99,7 +109,7 @@
               {#key session.id}
                 <SessionPanel {module} {connection} />
               {/key}
-            {:else}
+            {:else if canLaunchGame}
               <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>
                 {#snippet children({
                   errors,

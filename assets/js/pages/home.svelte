@@ -23,21 +23,27 @@
 <main class="home-page">
   <section class="home-shell">
     {#if games.length > 0}
-      <div class="home-grid">
+      <ul class="home-grid">
         {#each games as entry (entry.slug)}
-          {@const imageUrl = entry.game.imageUrl ?? entry.game.thumbnailUrl}
-          {@const gameTitle = entry.game.name}
-          <a
-            class="game-card"
+          {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
+          {@const title = entry.game.name}
+          <li class="game-card-item"><a
+            class={{
+                "game-card": true,
+                "game-card--active": entry.status === "active",
+                "game-card--muted": entry.status !== "active",
+                "game-card--in-progress": entry.status === "in_progress",
+              }}
             href={`/games/${entry.slug}`}
-            aria-label={gameTitle ? `Open ${gameTitle}` : "Open game"}
+            aria-labelledby={title ? `game-title-${entry.slug}` : undefined}
+            aria-label={title ? undefined : "Open game"}
             use:inertia={{ href: `/games/${entry.slug}` }}
           >
-            <span class="game-preview">
-              {#if imageUrl}
+            <div class="game-preview">
+              {#if url}
                 <img
                   class="game-preview-image"
-                  src={imageUrl}
+                  src={url}
                   alt=""
                   width="640"
                   height="320"
@@ -45,30 +51,37 @@
                   decoding="async"
                 >
               {:else}
-                <span class="game-preview-fallback" aria-hidden="true"></span>
+                <div class="game-preview-fallback" aria-hidden="true"></div>
               {/if}
 
-              <span class="game-preview-overlay" aria-hidden="true"></span>
+              <div class="game-preview-overlay" aria-hidden="true"></div>
+              {#if title}
+                <div class="game-title-scrim" aria-hidden="true"></div>
+              {/if}
               {#if entry.game.categories.length > 0}
-                <span class="game-metadata-blocks">
-                  <span class="game-metadata-block game-metadata-block--categories">
+                <div class="game-metadata-blocks">
+                  <ul
+                    class="game-metadata-block game-metadata-block--categories"
+                    aria-label="Categories"
+                  >
                     {#each entry.game.categories as category (category)}
-                      <span class="game-metadata-chip game-metadata-chip--category">
-                        {category}
-                      </span>
+                      <li class="game-metadata-chip game-metadata-chip--category">{category}</li>
                     {/each}
-                  </span>
-                </span>
+                  </ul>
+                </div>
               {/if}
-              {#if gameTitle}
-                <span class="game-title-chip">{gameTitle}</span>
+              {#if entry.status === "in_progress"}
+                <span class="game-status-badge">Soon</span>
               {/if}
-            </span>
-          </a>
+              {#if title}
+                <h2 id={`game-title-${entry.slug}`} class="game-title">{title}</h2>
+              {/if}
+            </div>
+          </a></li>
         {/each}
-      </div>
+      </ul>
     {:else}
-      <div class="home-empty">No games</div>
+      <p class="home-empty">No games</p>
     {/if}
   </section>
 </main>
@@ -90,13 +103,21 @@
   .home-grid {
     display: grid;
     inline-size: 100%;
+    margin: 0;
+    padding: 0;
     grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
     gap: 1.25rem;
+    list-style: none;
+  }
+
+  .game-card-item {
+    min-inline-size: 0;
   }
 
   .home-empty {
     display: grid;
     min-block-size: 50vh;
+    margin: 0;
     place-items: center;
     color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
     font-size: 0.875rem;
@@ -122,6 +143,11 @@
     transform: translateY(-1px);
   }
 
+  .game-card--muted {
+    border-color: color-mix(in oklab, var(--color-base-300) 72%, transparent);
+    box-shadow: none;
+  }
+
   .game-card:focus-visible {
     outline: 2px solid color-mix(in oklab, var(--color-base-content) 40%, transparent);
     outline-offset: 2px;
@@ -141,6 +167,20 @@
       linear-gradient(135deg, oklch(63% 0.17 252), oklch(91% 0.14 96));
   }
 
+  .game-card--muted .game-preview::after {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: color-mix(in oklab, var(--color-base-100) 52%, transparent);
+    content: "";
+    pointer-events: none;
+    transition: background-color 180ms ease;
+  }
+
+  .game-card--muted:hover .game-preview::after {
+    background: color-mix(in oklab, var(--color-base-100) 42%, transparent);
+  }
+
   .game-preview-image {
     position: absolute;
     inset: 0;
@@ -156,7 +196,7 @@
       scale 180ms ease;
   }
 
-  .game-card:hover .game-preview-image {
+  .game-card--active:hover .game-preview-image {
     filter: saturate(1.2) contrast(0.94) brightness(0.96);
     scale: 1.06;
   }
@@ -184,6 +224,14 @@
     pointer-events: none;
   }
 
+  .game-title-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(90deg, rgb(0 0 0 / 0.38), rgb(0 0 0 / 0.08) 48%, transparent 68%);
+    pointer-events: none;
+  }
+
   .game-metadata-blocks {
     position: absolute;
     inset-inline: 0.65rem 0.65rem;
@@ -196,9 +244,12 @@
   .game-metadata-block {
     display: flex;
     max-block-size: 2.7rem;
+    margin: 0;
+    padding: 0;
     flex-wrap: wrap;
     gap: 0.25rem;
     overflow: clip;
+    list-style: none;
   }
 
   .game-metadata-chip {
@@ -221,25 +272,43 @@
     background: oklch(42% 0.12 196 / 0.88);
   }
 
-  .game-title-chip {
+  .game-title {
     position: absolute;
     inset-inline-start: 0.75rem;
     inset-block-start: 0.75rem;
     z-index: 2;
     max-inline-size: calc(100% - 1.5rem);
-    border: 1px solid rgb(255 255 255 / 0.38);
-    border-radius: 0.35rem;
-    padding: 0.35rem 0.7rem;
-    background: rgb(10 10 10 / 0.68);
+    margin: 0;
     color: white;
     font-size: 0.8125rem;
     font-weight: 700;
     line-height: 1.1;
     overflow-wrap: anywhere;
     text-align: start;
-    text-shadow: 0 1px 1px rgb(0 0 0 / 0.5);
-    backdrop-filter: saturate(1.3);
-    box-shadow: 0 8px 18px rgb(0 0 0 / 0.22);
+    text-shadow:
+      0 1px 2px rgb(0 0 0 / 0.9),
+      0 0 10px rgb(0 0 0 / 0.5);
+  }
+
+  .game-card--in-progress .game-title {
+    max-inline-size: calc(100% - 6rem);
+  }
+
+  .game-status-badge {
+    position: absolute;
+    inset-block-start: 0.75rem;
+    inset-inline-end: 0.75rem;
+    z-index: 2;
+    border: 1px solid color-mix(in oklab, var(--color-warning-content) 30%, transparent);
+    border-radius: 0.35rem;
+    padding: 0.35rem 0.55rem;
+    background: var(--color-warning);
+    color: var(--color-warning-content);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+    box-shadow: 0 8px 18px rgb(0 0 0 / 0.2);
   }
 
   @media (max-width: 48rem) {

@@ -2,7 +2,7 @@ import { flushSync, mount, type Component as SvelteComponent, unmount } from "sv
 import { afterEach, describe, expect, it } from "vitest";
 import GamePage from "~pages/game.svelte";
 import HomePage from "~pages/home.svelte";
-import type { Attrs, GameCatalogEntry, GameMetadata } from "~types/game";
+import type { Attrs, GameMetadata } from "~types/game";
 import inertiaMock from "../test/mocks/inertia";
 
 let cleanup: (() => Promise<void>) | undefined;
@@ -29,42 +29,117 @@ describe("home page", () => {
   it("renders game tiles with preview images and slug links", () => {
     render(HomePage, {
       games: [
-        catalogEntry(
-          gameMetadata({
+        {
+          slug: "qwinto",
+          status: "active",
+          game: gameMetadata({
             name: "Qwinto",
             categories: ["Dice", "Number"],
             mechanics: ["Dice Rolling", "Paper-and-Pencil"],
             thumbnailUrl: "https://example.invalid/qwinto-thumb.jpg",
             imageUrl: "https://example.invalid/qwinto-image.jpg",
           }),
-        ),
+        },
       ],
     });
 
-    const link = document.querySelector("a");
-    const image = document.querySelector("img");
-    const preview = document.querySelector(".game-preview");
-    const titleChip = document.querySelector(".game-title-chip");
-    const categoryChips = document.querySelectorAll(".game-metadata-chip--category");
-    const mechanicChips = document.querySelectorAll(".game-metadata-chip--mechanic");
+    const [link] = document.links;
+    const [image] = document.images;
+    const title = link?.querySelector("h2");
+    const visibleText = link?.textContent ?? "";
 
     expect(link?.getAttribute("href")).toBe("/games/qwinto");
-    expect(document.body.textContent).toContain("Qwinto");
+    expect(title?.textContent).toBe("Qwinto");
     expect(image?.getAttribute("src")).toBe("https://example.invalid/qwinto-image.jpg");
-    expect(preview?.contains(titleChip)).toBe(true);
-    expect(titleChip?.textContent).toBe("Qwinto");
-    expect([...categoryChips].map((chip) => chip.textContent)).toEqual(["Dice", "Number"]);
-    expect(mechanicChips).toHaveLength(0);
+    expect(visibleText).toContain("Qwinto");
+    expect(visibleText).toContain("Dice");
+    expect(visibleText).toContain("Number");
+    expect(visibleText).not.toContain("Dice Rolling");
+    expect(visibleText).not.toContain("Paper-and-Pencil");
+    expect(visibleText).not.toContain("Soon");
   });
 
   it("renders fallback preview state when metadata has no image", () => {
     render(HomePage, {
-      games: [catalogEntry(gameMetadata({ thumbnailUrl: null, imageUrl: null }))],
+      games: [
+        {
+          slug: "qwinto",
+          status: null,
+          game: gameMetadata({ thumbnailUrl: null, imageUrl: null }),
+        },
+      ],
     });
 
-    expect(document.body.textContent).toContain("Qwinto");
-    expect(document.querySelector("img")).toBeNull();
-    expect(document.querySelector("a")?.getAttribute("href")).toBe("/games/qwinto");
+    const [link] = document.links;
+
+    expect(link?.textContent).toContain("Qwinto");
+    expect(document.images).toHaveLength(0);
+    expect(link?.getAttribute("href")).toBe("/games/qwinto");
+  });
+
+  it("renders the Soon label for in-progress games", () => {
+    render(HomePage, {
+      games: [
+        {
+          slug: "koala-rescue-club",
+          status: "in_progress",
+          game: gameMetadata({ name: "Koala Rescue Club" }),
+        },
+      ],
+    });
+
+    const [link] = document.links;
+
+    expect(link?.getAttribute("href")).toBe("/games/koala-rescue-club");
+    expect(link?.querySelector("h2")?.textContent).toBe("Koala Rescue Club");
+    expect(link?.textContent).toContain("Koala Rescue Club");
+    expect(link?.textContent).toContain("Soon");
+  });
+
+  it("renders games in the received catalog order", () => {
+    render(HomePage, {
+      games: [
+        {
+          slug: "inactive-first",
+          status: null,
+          game: gameMetadata({ name: "Inactive First" }),
+        },
+        {
+          slug: "active-first",
+          status: "active",
+          game: gameMetadata({ name: "Active First" }),
+        },
+        {
+          slug: "soon-first",
+          status: "in_progress",
+          game: gameMetadata({ name: "Soon First" }),
+        },
+        {
+          slug: "active-second",
+          status: "active",
+          game: gameMetadata({ name: "Active Second" }),
+        },
+        {
+          slug: "inactive-second",
+          status: null,
+          game: gameMetadata({ name: "Inactive Second" }),
+        },
+        {
+          slug: "soon-second",
+          status: "in_progress",
+          game: gameMetadata({ name: "Soon Second" }),
+        },
+      ],
+    });
+
+    expect([...document.querySelectorAll("h2")].map((title) => title.textContent)).toEqual([
+      "Inactive First",
+      "Active First",
+      "Soon First",
+      "Active Second",
+      "Inactive Second",
+      "Soon Second",
+    ]);
   });
 });
 
@@ -79,6 +154,8 @@ describe("game detail page", () => {
         imageUrl: "https://example.invalid/qwinto.jpg",
         description: "Resolved details.",
       }),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -139,6 +216,8 @@ describe("game detail page", () => {
         complexity: 2.14,
         rating: 7.42,
       }),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -166,6 +245,8 @@ describe("game detail page", () => {
         minPlayTime: 15,
         maxPlayTime: 15,
       }),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -184,6 +265,8 @@ describe("game detail page", () => {
         minPlayTime: 20,
         maxPlayTime: null,
       }),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -211,6 +294,8 @@ describe("game detail page", () => {
         complexity: null,
         rating: null,
       }),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -242,6 +327,8 @@ describe("game detail page", () => {
         complexity: null,
         rating: null,
       }),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -259,6 +346,8 @@ describe("game detail page", () => {
     render(GamePage, {
       slug: "qwinto",
       game: gameMetadata(),
+      status: "active",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -267,7 +356,6 @@ describe("game detail page", () => {
     expect(document.querySelector("button")?.textContent).toContain("Play");
 
     document.querySelector("button")?.click();
-    flushSync();
 
     expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
       action: "/games/qwinto/sessions",
@@ -281,6 +369,8 @@ describe("game detail page", () => {
       slug: "koala-rescue-club",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       attrs: koalaAttrs,
+      status: "in_progress",
+      canLaunchGame: true,
       module: null,
       connection: null,
       session: null,
@@ -300,9 +390,7 @@ describe("game detail page", () => {
     expect(defaultOption.checked).toBe(true);
 
     selectedOption.click();
-    flushSync();
     document.querySelector("button")?.click();
-    flushSync();
 
     expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
       action: "/games/koala-rescue-club/sessions",
@@ -310,14 +398,32 @@ describe("game detail page", () => {
       data: { sheet: "yugambeh" },
     });
   });
+
+  it("keeps game details visible without session controls when launch is unavailable", () => {
+    render(GamePage, {
+      slug: "voyages",
+      status: null,
+      canLaunchGame: false,
+      game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    expect(document.body.textContent).toContain("Voyages");
+    expect(document.body.textContent).toContain("Chart a course.");
+    expect(document.querySelector("form")).toBeNull();
+    expect(document.querySelector("button")).toBeNull();
+  });
 });
 
 function render(Component: unknown, props: Record<string, unknown>) {
   const target = document.createElement("div");
   document.body.append(target);
 
-  const component = mount(Component as SvelteComponent<Record<string, unknown>>, { target, props });
-  flushSync();
+  const component = flushSync(() =>
+    mount(Component as SvelteComponent<Record<string, unknown>>, { target, props }),
+  );
 
   cleanup = async () => {
     await unmount(component);
@@ -344,12 +450,5 @@ function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {
     complexity: 2.1,
     rating: 7.4,
     ...overrides,
-  };
-}
-
-function catalogEntry(game: GameMetadata): GameCatalogEntry {
-  return {
-    slug: "qwinto",
-    game,
   };
 }

@@ -34,6 +34,7 @@ config :bun,
 config :d20,
   ecto_repos: [D20.Repo],
   generators: [timestamp_type: :utc_datetime],
+  game_session_launch_enabled: config_env() != :prod,
   session_idle_timeout: :timer.minutes(5)
 
 config :d20, D20.Actors.Token,
@@ -42,6 +43,11 @@ config :d20, D20.Actors.Token,
 
 config :d20, D20.Games.Registry,
   games: [
+    aquamarine: [bgg_id: 360_471],
+    "confusing-lands": [bgg_id: 342_200],
+    "death-valley": [bgg_id: 322_703],
+    "deep-sea-adventure": [bgg_id: 169_654],
+    "flip-7": [bgg_id: 420_087],
     fliptown: [
       engine: D20.Fliptown.Game,
       bgg_id: 352_418,
@@ -50,18 +56,30 @@ config :d20, D20.Games.Registry,
     "koala-rescue-club": [
       engine: D20.KoalaRescueClub.Game,
       bgg_id: 425_873,
-      sandbox: ["allow-scripts", "allow-same-origin"]
+      sandbox: ["allow-scripts", "allow-same-origin"],
+      status: :in_progress
     ],
+    "lost-cities": [bgg_id: 50],
+    nimalia: [bgg_id: 361_850],
     "next-station-london": [
       engine: D20.NextStationLondon.Game,
       bgg_id: 353_545,
       sandbox: ["allow-scripts", "allow-same-origin"]
     ],
+    "railroad-ink": [bgg_id: 245_654],
     qwinto: [
       engine: D20.Qwinto.Game,
       bgg_id: 183_006,
-      sandbox: ["allow-scripts", "allow-same-origin"]
-    ]
+      sandbox: ["allow-scripts", "allow-same-origin"],
+      status: :active
+    ],
+    qwixx: [bgg_id: 131_260],
+    "shifting-stones": [bgg_id: 302_280],
+    "sky-team": [bgg_id: 373_106],
+    trailblazers: [bgg_id: 352_454],
+    "trails-of-tucana": [bgg_id: 283_864],
+    voyages: [bgg_id: 350_736],
+    waypoints: [bgg_id: 388_329]
   ]
 
 config :d20, D20.Module.Token,

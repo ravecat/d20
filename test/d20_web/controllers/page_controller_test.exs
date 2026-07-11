@@ -53,10 +53,35 @@ defmodule D20Web.PageControllerTest do
   </items>
   """
 
+  @voyages_xml """
+  <?xml version="1.0" encoding="utf-8"?>
+  <items>
+    <item type="boardgame" id="350736">
+      <name type="primary" value="Voyages" />
+      <description>Draw maps and chart a course.</description>
+    </item>
+  </items>
+  """
+
   @registered_game_names %{
-    "352418" => "Fliptown",
+    "50" => "Lost Cities",
+    "131260" => "Qwixx",
+    "169654" => "Deep Sea Adventure",
     "183006" => "Qwinto",
+    "245654" => "Railroad Ink: Deep Blue Edition",
+    "283864" => "Trails of Tucana",
+    "302280" => "Shifting Stones",
+    "322703" => "Death Valley",
+    "342200" => "Confusing Lands",
+    "350736" => "Voyages",
+    "352418" => "Fliptown",
+    "352454" => "Trailblazers",
     "353545" => "Next Station: London",
+    "360471" => "Aquamarine",
+    "361850" => "Nimalia",
+    "373106" => "Sky Team",
+    "388329" => "Waypoints",
+    "420087" => "Flip 7",
     "425873" => "Koala Rescue Club"
   }
 
@@ -67,6 +92,7 @@ defmodule D20Web.PageControllerTest do
     original_bgg_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
     original_req_options = Req.default_options()
     original_registry_config = Application.fetch_env!(:d20, Registry)
+    original_launch_config = Application.fetch_env!(:d20, :game_session_launch_enabled)
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
     Req.default_options(plug: {Req.Test, __MODULE__})
@@ -75,6 +101,7 @@ defmodule D20Web.PageControllerTest do
     on_exit(fn ->
       Req.default_options(original_req_options)
       Application.put_env(:d20, Registry, original_registry_config)
+      Application.put_env(:d20, :game_session_launch_enabled, original_launch_config)
 
       case original_bgg_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
@@ -95,11 +122,30 @@ defmodule D20Web.PageControllerTest do
     assert %{games: games} = inertia_props(conn)
 
     assert Enum.map(games, & &1.slug) == [
-             "fliptown",
+             "qwinto",
              "koala-rescue-club",
+             "aquamarine",
+             "confusing-lands",
+             "death-valley",
+             "deep-sea-adventure",
+             "flip-7",
+             "fliptown",
+             "lost-cities",
              "next-station-london",
-             "qwinto"
+             "nimalia",
+             "qwixx",
+             "railroad-ink",
+             "shifting-stones",
+             "sky-team",
+             "trailblazers",
+             "trails-of-tucana",
+             "voyages",
+             "waypoints"
            ]
+
+    assert %{status: nil} = Enum.find(games, &(&1.slug == "aquamarine"))
+    assert %{status: :in_progress} = Enum.find(games, &(&1.slug == "koala-rescue-club"))
+    assert %{status: :active} = Enum.find(games, &(&1.slug == "qwinto"))
 
     game = game_by_slug(games, "qwinto")
 
@@ -156,6 +202,8 @@ defmodule D20Web.PageControllerTest do
     assert %{slug: "qwinto", module: nil, connection: nil, game: game, session: nil} =
              inertia_props(conn)
 
+    assert %{status: :active, canLaunchGame: true} = inertia_props(conn)
+
     refute Map.has_key?(game, :slug)
     refute Map.has_key?(game, :bggId)
     assert game[:name] == "Resolved Qwinto"
@@ -168,6 +216,31 @@ defmodule D20Web.PageControllerTest do
     assert game[:minAge] == 8
     assert game[:complexity] == 1.47
     assert game[:rating] == 7.42
+  end
+
+  test "GET /games/:slug renders inactive game metadata without an engine", %{conn: conn} do
+    stub_bgg_game(@voyages_xml, "350736")
+
+    conn = get(conn, ~p"/games/voyages")
+
+    assert inertia_component(conn) == "game"
+
+    assert %{
+             slug: "voyages",
+             status: nil,
+             canLaunchGame: false,
+             attrs: %{},
+             game: %{name: "Voyages", description: "Draw maps and chart a course."}
+           } = inertia_props(conn)
+  end
+
+  test "GET /games/:slug disables launch when application launch is disabled", %{conn: conn} do
+    Application.put_env(:d20, :game_session_launch_enabled, false)
+    stub_bgg_game(@resolved_qwinto_xml)
+
+    conn = get(conn, ~p"/games/qwinto")
+
+    assert %{status: :active, canLaunchGame: false, attrs: %{}} = inertia_props(conn)
   end
 
   test "GET /games/:slug renders game-owned creation attrs", %{conn: conn} do
@@ -246,6 +319,27 @@ defmodule D20Web.PageControllerTest do
              D20.Sessions.get(session_id)
   end
 
+  test "POST /games/:slug/sessions forbids inactive games", %{conn: conn} do
+    before_count = Elixir.Registry.count(D20.Registry)
+
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/voyages/sessions")
+
+    assert text_response(conn, 403) == "Game sessions are unavailable."
+    assert Elixir.Registry.count(D20.Registry) == before_count
+  end
+
+  test "POST /games/:slug/sessions forbids launch when application launch is disabled", %{
+    conn: conn
+  } do
+    Application.put_env(:d20, :game_session_launch_enabled, false)
+    before_count = Elixir.Registry.count(D20.Registry)
+
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
+
+    assert text_response(conn, 403) == "Game sessions are unavailable."
+    assert Elixir.Registry.count(D20.Registry) == before_count
+  end
+
   test "POST /games/:slug/sessions redirects with errors when creation attrs are invalid", %{
     conn: conn
   } do
@@ -269,7 +363,9 @@ defmodule D20Web.PageControllerTest do
 
   test "POST /games/:slug/sessions redirects with errors when the configured engine is invalid",
        %{conn: conn} do
-    put_registry_games(qwinto: [engine: String, bgg_id: 183_006, sandbox: ["allow-scripts"]])
+    put_registry_games(
+      qwinto: [engine: String, bgg_id: 183_006, sandbox: ["allow-scripts"], status: :active]
+    )
 
     conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
@@ -377,13 +473,20 @@ defmodule D20Web.PageControllerTest do
   end
 
   defp stub_registered_bgg_games(overrides \\ %{}) do
-    Req.Test.expect(__MODULE__, map_size(@registered_game_names), fn conn ->
-      assert %{"id" => id, "type" => "boardgame", "stats" => "1"} = conn.params
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert %{"id" => ids, "type" => "boardgame", "stats" => "1"} = conn.params
 
-      xml =
-        Map.get_lazy(overrides, id, fn -> game_xml(id, Map.fetch!(@registered_game_names, id)) end)
+      requested_ids = String.split(ids, ",")
+      assert MapSet.new(requested_ids) == MapSet.new(Map.keys(@registered_game_names))
 
-      Req.Test.text(conn, xml)
+      items =
+        Enum.map_join(requested_ids, fn id ->
+          id
+          |> then(&Map.get(overrides, &1, game_xml(&1, Map.fetch!(@registered_game_names, &1))))
+          |> extract_item()
+        end)
+
+      Req.Test.text(conn, "<items>#{items}</items>")
     end)
   end
 
@@ -398,6 +501,11 @@ defmodule D20Web.PageControllerTest do
       </item>
     </items>
     """
+  end
+
+  defp extract_item(xml) do
+    [item] = Regex.run(~r/<item\b.*<\/item>/s, xml)
+    item
   end
 
   defp game_by_slug(games, slug) do

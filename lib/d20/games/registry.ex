@@ -1,6 +1,6 @@
 defmodule D20.Games.Registry do
   @moduledoc """
-  Registry of implemented playable games.
+  Registry of catalog games and their optional runtime bindings.
 
   Registry entries are stable operational bindings. Display metadata is resolved
   separately from external providers such as BoardGameGeek.
@@ -12,27 +12,37 @@ defmodule D20.Games.Registry do
     import Ecto.Changeset
 
     @slug_pattern ~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
-    @fields [:slug, :engine, :bgg_id, :sandbox]
-    @types %{slug: :string, engine: :any, bgg_id: :integer, sandbox: {:array, :string}}
+    @statuses [:active, :in_progress]
+    @fields [:slug, :engine, :bgg_id, :sandbox, :status]
+    @types %{
+      slug: :string,
+      engine: :any,
+      bgg_id: :integer,
+      sandbox: {:array, :string},
+      status: :any
+    }
 
-    @enforce_keys [:slug, :engine, :bgg_id, :sandbox]
-    defstruct [:slug, :engine, :bgg_id, :sandbox]
+    @enforce_keys [:slug, :bgg_id]
+    defstruct [:slug, :bgg_id, :status, engine: nil, sandbox: []]
 
     @type t :: %__MODULE__{
             slug: String.t(),
-            engine: D20.Game.engine(),
+            engine: D20.Game.engine() | nil,
             bgg_id: integer(),
-            sandbox: [String.t()]
+            sandbox: [String.t()],
+            status: :active | :in_progress | nil
           }
 
     @spec changeset(map()) :: Ecto.Changeset.t()
     def changeset(attrs) when is_map(attrs) do
       {struct(__MODULE__), @types}
-      |> change(Map.take(attrs, @fields))
-      |> validate_required(@fields)
+      |> cast(attrs, @fields)
+      |> validate_required([:slug, :bgg_id])
       |> validate_slug()
-      |> validate_bgg_id()
-      |> validate_sandbox()
+      |> validate_number(:bgg_id, greater_than: 0)
+      |> validate_inclusion(:status, @statuses, message: "must be active or in_progress")
+      |> validate_length(:sandbox, min: 1)
+      |> validate_operational_bindings()
     end
 
     @spec new!(map()) :: t()
@@ -52,24 +62,21 @@ defmodule D20.Games.Registry do
       end)
     end
 
-    defp validate_bgg_id(changeset) do
-      validate_change(changeset, :bgg_id, fn :bgg_id, bgg_id ->
-        if is_integer(bgg_id) and bgg_id > 0 do
-          []
-        else
-          [bgg_id: "must be a positive integer"]
-        end
-      end)
+    defp validate_operational_bindings(changeset) do
+      if get_field(changeset, :status) in @statuses do
+        changeset
+        |> validate_required([:engine])
+        |> require_sandbox()
+      else
+        changeset
+      end
     end
 
-    defp validate_sandbox(changeset) do
-      validate_change(changeset, :sandbox, fn :sandbox, sandbox ->
-        if is_list(sandbox) and sandbox != [] and Enum.all?(sandbox, &is_binary/1) do
-          []
-        else
-          [sandbox: "must be a non-empty list of strings"]
-        end
-      end)
+    defp require_sandbox(changeset) do
+      case get_field(changeset, :sandbox) do
+        sandbox when is_list(sandbox) and sandbox != [] -> changeset
+        _sandbox -> add_error(changeset, :sandbox, "must be a non-empty list of strings")
+      end
     end
   end
 

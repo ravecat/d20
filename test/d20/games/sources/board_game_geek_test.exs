@@ -2,6 +2,7 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
   use ExUnit.Case, async: false
 
   alias D20.Games.Sources.BoardGameGeek
+  alias D20.Games.Sources.BoardGameGeek.Parser
 
   @fixture Path.expand("../../../support/fixtures/games/board_game_geek_game.xml", __DIR__)
 
@@ -25,7 +26,7 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
   end
 
   test "parses core game details into normalized game attrs" do
-    assert {:ok, [attrs]} = @fixture |> File.read!() |> BoardGameGeek.parse_game_details()
+    assert {:ok, [attrs]} = @fixture |> File.read!() |> Parser.parse_game_details()
 
     assert %{
              bgg_id: 999_999,
@@ -62,14 +63,14 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
     </items>
     """
 
-    assert {:ok, [%{description: description}]} = BoardGameGeek.parse_game_details(xml)
+    assert {:ok, [%{description: description}]} = Parser.parse_game_details(xml)
 
     assert description ==
              "Roll 1#{<<0x2013::utf8>>}3 dice #{<<0x2014::utf8>>} then score & settle \"fast\".\nNext line."
   end
 
   test "returns an empty list when the response has no items" do
-    assert BoardGameGeek.parse_game_details("<items />") == {:ok, []}
+    assert Parser.parse_game_details("<items />") == {:ok, []}
   end
 
   describe "fetch_game_details/1" do
@@ -119,6 +120,38 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
       Req.Test.expect(__MODULE__, fn conn -> Req.Test.text(conn, "not xml") end)
 
       assert {:error, _reason} = BoardGameGeek.fetch_game_details(999_999)
+    end
+  end
+
+  describe "fetch_games_details/1" do
+    test "fetches multiple games in one request" do
+      Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.params == %{"id" => "350736,373106", "type" => "boardgame", "stats" => "1"}
+
+        Req.Test.text(conn, """
+        <items>
+          <item type="boardgame" id="350736">
+            <name type="primary" value="Voyages" />
+          </item>
+          <item type="boardgame" id="373106">
+            <name type="primary" value="Sky Team" />
+          </item>
+        </items>
+        """)
+      end)
+
+      assert {:ok, games} = BoardGameGeek.fetch_games_details([350_736, 373_106])
+
+      assert Enum.map(games, &{&1.bgg_id, &1.name}) == [
+               {350_736, "Voyages"},
+               {373_106, "Sky Team"}
+             ]
+    end
+
+    test "does not request metadata for an empty catalog" do
+      assert BoardGameGeek.fetch_games_details([]) == {:ok, []}
     end
   end
 end

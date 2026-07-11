@@ -7,7 +7,7 @@ defmodule D20.Games.Sources.BoardGameGeek do
   attributes.
   """
 
-  @type game_attrs :: %{
+  @type game :: %{
           optional(:bgg_id) => integer(),
           optional(:name) => String.t(),
           optional(:alternate_names) => [String.t()],
@@ -27,26 +27,34 @@ defmodule D20.Games.Sources.BoardGameGeek do
           optional(:rating) => float()
         }
 
-  @spec fetch_game_details(integer()) :: {:ok, game_attrs()} | {:error, term()}
+  @spec fetch_game_details(integer()) :: {:ok, game()} | {:error, term()}
   def fetch_game_details(bgg_id) when is_integer(bgg_id) and bgg_id > 0 do
-    with {:ok, body} <- request_game_details(bgg_id, config!(:api_key)),
-         {:ok, [attrs | _attrs]} <- parse_game_details(body) do
+    with {:ok, games} <- fetch_games_details([bgg_id]),
+         {:ok, attrs} <- Map.fetch(Map.new(games, &{&1.bgg_id, &1}), bgg_id) do
       {:ok, attrs}
     else
-      {:ok, []} -> {:error, :game_not_found}
+      :error -> {:error, :game_not_found}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  @spec parse_game_details(binary()) :: {:ok, [game_attrs()]} | {:error, term()}
-  def parse_game_details(xml) when is_binary(xml) do
-    __MODULE__.Parser.parse_game_details(xml)
+  @spec fetch_games_details([integer()]) :: {:ok, [game()]} | {:error, term()}
+  def fetch_games_details([]), do: {:ok, []}
+
+  def fetch_games_details(bgg_ids) when is_list(bgg_ids) do
+    if Enum.all?(bgg_ids, &(is_integer(&1) and &1 > 0)) do
+      with {:ok, body} <- request_game_details(bgg_ids, config!(:api_key)) do
+        __MODULE__.Parser.parse_game_details(body)
+      end
+    else
+      {:error, :invalid_bgg_ids}
+    end
   end
 
-  defp request_game_details(bgg_id, api_key) do
+  defp request_game_details(bgg_ids, api_key) do
     case Req.get("https://boardgamegeek.com/xmlapi2/thing",
            headers: [{"authorization", "Bearer #{api_key}"}, {"accept", "application/xml"}],
-           params: [id: bgg_id, type: "boardgame", stats: 1],
+           params: [id: Enum.join(bgg_ids, ","), type: "boardgame", stats: 1],
            retry: false,
            receive_timeout: 10_000
          ) do
@@ -73,7 +81,7 @@ defmodule D20.Games.Sources.BoardGameGeek do
     import SweetXml
 
     @spec parse_game_details(binary()) ::
-            {:ok, [D20.Games.Sources.BoardGameGeek.game_attrs()]} | {:error, term()}
+            {:ok, [D20.Games.Sources.BoardGameGeek.game()]} | {:error, term()}
     def parse_game_details(xml) when is_binary(xml) do
       attrs =
         xml
