@@ -1,11 +1,22 @@
 defmodule D20Web.ModuleControllerTest do
-  use D20Web.ConnCase, async: true
+  use D20Web.ConnCase, async: false
 
   alias D20.Actors.Actor
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions.Session
 
   @koala_origin "http://koala-rescue-club.example.com"
+
+  setup do
+    original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
+
+    on_exit(fn ->
+      case original_launch_config do
+        :not_configured -> Application.delete_env(:d20, :allow_launch_in_progress)
+        config -> Application.put_env(:d20, :allow_launch_in_progress, config)
+      end
+    end)
+  end
 
   test "POST /modules/:slug creates a module session and returns bootstrap", %{conn: conn} do
     conn =
@@ -66,6 +77,8 @@ defmodule D20Web.ModuleControllerTest do
     session_id = session.id
     topic = "session:#{session_id}"
 
+    Application.put_env(:d20, :allow_launch_in_progress, false)
+
     on_exit(fn -> D20.Sessions.stop(session_id) end)
 
     conn =
@@ -95,6 +108,17 @@ defmodule D20Web.ModuleControllerTest do
 
     refute Map.has_key?(players, actor_id)
     refute Map.has_key?(members, actor_id)
+  end
+
+  test "POST /modules/:slug forbids creating an in-progress session when configured", %{
+    conn: conn
+  } do
+    Application.put_env(:d20, :allow_launch_in_progress, false)
+
+    conn =
+      conn |> put_req_header("origin", @koala_origin) |> post(~p"/modules/koala-rescue-club", %{})
+
+    assert response(conn, 403) == "Forbidden"
   end
 
   test "POST /modules/:slug returns 404 for a session from another game", %{conn: conn} do

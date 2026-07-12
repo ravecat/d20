@@ -2,7 +2,7 @@
 
 The registry currently equates catalog membership with playability: every entry requires an `engine` and a non-empty iframe `sandbox`. `D20.Games.list/0` then performs one BGG request per entry, and the detail controller always asks the configured engine for session-creation attributes. This shape cannot represent a planned game that has BGG metadata and a detail page but no local implementation.
 
-The requested catalog grows from four to nineteen games. Qwinto is implemented, Koala Rescue Club is the current work in progress, and the remaining games are catalog-only. Production must remain browse-only, while development and test need to launch both active and in-progress engines.
+The requested catalog grows from four to nineteen games. Qwinto is implemented, Koala Rescue Club is the current work in progress, and the remaining games are catalog-only. Production users need to launch active games, while development and test also need to launch in-progress engines.
 
 ## Goals / Non-Goals
 
@@ -51,9 +51,9 @@ Alternative considered: return registry order and regroup entries in `home.svelt
 
 ### 4. Compute one launch-policy boolean at the server boundary
 
-Application configuration will expose `:game_session_launch_enabled`, true outside production and false in production. A game is launchable only when this flag is true and its status is `active` or `in_progress`.
+Application configuration will expose `:allow_launch_in_progress`, true outside production and false in production. This is a temporary environment gate until runtime game feature flags or experiments own availability. An active game is launchable in every environment, an in-progress game is launchable only when this flag is true, and an inactive game is never launchable.
 
-The detail controller will send `can_launch_game` to Svelte. When false it will avoid calling an absent engine, send empty creation attributes, and omit the session creation form. The POST action will independently return `403 Forbidden` when policy denies launch.
+The detail controller will send `can_launch_game` to Svelte. When false it will avoid calling an absent engine, send empty creation attributes, and omit the session creation form. Both the page POST action and standalone module bootstrap will independently return `403 Forbidden` before creating a new session when policy denies launch. A standalone module may still reconnect to an existing matching session.
 
 Alternative considered: hide the button only in Svelte. That leaves the POST route usable directly and requires the browser to infer deployment environment.
 
@@ -73,7 +73,7 @@ Alternative considered: keep the opaque title chip. It guarantees contrast but o
 
 - [BGG omits one requested item from a batch response] -> Preserve the current all-or-error catalog contract and report the missing slug as metadata unavailable.
 - [Optional engine fields are accidentally used without checking policy] -> Keep engine access inside policy-checked controller paths and validate bindings for every non-inactive entry.
-- [Production policy is mistaken for a full session-runtime kill switch] -> Scope the change explicitly to new session creation from the web boundary; existing volatile sessions and internal session APIs are unchanged.
+- [The in-progress policy is mistaken for a full session-runtime kill switch] -> Scope the flag explicitly to new in-progress session creation at public HTTP boundaries; active games, existing volatile sessions, and internal session APIs are unchanged.
 - [Muted cards become difficult to identify] -> Dim only the artwork layer while keeping title, focus outline, and status badge readable.
 - [Status grouping accidentally scrambles catalog order] -> Sort once in `D20.Games.list/0` with a stable status rank and assert the public list and serialized Inertia order.
 - [Unboxed titles lose contrast on bright artwork] -> Reuse a lighter form of the detail preview's left-side scrim and retain a restrained text shadow.
@@ -81,7 +81,7 @@ Alternative considered: keep the opaque title chip. It guarantees contrast but o
 
 ## Migration Plan
 
-1. Extend registry validation and add the environment launch flag.
+1. Extend registry validation and add the in-progress environment launch flag.
 2. Add catalog entries and status assignments.
 3. Batch catalog metadata lookup and expose statuses through controller props.
 4. Update home and detail Svelte pages and tests.

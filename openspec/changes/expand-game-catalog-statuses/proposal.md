@@ -11,8 +11,8 @@ The home catalog currently lists only games that have a configured local engine,
 - Keep active catalog cards visually prominent, mute in-progress and inactive cards, and render an explicit `Soon` badge for in-progress games.
 - Render game titles directly over their artwork without a chip background, using a subtle left-side scrim for legibility.
 - Allow every configured catalog game to open its metadata detail route, including entries without a playable local engine.
-- Expose session creation controls for active and in-progress games outside production so work-in-progress engines remain testable during development. Production users can browse details but cannot create or start games through the detail page.
-- Reject direct session-creation requests when the game is inactive or when the application runs in production, so the UI restriction is not the only enforcement boundary.
+- Expose session creation controls for active games in every environment and for in-progress games outside production so completed games are public while work-in-progress engines remain testable during development.
+- Reject direct page and standalone-module session-creation requests when the game is inactive or when an in-progress game runs in production, so the UI restriction is not the only enforcement boundary.
 
 ## Capabilities
 

@@ -30,3 +30,10 @@
 - [x] 4.3 Verify active, in-progress, inactive, and production-disabled states in the browser and run repository diff checks.
 - [x] 4.4 Run frontend formatting, type checks, targeted page tests, browser verification at desktop and mobile widths, and OpenSpec strict validation for the ordering update.
 - [x] 4.5 Run targeted Elixir and Svelte tests, formatting and type checks, desktop and mobile browser verification, repository diff checks, and OpenSpec strict validation for backend ordering and title presentation.
+
+## 5. Production Launch Policy Correction
+
+- [x] 5.1 Revise the proposal, design, and launch-policy spec so active games launch in every environment, in-progress games launch only outside production, and inactive games never launch.
+- [x] 5.2 Add context, page-controller, and module-controller regressions for the corrected active, in-progress, and inactive launch matrix.
+- [x] 5.3 Replace the global production launch gate with an in-progress-only environment gate while preserving the shared UI and POST authorization predicate.
+- [x] 5.4 Run targeted Elixir tests, formatting, strict OpenSpec validation, and repository diff checks.

@@ -34,7 +34,8 @@ config :bun,
 config :d20,
   ecto_repos: [D20.Repo],
   generators: [timestamp_type: :utc_datetime],
-  game_session_launch_enabled: config_env() != :prod,
+  # Temporary gate until game availability is controlled by runtime feature flags or experiments.
+  allow_launch_in_progress: config_env() != :prod,
   session_idle_timeout: :timer.minutes(5)
 
 config :d20, D20.Actors.Token,

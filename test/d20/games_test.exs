@@ -60,7 +60,9 @@ defmodule D20.GamesTest do
     Req.Test.verify_on_exit!()
 
     original_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
-    original_launch_config = Application.fetch_env!(:d20, :game_session_launch_enabled)
+
+    original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
+
     original_req_options = Req.default_options()
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
@@ -68,7 +70,11 @@ defmodule D20.GamesTest do
 
     on_exit(fn ->
       Req.default_options(original_req_options)
-      Application.put_env(:d20, :game_session_launch_enabled, original_launch_config)
+
+      case original_launch_config do
+        :not_configured -> Application.delete_env(:d20, :allow_launch_in_progress)
+        config -> Application.put_env(:d20, :allow_launch_in_progress, config)
+      end
 
       case original_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
@@ -159,11 +165,15 @@ defmodule D20.GamesTest do
     refute Games.session_launch_available?(inactive)
   end
 
-  test "disables session launch when application launch is disabled" do
-    Application.put_env(:d20, :game_session_launch_enabled, false)
+  test "keeps active launch available when in-progress launch is disabled" do
+    Application.put_env(:d20, :allow_launch_in_progress, false)
     assert {:ok, active} = Registry.fetch("qwinto")
+    assert {:ok, in_progress} = Registry.fetch("koala-rescue-club")
+    assert {:ok, inactive} = Registry.fetch("voyages")
 
-    refute Games.session_launch_available?(active)
+    assert Games.session_launch_available?(active)
+    refute Games.session_launch_available?(in_progress)
+    refute Games.session_launch_available?(inactive)
   end
 
   defp stub_bgg_game(xml) do

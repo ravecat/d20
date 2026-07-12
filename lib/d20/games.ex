@@ -46,8 +46,11 @@ defmodule D20.Games do
   end
 
   @spec session_launch_available?(Registry.Entry.t()) :: boolean()
-  def session_launch_available?(%Registry.Entry{status: status}) do
-    Application.fetch_env!(:d20, :game_session_launch_enabled) and
-      status in [:active, :in_progress]
+  def session_launch_available?(%Registry.Entry{status: :active}), do: true
+
+  def session_launch_available?(%Registry.Entry{status: :in_progress}) do
+    Application.fetch_env!(:d20, :allow_launch_in_progress)
   end
+
+  def session_launch_available?(%Registry.Entry{}), do: false
 end

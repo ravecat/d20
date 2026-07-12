@@ -1,6 +1,7 @@
 defmodule D20Web.ModuleController do
   use D20Web, :controller
 
+  alias D20.Games
   alias D20.Games.Registry
   alias D20.Sessions
   alias D20.Sessions.Session
@@ -33,10 +34,14 @@ defmodule D20Web.ModuleController do
     end
   end
 
-  defp ensure_session(conn, %Registry.Entry{slug: slug, engine: engine}, params) do
-    attrs = Map.get(params, "attrs", %{})
+  defp ensure_session(conn, %Registry.Entry{slug: slug, engine: engine} = entry, params) do
+    if Games.session_launch_available?(entry) do
+      attrs = Map.get(params, "attrs", %{})
 
-    Sessions.create(slug, engine, conn.assigns.current_scope.actor.id, attrs)
+      Sessions.create(slug, engine, conn.assigns.current_scope.actor.id, attrs)
+    else
+      {:error, :forbidden}
+    end
   end
 
   defp send_error(conn, :game_not_found), do: send_resp(conn, :not_found, "Not Found")
