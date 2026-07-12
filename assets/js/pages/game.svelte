@@ -45,7 +45,7 @@
   }
 </script>
 
-<main class="game-detail-page bg-base-100 text-base-content">
+<div class="game-detail-page bg-base-100 text-base-content">
   <section class="game-detail-shell">
     <article class="min-w-0">
       <div class="game-detail-preview">
@@ -193,7 +193,7 @@
       </div>
     </article>
   </section>
-</main>
+</div>
 
 <style>
   .game-detail-shell {

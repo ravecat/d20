@@ -15,6 +15,13 @@ defmodule D20Web.PageController do
     |> render_inertia("home")
   end
 
+  @spec developers(Plug.Conn.t(), params()) :: Plug.Conn.t()
+  def developers(conn, _params) do
+    conn
+    |> assign(:page_title, "For developers")
+    |> render_inertia("developers")
+  end
+
   @spec games(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def games(conn, _params) do
     redirect(conn, to: ~p"/")

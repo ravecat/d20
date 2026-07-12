@@ -20,7 +20,7 @@
   const { games }: Props = $props();
 </script>
 
-<main class="home-page">
+<div class="home-page">
   <section class="home-shell">
     {#if games.length > 0}
       <ul class="home-grid">
@@ -84,7 +84,7 @@
       <p class="home-empty">No games</p>
     {/if}
   </section>
-</main>
+</div>
 
 <style>
   .home-page {

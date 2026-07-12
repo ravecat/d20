@@ -39,9 +39,15 @@ defmodule D20Web.Router do
     pipe_through :inertia
 
     get "/", PageController, :home
+    get "/developers", PageController, :developers
     get "/games", PageController, :games
     get "/games/:slug", PageController, :game
     post "/games/:slug/sessions", PageController, :create_game_session
+  end
+
+  scope "/developers/specs" do
+    get "/:slug/raw", D20Web.Plugs.AsyncApi, :raw
+    get "/:slug", D20Web.Plugs.AsyncApi, :reference
   end
 
   scope "/", D20Web do

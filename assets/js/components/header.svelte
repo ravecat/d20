@@ -5,29 +5,37 @@
   type Variant = "default" | "catalog";
 
   type Props = {
+    compact?: boolean;
     overlay?: boolean;
     variant?: Variant;
   };
 
-  const { overlay = false, variant = "default" }: Props = $props();
+  const { compact = false, overlay = false, variant = "default" }: Props = $props();
 </script>
 
 <header
   class={{
     header: true,
     "header--catalog": variant === "catalog",
+    "header--compact": compact,
     "header--overlay": overlay,
   }}
 >
-  <div class="inner"><a class="brand" href="/" use:inertia={{ href: "/" }}>
-    <D20 />
-    <span>D20</span>
+  <div class="header__inner"><a class="brand" href="/" use:inertia={{ href: "/" }}>
+    <span class="brand__mark"
+      ><D20 {compact} /></span
+    >
+    <span class="brand__label">D20</span>
   </a></div>
 </header>
 
 <style>
   .header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 20;
     width: 100%;
+    background: var(--color-base-100);
   }
 
   .header--overlay {
@@ -39,7 +47,7 @@
     pointer-events: none;
   }
 
-  .inner {
+  .header__inner {
     display: flex;
     box-sizing: border-box;
     inline-size: 100%;
@@ -48,10 +56,15 @@
     padding: 1rem 1.5rem;
     align-items: center;
     gap: 1.5rem;
+    transition: padding-block 180ms ease;
   }
 
-  .header--catalog .inner {
+  .header--catalog .header__inner {
     max-inline-size: 46.25rem;
+  }
+
+  .header--compact .header__inner {
+    padding-block: 0.5rem;
   }
 
   .brand {
@@ -60,7 +73,32 @@
     gap: 0.5625rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    transition: color 160ms ease;
+    transition:
+      color 160ms ease,
+      gap 180ms ease;
+  }
+
+  .brand__mark {
+    display: inline-flex;
+    flex: none;
+  }
+
+  .brand__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+      font-size 180ms ease,
+      letter-spacing 180ms ease;
+  }
+
+  .header--compact .brand {
+    gap: 0.4rem;
+  }
+
+  .header--compact .brand__label {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
   }
 
   .header--overlay .brand {
@@ -68,19 +106,32 @@
   }
 
   .brand:focus-visible {
-    outline: 1px solid currentColor;
-    outline-offset: 0.375rem;
+    outline: none;
+  }
+
+  .brand:focus-visible .brand__label {
+    text-decoration-line: underline;
+    text-decoration-thickness: 0.125rem;
+    text-underline-offset: 0.35em;
   }
 
   @media (max-width: 48rem) {
-    .inner {
+    .header__inner {
       padding-inline: 1rem;
     }
   }
 
   @media (max-width: 34rem) {
-    .inner {
+    .header__inner {
       gap: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header__inner,
+    .brand,
+    .brand__label {
+      transition: none;
     }
   }
 </style>

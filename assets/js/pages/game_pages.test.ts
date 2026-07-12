@@ -1,5 +1,6 @@
 import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
+import DevelopersPage from "~pages/developers.svelte";
 import GamePage from "~pages/game.svelte";
 import HomePage from "~pages/home.svelte";
 import type { Attrs, GameMetadata } from "~types/game";
@@ -23,6 +24,38 @@ afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.body.innerHTML = "";
+});
+
+describe("developers page", () => {
+  it("introduces client implementation and links both game specifications", () => {
+    render(DevelopersPage, {});
+
+    const list = document.querySelector('ul[aria-label="Game specifications"]');
+    const entries = [...(list?.querySelectorAll("li") ?? [])];
+
+    expect(document.querySelector("h1")?.textContent).toBe("For developers");
+    expect(document.body.textContent).toContain("Build a compatible game client");
+    expect(document.querySelector("h2")).toBeNull();
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.querySelector(".spec-list__game")?.textContent)).toEqual([
+      "Qwinto",
+      "Koala Rescue Club",
+    ]);
+
+    expect(list?.querySelector('a[href="/developers/specs/qwinto"]')?.textContent).toBe(
+      "Open reference",
+    );
+    expect(list?.querySelector('a[href="/developers/specs/qwinto/raw"]')?.textContent).toBe("YAML");
+    expect(list?.querySelector('a[href="/developers/specs/koala-rescue-club"]')?.textContent).toBe(
+      "Open reference",
+    );
+    expect(
+      list?.querySelector('a[href="/developers/specs/koala-rescue-club/raw"]')?.textContent,
+    ).toBe("YAML");
+    expect(document.body.textContent).not.toContain("available");
+    expect(document.body.textContent).not.toContain("AsyncAPI 3.0");
+    expect(document.body.textContent).not.toContain("Version 0.1.0");
+  });
 });
 
 describe("home page", () => {

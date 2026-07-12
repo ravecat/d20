@@ -197,6 +197,14 @@ defmodule D20Web.PageControllerTest do
     assert redirected_to(conn) == ~p"/"
   end
 
+  test "GET /developers renders the developer entry page", %{conn: conn} do
+    conn = get(conn, ~p"/developers")
+
+    assert html_response(conn, 200) =~ ~s(id="app")
+    assert inertia_component(conn) == "developers"
+    assert conn.assigns.page_title == "For developers"
+  end
+
   test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do
     stub_bgg_game(@resolved_qwinto_xml)
 

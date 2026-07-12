@@ -8,6 +8,13 @@ declare module "@inertiajs/core" {
   }
 }
 
+declare module "svelte/elements" {
+  // biome-ignore lint/correctness/noUnusedVariables: The generic must match Svelte's declaration.
+  interface HTMLAttributes<T extends EventTarget> {
+    "scroll-region"?: boolean | "";
+  }
+}
+
 declare global {
   type InertiaProps<Props extends object = Record<string, never>> = PageProps &
     SharedPageProps &
