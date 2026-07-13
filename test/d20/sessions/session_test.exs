@@ -7,7 +7,7 @@ defmodule D20.Sessions.SessionTest do
   alias D20.Sessions.Session
 
   defmodule TestGame do
-    @behaviour D20.Game
+    use D20.Game
 
     @impl D20.Game
     def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])

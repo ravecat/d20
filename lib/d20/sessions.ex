@@ -15,8 +15,10 @@ defmodule D20.Sessions do
           | :session_not_found
           | Session.reason()
 
-  @spec registry_key(id()) :: {:session, id()}
-  def registry_key(id) when is_binary(id), do: {:session, id}
+  @spec via(id(), module()) :: {:via, Registry, {D20.Registry, {:session, id()}, module()}}
+  def via(id, server) when is_binary(id) and is_atom(server) do
+    {:via, Registry, {D20.Registry, key(id), server}}
+  end
 
   @spec create(slug(), D20.Game.engine(), Session.player_id(), map()) ::
           {:ok, Session.t()} | {:error, reason()}
@@ -62,9 +64,10 @@ defmodule D20.Sessions do
     case lookup(id) do
       {:ok, pid} ->
         try do
-          GenServer.stop(pid, reason, timeout)
+          :gen_statem.stop(pid, reason, timeout)
         catch
-          :exit, {:noproc, {GenServer, :stop, _args}} -> :ok
+          :exit, :noproc -> :ok
+          :exit, {:noproc, _details} -> :ok
         end
 
       {:error, :session_not_found} ->
@@ -79,20 +82,19 @@ defmodule D20.Sessions do
   end
 
   defp lookup_server(id) do
-    case Registry.lookup(D20.Registry, registry_key(id)) do
+    case Registry.lookup(D20.Registry, key(id)) do
       [{pid, server}] when is_atom(server) -> {:ok, {pid, server}}
-      [{pid, _value}] -> {:ok, {pid, D20.Sessions.Server}}
       [] -> {:error, :session_not_found}
     end
   end
 
   defp start_child(slug, engine, session) do
     server = D20.Game.server(engine)
+    opts = [slug: slug, engine: engine, session: session]
 
-    DynamicSupervisor.start_child(D20.Sessions.Supervisor, %{
-      id: {server, session.id},
-      start: {server, :start_link, [[slug: slug, engine: engine, session: session]]},
-      restart: :temporary
-    })
+    DynamicSupervisor.start_child(D20.Sessions.Supervisor, {server, opts})
   end
+
+  @spec key(id()) :: {:session, id()}
+  defp key(id) when is_binary(id), do: {:session, id}
 end

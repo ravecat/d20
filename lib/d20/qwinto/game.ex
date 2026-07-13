@@ -3,7 +3,7 @@ defmodule D20.Qwinto.Game do
   Qwinto game aggregate and reducer.
   """
 
-  @behaviour D20.Game
+  use D20.Game
 
   use Ecto.Schema
 

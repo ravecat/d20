@@ -50,14 +50,25 @@ defmodule D20.GameTest do
     def finished?(_state), do: false
   end
 
+  defmodule MissingServerGame do
+    def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
+    def init(_attrs), do: {:ok, %{}}
+    def dispatch(state, %D20.Command{}), do: {:ok, state}
+    def finished?(_state), do: false
+  end
+
   test "requires changeset/1 and init/1 as engine callbacks" do
     assert D20.Game.ensure_engine(TestGame) == {:ok, TestGame}
     assert D20.Game.ensure_engine(InitZeroOnlyGame) == {:error, :invalid_engine}
     assert D20.Game.ensure_engine(MissingChangesetGame) == {:error, :invalid_engine}
+    assert D20.Game.ensure_engine(MissingServerGame) == {:error, :invalid_engine}
   end
 
-  test "uses the default session server unless an engine provides one" do
-    assert D20.Game.server(TestGame) == D20.Sessions.Server
+  test "configures the default session server unless an engine provides one" do
+    assert function_exported?(TestGame, :server, 0)
+    assert TestGame.server() == D20.Game.Server
+    assert D20.Game.server(TestGame) == D20.Game.Server
+    assert function_exported?(CustomServerGame, :server, 0)
     assert D20.Game.server(CustomServerGame) == CustomServer
   end
 

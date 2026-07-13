@@ -9,14 +9,15 @@ defmodule D20.Game do
 
       use D20.Game, server: D20.KoalaRescueClub.Server
 
-  Without `:server`, sessions use `D20.Sessions.Server`.
+  Without `:server`, the generated `server/0` callback returns
+  `D20.Game.Server`.
   """
 
   @type engine :: module()
   @type attrs :: map()
 
   defmacro __using__(opts) do
-    server = opts |> Keyword.get(:server, D20.Sessions.Server) |> Macro.expand(__CALLER__)
+    server = opts |> Keyword.get(:server, D20.Game.Server) |> Macro.expand(__CALLER__)
 
     unless is_atom(server) do
       raise ArgumentError, "expected :server to be a module, got: #{inspect(server)}"
@@ -38,8 +39,6 @@ defmodule D20.Game do
   @callback finished?(term()) :: boolean()
   @callback server() :: module()
 
-  @optional_callbacks server: 0
-
   @spec changeset(engine(), map()) :: Ecto.Changeset.t()
   def changeset(engine, params \\ %{}) do
     engine.changeset(params)
@@ -57,18 +56,11 @@ defmodule D20.Game do
   end
 
   @spec server(engine()) :: module()
-  def server(engine) do
-    if function_exported?(engine, :server, 0) do
-      engine.server()
-    else
-      D20.Sessions.Server
-    end
-  end
+  def server(engine), do: engine.server()
 
   @spec ensure_engine(term()) :: {:ok, engine()} | {:error, :invalid_engine}
   def ensure_engine(engine) when is_atom(engine) do
-    optional_callbacks = __MODULE__.behaviour_info(:optional_callbacks)
-    required_callbacks = __MODULE__.behaviour_info(:callbacks) -- optional_callbacks
+    required_callbacks = __MODULE__.behaviour_info(:callbacks)
 
     if Code.ensure_loaded?(engine) and
          Enum.all?(required_callbacks, fn {name, arity} ->

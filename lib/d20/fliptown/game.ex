@@ -3,7 +3,7 @@ defmodule D20.Fliptown.Game do
   Fliptown game engine placeholder.
   """
 
-  @behaviour D20.Game
+  use D20.Game
 
   @impl D20.Game
   @spec changeset(map()) :: Ecto.Changeset.t()

@@ -3,7 +3,7 @@ defmodule D20.NextStationLondon.Game do
   Next Station: London game engine placeholder.
   """
 
-  @behaviour D20.Game
+  use D20.Game
 
   @impl D20.Game
   @spec changeset(map()) :: Ecto.Changeset.t()

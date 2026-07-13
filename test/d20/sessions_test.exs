@@ -4,9 +4,9 @@ defmodule D20.SessionsTest do
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20.Command
+  alias D20.Game.Server
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions
-  alias D20.Sessions.Server
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
@@ -28,32 +28,29 @@ defmodule D20.SessionsTest do
     end
 
     @impl D20.Game
-    def finished?(_state), do: false
+    def finished?(state) do
+      Enum.any?(state.events, fn {event, _actor_id, _attrs} -> event == "finish" end)
+    end
   end
 
   defmodule CustomServer do
-    use D20.Game.Server, otp: :gen_server
+    use D20.Game.Server
 
     alias D20.Sessions.Session
 
-    @impl true
-    def init(state), do: {:ok, state}
-
-    @impl true
-    def handle_call(:get, _from, {slug, _engine, session} = state) do
-      {:reply, {:ok, {session, slug}}, state}
+    @impl :gen_statem
+    def init({_slug, _engine, %Session{}} = data) do
+      case D20.Game.Server.init(data) do
+        {:ok, _default_state, data, actions} -> {:ok, :running, data, actions}
+        result -> result
+      end
     end
 
-    def handle_call({:dispatch, %Command{} = command}, _from, {slug, engine, session} = state) do
+    @impl :gen_statem
+    def handle_event({:call, from}, {:dispatch, %Command{} = command}, state, data) do
       command = %{command | attrs: Map.put(command.attrs, :server, :custom)}
 
-      case Session.dispatch(session, engine, command) do
-        {:ok, updated_session} ->
-          {:reply, {:ok, updated_session}, {slug, engine, updated_session}}
-
-        {:error, reason} ->
-          {:reply, {:error, reason}, state}
-      end
+      D20.Game.Server.handle_event({:call, from}, {:dispatch, command}, state, data)
     end
   end
 
@@ -77,41 +74,28 @@ defmodule D20.SessionsTest do
     def finished?(_state), do: false
   end
 
-  defmodule CustomStatemServer do
-    use D20.Game.Server, otp: :gen_statem
-
-    alias D20.Sessions.Session
-
-    @impl :gen_statem
-    def init(state), do: {:ok, :running, state}
-
-    @impl :gen_statem
-    def handle_event(:enter, _old_state, _state, _data), do: :keep_state_and_data
-
-    def handle_event({:call, from}, :get, _state, {slug, _engine, session}) do
-      {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}]}
-    end
-
-    def handle_event(
-          {:call, from},
-          {:dispatch, %Command{} = command},
-          _state,
-          {slug, engine, session} = data
-        ) do
-      command = %{command | attrs: Map.put(command.attrs, :server, :statem)}
-
-      case Session.dispatch(session, engine, command) do
-        {:ok, updated_session} ->
-          {:keep_state, {slug, engine, updated_session}, [{:reply, from, {:ok, updated_session}}]}
-
-        {:error, reason} ->
-          {:keep_state, data, [{:reply, from, {:error, reason}}]}
-      end
-    end
+  defmodule SharedDefaultServer do
+    use D20.Game.Server
   end
 
-  defmodule CustomStatemServerGame do
-    use D20.Game, server: CustomStatemServer
+  defmodule SharedDefaultServerGame do
+    use D20.Game, server: SharedDefaultServer
+
+    @impl D20.Game
+    def changeset(params), do: TestGame.changeset(params)
+
+    @impl D20.Game
+    def init(attrs), do: TestGame.init(attrs)
+
+    @impl D20.Game
+    def dispatch(state, command), do: TestGame.dispatch(state, command)
+
+    @impl D20.Game
+    def finished?(state), do: TestGame.finished?(state)
+  end
+
+  defmodule RejectPresenceGame do
+    use D20.Game
 
     @impl D20.Game
     def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
@@ -120,7 +104,10 @@ defmodule D20.SessionsTest do
     def init(_attrs), do: {:ok, %{events: []}}
 
     @impl D20.Game
-    def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
+    def dispatch(_state, %Command{event: "join", actor_id: "rejected"}),
+      do: {:error, :presence_rejected}
+
+    def dispatch(_state, %Command{event: "leave"}), do: {:error, :presence_rejected}
 
     def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
       {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
@@ -128,6 +115,48 @@ defmodule D20.SessionsTest do
 
     @impl D20.Game
     def finished?(_state), do: false
+  end
+
+  describe "game server contract" do
+    test "keeps game-specific hooks out of the default and generated servers" do
+      assert Enum.sort(Server.behaviour_info(:callbacks)) ==
+               Enum.sort(start_link: 1, get: 1, dispatch: 2)
+
+      refute function_exported?(Server, :handle_event, 5)
+      refute function_exported?(Server, :transition, 5)
+
+      for server <- [Server, CustomServer, SharedDefaultServer],
+          {hook, arity} <- [state_name: 1, prepare_transition: 2, handle_game_event: 4] do
+        refute function_exported?(server, hook, arity)
+      end
+
+      for server <- [Server, CustomServer, SharedDefaultServer],
+          {callback, arity} <- [callback_mode: 0, init: 1, handle_event: 4] do
+        assert function_exported?(server, callback, arity)
+      end
+    end
+
+    test "provides Presence membership behavior to custom servers by default" do
+      assert {:ok, %Session{} = session} =
+               Sessions.create("shared-default", SharedDefaultServerGame, "p1")
+
+      on_exit(fn -> Sessions.stop(session.id) end)
+
+      topic = SessionChannel.topic(session.id)
+      assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, topic)
+
+      assert {:ok, %{}} =
+               Presence.handle_metas(
+                 topic,
+                 %{joins: %{"p2" => %{metas: [%{online_at: 123}]}}, leaves: %{}},
+                 %{"p2" => %{metas: [%{online_at: 123}]}},
+                 %{}
+               )
+
+      assert_receive {:session, %Session{members: %{"p2" => %{online_at: 123}}} = updated_session}
+
+      assert {:ok, {^updated_session, "shared-default"}} = Sessions.get(session.id)
+    end
   end
 
   describe "create/3" do
@@ -143,6 +172,10 @@ defmodule D20.SessionsTest do
       assert {:ok, {^session, "qwinto"}} = Sessions.get(session_ref)
       assert {:ok, pid} = Sessions.lookup(session_ref)
       assert Process.alive?(pid)
+
+      assert [{^pid, Server}] = Registry.lookup(D20.Registry, {:session, session_ref})
+
+      assert {:waiting_for_players, {"qwinto", TestGame, ^session}} = :sys.get_state(pid)
     end
 
     test "starts the engine configured game server" do
@@ -153,30 +186,13 @@ defmodule D20.SessionsTest do
 
       assert {:ok, pid} = Sessions.lookup(session_ref)
 
-      assert [{^pid, CustomServer}] =
-               Registry.lookup(D20.Registry, Sessions.registry_key(session_ref))
+      assert [{^pid, CustomServer}] = Registry.lookup(D20.Registry, {:session, session_ref})
 
       assert {:ok, %Session{} = session} =
                session_ref |> scope("p1") |> Sessions.dispatch("start", %{})
 
       assert {"start", "p1", %{server: :custom}} in session.game.events
-    end
-
-    test "starts a gen_statem game server" do
-      assert {:ok, %Session{} = session} = Sessions.create("statem", CustomStatemServerGame, "p1")
-      session_ref = session.id
-
-      on_exit(fn -> Sessions.stop(session_ref) end)
-
-      assert {:ok, pid} = Sessions.lookup(session_ref)
-
-      assert [{^pid, CustomStatemServer}] =
-               Registry.lookup(D20.Registry, Sessions.registry_key(session_ref))
-
-      assert {:ok, %Session{} = session} =
-               session_ref |> scope("p1") |> Sessions.dispatch("start", %{})
-
-      assert {"start", "p1", %{server: :statem}} in session.game.events
+      assert {:ok, {^session, "custom"}} = Sessions.get(session_ref)
     end
 
     test "returns invalid owner errors" do
@@ -195,6 +211,28 @@ defmodule D20.SessionsTest do
       on_exit(fn -> Sessions.stop(session.id) end)
 
       assert {:ok, {^session, "koala-rescue-club"}} = Sessions.get(session.id)
+    end
+
+    test "manages a Koala state-machine server through the shared session API" do
+      assert {:ok, %Session{} = session} =
+               Sessions.create("koala-rescue-club", KoalaGame, "p1", %{"sheet" => "dharug"})
+
+      on_exit(fn -> Sessions.stop(session.id) end)
+
+      assert {:ok, pid} = Sessions.lookup(session.id)
+
+      assert [{^pid, D20.KoalaRescueClub.Server}] =
+               Registry.lookup(D20.Registry, {:session, session.id})
+
+      assert {:ok, {^session, "koala-rescue-club"}} = Sessions.get(session.id)
+
+      assert {:ok, %Session{members: %{"p1" => %{}}} = joined_session} =
+               Sessions.dispatch(scope(session.id, "p1"), "join", %{})
+
+      assert {:ok, {^joined_session, "koala-rescue-club"}} = Sessions.get(session.id)
+
+      assert :ok = Sessions.stop(session.id)
+      assert_session_stopped(session.id)
     end
 
     test "does not start a session process when creation attrs are invalid" do
@@ -250,6 +288,29 @@ defmodule D20.SessionsTest do
       assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
     end
 
+    test "stores, publishes, and replies with one authoritative accepted state", %{
+      ref: ref,
+      pid: pid
+    } do
+      assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
+
+      assert {:ok, %Session{} = session} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
+      assert_receive {:session, ^session}
+      assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
+      assert {:in_progress, {"test-game", TestGame, ^session}} = :sys.get_state(pid)
+
+      assert {:error, :invalid_command} = Sessions.dispatch(scope(ref, "p1"), "fail", %{})
+      refute_receive {:session, %Session{}}, 50
+      assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
+      assert {:in_progress, {"test-game", TestGame, ^session}} = :sys.get_state(pid)
+
+      assert {:ok, %Session{phase: :finished} = finished_session} =
+               Sessions.dispatch(scope(ref, "p1"), "finish", %{})
+
+      assert_receive {:session, ^finished_session}
+      assert {:finished, {"test-game", TestGame, ^finished_session}} = :sys.get_state(pid)
+    end
+
     test "keeps client state out of the server state", %{id: id, ref: ref} do
       assert {:ok, {%Session{id: ^id} = session, "test-game"}} = Sessions.get(ref)
       refute Map.has_key?(session, :client_state)
@@ -257,6 +318,7 @@ defmodule D20.SessionsTest do
 
     test "updates members from session presence events", %{id: id, ref: ref} do
       topic = SessionChannel.topic(id)
+      assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, topic)
 
       assert {:ok, %{}} =
                Presence.handle_metas(
@@ -278,6 +340,7 @@ defmodule D20.SessionsTest do
                )
 
       assert {:ok, {session, "test-game"}} = Sessions.get(ref)
+      assert_receive {:session, ^session}
 
       assert %{online_at: 123, display_name: display_name, avatar: avatar} = session.members["p2"]
 
@@ -295,7 +358,42 @@ defmodule D20.SessionsTest do
                )
 
       assert {:ok, {session, "test-game"}} = Sessions.get(ref)
+      assert_receive {:session, ^session}
       refute Map.has_key?(session.members, "p2")
+    end
+  end
+
+  describe "rejected Presence events" do
+    setup do
+      start_test_session(RejectPresenceGame, "p1")
+    end
+
+    test "preserves state and does not publish rejected joins", %{ref: ref, pid: pid} do
+      assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
+      assert {:ok, {before, "test-game"}} = Sessions.get(ref)
+
+      send(pid, {:join, "rejected", %{online_at: 123}})
+
+      refute_receive {:session, %Session{}}, 50
+      assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
+
+      assert {:waiting_for_players, {"test-game", RejectPresenceGame, ^before}} =
+               :sys.get_state(pid)
+    end
+
+    test "preserves an existing member and does not publish a rejected leave", %{
+      ref: ref,
+      pid: pid
+    } do
+      assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
+
+      assert {:ok, %Session{} = joined} = Sessions.dispatch(scope(ref, "p2"), "join", %{})
+      assert_receive {:session, ^joined}
+
+      send(pid, {:left, "p2"})
+
+      refute_receive {:session, %Session{}}, 50
+      assert {:ok, {^joined, "test-game"}} = Sessions.get(ref)
     end
   end
 

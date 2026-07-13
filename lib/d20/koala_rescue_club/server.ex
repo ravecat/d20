@@ -3,13 +3,11 @@ defmodule D20.KoalaRescueClub.Server do
   Game server that owns Koala Rescue Club state transitions and roll scheduling.
   """
 
-  use D20.Game.Server, otp: :gen_statem
+  use D20.Game.Server
 
-  alias D20.Accounts
   alias D20.Command
   alias D20.KoalaRescueClub.Game
   alias D20.Sessions.Session
-  alias D20Web.Presence
   alias D20Web.SessionChannel
 
   @roll_timeout :timer.seconds(3)
@@ -18,22 +16,14 @@ defmodule D20.KoalaRescueClub.Server do
 
   @impl :gen_statem
   @spec init(state()) :: :gen_statem.init_result(phase(), state())
-  def init({_slug, _engine, %Session{game: %Game{phase: phase}} = session} = data) do
-    case Presence.subscribe(SessionChannel.topic(session.id)) do
-      :ok -> {:ok, phase, data, [idle()]}
-      {:error, reason} -> {:stop, reason}
+  def init({_slug, _engine, %Session{game: %Game{phase: phase}}} = data) do
+    case D20.Game.Server.init(data) do
+      {:ok, _default_state, data, actions} -> {:ok, phase, data, actions}
+      result -> result
     end
   end
 
-  def init(_data), do: {:stop, :badarg}
-
   @impl :gen_statem
-  def handle_event(:enter, _old_state, _state, _data), do: :keep_state_and_data
-
-  def handle_event({:call, from}, :get, _state, {slug, _engine, session}) do
-    {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}, idle()]}
-  end
-
   def handle_event(
         {:call, from},
         {:dispatch, %Command{} = command},
@@ -41,8 +31,28 @@ defmodule D20.KoalaRescueClub.Server do
         {_slug, engine, session} = data
       ) do
     case Session.dispatch(session, engine, command) do
-      {:ok, updated_session} -> transition(state, data, updated_session, from)
-      {:error, reason} -> {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle()]}
+      {:ok, updated_session} ->
+        {session, roll_actions} = schedule_roll(state, updated_session)
+        transition(state, data, session, [{:reply, from, {:ok, session}} | roll_actions])
+
+      {:error, reason} ->
+        {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle()]}
+    end
+  end
+
+  def handle_event(
+        :internal,
+        {:dispatch, %Command{} = command},
+        state,
+        {_slug, engine, session} = data
+      ) do
+    case Session.dispatch(session, engine, command) do
+      {:ok, updated_session} ->
+        {session, roll_actions} = schedule_roll(state, updated_session)
+        transition(state, data, session, roll_actions)
+
+      {:error, _reason} ->
+        {:keep_state_and_data, [idle()]}
     end
   end
 
@@ -55,7 +65,7 @@ defmodule D20.KoalaRescueClub.Server do
     command = %Command{event: "roll", actor_id: actor_id, attrs: %{}}
 
     case Session.dispatch(session, engine, command) do
-      {:ok, updated_session} -> transition(:roll, data, updated_session, nil)
+      {:ok, updated_session} -> transition(:roll, data, updated_session, [])
       {:error, reason} -> {:stop, {:automatic_roll_failed, reason}, data}
     end
   end
@@ -64,31 +74,13 @@ defmodule D20.KoalaRescueClub.Server do
     {:keep_state_and_data, [idle()]}
   end
 
-  def handle_event(:info, {:join, actor_id, attrs}, state, data) when is_map(attrs) do
-    profile = Accounts.get_user_or_anonymous(actor_id)
-    member = Map.merge(attrs, Map.take(profile, [:display_name, :avatar]))
-
-    handle_presence_event(state, data, "join", actor_id, member)
-  end
-
-  def handle_event(:info, {:left, actor_id}, state, data) do
-    handle_presence_event(state, data, "leave", actor_id, %{})
-  end
-
-  def handle_event({:timeout, :idle}, :expire, _state, data) do
-    {:stop, :normal, data}
-  end
-
-  def handle_event(_event_type, _event_content, _state, _data), do: :keep_state_and_data
-
-  defp transition(state, {slug, engine, _session}, session, from) do
-    {session, roll_actions} = schedule_roll(state, session)
+  defp transition(state, {slug, engine, _session}, session, actions) do
     %Session{game: %Game{phase: next_state}} = session
 
     broadcast(session)
 
-    actions = reply_actions(from, session) ++ roll_actions ++ [idle()]
     data = {slug, engine, session}
+    actions = actions ++ [idle()]
 
     if next_state == state do
       {:keep_state, data, actions}
@@ -106,18 +98,6 @@ defmodule D20.KoalaRescueClub.Server do
   end
 
   defp schedule_roll(_state, %Session{} = session), do: {session, []}
-
-  defp reply_actions(nil, _session), do: []
-  defp reply_actions(from, session), do: [{:reply, from, {:ok, session}}]
-
-  defp handle_presence_event(state, {_slug, engine, session} = data, event, actor_id, attrs) do
-    command = %Command{event: event, actor_id: actor_id, attrs: attrs}
-
-    case Session.dispatch(session, engine, command) do
-      {:ok, updated_session} -> transition(state, data, updated_session, nil)
-      {:error, _reason} -> {:keep_state_and_data, [idle()]}
-    end
-  end
 
   defp broadcast(session) do
     Phoenix.PubSub.local_broadcast(
