@@ -6,6 +6,7 @@ defmodule D20.KoalaRescueClub.Projection do
   alias D20.Accounts.Scope
   alias D20.KoalaRescueClub.Game
   alias D20.KoalaRescueClub.Permission
+  alias D20.KoalaRescueClub.Rules
   alias D20.KoalaRescueClub.Ruleset
   alias D20.Sessions.Session
 
@@ -22,6 +23,7 @@ defmodule D20.KoalaRescueClub.Projection do
       members: session.members,
       self: actor_id,
       permissions: permissions,
+      turn_options: Rules.turn_options(game, actor_id),
       game: render_game(rulesheet, game)
     }
   end

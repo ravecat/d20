@@ -91,6 +91,33 @@ defmodule D20.KoalaRescueClub.Rules do
     Enum.all?(game.players, fn {_player_id, player} -> player.status == :submitted end)
   end
 
+  @doc "Returns caller-specific die values and shapes available for the pending turn."
+  @spec turn_options(Game.t(), Game.player_id()) :: [
+          %{
+            required(:die_value) => 1..6,
+            required(:volunteers_used) => non_neg_integer(),
+            required(:shape) => [
+              %{required(:row) => non_neg_integer(), required(:column) => non_neg_integer()}
+            ]
+          }
+        ]
+  def turn_options(%Game{} = game, player_id) do
+    if submit_allowed?(game, player_id) do
+      available_volunteers =
+        Enum.count(game.players[player_id].sheet.volunteers, &(&1 == :available))
+
+      for die_value <- 1..6,
+          {:ok, volunteers_used} = Ruleset.volunteers_needed(game.roll.value, die_value),
+          volunteers_used <= available_volunteers do
+        {:ok, shape} = Ruleset.shape(die_value)
+
+        %{die_value: die_value, volunteers_used: volunteers_used, shape: shape}
+      end
+    else
+      []
+    end
+  end
+
   @spec resolve_turn(Game.t(), D20.Command.t()) ::
           {:ok, Game.player()} | {:error, reason()}
   def resolve_turn(%Game{} = game, %D20.Command{event: event, actor_id: actor_id, attrs: attrs})
@@ -373,6 +400,7 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_bonus_action_match(%{kind: :skybridge}, %{kind: :skybridge}),
     do: {:error, :invalid_bonus}
 
+  defp require_bonus_action_match(_bonus, %{kind: :skip}), do: :ok
   defp require_bonus_action_match(%{kind: kind}, %{kind: kind}), do: :ok
   defp require_bonus_action_match(_bonus, _action), do: {:error, :invalid_bonus}
 
@@ -433,6 +461,10 @@ defmodule D20.KoalaRescueClub.Rules do
       true -> {:error, :invalid_skybridge}
       false -> {:error, :inaccessible_area}
     end
+  end
+
+  defp apply_bonus_effect(%Sheet{}, player_sheet, _bonus, %{kind: :skip}) do
+    {:ok, player_sheet}
   end
 
   defp claim_volunteer(volunteers) do

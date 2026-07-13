@@ -176,6 +176,8 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
+  defp normalize_bonus_action_kind("skip", _attrs), do: {:ok, %{kind: :skip}}
+
   defp normalize_bonus_action_kind(_kind, _attrs), do: {:error, :invalid_command}
 
   defp fetch_bonus_ref(attrs, key) do

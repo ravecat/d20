@@ -21,6 +21,20 @@ defmodule D20.KoalaRescueClub.RulesetTest do
   end
 
   describe "die shapes and volunteers" do
+    test "exposes canonical shape offsets for clients" do
+      assert {:ok, [%{row: 0, column: 0}, %{row: 0, column: 1}]} = Ruleset.shape(1)
+
+      assert {:ok,
+              [
+                %{row: 0, column: 0},
+                %{row: 0, column: 1},
+                %{row: 0, column: 2},
+                %{row: 1, column: 1}
+              ]} = Ruleset.shape(6)
+
+      assert {:error, :invalid_die_value} = Ruleset.shape(7)
+    end
+
     test "matches die shapes against sheet cells" do
       map = Ruleset.sheet!(:dharug)
 

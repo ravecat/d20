@@ -210,6 +210,33 @@ defmodule D20.KoalaRescueClub.GameTest do
              )
     end
 
+    test "marks an explicitly skipped optional bonus as resolved" do
+      row_0 = row_cells("a", 0, 0..3)
+
+      game =
+        "dharug"
+        |> started_game()
+        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)], row_0)
+        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)], row_0)
+        |> force_submit_turn(1, 1, 1)
+
+      assert {:ok, game} =
+               dispatch(game, "circle_tree", "p1", %{
+                 "die_value" => 1,
+                 "volunteers_used" => 0,
+                 "target_cell" => cell("a", 1, 0),
+                 "bonus_actions" => [
+                   %{
+                     "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
+                     "action" => %{"kind" => "skip"}
+                   }
+                 ]
+               })
+
+      assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
+      assert game.players["p1"].sheet.skybridges == []
+    end
+
     test "awards badges from selected sheet predicates" do
       map = Ruleset.sheet!(:dharug)
       c_trees = Ruleset.area_cells(map, :c)

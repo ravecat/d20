@@ -202,6 +202,16 @@ defmodule D20.KoalaRescueClub.Ruleset do
     end
   end
 
+  @doc "Returns the canonical row and column offsets for a die value."
+  @spec shape(term()) ::
+          {:ok, [%{required(:row) => non_neg_integer(), required(:column) => non_neg_integer()}]}
+          | {:error, :invalid_die_value}
+  def shape(value) do
+    with {:ok, offsets} <- shape_for(value) do
+      {:ok, Enum.map(offsets, fn {column, row} -> %{row: row, column: column} end)}
+    end
+  end
+
   @doc "Returns the solo rating for a sheet and score."
   @spec solo_rating(Sheet.t(), term()) :: {:ok, solo_rating()} | {:error, :invalid_score}
   def solo_rating(%Sheet{solo_ratings: solo_ratings}, score)
