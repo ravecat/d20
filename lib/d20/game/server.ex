@@ -35,6 +35,8 @@ defmodule D20.Game.Server do
       @behaviour :gen_statem
       @before_compile D20.Game.Server
 
+      import D20.Game.Server, only: [broadcast: 1, idle_action: 0]
+
       @type opts :: D20.Game.Server.opts()
       @type state :: D20.Game.Server.state()
 
@@ -72,7 +74,7 @@ defmodule D20.Game.Server do
   defmacro __before_compile__(_env) do
     quote do
       @impl :gen_statem
-      @spec init(state()) :: :gen_statem.init_result(D20.Sessions.Session.phase(), state())
+      @spec init(state()) :: :gen_statem.init_result(term(), state())
       def init(data), do: D20.Game.Server.init(data)
 
       @impl :gen_statem
@@ -107,10 +109,10 @@ defmodule D20.Game.Server do
   end
 
   @impl :gen_statem
-  @spec init(state()) :: :gen_statem.init_result(Session.phase(), state())
-  def init({slug, engine, %Session{phase: phase}} = data)
+  @spec init(state()) :: :gen_statem.init_result(term(), state())
+  def init({slug, engine, %Session{} = session} = data)
       when is_binary(slug) and is_atom(engine) do
-    {:ok, phase, data}
+    {:ok, state_name(session), data}
   end
 
   def init(_data), do: {:stop, :badarg}
@@ -129,12 +131,12 @@ defmodule D20.Game.Server do
 
   @impl :gen_statem
   def handle_event({:call, from}, :get, _state, {slug, _engine, session}) do
-    {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}, idle()]}
+    {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}, idle_action()]}
   end
 
   def handle_event(:info, :presence, _state, {_slug, _engine, session} = data) do
     case Presence.subscribe(SessionChannel.topic(session.id)) do
-      :ok -> {:keep_state_and_data, [idle()]}
+      :ok -> {:keep_state_and_data, [idle_action()]}
       {:error, reason} -> {:stop, reason, data}
     end
   end
@@ -146,12 +148,13 @@ defmodule D20.Game.Server do
         {slug, engine, session}
       ) do
     case Session.dispatch(session, engine, command) do
-      {:ok, %Session{phase: next_state} = updated_session} ->
+      {:ok, %Session{} = updated_session} ->
         broadcast(updated_session)
 
         data = {slug, engine, updated_session}
+        next_state = state_name(updated_session)
 
-        actions = [{:reply, from, {:ok, updated_session}}, idle()]
+        actions = [{:reply, from, {:ok, updated_session}}, idle_action()]
 
         if next_state == state do
           {:keep_state, data, actions}
@@ -160,25 +163,26 @@ defmodule D20.Game.Server do
         end
 
       {:error, reason} ->
-        {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle()]}
+        {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle_action()]}
     end
   end
 
   def handle_event(:internal, {:dispatch, %Command{} = command}, state, {slug, engine, session}) do
     case Session.dispatch(session, engine, command) do
-      {:ok, %Session{phase: next_state} = updated_session} ->
+      {:ok, %Session{} = updated_session} ->
         broadcast(updated_session)
 
         data = {slug, engine, updated_session}
+        next_state = state_name(updated_session)
 
         if next_state == state do
-          {:keep_state, data, [idle()]}
+          {:keep_state, data, [idle_action()]}
         else
-          {:next_state, next_state, data, [idle()]}
+          {:next_state, next_state, data, [idle_action()]}
         end
 
       {:error, _reason} ->
-        {:keep_state_and_data, [idle()]}
+        {:keep_state_and_data, [idle_action()]}
     end
   end
 
@@ -202,7 +206,9 @@ defmodule D20.Game.Server do
 
   def handle_event(_event_type, _event_content, _state, _data), do: :keep_state_and_data
 
-  defp broadcast(session) do
+  @doc false
+  @spec broadcast(Session.t()) :: :ok | {:error, term()}
+  def broadcast(session) do
     Phoenix.PubSub.local_broadcast(
       D20.PubSub,
       SessionChannel.topic(session.id),
@@ -210,7 +216,12 @@ defmodule D20.Game.Server do
     )
   end
 
-  defp idle do
+  @doc false
+  @spec idle_action() :: :gen_statem.action()
+  def idle_action do
     {{:timeout, :idle}, Application.fetch_env!(:d20, :session_idle_timeout), :expire}
   end
+
+  defp state_name(%Session{game: %{phase: phase}}), do: phase
+  defp state_name(%Session{phase: phase}), do: phase
 end

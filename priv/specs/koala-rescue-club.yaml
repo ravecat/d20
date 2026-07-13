@@ -201,8 +201,7 @@ operations:
     summary: Receive the latest Koala Rescue Club session projection
     description: |
       Server pushes `projection` after accepted state changes, automatic rolls,
-      and player-presence changes. During the roll phase, `roll_due_at` contains
-      the Unix time in milliseconds at which the server expects to roll.
+      and player-presence changes.
     messages:
       - $ref: "#/channels/gameSession/messages/sessionProjection"
   receiveSessionError:
@@ -534,7 +533,6 @@ components:
         - order
         - players
         - roll
-        - roll_due_at
         - scores
       properties:
         sheet:
@@ -562,12 +560,6 @@ components:
         roll:
           oneOf:
             - $ref: "#/components/schemas/dieRoll"
-            - type: "null"
-        roll_due_at:
-          oneOf:
-            - type: integer
-              minimum: 0
-              description: Unix epoch time in milliseconds for the scheduled automatic roll.
             - type: "null"
         scores:
           type: object

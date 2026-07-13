@@ -19,7 +19,9 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert [{^pid, Server}] = Registry.lookup(D20.Registry, {:session, session.id})
 
     assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
-    assert {:ok, %Session{}} = Sessions.dispatch(scope(session.id), "join", %{})
+
+    send(pid, {:join, "owner", %{}})
+
     assert_receive {:session, %Session{game: %Game{phase: :ready}}}
 
     %{pid: pid, session: session}
@@ -33,12 +35,8 @@ defmodule D20.KoalaRescueClub.ServerTest do
   end
 
   test "schedules and performs one server-owned roll", %{pid: pid, session: session} do
-    assert {:ok,
-            %Session{game: %Game{phase: :roll, roll: nil, roll_due_at: roll_due_at}} =
-              roll_session} = Sessions.dispatch(scope(session.id), "start", %{})
-
-    assert is_integer(roll_due_at)
-    assert roll_due_at > System.system_time(:millisecond)
+    assert {:ok, %Session{game: %Game{phase: :roll, roll: nil}} = roll_session} =
+             Sessions.dispatch(scope(session.id), "start", %{})
 
     assert_receive {:session, ^roll_session}
     assert {:roll, {"koala-rescue-club", Game, ^roll_session}} = :sys.get_state(pid)
@@ -50,13 +48,13 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert_receive {:session,
                     %Session{
                       members: %{"player-2" => %{online_at: 123}},
-                      game: %Game{phase: :roll, roll_due_at: ^roll_due_at}
+                      game: %Game{phase: :roll}
                     } = presence_session}
 
     assert {:roll, {"koala-rescue-club", Game, ^presence_session}} = :sys.get_state(pid)
 
     assert_receive {:session,
-                    %Session{game: %Game{phase: :submit, roll: %{value: value}, roll_due_at: nil}} =
+                    %Session{game: %Game{phase: :submit, roll: %{value: value}}} =
                       submitted_session},
                    5_000
 
@@ -94,19 +92,21 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _slug}} =
              Sessions.get(session.id)
 
-    assert {:ok, %Session{game: %Game{phase: :roll, turn: 2, roll_due_at: roll_due_at}}} =
+    assert {:ok, %Session{game: %Game{phase: :roll, turn: 2}}} =
              Sessions.dispatch(scope(session.id, "player-2"), "circle_tree", payload)
 
-    assert is_integer(roll_due_at)
     assert_receive {:session, %Session{game: %Game{phase: :roll, turn: 2}}}
   end
 
-  test "resets idle expiration without changing the roll deadline", %{pid: pid, session: session} do
+  test "resets idle expiration without replacing the automatic roll timeout", %{
+    pid: pid,
+    session: session
+  } do
     original_timeout = Application.fetch_env!(:d20, :session_idle_timeout)
     on_exit(fn -> Application.put_env(:d20, :session_idle_timeout, original_timeout) end)
     Application.put_env(:d20, :session_idle_timeout, 500)
 
-    assert {:ok, %Session{game: %Game{roll_due_at: roll_due_at}}} =
+    assert {:ok, %Session{game: %Game{phase: :roll}}} =
              Sessions.dispatch(scope(session.id), "start", %{})
 
     assert_receive {:session, %Session{game: %Game{phase: :roll}}}
@@ -115,7 +115,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 250
 
-    assert {:ok, {%Session{game: %Game{roll_due_at: ^roll_due_at}}, "koala-rescue-club"}} =
+    assert {:ok, {%Session{game: %Game{phase: :roll}}, "koala-rescue-club"}} =
              Sessions.get(session.id)
 
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 300

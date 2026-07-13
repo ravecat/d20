@@ -29,7 +29,6 @@ defmodule D20.KoalaRescueClub.Game do
     field :order, {:array, :string}, default: []
     field :players, :map, default: %{}
     field :roll, :map
-    field :roll_due_at, :integer
     field :scores, :map, default: %{}
   end
 
@@ -68,7 +67,6 @@ defmodule D20.KoalaRescueClub.Game do
           order: [player_id()],
           players: %{optional(player_id()) => player()},
           roll: roll() | nil,
-          roll_due_at: non_neg_integer() | nil,
           scores: %{optional(player_id()) => score()}
         }
   @type reason :: :finished | :invalid_phase
@@ -152,15 +150,6 @@ defmodule D20.KoalaRescueClub.Game do
     %{game | phase: :roll, round: 1, turn: 1, players: players}
   end
 
-  defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"}) do
-    %{d6: [value]} = Dice.roll!(d6: 1)
-
-    set_player_statuses(
-      %{game | phase: :submit, roll: %{value: value}, roll_due_at: nil},
-      :pending
-    )
-  end
-
   defp apply_command(
          %__MODULE__{phase: :submit} = game,
          %D20.Command{event: event, actor_id: actor_id} = command
@@ -171,6 +160,12 @@ defmodule D20.KoalaRescueClub.Game do
     game
     |> put_in([Access.key!(:players), actor_id], player)
     |> maybe_resolve_turn()
+  end
+
+  defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"}) do
+    %{d6: [value]} = Dice.roll!(d6: 1)
+
+    set_player_statuses(%{game | phase: :submit, roll: %{value: value}}, :pending)
   end
 
   defp join_player(game, player_id) do
@@ -234,14 +229,7 @@ defmodule D20.KoalaRescueClub.Game do
       {:ok, next_round} = Ruleset.round(game.turn + 1)
 
       set_player_statuses(
-        %{
-          game
-          | phase: :roll,
-            round: next_round,
-            turn: game.turn + 1,
-            roll: nil,
-            roll_due_at: nil
-        },
+        %{game | phase: :roll, round: next_round, turn: game.turn + 1, roll: nil},
         :ready
       )
     end

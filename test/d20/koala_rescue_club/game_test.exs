@@ -35,7 +35,6 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert decoded["phase"] == "roll"
       assert decoded["sheet"] == "yugambeh"
-      assert decoded["roll_due_at"] == nil
       assert decoded["players"]["p1"]["sheet"]["trees"] == []
     end
 

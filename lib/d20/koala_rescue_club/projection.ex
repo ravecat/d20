@@ -37,7 +37,6 @@ defmodule D20.KoalaRescueClub.Projection do
       order: game.order,
       players: render_players(rulesheet, game.players),
       roll: game.roll,
-      roll_due_at: game.roll_due_at,
       scores: game.scores
     }
   end

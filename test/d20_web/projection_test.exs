@@ -135,7 +135,6 @@ defmodule D20Web.ProjectionTest do
                  turn: 1,
                  order: ["owner", "p2"],
                  roll: %{value: _value},
-                 roll_due_at: nil,
                  scores: %{},
                  players: %{
                    "owner" => %{
