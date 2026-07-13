@@ -3,8 +3,7 @@ defmodule D20.KoalaRescueClub.Game do
   Koala Rescue Club game aggregate and reducer.
   """
 
-  @behaviour D20.Game
-
+  use D20.Game, server: D20.KoalaRescueClub.Server
   use Ecto.Schema
 
   import Ecto.Changeset, only: [cast: 3, validate_required: 2]
@@ -30,6 +29,7 @@ defmodule D20.KoalaRescueClub.Game do
     field :order, {:array, :string}, default: []
     field :players, :map, default: %{}
     field :roll, :map
+    field :roll_due_at, :integer
     field :scores, :map, default: %{}
   end
 
@@ -68,6 +68,7 @@ defmodule D20.KoalaRescueClub.Game do
           order: [player_id()],
           players: %{optional(player_id()) => player()},
           roll: roll() | nil,
+          roll_due_at: non_neg_integer() | nil,
           scores: %{optional(player_id()) => score()}
         }
   @type reason :: :finished | :invalid_phase
@@ -154,7 +155,10 @@ defmodule D20.KoalaRescueClub.Game do
   defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"}) do
     %{d6: [value]} = Dice.roll!(d6: 1)
 
-    set_player_statuses(%{game | phase: :submit, roll: %{value: value}}, :pending)
+    set_player_statuses(
+      %{game | phase: :submit, roll: %{value: value}, roll_due_at: nil},
+      :pending
+    )
   end
 
   defp apply_command(
@@ -230,7 +234,14 @@ defmodule D20.KoalaRescueClub.Game do
       {:ok, next_round} = Ruleset.round(game.turn + 1)
 
       set_player_statuses(
-        %{game | phase: :roll, round: next_round, turn: game.turn + 1, roll: nil},
+        %{
+          game
+          | phase: :roll,
+            round: next_round,
+            turn: game.turn + 1,
+            roll: nil,
+            roll_due_at: nil
+        },
         :ready
       )
     end

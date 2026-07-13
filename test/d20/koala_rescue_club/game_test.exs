@@ -4,8 +4,13 @@ defmodule D20.KoalaRescueClub.GameTest do
   alias D20.Command
   alias D20.KoalaRescueClub.Game
   alias D20.KoalaRescueClub.Ruleset
+  alias D20.KoalaRescueClub.Server
 
   describe "D20.Game behaviour" do
+    test "uses the automatic-roll session server" do
+      assert D20.Game.server(Game) == Server
+    end
+
     test "starts with a selected sheet and encodes state as JSON" do
       assert {:ok, %Game{phase: :setup, sheet: :yugambeh} = game} =
                D20.Game.init(Game, %{"sheet" => "yugambeh"})
@@ -30,6 +35,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert decoded["phase"] == "roll"
       assert decoded["sheet"] == "yugambeh"
+      assert decoded["roll_due_at"] == nil
       assert decoded["players"]["p1"]["sheet"]["trees"] == []
     end
 

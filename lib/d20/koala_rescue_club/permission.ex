@@ -44,12 +44,7 @@ defmodule D20.KoalaRescueClub.Permission do
     Rules.validate(game, %Command{event: "start", actor_id: actor_id}) == :ok
   end
 
-  def authorize(:roll, %Scope{actor: %{id: actor_id}}, %Session{
-        phase: :in_progress,
-        game: %Game{} = game
-      }) do
-    Rules.roll_allowed?(game, actor_id)
-  end
+  def authorize(:roll, %Scope{}, %Session{}), do: false
 
   def authorize(:submit_turn, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,

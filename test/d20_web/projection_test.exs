@@ -135,6 +135,7 @@ defmodule D20Web.ProjectionTest do
                  turn: 1,
                  order: ["owner", "p2"],
                  roll: %{value: _value},
+                 roll_due_at: nil,
                  scores: %{},
                  players: %{
                    "owner" => %{
@@ -166,13 +167,13 @@ defmodule D20Web.ProjectionTest do
              } = projection
 
       a_area = projection.game.players["owner"].sheet.areas.a
+
       assert Enum.any?(turn_options, fn option ->
                option.volunteers_used == 0 and option.die_value == projection.game.roll.value and
                  option.shape != []
              end)
 
       assert Enum.all?(turn_options, &(&1.volunteers_used in 0..1))
-
 
       assert %{
                ref: %{area: :a, axis: :row, index: 0},
