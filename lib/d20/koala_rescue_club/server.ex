@@ -17,10 +17,7 @@ defmodule D20.KoalaRescueClub.Server do
   @impl :gen_statem
   @spec init(state()) :: :gen_statem.init_result(phase(), state())
   def init({_slug, _engine, %Session{game: %Game{phase: phase}}} = data) do
-    case D20.Game.Server.init(data) do
-      {:ok, _default_state, data, actions} -> {:ok, phase, data, actions}
-      result -> result
-    end
+    {:ok, phase, data}
   end
 
   @impl :gen_statem

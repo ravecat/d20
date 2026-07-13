@@ -108,12 +108,9 @@ defmodule D20.Game.Server do
 
   @impl :gen_statem
   @spec init(state()) :: :gen_statem.init_result(Session.phase(), state())
-  def init({slug, engine, %Session{phase: phase} = session} = data)
+  def init({slug, engine, %Session{phase: phase}} = data)
       when is_binary(slug) and is_atom(engine) do
-    case Presence.subscribe(SessionChannel.topic(session.id)) do
-      :ok -> {:ok, phase, data, [idle()]}
-      {:error, reason} -> {:stop, reason}
-    end
+    {:ok, phase, data}
   end
 
   def init(_data), do: {:stop, :badarg}
@@ -133,6 +130,13 @@ defmodule D20.Game.Server do
   @impl :gen_statem
   def handle_event({:call, from}, :get, _state, {slug, _engine, session}) do
     {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}, idle()]}
+  end
+
+  def handle_event(:info, :presence, _state, {_slug, _engine, session} = data) do
+    case Presence.subscribe(SessionChannel.topic(session.id)) do
+      :ok -> {:keep_state_and_data, [idle()]}
+      {:error, reason} -> {:stop, reason, data}
+    end
   end
 
   def handle_event(

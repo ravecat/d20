@@ -40,10 +40,7 @@ defmodule D20.SessionsTest do
 
     @impl :gen_statem
     def init({_slug, _engine, %Session{}} = data) do
-      case D20.Game.Server.init(data) do
-        {:ok, _default_state, data, actions} -> {:ok, :running, data, actions}
-        result -> result
-      end
+      {:ok, :running, data}
     end
 
     @impl :gen_statem
@@ -144,6 +141,7 @@ defmodule D20.SessionsTest do
 
       topic = SessionChannel.topic(session.id)
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, topic)
+      assert {:ok, {_session, "shared-default"}} = Sessions.get(session.id)
 
       assert {:ok, %{}} =
                Presence.handle_metas(
@@ -478,6 +476,8 @@ defmodule D20.SessionsTest do
     assert {:ok, session} = Session.new(engine, owner_id)
 
     pid = start_supervised!({Server, slug: "test-game", engine: engine, session: session})
+    send(pid, :presence)
+    assert {:ok, {_session, "test-game"}} = Server.get(pid)
     ref = session.id
 
     %{id: session.id, ref: ref, session: session, pid: pid}

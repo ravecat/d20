@@ -26,7 +26,8 @@ defmodule D20.Sessions do
 
   def create(slug, engine, owner_id, attrs) when is_binary(slug) do
     with {:ok, session} <- Session.new(engine, owner_id, attrs),
-         {:ok, _pid} <- start_child(slug, engine, session) do
+         {:ok, pid} <- start_child(slug, engine, session) do
+      send(pid, :presence)
       {:ok, session}
     else
       {:error, reason} -> {:error, reason}
