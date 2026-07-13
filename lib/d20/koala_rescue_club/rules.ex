@@ -3,12 +3,15 @@ defmodule D20.KoalaRescueClub.Rules do
   State-dependent Koala Rescue Club command checks and turn resolution.
   """
 
+  import D20.Guards, only: [is_player_id: 1]
+
   alias D20.KoalaRescueClub.Game
   alias D20.KoalaRescueClub.Ruleset
   alias D20.KoalaRescueClub.Ruleset.Sheet
 
   @type reason ::
           :invalid_player_count
+          | :invalid_identity
           | :invalid_phase
           | :not_joined
           | :unknown_player
@@ -33,23 +36,25 @@ defmodule D20.KoalaRescueClub.Rules do
           | :invalid_badge
 
   @spec validate(Game.t(), D20.Command.t()) :: :ok | {:error, reason()}
-  def validate(game, %D20.Command{event: "join", actor_id: actor_id}) do
-    with :ok <- require_phase(game, [:setup, :ready]),
+  def validate(game, %D20.Command{event: "join", actor_id: actor_id} = command) do
+    with :ok <- require_actor(command),
+         :ok <- require_phase(game, [:setup, :ready]),
          :ok <- require_player_count_in_range(game, actor_id) do
       :ok
     end
   end
 
-  def validate(game, %D20.Command{event: "start"}) do
-    with :ok <- require_phase(game, :ready),
+  def validate(game, %D20.Command{event: "start"} = command) do
+    with :ok <- require_actor(command),
+         :ok <- require_phase(game, :ready),
          :ok <- require_player_count_in_range(game) do
       :ok
     end
   end
 
-  def validate(game, %D20.Command{event: "roll", actor_id: actor_id}) do
-    with :ok <- require_phase(game, :roll),
-         :ok <- require_player(game, actor_id),
+  def validate(game, %D20.Command{event: "roll"} = command) do
+    with :ok <- require_missing_actor(command),
+         :ok <- require_phase(game, :roll),
          :ok <- require_missing_roll(game) do
       :ok
     end
@@ -57,9 +62,11 @@ defmodule D20.KoalaRescueClub.Rules do
 
   def validate(game, %D20.Command{event: event} = command)
       when event in ["plant_trees", "rehome_koalas", "circle_tree", "circle_koala"] do
-    case resolve_turn(game, command) do
-      {:ok, _player} -> :ok
-      {:error, reason} -> {:error, reason}
+    with :ok <- require_actor(command) do
+      case resolve_turn(game, command) do
+        {:ok, _player} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -68,11 +75,6 @@ defmodule D20.KoalaRescueClub.Rules do
   @spec ready_to_start?(Game.t()) :: boolean()
   def ready_to_start?(%Game{order: player_ids}) do
     length(player_ids) in Ruleset.player_count_range()
-  end
-
-  @spec roll_allowed?(Game.t(), Game.player_id()) :: boolean()
-  def roll_allowed?(%Game{} = game, player_id) do
-    validate(game, %D20.Command{event: "roll", actor_id: player_id}) == :ok
   end
 
   @spec submit_allowed?(Game.t(), Game.player_id()) :: boolean()
@@ -178,6 +180,12 @@ defmodule D20.KoalaRescueClub.Rules do
 
   defp require_phase(%{phase: phase}, phase), do: :ok
   defp require_phase(%{phase: _phase}, _expected), do: {:error, :invalid_phase}
+
+  defp require_actor(%D20.Command{actor_id: actor_id}) when is_player_id(actor_id), do: :ok
+  defp require_actor(%D20.Command{}), do: {:error, :invalid_identity}
+
+  defp require_missing_actor(%D20.Command{actor_id: nil}), do: :ok
+  defp require_missing_actor(%D20.Command{}), do: {:error, :invalid_identity}
 
   defp require_player_count_in_range(%{order: player_ids, players: players}, player_id \\ nil) do
     count =

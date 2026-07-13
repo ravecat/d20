@@ -59,7 +59,8 @@ defmodule D20.Sessions.Session do
         %Command{event: "join", actor_id: actor_id, attrs: attrs} = command
       )
       when phase in [:waiting_for_players, :in_progress] do
-    with {:ok, game} <- engine.dispatch(session.game, command) do
+    with :ok <- require_identity(actor_id),
+         {:ok, game} <- engine.dispatch(session.game, command) do
       members = Map.put(session.members, actor_id, attrs)
 
       {:ok, %{session | game: game, members: members}}
@@ -72,19 +73,21 @@ defmodule D20.Sessions.Session do
         %Command{event: "leave", actor_id: actor_id} = command
       )
       when phase in [:waiting_for_players, :in_progress] do
-    case Map.fetch(session.members, actor_id) do
-      {:ok, _member} ->
-        case engine.dispatch(session.game, command) do
-          {:ok, game} ->
-            members = Map.delete(session.members, actor_id)
-            {:ok, %{session | game: game, members: members}}
+    with :ok <- require_identity(actor_id) do
+      case Map.fetch(session.members, actor_id) do
+        {:ok, _member} ->
+          case engine.dispatch(session.game, command) do
+            {:ok, game} ->
+              members = Map.delete(session.members, actor_id)
+              {:ok, %{session | game: game, members: members}}
 
-          {:error, reason} ->
-            {:error, reason}
-        end
+            {:error, reason} ->
+              {:error, reason}
+          end
 
-      :error ->
-        {:ok, session}
+        :error ->
+          {:ok, session}
+      end
     end
   end
 
@@ -116,10 +119,13 @@ defmodule D20.Sessions.Session do
     end
   end
 
-  defp require_owner(_session, player_id) when not is_player_id(player_id) do
-    {:error, :invalid_identity}
+  defp require_identity(player_id) when is_player_id(player_id), do: :ok
+  defp require_identity(_player_id), do: {:error, :invalid_identity}
+
+  defp require_owner(session, player_id) do
+    with :ok <- require_identity(player_id), do: require_owner_id(session, player_id)
   end
 
-  defp require_owner(%__MODULE__{owner_id: player_id}, player_id), do: :ok
-  defp require_owner(%__MODULE__{}, _player_id), do: {:error, :not_owner}
+  defp require_owner_id(%__MODULE__{owner_id: player_id}, player_id), do: :ok
+  defp require_owner_id(%__MODULE__{}, _player_id), do: {:error, :not_owner}
 end

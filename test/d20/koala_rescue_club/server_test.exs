@@ -65,6 +65,13 @@ defmodule D20.KoalaRescueClub.ServerTest do
     refute_receive {:session, %Session{game: %Game{phase: :submit}}}, 100
   end
 
+  test "rejects client actors for automatic roll commands", %{session: session} do
+    assert {:ok, %Session{game: %Game{phase: :roll}}} =
+             Sessions.dispatch(scope(session.id), "start", %{})
+
+    assert {:error, :invalid_identity} = Sessions.dispatch(scope(session.id), "roll", %{})
+  end
+
   test "schedules the next roll only after every player submits", %{session: session} do
     assert {:ok, %Session{}} = Sessions.dispatch(scope(session.id, "player-2"), "join", %{})
     assert_receive {:session, %Session{game: %Game{order: ["owner", "player-2"]}}}

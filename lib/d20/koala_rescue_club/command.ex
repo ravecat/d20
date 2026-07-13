@@ -16,13 +16,17 @@ defmodule D20.KoalaRescueClub.Command do
   @spec validate(D20.Command.t()) :: {:ok, D20.Command.t()} | {:error, reason()}
   def validate(%D20.Command{event: "join"} = command), do: {:ok, command}
 
+  def validate(%D20.Command{event: "roll", attrs: attrs} = command)
+      when attrs == %{} or attrs == nil,
+      do: {:ok, %{command | attrs: %{}}}
+
+  def validate(%D20.Command{event: "roll"}), do: {:error, :invalid_command}
+
   def validate(%D20.Command{event: "start", attrs: attrs} = command)
       when attrs == %{} or attrs == nil,
       do: {:ok, %{command | attrs: %{}}}
 
   def validate(%D20.Command{event: "start"}), do: {:error, :invalid_command}
-
-  def validate(%D20.Command{event: "roll"} = command), do: {:ok, %{command | attrs: %{}}}
 
   def validate(%D20.Command{event: event, attrs: attrs} = command)
       when event in ["plant_trees", "rehome_koalas"] do

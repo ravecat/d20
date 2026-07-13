@@ -106,7 +106,7 @@ defmodule D20Web.ProjectionTest do
       {:ok, game} = dispatch_koala(game, "join", "owner")
       {:ok, game} = dispatch_koala(game, "join", "p2")
       {:ok, game} = dispatch_koala(game, "start", "owner")
-      {:ok, game} = dispatch_koala(game, "roll", "owner")
+      {:ok, game} = dispatch_koala(game, "roll", nil)
 
       session = %Session{
         id: "session-1",

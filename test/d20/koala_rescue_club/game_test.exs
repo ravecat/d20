@@ -60,6 +60,18 @@ defmodule D20.KoalaRescueClub.GameTest do
   end
 
   describe "dispatch/2" do
+    test "checks actor requirements per command" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:error, :invalid_identity} = dispatch(game, "join", nil)
+
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:error, :invalid_identity} = dispatch(game, "start", nil)
+
+      assert {:ok, game} = dispatch(game, "start", "p1")
+      assert {:error, :invalid_identity} = dispatch(game, "roll", "p1")
+      assert {:ok, %Game{phase: :submit}} = dispatch(game, "roll", nil)
+    end
+
     test "rejects players above the supported range" do
       assert {:ok, game} = D20.Game.init(Game)
 
@@ -82,7 +94,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = dispatch(game, "start", "p1")
 
       assert {:ok, %Game{phase: :submit, roll: %{value: value}} = game} =
-               dispatch(game, "roll", "p1")
+               dispatch(game, "roll", nil)
 
       assert game.players["p1"].status == :pending
       assert game.players["p2"].status == :pending

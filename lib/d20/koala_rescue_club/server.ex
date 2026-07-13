@@ -53,13 +53,8 @@ defmodule D20.KoalaRescueClub.Server do
     end
   end
 
-  def handle_event(
-        :state_timeout,
-        :roll,
-        :roll,
-        {_slug, engine, %Session{game: %Game{order: [actor_id | _rest]}} = session} = data
-      ) do
-    command = %Command{event: "roll", actor_id: actor_id, attrs: %{}}
+  def handle_event(:state_timeout, :roll, :roll, {_slug, engine, %Session{} = session} = data) do
+    command = %Command{event: "roll"}
 
     case Session.dispatch(session, engine, command) do
       {:ok, updated_session} -> transition(:roll, data, updated_session, [])

@@ -5,12 +5,12 @@ defmodule D20.KoalaRescueClub.CommandTest do
   alias D20.KoalaRescueClub.Command, as: KoalaCommand
 
   describe "validate/1" do
-    test "accepts join and roll commands" do
+    test "accepts join and payload-free roll commands" do
       assert {:ok, %Command{event: "join"}} =
                KoalaCommand.validate(%Command{event: "join", actor_id: "p1"})
 
-      assert {:ok, %Command{event: "roll", attrs: %{}}} =
-               KoalaCommand.validate(%Command{event: "roll", actor_id: "p1"})
+      assert {:ok, %Command{event: "roll", actor_id: nil, attrs: %{}}} =
+               KoalaCommand.validate(%Command{event: "roll"})
     end
 
     test "accepts payload-free start commands" do

@@ -241,7 +241,7 @@ defmodule D20.Sessions.SessionTest do
                Session.dispatch(session, KoalaGame, command("start", "p1"))
 
       assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :submit}} = session} =
-               Session.dispatch(session, KoalaGame, command("roll", "p1"))
+               Session.dispatch(session, KoalaGame, %Command{event: "roll"})
 
       value = session.game.roll.value
 

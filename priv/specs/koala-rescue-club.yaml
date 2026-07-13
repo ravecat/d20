@@ -413,7 +413,6 @@ components:
     commandErrorReason:
       type: string
       enum:
-        - automatic_roll
         - forbidden
         - session_not_found
         - invalid_command
