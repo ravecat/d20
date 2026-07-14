@@ -127,8 +127,8 @@ defmodule D20Web.PageControllerTest do
     assert %{games: games} = inertia_props(conn)
 
     assert Enum.map(games, & &1.slug) == [
-             "qwinto",
              "koala-rescue-club",
+             "qwinto",
              "aquamarine",
              "confusing-lands",
              "death-valley",
@@ -149,7 +149,7 @@ defmodule D20Web.PageControllerTest do
            ]
 
     assert %{status: nil} = Enum.find(games, &(&1.slug == "aquamarine"))
-    assert %{status: :in_progress} = Enum.find(games, &(&1.slug == "koala-rescue-club"))
+    assert %{status: :active} = Enum.find(games, &(&1.slug == "koala-rescue-club"))
     assert %{status: :active} = Enum.find(games, &(&1.slug == "qwinto"))
 
     game = game_by_slug(games, "qwinto")
@@ -247,22 +247,32 @@ defmodule D20Web.PageControllerTest do
            } = inertia_props(conn)
   end
 
-  test "GET /games/:slug keeps active launch available when in-progress launch is disabled", %{
+  test "GET /games/:slug keeps Koala launch available when in-progress launch is disabled", %{
     conn: conn
   } do
-    Application.put_env(:d20, :allow_launch_in_progress, false)
-    stub_bgg_game(@resolved_qwinto_xml)
-
-    conn = get(conn, ~p"/games/qwinto")
-
-    assert %{status: :active, canLaunchGame: true, attrs: %{}} = inertia_props(conn)
-  end
-
-  test "GET /games/:slug disables in-progress launch when configured", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_progress, false)
     stub_bgg_game(@koala_xml, "425873")
 
     conn = get(conn, ~p"/games/koala-rescue-club")
+
+    assert %{status: :active, canLaunchGame: true} = inertia_props(conn)
+  end
+
+  test "GET /games/:slug disables in-progress launch when configured", %{conn: conn} do
+    Application.put_env(:d20, :allow_launch_in_progress, false)
+
+    put_registry_games(
+      qwinto: [
+        engine: D20.Qwinto.Game,
+        bgg_id: 183_006,
+        sandbox: ["allow-scripts"],
+        status: :in_progress
+      ]
+    )
+
+    stub_bgg_game(@resolved_qwinto_xml)
+
+    conn = get(conn, ~p"/games/qwinto")
 
     assert %{status: :in_progress, canLaunchGame: false, attrs: %{}} = inertia_props(conn)
   end
@@ -330,6 +340,8 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "POST /games/:slug/sessions creates a Koala session with submitted attrs", %{conn: conn} do
+    Application.put_env(:d20, :allow_launch_in_progress, false)
+
     conn =
       conn
       |> put_req_header("x-inertia", "true")
@@ -356,10 +368,19 @@ defmodule D20Web.PageControllerTest do
 
   test "POST /games/:slug/sessions forbids in-progress launch when configured", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_progress, false)
+
+    put_registry_games(
+      qwinto: [
+        engine: D20.Qwinto.Game,
+        bgg_id: 183_006,
+        sandbox: ["allow-scripts"],
+        status: :in_progress
+      ]
+    )
+
     before_count = Elixir.Registry.count(D20.Registry)
 
-    conn =
-      conn |> put_req_header("x-inertia", "true") |> post(~p"/games/koala-rescue-club/sessions")
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
     assert text_response(conn, 403) == "Game sessions are unavailable."
     assert Elixir.Registry.count(D20.Registry) == before_count

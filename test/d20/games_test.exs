@@ -104,8 +104,8 @@ defmodule D20.GamesTest do
     assert {:ok, games} = Games.list()
 
     assert Enum.map(games, & &1.slug) == [
-             "qwinto",
              "koala-rescue-club",
+             "qwinto",
              "aquamarine",
              "confusing-lands",
              "death-valley",
@@ -130,7 +130,7 @@ defmodule D20.GamesTest do
 
     assert %Game{name: "Fliptown"} = game_by_slug(games, "fliptown")
 
-    assert %{status: :in_progress, game: %Game{name: "Koala Rescue Club"}} =
+    assert %{status: :active, game: %Game{name: "Koala Rescue Club"}} =
              Enum.find(games, &(&1.slug == "koala-rescue-club"))
 
     assert %Game{name: "Next Station: London"} = game_by_slug(games, "next-station-london")
@@ -157,10 +157,12 @@ defmodule D20.GamesTest do
 
   test "allows active and in-progress session launch outside production" do
     assert {:ok, active} = Registry.fetch("qwinto")
-    assert {:ok, in_progress} = Registry.fetch("koala-rescue-club")
+    assert {:ok, koala} = Registry.fetch("koala-rescue-club")
     assert {:ok, inactive} = Registry.fetch("voyages")
+    in_progress = %Registry.Entry{slug: "preview", bgg_id: 1, status: :in_progress}
 
     assert Games.session_launch_available?(active)
+    assert Games.session_launch_available?(koala)
     assert Games.session_launch_available?(in_progress)
     refute Games.session_launch_available?(inactive)
   end
@@ -168,10 +170,12 @@ defmodule D20.GamesTest do
   test "keeps active launch available when in-progress launch is disabled" do
     Application.put_env(:d20, :allow_launch_in_progress, false)
     assert {:ok, active} = Registry.fetch("qwinto")
-    assert {:ok, in_progress} = Registry.fetch("koala-rescue-club")
+    assert {:ok, koala} = Registry.fetch("koala-rescue-club")
     assert {:ok, inactive} = Registry.fetch("voyages")
+    in_progress = %Registry.Entry{slug: "preview", bgg_id: 1, status: :in_progress}
 
     assert Games.session_launch_available?(active)
+    assert Games.session_launch_available?(koala)
     refute Games.session_launch_available?(in_progress)
     refute Games.session_launch_available?(inactive)
   end

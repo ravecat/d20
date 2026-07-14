@@ -58,7 +58,7 @@ config :d20, D20.Games.Registry,
       engine: D20.KoalaRescueClub.Game,
       bgg_id: 425_873,
       sandbox: ["allow-scripts", "allow-same-origin"],
-      status: :in_progress
+      status: :active
     ],
     "lost-cities": [bgg_id: 50],
     nimalia: [bgg_id: 361_850],

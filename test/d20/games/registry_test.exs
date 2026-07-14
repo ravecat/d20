@@ -48,7 +48,7 @@ defmodule D20.Games.RegistryTest do
              bgg_id: 425_873,
              engine: D20.KoalaRescueClub.Game,
              sandbox: koala_sandbox,
-             status: :in_progress
+             status: :active
            } = entry_by_slug(entries, "koala-rescue-club")
 
     assert %Registry.Entry{

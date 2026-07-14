@@ -2,6 +2,7 @@ defmodule D20Web.ModuleControllerTest do
   use D20Web.ConnCase, async: false
 
   alias D20.Actors.Actor
+  alias D20.Games.Registry
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions.Session
 
@@ -9,8 +10,11 @@ defmodule D20Web.ModuleControllerTest do
 
   setup do
     original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
+    original_registry_config = Application.fetch_env!(:d20, Registry)
 
     on_exit(fn ->
+      Application.put_env(:d20, Registry, original_registry_config)
+
       case original_launch_config do
         :not_configured -> Application.delete_env(:d20, :allow_launch_in_progress)
         config -> Application.put_env(:d20, :allow_launch_in_progress, config)
@@ -114,6 +118,17 @@ defmodule D20Web.ModuleControllerTest do
     conn: conn
   } do
     Application.put_env(:d20, :allow_launch_in_progress, false)
+
+    Application.put_env(:d20, Registry,
+      games: [
+        "koala-rescue-club": [
+          engine: KoalaGame,
+          bgg_id: 425_873,
+          sandbox: ["allow-scripts", "allow-same-origin"],
+          status: :in_progress
+        ]
+      ]
+    )
 
     conn =
       conn |> put_req_header("origin", @koala_origin) |> post(~p"/modules/koala-rescue-club", %{})
