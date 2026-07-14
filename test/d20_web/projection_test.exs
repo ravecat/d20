@@ -127,7 +127,7 @@ defmodule D20Web.ProjectionTest do
                owner_id: "owner",
                members: %{},
                permissions: %{can_start_game: false, can_roll: false, can_submit_turn: true},
-               turn_options: turn_options,
+               turn: %{options: turn_options, selection: nil},
                game: %{
                  sheet: :dharug,
                  phase: :submit,
@@ -165,12 +165,19 @@ defmodule D20Web.ProjectionTest do
                }
              } = projection
 
-      assert Enum.any?(turn_options, fn option ->
-               option.volunteers_used == 0 and option.die_value == projection.game.roll.value and
-                 option.shape != []
-             end)
+      assert Map.keys(turn_options) |> Enum.sort() == ~w(1 2 3 4 5 6)
 
-      assert Enum.all?(turn_options, &(&1.volunteers_used in 0..1))
+      rolled_option = turn_options[Integer.to_string(projection.game.roll.value)]
+      assert rolled_option.volunteer_cost == 0
+      assert rolled_option.actions["plant_trees"].available_cells != []
+      assert rolled_option.actions["circle_tree"].available_cells != []
+      refute Map.has_key?(rolled_option.actions, "rehome_koalas")
+      refute Map.has_key?(rolled_option.actions, "circle_koala")
+      refute Map.has_key?(rolled_option, :die_value)
+      refute Map.has_key?(rolled_option, :required_cells)
+
+      opposite_value = rem(projection.game.roll.value + 2, 6) + 1
+      assert %{volunteer_cost: 3, actions: %{}} = turn_options[Integer.to_string(opposite_value)]
 
       a_area = projection.game.players["owner"].sheet.areas.a
 
@@ -190,6 +197,66 @@ defmodule D20Web.ProjectionTest do
       refute Map.has_key?(a_area, :column_bonuses)
       refute Map.has_key?(projection, :available_turn_actions)
       refute Map.has_key?(projection, :sheet_projection)
+      refute Map.has_key?(projection, :turn_options)
+      refute Map.has_key?(projection, :turn_selection)
+    end
+
+    test "renders an incremental Koala selection only for its owner" do
+      {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
+      {:ok, game} = dispatch_koala(game, "join", "owner")
+      {:ok, game} = dispatch_koala(game, "join", "p2")
+      {:ok, game} = dispatch_koala(game, "start", "owner")
+      {:ok, game} = dispatch_koala(game, "roll", nil)
+
+      value = game.roll.value
+
+      assert {:ok, game} =
+               dispatch_koala(game, "select_turn_cell", "owner", %{
+                 "action" => "plant_trees",
+                 "die_value" => value,
+                 "volunteers_used" => 0,
+                 "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+               })
+
+      session = %Session{
+        id: "session-1",
+        phase: :in_progress,
+        owner_id: "owner",
+        members: %{},
+        game: game
+      }
+
+      owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+      other_scope = Scope.for_actor(%Actor{id: "p2", type: :anonymous})
+
+      assert %{
+               turn: %{
+                 selection: %{
+                   action: "plant_trees",
+                   die_value: ^value,
+                   volunteers_used: 0,
+                   required_cells: required_cells,
+                   selected_cells: [%{area: :a, row: 0, column: 0}],
+                   available_cells: available_cells,
+                   complete: false,
+                   bonus_options: []
+                 }
+               }
+             } = owner_projection = Projection.render(owner_scope, session)
+
+      assert required_cells in 2..4
+      assert available_cells != []
+
+      assert %{turn: %{selection: nil}} =
+               other_projection = Projection.render(other_scope, session)
+
+      refute Map.has_key?(owner_projection.game.players["owner"], :turn_selection)
+      refute Map.has_key?(other_projection.game.players["owner"], :turn_selection)
+
+      assert %{tree: false, koala: false} =
+               other_projection.game.players["owner"].sheet.areas.a.rows
+               |> Enum.at(0)
+               |> Enum.at(0)
     end
 
     test "returns the session unchanged without a game-specific projection" do

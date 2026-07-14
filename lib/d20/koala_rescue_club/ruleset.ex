@@ -202,6 +202,34 @@ defmodule D20.KoalaRescueClub.Ruleset do
     end
   end
 
+  @doc "Returns every distinct transformed placement of a die shape inside one area."
+  @spec shape_placements(Sheet.t(), area(), term()) ::
+          {:ok, [[cell()]]} | {:error, :invalid_die_value}
+  def shape_placements(%Sheet{} = sheet, area, die_value) do
+    with {:ok, _shape} <- shape_for(die_value) do
+      cells = area_cells(sheet, area)
+
+      placements =
+        die_value
+        |> transformed_shapes()
+        |> Enum.map(&normalize_offsets/1)
+        |> Enum.uniq()
+        |> Enum.flat_map(&translated_placements(&1, cells, area))
+        |> Enum.uniq()
+        |> Enum.sort_by(&Enum.map(&1, fn cell -> {cell.row, cell.column} end))
+
+      {:ok, placements}
+    end
+  end
+
+  @doc "Returns the number of cells in a die shape."
+  @spec shape_size(term()) :: {:ok, pos_integer()} | {:error, :invalid_die_value}
+  def shape_size(value) do
+    with {:ok, offsets} <- shape_for(value) do
+      {:ok, length(offsets)}
+    end
+  end
+
   @doc "Returns the canonical row and column offsets for a die value."
   @spec shape(term()) ::
           {:ok, [%{required(:row) => non_neg_integer(), required(:column) => non_neg_integer()}]}
@@ -256,6 +284,32 @@ defmodule D20.KoalaRescueClub.Ruleset do
         {:cont, {:ok, [{cell.column, cell.row} | coords]}}
       else
         {:halt, {:error, :unknown_cell}}
+      end
+    end)
+  end
+
+  defp translated_placements(_offsets, [], _area), do: []
+
+  defp translated_placements([first | _rest] = offsets, cells, area) do
+    coordinates = MapSet.new(cells, &{&1.column, &1.row})
+    {first_column, first_row} = first
+
+    Enum.flat_map(cells, fn anchor ->
+      column_delta = anchor.column - first_column
+      row_delta = anchor.row - first_row
+
+      translated =
+        Enum.map(offsets, fn {column, row} -> {column + column_delta, row + row_delta} end)
+
+      if Enum.all?(translated, &MapSet.member?(coordinates, &1)) do
+        placement =
+          translated
+          |> Enum.map(fn {column, row} -> %{area: area, row: row, column: column} end)
+          |> Enum.sort_by(&{&1.row, &1.column})
+
+        [placement]
+      else
+        []
       end
     end)
   end

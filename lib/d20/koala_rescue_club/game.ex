@@ -45,9 +45,16 @@ defmodule D20.KoalaRescueClub.Game do
           required(:bonuses) => [bonus_ref()]
         }
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
+  @type turn_selection :: %{
+          required(:action) => String.t(),
+          required(:die_value) => 1..6,
+          required(:volunteers_used) => non_neg_integer(),
+          required(:selected_cells) => [Ruleset.cell()]
+        }
   @type player :: %{
           required(:status) => :ready | :pending | :submitted,
           required(:sheet) => sheet(),
+          required(:turn_selection) => turn_selection() | nil,
           required(:badges) => %{optional(Ruleset.badge()) => atom()},
           required(:rounds) => [
             %{
@@ -120,7 +127,14 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{event: event} = command)
-      when event in ["plant_trees", "rehome_koalas", "circle_tree", "circle_koala"] do
+      when event in [
+             "select_turn_cell",
+             "deselect_turn_cell",
+             "reset_turn_selection",
+             "submit_turn_selection",
+             "circle_tree",
+             "circle_koala"
+           ] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -144,7 +158,7 @@ defmodule D20.KoalaRescueClub.Game do
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
     players =
       Map.new(game.players, fn {player_id, player} ->
-        {player_id, %{player | status: :ready, rounds: [], badges: %{}}}
+        {player_id, %{player | status: :ready, turn_selection: nil, rounds: [], badges: %{}}}
       end)
 
     %{game | phase: :roll, round: 1, turn: 1, players: players}
@@ -154,7 +168,14 @@ defmodule D20.KoalaRescueClub.Game do
          %__MODULE__{phase: :submit} = game,
          %D20.Command{event: event, actor_id: actor_id} = command
        )
-       when event in ["plant_trees", "rehome_koalas", "circle_tree", "circle_koala"] do
+       when event in [
+              "select_turn_cell",
+              "deselect_turn_cell",
+              "reset_turn_selection",
+              "submit_turn_selection",
+              "circle_tree",
+              "circle_koala"
+            ] do
     {:ok, player} = Rules.resolve_turn(game, command)
 
     game
@@ -191,7 +212,7 @@ defmodule D20.KoalaRescueClub.Game do
         bonuses: []
       }
 
-      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}}
+      player = %{status: :ready, sheet: sheet, turn_selection: nil, rounds: [], badges: %{}}
 
       %{
         game
@@ -384,7 +405,9 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp set_player_statuses(game, status) when status in @player_statuses do
     players =
-      Map.new(game.players, fn {player_id, player} -> {player_id, %{player | status: status}} end)
+      Map.new(game.players, fn {player_id, player} ->
+        {player_id, %{player | status: status, turn_selection: nil}}
+      end)
 
     %{game | players: players}
   end

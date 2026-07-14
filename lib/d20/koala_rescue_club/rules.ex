@@ -9,6 +9,10 @@ defmodule D20.KoalaRescueClub.Rules do
   alias D20.KoalaRescueClub.Ruleset
   alias D20.KoalaRescueClub.Ruleset.Sheet
 
+  @shape_actions ["plant_trees", "rehome_koalas"]
+  @single_actions ["circle_tree", "circle_koala"]
+  @primary_actions @shape_actions ++ @single_actions
+
   @type reason ::
           :invalid_player_count
           | :invalid_identity
@@ -23,6 +27,9 @@ defmodule D20.KoalaRescueClub.Rules do
           | :invalid_action
           | :mixed_action
           | :invalid_shape
+          | :no_legal_placement
+          | :missing_turn_selection
+          | :incomplete_turn_selection
           | :invalid_target
           | :invalid_area
           | :inaccessible_area
@@ -61,7 +68,14 @@ defmodule D20.KoalaRescueClub.Rules do
   end
 
   def validate(game, %D20.Command{event: event} = command)
-      when event in ["plant_trees", "rehome_koalas", "circle_tree", "circle_koala"] do
+      when event in [
+             "select_turn_cell",
+             "deselect_turn_cell",
+             "reset_turn_selection",
+             "submit_turn_selection",
+             "circle_tree",
+             "circle_koala"
+           ] do
     with :ok <- require_actor(command) do
       case resolve_turn(game, command) do
         {:ok, _player} -> :ok
@@ -93,37 +107,119 @@ defmodule D20.KoalaRescueClub.Rules do
     Enum.all?(game.players, fn {_player_id, player} -> player.status == :submitted end)
   end
 
-  @doc "Returns caller-specific die values and shapes available for the pending turn."
-  @spec turn_options(Game.t(), Game.player_id()) :: [
-          %{
-            required(:die_value) => 1..6,
-            required(:volunteers_used) => non_neg_integer(),
-            required(:shape) => [
-              %{required(:row) => non_neg_integer(), required(:column) => non_neg_integer()}
-            ]
-          }
-        ]
+  @type turn_action_option :: %{required(:available_cells) => [Ruleset.cell()]}
+  @type turn_option :: %{
+          required(:volunteer_cost) => non_neg_integer(),
+          required(:actions) => %{optional(String.t()) => turn_action_option()}
+        }
+
+  @doc "Returns caller-specific die values and legal primary actions for the pending turn."
+  @spec turn_options(Game.t(), Game.player_id()) :: %{optional(String.t()) => turn_option()}
   def turn_options(%Game{} = game, player_id) do
     if submit_allowed?(game, player_id) do
-      available_volunteers =
-        Enum.count(game.players[player_id].sheet.volunteers, &(&1 == :available))
+      player_sheet = game.players[player_id].sheet
+      rulesheet = Ruleset.sheet!(game.sheet)
+      available_volunteers = Enum.count(player_sheet.volunteers, &(&1 == :available))
 
-      for die_value <- 1..6,
-          {:ok, volunteers_used} = Ruleset.volunteers_needed(game.roll.value, die_value),
-          volunteers_used <= available_volunteers do
-        {:ok, shape} = Ruleset.shape(die_value)
+      Map.new(1..6, fn die_value ->
+        {:ok, volunteer_cost} = Ruleset.volunteers_needed(game.roll.value, die_value)
 
-        %{die_value: die_value, volunteers_used: volunteers_used, shape: shape}
-      end
+        actions =
+          if volunteer_cost <= available_volunteers do
+            turn_actions(rulesheet, player_sheet, die_value, volunteer_cost)
+          else
+            %{}
+          end
+
+        {Integer.to_string(die_value), %{volunteer_cost: volunteer_cost, actions: actions}}
+      end)
     else
-      []
+      %{}
+    end
+  end
+
+  @doc "Returns the caller's current turn selection with derived legal options."
+  @spec turn_selection(Game.t(), Game.player_id()) :: map() | nil
+  def turn_selection(%Game{} = game, player_id) do
+    if submit_allowed?(game, player_id) do
+      player = Map.fetch!(game.players, player_id)
+
+      case player.turn_selection do
+        nil ->
+          nil
+
+        selection ->
+          rulesheet = Ruleset.sheet!(game.sheet)
+
+          case selection_details(rulesheet, player.sheet, selection) do
+            {:ok, details} -> details
+            {:error, _reason} -> nil
+          end
+      end
     end
   end
 
   @spec resolve_turn(Game.t(), D20.Command.t()) ::
           {:ok, Game.player()} | {:error, reason()}
+  def resolve_turn(%Game{} = game, %D20.Command{
+        event: "select_turn_cell",
+        actor_id: actor_id,
+        attrs: attrs
+      }) do
+    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
+         {:ok, selection} <- selection_for_click(game, player, rulesheet, attrs),
+         {:ok, selection} <-
+           select_turn_cell(rulesheet, player.sheet, selection, attrs.target_cell) do
+      {:ok, %{player | turn_selection: selection}}
+    end
+  end
+
+  def resolve_turn(%Game{} = game, %D20.Command{
+        event: "deselect_turn_cell",
+        actor_id: actor_id,
+        attrs: attrs
+      }) do
+    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
+         {:ok, selection} <- require_turn_selection(player),
+         {:ok, selection} <-
+           deselect_turn_cell(rulesheet, player.sheet, selection, attrs.target_cell) do
+      {:ok, %{player | turn_selection: selection}}
+    end
+  end
+
+  def resolve_turn(%Game{} = game, %D20.Command{event: "reset_turn_selection", actor_id: actor_id}) do
+    with {:ok, player, _rulesheet} <- pending_player(game, actor_id) do
+      {:ok, %{player | turn_selection: nil}}
+    end
+  end
+
+  def resolve_turn(%Game{} = game, %D20.Command{
+        event: "submit_turn_selection",
+        actor_id: actor_id,
+        attrs: attrs
+      }) do
+    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
+         {:ok, selection} <- require_turn_selection(player),
+         {:ok, %{complete: true}} <- selection_details(rulesheet, player.sheet, selection),
+         {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, selection),
+         {:ok, sheet} <-
+           apply_turn_action(
+             rulesheet,
+             sheet,
+             selection.action,
+             %{target_cells: selection.selected_cells},
+             selection.die_value
+           ),
+         {:ok, sheet} <- apply_bonus_actions(rulesheet, sheet, attrs.bonus_actions) do
+      {:ok, %{player | sheet: sheet, status: :submitted, turn_selection: nil}}
+    else
+      {:ok, %{complete: false}} -> {:error, :incomplete_turn_selection}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   def resolve_turn(%Game{} = game, %D20.Command{event: event, actor_id: actor_id, attrs: attrs})
-      when event in ["plant_trees", "rehome_koalas", "circle_tree", "circle_koala"] do
+      when event in ["circle_tree", "circle_koala"] do
     with :ok <- require_phase(game, :submit),
          :ok <- require_roll(game),
          :ok <- require_player_status(game, actor_id, :pending),
@@ -132,7 +228,7 @@ defmodule D20.KoalaRescueClub.Rules do
          {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, attrs),
          {:ok, sheet} <- apply_turn_action(rulesheet, sheet, event, attrs, attrs.die_value),
          {:ok, sheet} <- apply_bonus_actions(rulesheet, sheet, attrs.bonus_actions) do
-      {:ok, %{player | sheet: sheet, status: :submitted}}
+      {:ok, %{player | sheet: sheet, status: :submitted, turn_selection: nil}}
     end
   end
 
@@ -173,6 +269,212 @@ defmodule D20.KoalaRescueClub.Rules do
   end
 
   def badge_satisfied?(_rulesheet, _player_sheet, _badge), do: false
+
+  defp pending_player(game, player_id) do
+    with :ok <- require_phase(game, :submit),
+         :ok <- require_roll(game),
+         :ok <- require_player_status(game, player_id, :pending) do
+      {:ok, Map.fetch!(game.players, player_id), Ruleset.sheet!(game.sheet)}
+    end
+  end
+
+  defp require_turn_selection(%{turn_selection: nil}),
+    do: {:error, :missing_turn_selection}
+
+  defp require_turn_selection(%{turn_selection: selection}), do: {:ok, selection}
+
+  defp selection_for_click(game, player, rulesheet, %{
+         action: action,
+         die_value: die_value,
+         volunteers_used: volunteers_used
+       }) do
+    attrs = %{action: action, die_value: die_value, volunteers_used: volunteers_used}
+
+    with {:ok, _sheet} <- spend_volunteers(player.sheet, game.roll.value, attrs) do
+      selection =
+        case player.turn_selection do
+          %{action: ^action, die_value: ^die_value, volunteers_used: ^volunteers_used} = selection ->
+            selection
+
+          _selection ->
+            Map.put(attrs, :selected_cells, [])
+        end
+
+      with {:ok, _details} <- selection_details(rulesheet, player.sheet, selection) do
+        {:ok, selection}
+      end
+    end
+  end
+
+  defp selection_for_click(_game, player, _rulesheet, _attrs),
+    do: require_turn_selection(player)
+
+  defp select_turn_cell(rulesheet, sheet, selection, cell) do
+    if cell in selection.selected_cells do
+      {:ok, selection}
+    else
+      selection = %{selection | selected_cells: selection.selected_cells ++ [cell]}
+
+      case selection_details(rulesheet, sheet, selection) do
+        {:ok, _details} -> {:ok, selection}
+        {:error, :no_legal_placement} -> {:error, :invalid_target}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp deselect_turn_cell(rulesheet, sheet, selection, cell) do
+    if cell in selection.selected_cells do
+      selection = %{selection | selected_cells: List.delete(selection.selected_cells, cell)}
+
+      with {:ok, _details} <- selection_details(rulesheet, sheet, selection) do
+        {:ok, selection}
+      end
+    else
+      {:ok, selection}
+    end
+  end
+
+  defp selection_details(rulesheet, sheet, selection) do
+    with {:ok, required_cells} <- Ruleset.shape_size(selection.die_value) do
+      selected = MapSet.new(selection.selected_cells)
+
+      compatible_placements =
+        rulesheet
+        |> legal_placements(sheet, selection.action, selection.die_value)
+        |> Enum.filter(&MapSet.subset?(selected, MapSet.new(&1)))
+
+      if compatible_placements == [] do
+        {:error, :no_legal_placement}
+      else
+        complete =
+          MapSet.size(selected) == required_cells and
+            Enum.any?(compatible_placements, &(MapSet.new(&1) == selected))
+
+        available_cells =
+          if complete do
+            []
+          else
+            compatible_placements
+            |> List.flatten()
+            |> Enum.reject(&MapSet.member?(selected, &1))
+            |> sort_cells()
+          end
+
+        bonus_options =
+          selection_bonus_options(
+            rulesheet,
+            sheet,
+            selection.action,
+            selection.selected_cells,
+            complete
+          )
+
+        {:ok,
+         %{
+           action: selection.action,
+           die_value: selection.die_value,
+           volunteers_used: selection.volunteers_used,
+           required_cells: required_cells,
+           selected_cells: sort_cells(selection.selected_cells),
+           available_cells: available_cells,
+           complete: complete,
+           bonus_options: bonus_options
+         }}
+      end
+    end
+  end
+
+  defp turn_actions(rulesheet, sheet, die_value, volunteer_cost) do
+    Map.new(@primary_actions, fn action ->
+      {action, turn_action_option(rulesheet, sheet, action, die_value, volunteer_cost)}
+    end)
+    |> Map.reject(fn {_action, option} -> is_nil(option) end)
+  end
+
+  defp turn_action_option(rulesheet, sheet, action, die_value, volunteer_cost)
+       when action in @shape_actions do
+    selection = %{
+      action: action,
+      die_value: die_value,
+      volunteers_used: volunteer_cost,
+      selected_cells: []
+    }
+
+    case selection_details(rulesheet, sheet, selection) do
+      {:ok, %{available_cells: available_cells}} -> %{available_cells: available_cells}
+      {:error, :no_legal_placement} -> nil
+    end
+  end
+
+  defp turn_action_option(rulesheet, sheet, action, _die_value, _volunteer_cost)
+       when action in @single_actions do
+    case single_action_cells(rulesheet, sheet, action) do
+      [] -> nil
+      available_cells -> %{available_cells: available_cells}
+    end
+  end
+
+  defp single_action_cells(rulesheet, sheet, action) do
+    rulesheet
+    |> accessible_cells(sheet)
+    |> Enum.filter(&legal_single_target?(sheet, action, &1))
+    |> sort_cells()
+  end
+
+  defp accessible_cells(rulesheet, sheet) do
+    sheet
+    |> Ruleset.accessible_areas()
+    |> Enum.flat_map(&Ruleset.area_cells(rulesheet, &1))
+  end
+
+  defp legal_single_target?(sheet, "circle_tree", cell), do: cell not in sheet.trees
+
+  defp legal_single_target?(sheet, "circle_koala", cell),
+    do: cell in sheet.trees and cell not in sheet.koalas
+
+  defp legal_placements(%Sheet{} = rulesheet, sheet, action, die_value)
+       when action in @shape_actions do
+    sheet
+    |> Ruleset.accessible_areas()
+    |> Enum.flat_map(fn area ->
+      case Ruleset.shape_placements(rulesheet, area, die_value) do
+        {:ok, placements} -> placements
+        {:error, :invalid_die_value} -> []
+      end
+    end)
+    |> Enum.filter(&legal_placement?(sheet, action, &1))
+  end
+
+  defp legal_placements(%Sheet{}, _sheet, _action, _die_value), do: []
+
+  defp legal_placement?(sheet, "plant_trees", cells) do
+    Enum.all?(cells, &(&1 not in sheet.trees))
+  end
+
+  defp legal_placement?(sheet, "rehome_koalas", cells) do
+    Enum.all?(cells, &(&1 in sheet.trees and &1 not in sheet.koalas))
+  end
+
+  defp selection_bonus_options(_rulesheet, _sheet, _action, _cells, false), do: []
+
+  defp selection_bonus_options(rulesheet, sheet, action, cells, true) do
+    case apply_shape_action(rulesheet, sheet, action, cells) do
+      {:ok, simulated_sheet} ->
+        rulesheet
+        |> unlocked_bonuses(simulated_sheet)
+        |> Enum.sort_by(&{&1.ref.area, &1.ref.axis, &1.ref.index})
+
+      {:error, _reason} ->
+        []
+    end
+  end
+
+  defp sort_cells(cells) do
+    cells
+    |> Enum.uniq()
+    |> Enum.sort_by(&{&1.area, &1.row, &1.column})
+  end
 
   defp require_phase(%{phase: phase}, expected) when is_list(expected) do
     if phase in expected, do: :ok, else: {:error, :invalid_phase}

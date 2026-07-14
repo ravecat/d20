@@ -21,7 +21,7 @@ defmodule D20.KoalaRescueClub.RulesetTest do
   end
 
   describe "die shapes and volunteers" do
-    test "exposes canonical shape offsets for clients" do
+    test "exposes canonical shape offsets" do
       assert {:ok, [%{row: 0, column: 0}, %{row: 0, column: 1}]} = Ruleset.shape(1)
 
       assert {:ok,
@@ -53,6 +53,46 @@ defmodule D20.KoalaRescueClub.RulesetTest do
                [%{area: :a, row: 0, column: 0}, %{area: :a, row: 0, column: 1}],
                4
              )
+    end
+
+    test "enumerates distinct transformed placements inside irregular areas" do
+      map = Ruleset.sheet!(:dharug)
+
+      assert {:ok, placements} = Ruleset.shape_placements(map, :a, 4)
+
+      assert [
+               %{area: :a, row: 0, column: 0},
+               %{area: :a, row: 0, column: 1},
+               %{area: :a, row: 1, column: 0}
+             ] in placements
+
+      assert [
+               %{area: :a, row: 0, column: 0},
+               %{area: :a, row: 1, column: 0},
+               %{area: :a, row: 1, column: 1}
+             ] in placements
+
+      refute Enum.any?(placements, fn placement -> %{area: :a, row: 3, column: 0} in placement end)
+
+      assert Enum.uniq(placements) == placements
+
+      assert Enum.all?(placements, fn placement ->
+               Enum.all?(placement, &Ruleset.cell_exists?(map, &1))
+             end)
+
+      assert {:ok, []} = Ruleset.shape_placements(map, :missing, 4)
+      assert {:error, :invalid_die_value} = Ruleset.shape_placements(map, :a, 7)
+
+      assert {:ok, reflected_placements} = Ruleset.shape_placements(map, :a, 5)
+
+      assert [
+               %{area: :a, row: 0, column: 0},
+               %{area: :a, row: 0, column: 1},
+               %{area: :a, row: 0, column: 2},
+               %{area: :a, row: 1, column: 2}
+             ] in reflected_placements
+
+      assert {:ok, 4} = Ruleset.shape_size(5)
     end
 
     test "reports volunteer adjustment cost" do

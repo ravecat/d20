@@ -10,64 +10,127 @@ defmodule D20.KoalaRescueClub.Command do
   @areas ~w(a b c d e f g)a
   @bonus_axes ~w(row column)a
   @hospital_ids ~w(hospital_1_left hospital_1_right hospital_2 hospital_3 hospital_4)a
+  @shape_actions ~w(plant_trees rehome_koalas)
 
-  @type reason :: Changeset.t() | :unknown_command | :invalid_command
+  @type reason :: Changeset.t() | :unknown_command
 
   @spec validate(D20.Command.t()) :: {:ok, D20.Command.t()} | {:error, reason()}
   def validate(%D20.Command{event: "join"} = command), do: {:ok, command}
 
-  def validate(%D20.Command{event: "roll", attrs: attrs} = command)
+  def validate(%D20.Command{event: "roll"} = command), do: {:ok, command}
+
+  def validate(%D20.Command{event: "start"} = command), do: {:ok, command}
+
+  def validate(%D20.Command{event: "select_turn_cell", attrs: attrs} = command) do
+    types = %{action: :string, die_value: :integer, volunteers_used: :integer, target_cell: :map}
+
+    changeset =
+      {%{}, types}
+      |> cast(attrs || %{}, Map.keys(types))
+      |> validate_required([:target_cell])
+      |> validate_selection_context()
+      |> validate_inclusion(:action, @shape_actions)
+      |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
+      |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
+
+    case apply_action(changeset, :turn_selection) do
+      {:ok, %{target_cell: cell} = attrs} ->
+        case normalize_cell(cell) do
+          {:ok, cell} ->
+            {:ok,
+             %{command | attrs: attrs |> Map.take(Map.keys(types)) |> Map.put(:target_cell, cell)}}
+
+          :error ->
+            changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
+        end
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def validate(%D20.Command{event: "deselect_turn_cell", attrs: attrs} = command) do
+    changeset =
+      {%{}, %{target_cell: :map}}
+      |> cast(attrs || %{}, [:target_cell])
+      |> validate_required([:target_cell])
+
+    case apply_action(changeset, :turn_selection) do
+      {:ok, %{target_cell: cell}} ->
+        case normalize_cell(cell) do
+          {:ok, cell} -> {:ok, %{command | attrs: %{target_cell: cell}}}
+          :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
+        end
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def validate(%D20.Command{event: "reset_turn_selection", attrs: attrs} = command)
       when attrs == %{} or attrs == nil,
       do: {:ok, %{command | attrs: %{}}}
 
-  def validate(%D20.Command{event: "roll"}), do: {:error, :invalid_command}
+  def validate(%D20.Command{event: "reset_turn_selection"} = command) do
+    {%{}, %{event: :string, attrs: :map}}
+    |> cast(Map.from_struct(command), [:event, :attrs])
+    |> add_error(:attrs, "must be empty")
+    |> apply_action(:turn_selection)
+  end
 
-  def validate(%D20.Command{event: "start", attrs: attrs} = command)
-      when attrs == %{} or attrs == nil,
-      do: {:ok, %{command | attrs: %{}}}
+  def validate(%D20.Command{event: "submit_turn_selection", attrs: attrs} = command) do
+    changeset = cast({%{}, %{bonus_actions: {:array, :map}}}, attrs || %{}, [:bonus_actions])
 
-  def validate(%D20.Command{event: "start"}), do: {:error, :invalid_command}
+    case apply_action(changeset, :turn_selection) do
+      {:ok, attrs} ->
+        case normalize_bonus_actions(Map.get(attrs, :bonus_actions, [])) do
+          {:ok, bonus_actions} -> {:ok, %{command | attrs: %{bonus_actions: bonus_actions}}}
+          :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
+        end
 
-  def validate(%D20.Command{event: event, attrs: attrs} = command)
-      when event in ["plant_trees", "rehome_koalas"] do
-    case {%{},
-          %{
-            die_value: :integer,
-            volunteers_used: :integer,
-            target_cells: {:array, :map},
-            bonus_actions: {:array, :map}
-          }}
-         |> cast(attrs, [:die_value, :volunteers_used, :target_cells, :bonus_actions])
-         |> validate_required([:die_value, :volunteers_used, :target_cells])
-         |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
-         |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
-         |> validate_length(:target_cells, min: 1)
-         |> apply_action(:turn_action) do
-      {:ok, attrs} -> normalize_turn_command(command, attrs)
-      {:error, changeset} -> {:error, changeset}
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
   def validate(%D20.Command{event: event, attrs: attrs} = command)
       when event in ["circle_tree", "circle_koala"] do
-    case {%{},
-          %{
-            die_value: :integer,
-            volunteers_used: :integer,
-            target_cell: :map,
-            bonus_actions: {:array, :map}
-          }}
-         |> cast(attrs, [:die_value, :volunteers_used, :target_cell, :bonus_actions])
-         |> validate_required([:die_value, :volunteers_used, :target_cell])
-         |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
-         |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
-         |> apply_action(:turn_action) do
-      {:ok, attrs} -> normalize_turn_command(command, attrs)
-      {:error, changeset} -> {:error, changeset}
+    changeset =
+      {%{},
+       %{
+         die_value: :integer,
+         volunteers_used: :integer,
+         target_cell: :map,
+         bonus_actions: {:array, :map}
+       }}
+      |> cast(attrs, [:die_value, :volunteers_used, :target_cell, :bonus_actions])
+      |> validate_required([:die_value, :volunteers_used, :target_cell])
+      |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
+      |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
+
+    case apply_action(changeset, :turn_action) do
+      {:ok, attrs} ->
+        case normalize_turn_command(command, attrs) do
+          {:ok, command} -> {:ok, command}
+          :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_action)
+        end
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
   def validate(%D20.Command{}), do: {:error, :unknown_command}
+
+  defp validate_selection_context(changeset) do
+    fields = [:action, :die_value, :volunteers_used]
+
+    if Enum.any?(fields, &get_field(changeset, &1)) do
+      validate_required(changeset, fields)
+    else
+      changeset
+    end
+  end
 
   defp normalize_turn_command(command, attrs) do
     with {:ok, target_cells} <- normalize_target_cells(attrs),
@@ -88,35 +151,11 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  defp normalize_target_cells(%{target_cells: cells}) do
-    cells
-    |> normalize_cells()
-    |> case do
-      {:ok, cells} -> {:ok, %{target_cells: cells}}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
   defp normalize_target_cells(%{target_cell: cell}) do
     with {:ok, cell} <- normalize_cell(cell) do
       {:ok, %{target_cell: cell}}
     end
   end
-
-  defp normalize_cells(cells) when is_list(cells) do
-    Enum.reduce_while(cells, {:ok, []}, fn cell, {:ok, cells} ->
-      case normalize_cell(cell) do
-        {:ok, cell} -> {:cont, {:ok, [cell | cells]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
-    |> case do
-      {:ok, cells} -> {:ok, Enum.reverse(cells)}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp normalize_cells(_cells), do: {:error, :invalid_command}
 
   defp normalize_cell(attrs) when is_map(attrs) do
     with {:ok, area} <- fetch_area(attrs, :area),
@@ -126,22 +165,22 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  defp normalize_cell(_attrs), do: {:error, :invalid_command}
+  defp normalize_cell(_attrs), do: :error
 
   defp normalize_bonus_actions(actions) when is_list(actions) do
     Enum.reduce_while(actions, {:ok, []}, fn action, {:ok, actions} ->
       case normalize_bonus_action(action) do
         {:ok, action} -> {:cont, {:ok, [action | actions]}}
-        {:error, reason} -> {:halt, {:error, reason}}
+        :error -> {:halt, :error}
       end
     end)
     |> case do
       {:ok, actions} -> {:ok, Enum.reverse(actions)}
-      {:error, reason} -> {:error, reason}
+      :error -> :error
     end
   end
 
-  defp normalize_bonus_actions(_actions), do: {:error, :invalid_command}
+  defp normalize_bonus_actions(_actions), do: :error
 
   defp normalize_bonus_action(attrs) when is_map(attrs) do
     with {:ok, bonus} <- fetch_bonus_ref(attrs, :bonus),
@@ -152,7 +191,7 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  defp normalize_bonus_action(_attrs), do: {:error, :invalid_command}
+  defp normalize_bonus_action(_attrs), do: :error
 
   defp normalize_bonus_action_kind("tree", attrs) do
     with {:ok, target_cell} <- fetch_cell(attrs, :target_cell) do
@@ -182,7 +221,7 @@ defmodule D20.KoalaRescueClub.Command do
 
   defp normalize_bonus_action_kind("skip", _attrs), do: {:ok, %{kind: :skip}}
 
-  defp normalize_bonus_action_kind(_kind, _attrs), do: {:error, :invalid_command}
+  defp normalize_bonus_action_kind(_kind, _attrs), do: :error
 
   defp fetch_bonus_ref(attrs, key) do
     with {:ok, attrs} <- fetch_map(attrs, key),
@@ -203,40 +242,36 @@ defmodule D20.KoalaRescueClub.Command do
     case fetch_value(attrs, key) do
       area when is_atom(area) and area in @areas -> {:ok, area}
       area when is_binary(area) -> normalize_area(area)
-      _value -> {:error, :invalid_command}
+      _value -> :error
     end
   end
 
   defp normalize_area(area) do
-    Enum.find_value(@areas, {:error, :invalid_command}, fn id ->
-      if Atom.to_string(id) == area, do: {:ok, id}
-    end)
+    Enum.find_value(@areas, :error, fn id -> if Atom.to_string(id) == area, do: {:ok, id} end)
   end
 
   defp fetch_axis(attrs, key) do
     case fetch_value(attrs, key) do
       axis when is_atom(axis) and axis in @bonus_axes -> {:ok, axis}
       axis when is_binary(axis) -> normalize_axis(axis)
-      _value -> {:error, :invalid_command}
+      _value -> :error
     end
   end
 
   defp normalize_axis(axis) do
-    Enum.find_value(@bonus_axes, {:error, :invalid_command}, fn id ->
-      if Atom.to_string(id) == axis, do: {:ok, id}
-    end)
+    Enum.find_value(@bonus_axes, :error, fn id -> if Atom.to_string(id) == axis, do: {:ok, id} end)
   end
 
   defp fetch_hospital_id(attrs, key) do
     case fetch_value(attrs, key) do
       hospital_id when is_atom(hospital_id) and hospital_id in @hospital_ids -> {:ok, hospital_id}
       hospital_id when is_binary(hospital_id) -> normalize_hospital_id(hospital_id)
-      _value -> {:error, :invalid_command}
+      _value -> :error
     end
   end
 
   defp normalize_hospital_id(hospital_id) do
-    Enum.find_value(@hospital_ids, {:error, :invalid_command}, fn id ->
+    Enum.find_value(@hospital_ids, :error, fn id ->
       if Atom.to_string(id) == hospital_id, do: {:ok, id}
     end)
   end
@@ -244,21 +279,21 @@ defmodule D20.KoalaRescueClub.Command do
   defp fetch_non_neg_integer(attrs, key) do
     case fetch_value(attrs, key) do
       value when is_integer(value) and value >= 0 -> {:ok, value}
-      _value -> {:error, :invalid_command}
+      _value -> :error
     end
   end
 
   defp fetch_string(attrs, key) do
     case fetch_value(attrs, key) do
       value when is_binary(value) and value != "" -> {:ok, value}
-      _value -> {:error, :invalid_command}
+      _value -> :error
     end
   end
 
   defp fetch_map(attrs, key) do
     case fetch_value(attrs, key) do
       value when is_map(value) -> {:ok, value}
-      _value -> {:error, :invalid_command}
+      _value -> :error
     end
   end
 

@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.1.0
+  version: 0.2.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -85,10 +85,14 @@ channels:
         $ref: "#/components/messages/sessionProjection"
       startSession:
         $ref: "#/components/messages/startSession"
-      plantTrees:
-        $ref: "#/components/messages/plantTrees"
-      rehomeKoalas:
-        $ref: "#/components/messages/rehomeKoalas"
+      selectTurnCell:
+        $ref: "#/components/messages/selectTurnCell"
+      deselectTurnCell:
+        $ref: "#/components/messages/deselectTurnCell"
+      resetTurnSelection:
+        $ref: "#/components/messages/resetTurnSelection"
+      submitTurnSelection:
+        $ref: "#/components/messages/submitTurnSelection"
       circleTree:
         $ref: "#/components/messages/circleTree"
       circleKoala:
@@ -131,33 +135,60 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  plantTrees:
+  selectTurnCell:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Plant trees in a die-shaped group of cells
+    summary: Add one cell to a tree or koala shape selection
     description: |
-      A pending player sends `plant_trees` after the automatic roll. The target
-      cells must match the selected die shape and belong to one accessible area.
-      The payload can also resolve unlocked bonuses.
+      A pending player sends `select_turn_cell` with one projected available
+      cell. The first click also identifies the shape action and adjusted die
+      value. Every accepted click produces a new caller-specific projection
+      with the selected and next available cells.
     messages:
-      - $ref: "#/channels/gameSession/messages/plantTrees"
+      - $ref: "#/channels/gameSession/messages/selectTurnCell"
     reply:
       channel:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  rehomeKoalas:
+  deselectTurnCell:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Rehome koalas in a die-shaped group of cells
+    summary: Remove one cell from the current shape selection
     description: |
-      A pending player sends `rehome_koalas` after the automatic roll. The
-      target cells must match the selected die shape, contain trees, and belong
-      to one accessible area. The payload can also resolve unlocked bonuses.
+      A pending player sends `deselect_turn_cell` for one selected cell. The
+      server keeps the draft uncommitted and recalculates its legal next cells.
     messages:
-      - $ref: "#/channels/gameSession/messages/rehomeKoalas"
+      - $ref: "#/channels/gameSession/messages/deselectTurnCell"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  resetTurnSelection:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Discard the current shape selection
+    messages:
+      - $ref: "#/channels/gameSession/messages/resetTurnSelection"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  submitTurnSelection:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Commit a complete shape selection and its bonuses
+    description: |
+      The command succeeds only when the authoritative selection contains the
+      required number of cells and forms a legal placement.
+    messages:
+      - $ref: "#/channels/gameSession/messages/submitTurnSelection"
     reply:
       channel:
         $ref: "#/channels/gameSession"
@@ -283,20 +314,34 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/emptyPayload"
-    plantTrees:
-      name: plant_trees
-      title: Plant Trees
-      summary: Place trees in cells matching the selected die shape
+    selectTurnCell:
+      name: select_turn_cell
+      title: Select Turn Cell
+      summary: Add one available cell to the caller's shape selection
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/shapeTurnPayload"
-    rehomeKoalas:
-      name: rehome_koalas
-      title: Rehome Koalas
-      summary: Place koalas in cells matching the selected die shape
+        $ref: "#/components/schemas/selectTurnCellPayload"
+    deselectTurnCell:
+      name: deselect_turn_cell
+      title: Deselect Turn Cell
+      summary: Remove one cell from the caller's shape selection
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/shapeTurnPayload"
+        $ref: "#/components/schemas/targetCellPayload"
+    resetTurnSelection:
+      name: reset_turn_selection
+      title: Reset Turn Selection
+      summary: Discard the caller's uncommitted shape selection
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    submitTurnSelection:
+      name: submit_turn_selection
+      title: Submit Turn Selection
+      summary: Commit a complete shape selection and ordered bonus decisions
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/submitTurnSelectionPayload"
     circleTree:
       name: circle_tree
       title: Circle Tree
@@ -429,6 +474,9 @@ components:
         - invalid_action
         - mixed_action
         - invalid_shape
+        - no_legal_placement
+        - missing_turn_selection
+        - incomplete_turn_selection
         - invalid_target
         - invalid_area
         - inaccessible_area
@@ -453,7 +501,7 @@ components:
         - members
         - game
         - permissions
-        - turn_options
+        - turn
       properties:
         id:
           type: string
@@ -478,11 +526,8 @@ components:
           $ref: "#/components/schemas/game"
         permissions:
           $ref: "#/components/schemas/permissions"
-        turn_options:
-          type: array
-          description: Caller-specific die values and shapes available for the pending turn.
-          items:
-            $ref: "#/components/schemas/turnOption"
+        turn:
+          $ref: "#/components/schemas/turn"
       additionalProperties: false
     permissions:
       type: object
@@ -809,48 +854,104 @@ components:
         - club_treasurer
         - vice_president
         - president
+    turn:
+      type: object
+      required:
+        - options
+        - selection
+      properties:
+        options:
+          $ref: "#/components/schemas/turnOptions"
+        selection:
+          description: Caller-specific uncommitted shape selection, or null before the first click.
+          oneOf:
+            - $ref: "#/components/schemas/turnSelection"
+            - type: "null"
+      additionalProperties: false
+    turnOptions:
+      description: >
+        Empty when the caller cannot submit. Otherwise contains every adjusted
+        die value, including unaffordable values whose actions object is empty.
+      oneOf:
+        - type: object
+          maxProperties: 0
+        - type: object
+          required:
+            - "1"
+            - "2"
+            - "3"
+            - "4"
+            - "5"
+            - "6"
+          properties:
+            "1":
+              $ref: "#/components/schemas/turnOption"
+            "2":
+              $ref: "#/components/schemas/turnOption"
+            "3":
+              $ref: "#/components/schemas/turnOption"
+            "4":
+              $ref: "#/components/schemas/turnOption"
+            "5":
+              $ref: "#/components/schemas/turnOption"
+            "6":
+              $ref: "#/components/schemas/turnOption"
+          additionalProperties: false
     turnOption:
       type: object
       required:
-        - die_value
-        - volunteers_used
-        - shape
+        - volunteer_cost
+        - actions
       properties:
-        die_value:
-          type: integer
-          minimum: 1
-          maximum: 6
-        volunteers_used:
+        volunteer_cost:
           type: integer
           minimum: 0
           maximum: 3
-        shape:
+        actions:
+          $ref: "#/components/schemas/turnActions"
+      additionalProperties: false
+    turnActions:
+      type: object
+      description: Available primary actions keyed by command action name.
+      properties:
+        plant_trees:
+          $ref: "#/components/schemas/turnActionOption"
+        rehome_koalas:
+          $ref: "#/components/schemas/turnActionOption"
+        circle_tree:
+          $ref: "#/components/schemas/turnActionOption"
+        circle_koala:
+          $ref: "#/components/schemas/turnActionOption"
+      additionalProperties: false
+    turnActionOption:
+      type: object
+      required:
+        - available_cells
+      properties:
+        available_cells:
           type: array
-          minItems: 2
-          maxItems: 5
+          minItems: 1
+          uniqueItems: true
           items:
-            $ref: "#/components/schemas/shapeOffset"
+            $ref: "#/components/schemas/cellRef"
       additionalProperties: false
-    shapeOffset:
+    turnSelection:
       type: object
       required:
-        - row
-        - column
-      properties:
-        row:
-          type: integer
-          minimum: 0
-        column:
-          type: integer
-          minimum: 0
-      additionalProperties: false
-    shapeTurnPayload:
-      type: object
-      required:
+        - action
         - die_value
         - volunteers_used
-        - target_cells
+        - required_cells
+        - selected_cells
+        - available_cells
+        - complete
+        - bonus_options
       properties:
+        action:
+          type: string
+          enum:
+            - plant_trees
+            - rehome_koalas
         die_value:
           type: integer
           minimum: 1
@@ -859,13 +960,74 @@ components:
           type: integer
           minimum: 0
           maximum: 3
-        target_cells:
+        required_cells:
+          type: integer
+          minimum: 2
+          maximum: 4
+        selected_cells:
           type: array
-          minItems: 2
           maxItems: 4
           uniqueItems: true
           items:
             $ref: "#/components/schemas/cellRef"
+        available_cells:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/cellRef"
+        complete:
+          type: boolean
+        bonus_options:
+          type: array
+          items:
+            $ref: "#/components/schemas/turnBonusOption"
+      additionalProperties: false
+    turnBonusOption:
+      type: object
+      required:
+        - ref
+        - bonus
+      properties:
+        ref:
+          $ref: "#/components/schemas/bonusRef"
+        bonus:
+          $ref: "#/components/schemas/bonusDetails"
+      additionalProperties: false
+    selectTurnCellPayload:
+      type: object
+      required:
+        - action
+        - die_value
+        - volunteers_used
+        - target_cell
+      properties:
+        action:
+          type: string
+          enum:
+            - plant_trees
+            - rehome_koalas
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        volunteers_used:
+          type: integer
+          minimum: 0
+          maximum: 3
+        target_cell:
+          $ref: "#/components/schemas/cellRef"
+      additionalProperties: false
+    targetCellPayload:
+      type: object
+      required:
+        - target_cell
+      properties:
+        target_cell:
+          $ref: "#/components/schemas/cellRef"
+      additionalProperties: false
+    submitTurnSelectionPayload:
+      type: object
+      properties:
         bonus_actions:
           type: array
           items:

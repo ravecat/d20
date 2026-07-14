@@ -23,7 +23,10 @@ defmodule D20.KoalaRescueClub.Projection do
       members: session.members,
       self: actor_id,
       permissions: permissions,
-      turn_options: Rules.turn_options(game, actor_id),
+      turn: %{
+        options: Rules.turn_options(game, actor_id),
+        selection: Rules.turn_selection(game, actor_id)
+      },
       game: render_game(rulesheet, game)
     }
   end
