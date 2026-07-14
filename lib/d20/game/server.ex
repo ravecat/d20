@@ -112,7 +112,7 @@ defmodule D20.Game.Server do
   @spec init(state()) :: :gen_statem.init_result(term(), state())
   def init({slug, engine, %Session{} = session} = data)
       when is_binary(slug) and is_atom(engine) do
-    {:ok, state_name(session), data}
+    {:ok, state(session), data}
   end
 
   def init(_data), do: {:stop, :badarg}
@@ -152,7 +152,7 @@ defmodule D20.Game.Server do
         broadcast(updated_session)
 
         data = {slug, engine, updated_session}
-        next_state = state_name(updated_session)
+        next_state = state(updated_session)
 
         actions = [{:reply, from, {:ok, updated_session}}, idle_action()]
 
@@ -173,7 +173,7 @@ defmodule D20.Game.Server do
         broadcast(updated_session)
 
         data = {slug, engine, updated_session}
-        next_state = state_name(updated_session)
+        next_state = state(updated_session)
 
         if next_state == state do
           {:keep_state, data, [idle_action()]}
@@ -186,7 +186,7 @@ defmodule D20.Game.Server do
     end
   end
 
-  def handle_event(:info, {:join, actor_id, attrs}, _state, _data) when is_map(attrs) do
+  def handle_event(:info, {:join, actor_id, attrs}, _state, _data) do
     profile = Accounts.get_user_or_anonymous(actor_id)
     member = Map.merge(attrs, Map.take(profile, [:display_name, :avatar]))
     command = %Command{event: "join", actor_id: actor_id, attrs: member}
@@ -222,6 +222,6 @@ defmodule D20.Game.Server do
     {{:timeout, :idle}, Application.fetch_env!(:d20, :session_idle_timeout), :expire}
   end
 
-  defp state_name(%Session{game: %{phase: phase}}), do: phase
-  defp state_name(%Session{phase: phase}), do: phase
+  defp state(%Session{game: %{phase: phase}}), do: phase
+  defp state(%Session{phase: phase}), do: phase
 end
