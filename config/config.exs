@@ -36,7 +36,7 @@ config :d20,
   generators: [timestamp_type: :utc_datetime],
   # Temporary gate until game availability is controlled by runtime feature flags or experiments.
   allow_launch_in_progress: config_env() != :prod,
-  session_idle_timeout: :timer.minutes(5)
+  session_idle_timeout: :timer.minutes(30)
 
 config :d20, D20.Actors.Token,
   salt: "actor",
