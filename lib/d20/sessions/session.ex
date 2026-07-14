@@ -122,10 +122,9 @@ defmodule D20.Sessions.Session do
   defp require_identity(player_id) when is_player_id(player_id), do: :ok
   defp require_identity(_player_id), do: {:error, :invalid_identity}
 
-  defp require_owner(session, player_id) do
-    with :ok <- require_identity(player_id), do: require_owner_id(session, player_id)
-  end
+  defp require_owner(_session, player_id) when not is_player_id(player_id),
+    do: {:error, :invalid_identity}
 
-  defp require_owner_id(%__MODULE__{owner_id: player_id}, player_id), do: :ok
-  defp require_owner_id(%__MODULE__{}, _player_id), do: {:error, :not_owner}
+  defp require_owner(%__MODULE__{owner_id: player_id}, player_id), do: :ok
+  defp require_owner(%__MODULE__{}, _player_id), do: {:error, :not_owner}
 end
