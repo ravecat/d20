@@ -44,26 +44,40 @@ defmodule D20.KoalaRescueClub.Game do
           required(:skybridges) => [skybridge()],
           required(:bonuses) => [bonus_ref()]
         }
+  @type phase :: :setup | :ready | :roll | :submit | :finished
+  @type round :: 1..2
+  @type turn :: 0..30
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
-  @type player :: %{
-          required(:status) => :ready | :pending | :submitted,
-          required(:sheet) => sheet(),
-          required(:badges) => %{optional(Ruleset.badge()) => atom()},
-          required(:rounds) => [
-            %{
-              required(:trees) => non_neg_integer(),
-              required(:koalas) => non_neg_integer(),
-              required(:hospitals) => integer(),
-              required(:total) => integer()
-            }
-          ]
+  @type round_score :: %{
+          required(:trees) => non_neg_integer(),
+          required(:koalas) => non_neg_integer(),
+          required(:hospitals) => integer(),
+          required(:total) => integer()
         }
+  @type player(player_sheet) :: %{
+          required(:status) => :ready | :pending | :submitted,
+          required(:sheet) => player_sheet,
+          required(:badges) => %{optional(Ruleset.badge()) => atom()},
+          required(:rounds) => [round_score()]
+        }
+  @type player :: player(sheet())
   @type roll :: %{required(:value) => 1..6}
+  @type state(player_sheet) :: %{
+          required(:sheet) => Ruleset.id(),
+          required(:phase) => phase(),
+          required(:round) => round(),
+          required(:turn) => turn(),
+          required(:order) => [player_id()],
+          required(:players) => %{optional(player_id()) => player(player_sheet)},
+          required(:roll) => roll() | nil,
+          required(:scores) => %{optional(player_id()) => score()}
+        }
+  @type state :: state(sheet())
   @type t :: %__MODULE__{
-          phase: :setup | :ready | :roll | :submit | :finished,
+          phase: phase(),
           sheet: Ruleset.id(),
-          round: 1..2,
-          turn: 0..30,
+          round: round(),
+          turn: turn(),
           order: [player_id()],
           players: %{optional(player_id()) => player()},
           roll: roll() | nil,

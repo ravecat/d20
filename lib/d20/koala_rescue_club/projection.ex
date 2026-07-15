@@ -54,29 +54,6 @@ defmodule D20.KoalaRescueClub.Projection do
           required(:bonuses) => [bonus()],
           required(:areas) => %{optional(Ruleset.area()) => area()}
         }
-  @type round_score :: %{
-          required(:trees) => non_neg_integer(),
-          required(:koalas) => non_neg_integer(),
-          required(:hospitals) => integer(),
-          required(:total) => integer()
-        }
-  @type player :: %{
-          required(:status) => :ready | :pending | :submitted,
-          required(:sheet) => sheet(),
-          required(:badges) => %{optional(Ruleset.badge()) => atom()},
-          required(:rounds) => [round_score()]
-        }
-  @type game :: %{
-          required(:sheet) => Ruleset.id(),
-          required(:phase) => :setup | :ready | :roll | :submit | :finished,
-          required(:round) => 1..2,
-          required(:turn) => 0..30,
-          required(:order) => [Game.player_id()],
-          required(:players) => %{optional(Game.player_id()) => player()},
-          required(:roll) => Game.roll() | nil,
-          required(:scores) => %{optional(Game.player_id()) => Game.score()}
-        }
-
   @type t :: %{
           required(:id) => Session.id(),
           required(:phase) => Session.phase(),
@@ -85,7 +62,7 @@ defmodule D20.KoalaRescueClub.Projection do
           required(:self) => Game.player_id(),
           required(:permissions) => Permission.t(),
           required(:options) => options(),
-          required(:game) => game()
+          required(:game) => Game.state(sheet())
         }
 
   @spec render(Scope.t(), Session.t()) :: t()
