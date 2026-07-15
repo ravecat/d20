@@ -20,6 +20,27 @@ Projection -----------------> Rules -> Ruleset
 
 `Ruleset`, rulesheet data, and predicates must not depend on Phoenix channels, session processes, or transport formatting.
 
+## Unidirectional Runtime Flow
+
+Keep the mutation path and read path strictly one-way:
+
+```text
+external actor -> channel dispatch -----\
+                                        -> Session.dispatch -> Game.dispatch -> committed state
+custom Server -> internal dispatch -----/                                      |
+                                                                                v
+                                                Projection(current Session, caller)
+                                                                                |
+                                                                                v
+                                                                         public render
+```
+
+`Game.dispatch/2` runs Command and Rules validation before applying one complete transition. After initialization, it is the only path that changes authoritative game state.
+
+A custom game Server may schedule a stimulus and send an actorless command through the same dispatch pipeline. It must not mutate the game aggregate directly.
+
+Projection and rendering are downstream reads of the latest committed state held by the server. They may derive caller-specific permissions and legal choices through pure predicates, but they must not construct commands, dispatch events, schedule callbacks, call mutation APIs, or retain authoritative state. A user interaction starts a new actor dispatch; it is never a side effect of rendering.
+
 ## Discovery Artifact Templates
 
 Use these table shapes before implementation. Fill them with language from the supplied specification.
@@ -56,20 +77,33 @@ Represent all facts that are stable for the lifetime of a game and can be querie
 
 ### Put here
 
+- total round or turn count and other fixed progress bounds
+- supported player count or range
+- dice count, supported die kinds, and face or value domains
 - supported configuration values
 - bounded domains and fixed limits
 - static layouts and relationships
 - lookup and outcome tables
 - static validation and transformation helpers
+- named types for immutable primitives and normalized rulesheet data
 - mapping from a variant id to a normalized rulesheet
 
 ### Keep out
 
 - current phase or participant state
+- current round or turn, joined player count, and current dice or roll
 - current occupancy, progress, or availability
 - caller identity
 - command payload parsing
 - public JSON representation
+
+### Type ownership
+
+Define named `@type` values in `Ruleset` for bounded primitive domains that exist independently of a live aggregate. Typical type roles include `round_number()`, `player_count()`, `die_kind()`, `die_value()`, coordinate or reference types, and `rulesheet_id()`. Use the actual finite unions and ranges from the specification rather than broad `atom()` or `integer()` types when they are known.
+
+Type ownership follows domain meaning, not whether one runtime value later changes. `Ruleset` owns the allowed round-number or die-value domain; `Game` owns the current round and current roll and references the corresponding `Ruleset` types. Keep aggregate structures, phases, player statuses, and other state-machine vocabulary in `Game`.
+
+When a primitive differs by rulesheet, put its value in the declarative rulesheet source and expose it through the normalized contract. Keep the shared type and query boundary in `Ruleset` or the common rulesheet module.
 
 Use a rulesheet behavior when several variants must expose the same attributes. The behavior defines the complete source shape. A constructor normalizes that source into one struct consumed by all other modules. Keep each variant declarative and prevent the rest of the namespace from branching on variant names.
 
@@ -157,6 +191,8 @@ Own shared committed state and define how accepted stimuli transform it.
 
 The aggregate should store facts needed to decide future behavior or render authoritative state. Do not store derived values that can be cheaply recomputed, process timers, connection state, or transient UI state.
 
+After `init/1`, mutate the aggregate only inside an accepted `dispatch/2` transition. Do not expose alternate mutation functions to Projection, Permission, channels, or a custom Server.
+
 Implement:
 
 - `changeset/1` for creation-time configuration
@@ -242,6 +278,8 @@ The phase and event names and timeout source must come from the specification. T
 
 `use D20.Game.Server` supplies startup, registry naming, calls, Presence handling, publication, idle expiry, and fallback callbacks. Add narrow clauses and never a catch-all that intercepts shared behavior.
 
+The custom Server owns process behavior, not game state. It schedules or emits internal commands and lets the normal dispatch path produce the next aggregate. It must not call Projection to decide or trigger a mutation.
+
 An internal state-changing event uses `actor_id: nil` and follows the same Session, Command, Rules, and Game path as other mutations. Rules must require the missing actor and reject a client actor for the same event.
 
 State timeouts are tied to the current `:gen_statem` state. Reads, Presence events, and rejected calls that keep the phase must not duplicate them. Named idle expiry is independent. The shared internal error path keeps old state, so add explicit observability or recovery when required by the specification.
@@ -275,6 +313,8 @@ Projection owns the public read model:
 Create a visibility matrix for every caller role and lifecycle state. Test both the fields a caller receives and the fields that must be absent. Do not rely only on positive projection examples to detect leaks.
 
 Keep dependency direction `Projection -> Rules -> Ruleset`. Projection may derive legal choices through pure Rules functions, but it never validates commands or commits state.
+
+Treat Projection as a deterministic function of caller context and the current Session. It consumes the committed state produced by the game state machine and returns a public read model. It does not retain state between renders, trigger transitions, or feed projected values back into `Game`.
 
 Render Projection only from caller context and the current Session. Do not route channel events, validate interaction payloads, or construct `%D20.Command{}` values in Projection.
 

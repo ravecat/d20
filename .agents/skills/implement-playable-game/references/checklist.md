@@ -17,6 +17,16 @@
 - [ ] Build a visibility matrix for every caller role and lifecycle state.
 - [ ] Resolve material ambiguity instead of copying another game.
 
+## Unidirectional Runtime
+
+- [ ] Draw the complete `stimulus -> dispatch -> transition -> committed state -> projection -> render` path.
+- [ ] Route every authoritative game-state change after initialization through `Game.dispatch/2`.
+- [ ] Limit mutation stimuli to authenticated actor dispatches and actorless internal dispatches emitted by a custom game Server.
+- [ ] Keep the custom Server responsible for scheduling and dispatch, never direct aggregate mutation.
+- [ ] Keep Projection a pure downstream read of caller context and the current Session.
+- [ ] Confirm Projection does not construct commands, dispatch events, schedule work, call mutation APIs, or retain authoritative state.
+- [ ] Treat every client interaction as a new actor dispatch, never as an effect of rendering.
+
 ## Predicate Catalog
 
 - [ ] Give every state-dependent rule one owning Rules function.
@@ -34,7 +44,12 @@
 ## Ruleset and Rulesheets
 
 - [ ] Put only state-independent facts and helpers in Ruleset.
+- [ ] Record total rounds or turns, supported player count, dice count, die kinds, face or value domains, and other fixed limits defined by the specification.
+- [ ] Define named types for bounded static primitives reused across modules.
+- [ ] Reuse Ruleset types from Game, Command, Rules, and Projection instead of duplicating finite unions or ranges.
+- [ ] Keep allowed domains in Ruleset while storing current round, participants, dice, roll, phase, and status in Game.
 - [ ] Add one normalized contract when multiple rulesheets share behavior.
+- [ ] Put variant-specific immutable primitive values in declarative rulesheets behind the shared contract.
 - [ ] Keep each rulesheet module declarative.
 - [ ] Validate identifiers, references, ranges, layout invariants, and cross-field consistency.
 - [ ] Expose query functions instead of duplicating static values across modules.
@@ -166,7 +181,8 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 - [ ] No rejected command mutates or publishes state.
 - [ ] Every accepted mutation is authoritative and atomic.
 - [ ] Every playable engine has explicit public projection routing.
-- [ ] Projection does not route events or construct commands.
+- [ ] Runtime flow is one-way from stimulus through committed state to Projection and render.
+- [ ] Projection derives only from caller context and current committed state and cannot initiate mutation.
 - [ ] Internal commands cannot be invoked with a client identity.
 - [ ] Game completion propagates to the outer session.
 - [ ] Code, tests, AsyncAPI, and any in-scope client agree.

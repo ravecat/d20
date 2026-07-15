@@ -7,7 +7,7 @@ description: Implement or extend a playable game in the D20 Phoenix application 
 
 ## Purpose
 
-Turn an arbitrary game specification into one server-authoritative D20 game without assuming any particular mechanics. Guide the work from rule discovery through module boundaries, runtime integration, public contract, and validation.
+Turn an arbitrary game specification into one server-authoritative D20 game without assuming any particular mechanics. Guide the work from rule discovery through module boundaries, runtime integration, public contract, and validation. Preserve one-way runtime flow: stimuli enter through dispatch, accepted transitions produce committed state, and Projection renders only from that state.
 
 ## Load Context
 
@@ -55,7 +55,7 @@ Ask the user only about gaps that materially alter rules, state, or public contr
 
 | Rule or behavior | Owner |
 | --- | --- |
-| Immutable values, layouts, ranges, lookup tables, variant data | `Ruleset` and rulesheet modules |
+| Immutable primitives and their domain types, layouts, ranges, lookup tables, variant data | `Ruleset` and rulesheet modules |
 | External event payload shape and bounded normalization | `Command` |
 | Legality depending on current game, actor, or selected rulesheet | `Rules` |
 | Committed aggregate state and accepted transitions | `Game` |
@@ -65,9 +65,13 @@ Ask the user only about gaps that materially alter rules, state, or public contr
 
 If one fact appears in several modules, expose it from its owner instead of duplicating it.
 
+Treat the write and read paths as separate and one-way. `Command`, `Rules`, and `Game` form the authoritative write path. `Projection` is a downstream read transformation and must not construct or dispatch commands, call a server mutation API, or provide state back to a transition.
+
 ### 3. Model static configuration
 
-Put facts that can be answered without a live game in `Ruleset`. Expose query functions and static predicates instead of making consumers inspect raw module attributes.
+Put facts that can be answered without a live game in `Ruleset`. Treat it as the owner of immutable game primitives such as the total round or turn count, supported player count, dice count, supported die kinds and face or value domains, and other fixed limits discovered in the specification. These are categories to identify, not default values to copy between games. Expose query functions and static predicates instead of making consumers inspect raw module attributes.
+
+Define named `@type` values beside static primitives when they form a shared bounded vocabulary, such as `round_number()`, `player_count()`, `die_kind()`, `die_value()`, or `rulesheet_id()`. Constrain each type to the finite union or range from the specification and reuse it from `Game`, `Command`, `Rules`, and `Projection` instead of repeating literals. `Ruleset` owns the allowed domain; `Game` owns the current round, current participants, current dice or roll, and other mutable values. Keep state-machine types such as phase and player status with `Game`.
 
 When the specification defines interchangeable rulesheets, add one common rulesheet contract and one declarative data module per variant. Normalize all variants into the same structure so `Rules` and `Game` operate on data rather than variant-specific branches.
 
@@ -115,6 +119,8 @@ phase and event gate
 
 Rejected commands must return the old state unchanged and must not publish. Accepted compound behavior must commit atomically. Store committed domain facts in the aggregate and keep transient UI state out.
 
+After `init/1`, every authoritative game-state change must result from an accepted `Game.dispatch/2`. Its stimulus originates either from an authenticated actor through `D20.Sessions` or from an actorless internal command emitted by a custom game `Server`. Server callbacks may schedule and dispatch stimuli, but they must not mutate the aggregate directly.
+
 Remember that the game state machine is nested inside the generic session state machine. `D20.Sessions.Session` owns session membership, owner-only start, and outer completion. The game owns readiness, inner phases, legal transitions, and `finished?/1`.
 
 ### 7. Choose the event path and server
@@ -125,6 +131,20 @@ Classify every state-changing stimulus:
 | --- | --- |
 | Changes shared committed state | `SessionChannel -> Sessions.dispatch -> Session.dispatch -> Game.dispatch` |
 | Is initiated by a process timer or automatic trigger | Custom `D20.Game.Server` -> actorless internal dispatch |
+
+Maintain this direction for every runtime interaction:
+
+```text
+actor or internal Server
+-> dispatch
+-> Command and Rules validation
+-> Game transition
+-> committed server state
+-> Projection(current Session, caller)
+-> public render
+```
+
+There is no reverse edge from Projection or rendering to dispatch. A client interaction is a new actor stimulus sent through the channel, not an effect emitted by Projection.
 
 Use the default server through `use D20.Game` unless the process itself must initiate an asynchronous stimulus.
 
@@ -147,7 +167,7 @@ Derive permission booleans from the same Rules predicates, but never treat them 
 
 Build an explicit caller-specific projection from the visibility matrix. Render it only from caller context and the current Session. Include only public committed facts, caller identity, permissions, and derived options required by the client. Handle spectators and all lifecycle states without returning a raw aggregate. Add negative tests that prove hidden fields do not leak to other caller roles.
 
-Keep gameplay events and command construction out of Projection. Projection renders state; it does not route interactions or synthesize `%D20.Command{}` values.
+Keep Projection a pure derivation of caller context and the current committed state held in Session. The same inputs must produce the same public read model. Projection may call pure Rules queries for permissions and legal choices, but it must not validate interaction payloads, dispatch commands, schedule work, call mutation APIs, retain authoritative state, or synthesize `%D20.Command{}` values. Rendering never advances the state machine.
 
 ### 9. Complete runtime and contract integration
 
