@@ -76,6 +76,8 @@
   - `Permission` computes caller authorization.
   - `Projection` produces caller-specific public state.
   - `Server` owns process-level scheduling and automatic commands.
+- Design the game aggregate as the minimal sufficient record of authoritative game facts. Together with immutable rules and caller and session context, it must be sufficient to deterministically derive every public projection. Store missing authoritative facts, not cached or projection-shaped derivatives.
+- Make each caller-specific projection a complete, ready-to-consume read model for its supported client workflows. Include permitted facts, statuses, permissions, legal choices, constraints, progress, outcomes, and other rule-derived guidance so clients do not duplicate authoritative game calculations or reconstruct state from event history. Keep presentation-only and ephemeral interaction state on the client, and never expose private facts or unnecessary internal representation for completeness.
 - Keep authoritative legality and state transitions on the server.
 - Do not expose internal session or game state in place of a caller-specific projection.
 - Preserve command names, payload shapes, reason atoms, behaviour callbacks, projections, permissions, and persistence contracts unless the task explicitly changes them.

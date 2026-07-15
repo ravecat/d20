@@ -65,9 +65,9 @@ Use these table shapes before implementation. Fill them with language from the s
 
 ### Visibility matrix
 
-| Caller role | Lifecycle state | Visible fields | Hidden fields | Derived fields |
-| --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| Caller role | Lifecycle state | Visible fields | Hidden fields | Derived fields | Authoritative sources |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |
 
 ## Ruleset and Rulesheet Pattern
 
@@ -189,7 +189,7 @@ end
 
 Own shared committed state and define how accepted stimuli transform it.
 
-The aggregate should store facts needed to decide future behavior or render authoritative state. Do not store derived values that can be cheaply recomputed, process timers, connection state, or transient UI state.
+The aggregate is the minimal sufficient record of authoritative game facts. Together with immutable rules and explicit caller and session context, it must contain enough information to deterministically derive future behavior and every public projection. If a projection depends on a game fact that cannot be reconstructed from those inputs, store that fact in the aggregate. Do not store cached projections, other derived values, process timers, connection state, or transient UI state.
 
 After `init/1`, mutate the aggregate only inside an accepted `dispatch/2` transition. Do not expose alternate mutation functions to Projection, Permission, channels, or a custom Server.
 
@@ -307,14 +307,20 @@ Projection owns the public read model:
 - caller identity
 - complete permissions
 - public committed game facts
+- lifecycle and game statuses, progress, and outcomes needed by the caller
 - derived caller-specific legal choices
+- permitted constraints and other rule-derived guidance needed by supported client workflows
 - explicit redaction of private facts
 
 Create a visibility matrix for every caller role and lifecycle state. Test both the fields a caller receives and the fields that must be absent. Do not rely only on positive projection examples to detect leaks.
 
 Keep dependency direction `Projection -> Rules -> Ruleset`. Projection may derive legal choices through pure Rules functions, but it never validates commands or commits state.
 
+Prefer a complete, ready-to-consume read model over low-level facts that force the client to reproduce domain rules. Supply every permitted status, choice, constraint, progress value, outcome, and other derivation required by a supported workflow. Do not require the client to infer authoritative information from event history. Leave presentation formatting, layout, animation, and ephemeral interaction state to the client. Scope completeness by caller visibility and actual workflows: never expose private facts, raw internal representation, or speculative fields merely to make the payload larger.
+
 Treat Projection as a deterministic function of caller context and the current Session. It consumes the committed state produced by the game state machine and returns a public read model. It does not retain state between renders, trigger transitions, or feed projected values back into `Game`.
+
+Trace every projected field to committed game state, immutable rules, or explicit caller and session context. A field that also needs prior projections, client-held history, or hidden Projection state exposes a missing authoritative input in the aggregate design.
 
 Render Projection only from caller context and the current Session. Do not route channel events, validate interaction payloads, or construct `%D20.Command{}` values in Projection.
 

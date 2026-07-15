@@ -13,6 +13,9 @@
 - [ ] Define action atomicity and when progress becomes committed.
 - [ ] Define completion, outcome, tie, and terminal behavior.
 - [ ] Define caller visibility, private facts, and derived guidance.
+- [ ] List the complete permitted facts, statuses, permissions, choices, constraints, progress, outcomes, and rule-derived guidance required by every supported client workflow.
+- [ ] Trace every projected field to committed game state, immutable rules, or explicit caller and session context.
+- [ ] Confirm the proposed aggregate contains the minimal authoritative game facts needed to derive every projection without prior renders or client-held history.
 - [ ] Define randomness ownership, sampling point, persistence, test control, retries, and idempotency.
 - [ ] Build a visibility matrix for every caller role and lifecycle state.
 - [ ] Resolve material ambiguity instead of copying another game.
@@ -71,6 +74,7 @@
 - [ ] Validate creation inputs in `changeset/1` before process startup.
 - [ ] Implement `init/1`, `dispatch/2`, and `finished?/1`.
 - [ ] Define typed JSON-encodable committed state.
+- [ ] Store every authoritative game fact required by future transitions and projections, but no cached projection or other derivable value.
 - [ ] Make phase and event routing explicit.
 - [ ] Choose and test phase-gate versus payload-error precedence.
 - [ ] Run Command validation and Rules validation before transition code.
@@ -97,6 +101,9 @@
 - [ ] Render an explicit public envelope instead of a raw Session or aggregate.
 - [ ] Include caller identity and only the necessary public committed facts.
 - [ ] Derive legal choices from Rules predicates.
+- [ ] Include the permitted rule-derived statuses, constraints, progress, outcomes, and guidance needed by each supported client workflow.
+- [ ] Confirm clients need not duplicate authoritative game calculations or reconstruct current state from event history.
+- [ ] Keep only presentation calculations and ephemeral interaction state on the client.
 - [ ] Redact private facts explicitly.
 - [ ] Add negative assertions for every field marked hidden in the visibility matrix.
 - [ ] Handle owners, participants, non-members, and all lifecycle states safely.
@@ -146,7 +153,7 @@
 | Rules | Every predicate, conflicting failures, actor and phase paths, repeated and stale inputs |
 | Game | Full transition graph, unchanged state on error, atomicity, completion, terminal state |
 | Permission | Complete caller-specific booleans in every relevant state |
-| Projection | Public shape, visibility matrix, negative leak checks, derived choices, non-members, terminal state |
+| Projection | Complete client-ready public shape, visibility matrix, negative leak checks, derived choices and guidance, non-members, terminal state |
 | Session | Creation inputs, start ownership, membership policy, game-to-session completion |
 | Channel | Replies, accepted broadcasts, rejected non-broadcasts, caller-specific rendering |
 | Custom server | Selected module, scheduling, exactly-once action, actor rejection, nondeterministic-value idempotency, error behavior, idle coexistence |
@@ -183,6 +190,8 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 - [ ] Every playable engine has explicit public projection routing.
 - [ ] Runtime flow is one-way from stimulus through committed state to Projection and render.
 - [ ] Projection derives only from caller context and current committed state and cannot initiate mutation.
+- [ ] Every projected field is reproducible from committed game state, immutable rules, and explicit caller and session context.
+- [ ] Every supported client workflow receives its permitted rule-derived information without duplicating authoritative calculations.
 - [ ] Internal commands cannot be invoked with a client identity.
 - [ ] Game completion propagates to the outer session.
 - [ ] Code, tests, AsyncAPI, and any in-scope client agree.

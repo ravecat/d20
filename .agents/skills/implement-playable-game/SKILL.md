@@ -40,6 +40,8 @@ Translate prose, tables, diagrams, and rulesheets into explicit decisions before
 - action effects and atomicity boundaries
 - progress, completion, outcome, and tie behavior
 - caller visibility and derived guidance
+- the minimal authoritative game facts needed to derive every caller projection from the current state, immutable rules, and caller and session context
+- the complete permitted facts and rule-derived guidance each supported client workflow needs without reimplementing domain logic or reconstructing state from event history
 - randomness ownership, sampling point, persistence, retry behavior, testability, deadlines, timers, and automatic actions
 
 Produce four compact working artifacts in the plan or task notes:
@@ -47,9 +49,11 @@ Produce four compact working artifacts in the plan or task notes:
 1. A transition table: current phase, stimulus, predicate, next state, effects.
 2. A command table: event, actor class, payload, allowed phases, stable errors.
 3. A predicate catalog: name, inputs, result, owning module, consumers.
-4. A visibility matrix: caller role and lifecycle state mapped to visible, hidden, and derived fields.
+4. A visibility matrix: caller role and lifecycle state mapped to visible, hidden, and derived fields, with the authoritative source of every projected field.
 
 Ask the user only about gaps that materially alter rules, state, or public contracts. Do not guess missing semantics.
+
+Treat a projection that cannot be recomputed from the proposed committed game state, immutable rules, and explicit caller and session context as an unresolved state-design gap. Clarify the missing authoritative fact before implementation. Do not solve the gap by caching a projection or depending on a previous render or client-held history.
 
 ### 2. Assign every rule to one owner
 
@@ -105,7 +109,7 @@ Decide whether phase gating or payload validation has precedence, then encode an
 
 ### 6. Implement the game state machine
 
-`Game` owns only shared committed facts and state transitions. Implement the `D20.Game` callbacks, creation changeset, typed aggregate, explicit phase and event clauses, terminal state, and outcome calculation.
+`Game` owns only shared committed facts and state transitions. Make the aggregate minimal but sufficient: it must retain every authoritative game fact needed to derive future behavior and every projection, while excluding values that can be derived from those facts, immutable rules, and explicit caller and session context. Implement the `D20.Game` callbacks, creation changeset, typed aggregate, explicit phase and event clauses, terminal state, and outcome calculation.
 
 For every accepted mutation, preserve this sequence:
 
@@ -165,7 +169,9 @@ Keep synchronous consequences of an accepted command inside the same `Game` tran
 
 Derive permission booleans from the same Rules predicates, but never treat them as authorization. Every dispatched command must still validate actor and legality authoritatively.
 
-Build an explicit caller-specific projection from the visibility matrix. Render it only from caller context and the current Session. Include only public committed facts, caller identity, permissions, and derived options required by the client. Handle spectators and all lifecycle states without returning a raw aggregate. Add negative tests that prove hidden fields do not leak to other caller roles.
+Build an explicit caller-specific projection from the visibility matrix. Render it only from caller context and the current Session. Make it a complete, ready-to-consume read model for each supported client workflow: include permitted committed facts, caller identity, lifecycle and game statuses, permissions, legal choices, constraints, progress, outcomes, and other rule-derived guidance the client needs. Do not omit domain information merely because the client could recompute it from lower-level facts or event history. Keep client calculations limited to presentation concerns and ephemeral interaction state. Handle spectators and all lifecycle states without returning a raw aggregate, exposing private facts, or adding speculative fields that no supported workflow uses. Add negative tests that prove hidden fields do not leak to other caller roles.
+
+For every projected field, verify that its value is reproducible from the current committed game state, immutable rules, and explicit caller and session context. If it is not, add the missing authoritative game fact to the aggregate instead of adding hidden state to Projection or relying on client history.
 
 Keep Projection a pure derivation of caller context and the current committed state held in Session. The same inputs must produce the same public read model. Projection may call pure Rules queries for permissions and legal choices, but it must not validate interaction payloads, dispatch commands, schedule work, call mutation APIs, retain authoritative state, or synthesize `%D20.Command{}` values. Rendering never advances the state machine.
 
@@ -177,7 +183,7 @@ Do not edit a separate client repository unless the task explicitly includes it.
 
 ### 10. Validate by boundary and end-to-end flow
 
-Test static definitions, payload normalization, predicates, transitions, rejected-state preservation, completion, permissions, caller projections, session lifecycle, replies, broadcasts, registry wiring, and contract serving.
+Test static definitions, payload normalization, predicates, transitions, rejected-state preservation, completion, permissions, complete caller projections, session lifecycle, replies, broadcasts, registry wiring, and contract serving. Verify that supported client workflows receive their permitted rule-derived information without reimplementing authoritative calculations.
 
 For custom servers, test automatic-event identity, scheduling, duplicate prevention, failure behavior, and coexistence with idle expiry.
 
