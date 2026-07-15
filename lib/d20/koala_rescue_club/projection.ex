@@ -56,7 +56,6 @@ defmodule D20.KoalaRescueClub.Projection do
           required(:phase) => Game.phase(),
           required(:round) => Ruleset.round(),
           required(:turn) => Game.turn(),
-          required(:order) => [Game.player_id()],
           required(:players) => %{
             optional(Game.player_id()) => %{
               required(:status) => Game.player_status(),
@@ -132,7 +131,6 @@ defmodule D20.KoalaRescueClub.Projection do
       phase: game.phase,
       round: game.round,
       turn: game.turn,
-      order: game.order,
       players: render_players(rulesheet, game.players),
       roll: game.roll,
       scores: game.scores

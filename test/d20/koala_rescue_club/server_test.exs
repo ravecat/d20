@@ -38,8 +38,9 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
   test "schedules and performs one server-owned roll", %{pid: pid, session: session} do
     assert {:ok,
-            %Session{game: %Game{phase: :roll, mode: :solo, order: ["owner"], roll: nil}} =
-              roll_session} = Sessions.dispatch(scope(session.id), "start", %{})
+            %Session{
+              game: %Game{phase: :roll, mode: :solo, players: %{"owner" => _player}, roll: nil}
+            } = roll_session} = Sessions.dispatch(scope(session.id), "start", %{})
 
     assert_receive {:session, ^roll_session}
     assert {:roll, {"koala-rescue-club", Game, ^roll_session}} = :sys.get_state(pid)
@@ -51,7 +52,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert_receive {:session,
                     %Session{
                       members: %{"player-2" => %{online_at: 123}},
-                      game: %Game{phase: :roll, mode: :solo, order: ["owner"]}
+                      game: %Game{phase: :roll, mode: :solo, players: %{"owner" => _player}}
                     } = presence_session}
 
     assert {:roll, {"koala-rescue-club", Game, ^presence_session}} = :sys.get_state(pid)
@@ -75,7 +76,9 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
   test "schedules the next roll only after every player submits", %{session: session} do
     assert {:ok, %Session{}} = Sessions.dispatch(scope(session.id, "player-2"), "join", %{})
-    assert_receive {:session, %Session{game: %Game{order: ["owner", "player-2"]}}}
+
+    assert_receive {:session,
+                    %Session{game: %Game{players: %{"owner" => _owner, "player-2" => _player_2}}}}
 
     assert {:ok, %Session{game: %Game{mode: :multiplayer}}} =
              Sessions.dispatch(scope(session.id), "start", %{})

@@ -28,7 +28,6 @@ defmodule D20.KoalaRescueClub.Game do
     field :mode, Ecto.Enum, values: @modes
     field :round, :integer, default: 1
     field :turn, :integer, default: 0
-    field :order, {:array, :string}, default: []
     field :players, :map, default: %{}
     field :roll, :map
     field :scores, :map, default: %{}
@@ -79,7 +78,6 @@ defmodule D20.KoalaRescueClub.Game do
           mode: mode() | nil,
           round: Ruleset.round(),
           turn: turn(),
-          order: [player_id()],
           players: %{optional(player_id()) => player()},
           roll: roll() | nil,
           scores: %{optional(player_id()) => score()}
@@ -226,20 +224,12 @@ defmodule D20.KoalaRescueClub.Game do
 
       player = %{status: :ready, sheet: sheet, selection: nil, rounds: [], badges: %{}, turns: []}
 
-      %{
-        game
-        | order: game.order ++ [player_id],
-          players: Map.put(game.players, player_id, player)
-      }
+      %{game | players: Map.put(game.players, player_id, player)}
     end
   end
 
   defp leave_player(game, player_id) do
-    %{
-      game
-      | order: List.delete(game.order, player_id),
-        players: Map.delete(game.players, player_id)
-    }
+    %{game | players: Map.delete(game.players, player_id)}
   end
 
   defp refresh_setup_phase(game) do
@@ -339,10 +329,10 @@ defmodule D20.KoalaRescueClub.Game do
     do: award_multiplayer_badges(game, rulesheet)
 
   defp award_solo_badges(game, map) do
-    [player_id] = game.order
+    [{player_id, player}] = Map.to_list(game.players)
 
     player =
-      Enum.reduce(map.badges, game.players[player_id], fn {badge_id, badge}, player ->
+      Enum.reduce(map.badges, player, fn {badge_id, badge}, player ->
         if Map.has_key?(player.badges, badge_id) or
              not Rules.badge_satisfied?(map, player.sheet, badge) do
           player
@@ -361,10 +351,11 @@ defmodule D20.KoalaRescueClub.Game do
         award_late_badges(game, map, badge_id, badge)
       else
         first_achievers =
-          Enum.filter(game.order, fn player_id ->
-            player = game.players[player_id]
+          game.players
+          |> Enum.filter(fn {_player_id, player} ->
             Rules.badge_satisfied?(map, player.sheet, badge)
           end)
+          |> Enum.map(fn {player_id, _player} -> player_id end)
 
         if first_achievers == [] do
           game
@@ -379,12 +370,12 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp award_late_badges(game, map, badge_id, badge) do
     late_achievers =
-      Enum.filter(game.order, fn player_id ->
-        player = game.players[player_id]
-
+      game.players
+      |> Enum.filter(fn {_player_id, player} ->
         not Map.has_key?(player.badges, badge_id) and
           Rules.badge_satisfied?(map, player.sheet, badge)
       end)
+      |> Enum.map(fn {player_id, _player} -> player_id end)
 
     update_players(game, late_achievers, fn player -> put_badge(player, badge_id, :small) end)
   end
@@ -402,7 +393,9 @@ defmodule D20.KoalaRescueClub.Game do
   defp score_players(game) do
     rulesheet = Ruleset.sheet!(game.sheet)
 
-    Map.new(game.order, &{&1, score_player(game, rulesheet, &1)})
+    Map.new(game.players, fn {player_id, _player} ->
+      {player_id, score_player(game, rulesheet, player_id)}
+    end)
   end
 
   defp score_player(game, rulesheet, player_id) do

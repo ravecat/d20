@@ -134,7 +134,6 @@ defmodule D20Web.ProjectionTest do
                  phase: :submit,
                  round: 1,
                  turn: 1,
-                 order: ["owner", "p2"],
                  roll: %{value: _value},
                  scores: %{},
                  players: %{
@@ -166,6 +165,8 @@ defmodule D20Web.ProjectionTest do
                  }
                }
              } = projection
+
+      refute Map.has_key?(projection.game, :order)
 
       other_scope = Scope.for_actor(%Actor{id: "p2", type: :anonymous})
       assert %{game: %{mode: :multiplayer}} = Projection.render(other_scope, session)
@@ -223,8 +224,38 @@ defmodule D20Web.ProjectionTest do
       owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
       spectator_scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
 
-      assert %{game: %{mode: nil}} = Projection.render(owner_scope, session)
-      assert %{game: %{mode: nil}} = Projection.render(spectator_scope, session)
+      assert %{game: %{mode: nil} = owner_game} = Projection.render(owner_scope, session)
+      assert %{game: %{mode: nil} = spectator_game} = Projection.render(spectator_scope, session)
+
+      refute Map.has_key?(owner_game, :order)
+      refute Map.has_key?(spectator_game, :order)
+    end
+
+    test "omits Koala player order from finished and newly rendered projections" do
+      {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
+      {:ok, game} = dispatch_koala(game, "join", "owner")
+      {:ok, game} = dispatch_koala(game, "join", "p2")
+      {:ok, game} = dispatch_koala(game, "start", "owner")
+
+      session = %Session{
+        id: "session-1",
+        phase: :finished,
+        owner_id: "owner",
+        members: %{},
+        game: %{game | phase: :finished}
+      }
+
+      owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+      spectator_scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
+
+      assert %{game: %{players: %{"owner" => _owner, "p2" => _player_2}} = owner_game} =
+               Projection.render(owner_scope, session)
+
+      assert %{game: %{players: %{"owner" => _owner, "p2" => _player_2}} = spectator_game} =
+               Projection.render(spectator_scope, session)
+
+      refute Map.has_key?(owner_game, :order)
+      refute Map.has_key?(spectator_game, :order)
     end
 
     test "renders confirmed Koala turn history as adjusted values" do

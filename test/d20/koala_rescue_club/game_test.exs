@@ -15,7 +15,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, %Game{phase: :setup, sheet: :yugambeh, mode: nil} = game} =
                D20.Game.init(Game, %{"sheet" => "yugambeh"})
 
-      assert {:ok, %Game{phase: :ready, mode: nil, order: ["p1"]} = game} =
+      assert {:ok, %Game{phase: :ready, mode: nil, players: %{"p1" => _player}} = game} =
                dispatch(game, "join", "p1")
 
       assert {:ok, %Game{phase: :roll, sheet: :yugambeh, mode: :solo, turn: 1, round: 1} = game} =
@@ -37,6 +37,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert decoded["phase"] == "roll"
       assert decoded["sheet"] == "yugambeh"
       assert decoded["mode"] == "solo"
+      refute Map.has_key?(decoded, "order")
       assert decoded["players"]["p1"]["sheet"]["trees"] == []
       assert decoded["players"]["p1"]["turns"] == []
     end
@@ -93,9 +94,9 @@ defmodule D20.KoalaRescueClub.GameTest do
           game
         end)
 
-      assert length(game.order) == 99
+      assert map_size(game.players) == 99
       assert {:ok, game} = dispatch(game, "join", "p1")
-      assert length(game.order) == 99
+      assert map_size(game.players) == 99
       assert {:error, :invalid_player_count} = dispatch(game, "join", "p100")
     end
 
@@ -138,8 +139,12 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = dispatch(game, "join", "p1")
       assert {:ok, game} = dispatch(game, "join", "p2")
 
-      assert {:ok, %Game{phase: :roll, mode: :multiplayer, order: ["p1", "p2"]} = game} =
-               dispatch(game, "start", "p1")
+      assert {:ok,
+              %Game{
+                phase: :roll,
+                mode: :multiplayer,
+                players: %{"p1" => _player_1, "p2" => _player_2}
+              } = game} = dispatch(game, "start", "p1")
 
       assert {:ok, ^game} = dispatch(game, "join", "p3")
       assert {:ok, ^game} = dispatch(game, "leave", "p1")
@@ -150,8 +155,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = dispatch(game, "join", "p1")
       assert {:ok, game} = dispatch(game, "join", "p2")
 
-      assert {:ok,
-              %Game{phase: :ready, mode: nil, order: ["p1"], players: %{"p1" => _player}} = game} =
+      assert {:ok, %Game{phase: :ready, mode: nil, players: %{"p1" => _player}} = game} =
                dispatch(game, "leave", "p2")
 
       assert {:ok, %Game{phase: :roll, mode: :solo, players: %{"p1" => _player}}} =
@@ -162,8 +166,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, game} = dispatch(game, "join", "p1")
 
-      assert {:ok, %Game{phase: :setup, mode: nil, order: [], players: %{}}} =
-               dispatch(game, "leave", "p1")
+      assert {:ok, %Game{phase: :setup, mode: nil, players: %{}}} = dispatch(game, "leave", "p1")
     end
 
     test "stores canonical selection and submits it atomically" do
@@ -555,6 +558,85 @@ defmodule D20.KoalaRescueClub.GameTest do
                dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
 
       assert %{tree_lover: :small} = game.players["p1"].badges
+    end
+
+    test "awards simultaneous first achievers the same large badge" do
+      map = Ruleset.sheet!(:dharug)
+      c_trees = Ruleset.area_cells(map, :c)
+
+      assert {:ok, game} = D20.Game.init(Game, %{"sheet" => "dharug"})
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+      assert {:ok, game} = dispatch(game, "start", "p1")
+
+      game =
+        game
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)],
+          c_trees
+        )
+        |> put_in(
+          [Access.key!(:players), "p2", Access.key!(:sheet), Access.key!(:trees)],
+          c_trees
+        )
+        |> force_submit_turn(1, 1, 1)
+
+      assert {:ok, %Game{phase: :submit} = game} =
+               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+
+      assert {:ok, %Game{phase: :roll} = game} =
+               dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
+
+      assert %{tree_lover: :large} = game.players["p1"].badges
+      assert %{tree_lover: :large} = game.players["p2"].badges
+    end
+
+    test "awards every later achiever the same small badge" do
+      map = Ruleset.sheet!(:dharug)
+      c_trees = Ruleset.area_cells(map, :c)
+
+      assert {:ok, game} = D20.Game.init(Game, %{"sheet" => "dharug"})
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+      assert {:ok, game} = dispatch(game, "join", "p3")
+      assert {:ok, game} = dispatch(game, "start", "p1")
+
+      game =
+        game
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)],
+          c_trees
+        )
+        |> force_submit_turn(1, 1, 1)
+
+      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+      assert {:ok, game} = dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
+
+      assert {:ok, %Game{phase: :roll} = game} =
+               dispatch(game, "circle_tree", "p3", submit_tree(1, "a", 0, 0))
+
+      assert %{tree_lover: :large} = game.players["p1"].badges
+
+      game =
+        game
+        |> put_in(
+          [Access.key!(:players), "p2", Access.key!(:sheet), Access.key!(:trees)],
+          c_trees
+        )
+        |> put_in(
+          [Access.key!(:players), "p3", Access.key!(:sheet), Access.key!(:trees)],
+          c_trees
+        )
+        |> force_submit_turn(2, 1, 1)
+
+      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 1))
+      assert {:ok, game} = dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 1))
+
+      assert {:ok, %Game{phase: :roll} = game} =
+               dispatch(game, "circle_tree", "p3", submit_tree(1, "a", 0, 1))
+
+      assert %{tree_lover: :small} = game.players["p2"].badges
+      assert %{tree_lover: :small} = game.players["p3"].badges
     end
   end
 
