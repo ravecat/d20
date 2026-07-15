@@ -141,6 +141,7 @@ defmodule D20Web.ProjectionTest do
                      status: :pending,
                      badges: %{},
                      rounds: [],
+                     turns: [],
                      sheet: %{
                        volunteers: [:available, :locked, :locked, :locked, :locked, :locked],
                        skybridges: [],
@@ -201,6 +202,45 @@ defmodule D20Web.ProjectionTest do
       refute Map.has_key?(projection, :turn_options)
       refute Map.has_key?(projection, :turn_selection)
       refute Map.has_key?(projection, :selection)
+    end
+
+    test "renders confirmed Koala turn history with a legacy fallback" do
+      {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
+      {:ok, game} = dispatch_koala(game, "join", "owner")
+      {:ok, game} = dispatch_koala(game, "join", "p2")
+      {:ok, game} = dispatch_koala(game, "start", "owner")
+
+      game =
+        game
+        |> put_in([Access.key!(:players), "owner", Access.key!(:turns)], [
+          %{turn: 1, die_value: 6, action: "plant_trees"},
+          %{turn: 2, die_value: 1, action: "circle_koala"}
+        ])
+        |> update_in([Access.key!(:players), "p2"], &Map.delete(&1, :turns))
+
+      session = %Session{
+        id: "session-1",
+        phase: :in_progress,
+        owner_id: "owner",
+        members: %{},
+        game: game
+      }
+
+      scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+
+      assert %{
+               game: %{
+                 players: %{
+                   "owner" => %{
+                     turns: [
+                       %{turn: 1, die_value: 6, action: "plant_trees"},
+                       %{turn: 2, die_value: 1, action: "circle_koala"}
+                     ]
+                   },
+                   "p2" => %{turns: []}
+                 }
+               }
+             } = Projection.render(scope, session)
     end
 
     test "renders empty top-level Koala turn fields without an active roll" do

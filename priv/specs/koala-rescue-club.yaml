@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.3.0
+  version: 0.4.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -630,6 +630,7 @@ components:
         - sheet
         - badges
         - rounds
+        - turns
       properties:
         status:
           type: string
@@ -658,6 +659,12 @@ components:
           maxItems: 2
           items:
             $ref: "#/components/schemas/roundScore"
+        turns:
+          type: array
+          description: Confirmed player turn results in ascending global turn order.
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/turnResult"
       additionalProperties: false
     playerSheet:
       type: object
@@ -820,6 +827,31 @@ components:
           type: integer
         total:
           type: integer
+      additionalProperties: false
+    turnResult:
+      type: object
+      description: Accepted value and primary action committed by one player turn.
+      required:
+        - turn
+        - die_value
+        - action
+      properties:
+        turn:
+          type: integer
+          minimum: 1
+          maximum: 30
+        die_value:
+          type: integer
+          description: Submitted value after any volunteer adjustment, not the shared roll.
+          minimum: 1
+          maximum: 6
+        action:
+          type: string
+          enum:
+            - plant_trees
+            - rehome_koalas
+            - circle_tree
+            - circle_koala
       additionalProperties: false
     finalScore:
       type: object

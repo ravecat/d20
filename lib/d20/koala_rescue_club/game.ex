@@ -56,11 +56,18 @@ defmodule D20.KoalaRescueClub.Game do
           required(:hospitals) => integer(),
           required(:total) => integer()
         }
+  @type turn_action :: String.t()
+  @type turn_result :: %{
+          required(:turn) => turn(),
+          required(:die_value) => 1..6,
+          required(:action) => turn_action()
+        }
   @type player :: %{
           required(:status) => player_status(),
           required(:sheet) => sheet(),
           required(:badges) => %{optional(Ruleset.badge()) => badge_award()},
-          required(:rounds) => [round_score()]
+          required(:rounds) => [round_score()],
+          required(:turns) => [turn_result()]
         }
   @type roll :: %{required(:value) => 1..6}
   @type t :: %__MODULE__{
@@ -152,7 +159,7 @@ defmodule D20.KoalaRescueClub.Game do
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
     players =
       Map.new(game.players, fn {player_id, player} ->
-        {player_id, %{player | status: :ready, rounds: [], badges: %{}}}
+        {player_id, Map.merge(player, %{status: :ready, rounds: [], badges: %{}, turns: []})}
       end)
 
     %{game | phase: :roll, round: 1, turn: 1, players: players}
@@ -164,6 +171,7 @@ defmodule D20.KoalaRescueClub.Game do
        )
        when event in ["submit_turn_selection", "circle_tree", "circle_koala"] do
     {:ok, player} = Rules.resolve_turn(game, command)
+    player = record_turn(player, game.turn, command)
 
     game
     |> put_in([Access.key!(:players), actor_id], player)
@@ -199,7 +207,7 @@ defmodule D20.KoalaRescueClub.Game do
         bonuses: []
       }
 
-      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}}
+      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
 
       %{
         game
@@ -214,6 +222,13 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   defp maybe_mark_ready(game), do: game
+
+  defp record_turn(player, turn, %D20.Command{event: event, attrs: attrs}) do
+    action = if event == "submit_turn_selection", do: attrs.action, else: event
+    result = %{turn: turn, die_value: attrs.die_value, action: action}
+
+    Map.put(player, :turns, Map.get(player, :turns, []) ++ [result])
+  end
 
   defp maybe_resolve_turn(game) do
     if Rules.turn_complete?(game) do

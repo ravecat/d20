@@ -67,7 +67,8 @@ defmodule D20.KoalaRescueClub.Projection do
               required(:status) => Game.player_status(),
               required(:sheet) => sheet(),
               required(:badges) => %{optional(Ruleset.badge()) => Game.badge_award()},
-              required(:rounds) => [Game.round_score()]
+              required(:rounds) => [Game.round_score()],
+              required(:turns) => [Game.turn_result()]
             }
           },
           required(:roll) => Game.roll() | nil,
@@ -283,7 +284,8 @@ defmodule D20.KoalaRescueClub.Projection do
       status: player.status,
       sheet: render_sheet(rulesheet, player.sheet),
       badges: player.badges,
-      rounds: player.rounds
+      rounds: player.rounds,
+      turns: Map.get(player, :turns, [])
     }
   end
 

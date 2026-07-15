@@ -36,6 +36,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert decoded["phase"] == "roll"
       assert decoded["sheet"] == "yugambeh"
       assert decoded["players"]["p1"]["sheet"]["trees"] == []
+      assert decoded["players"]["p1"]["turns"] == []
     end
 
     test "finishes after turn 30 is resolved" do
@@ -114,6 +115,8 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p1"].status == :submitted
       assert game.players["p1"].sheet.trees == [%{area: :a, row: 0, column: 0}]
 
+      assert game.players["p1"].turns == [%{turn: 1, die_value: value, action: "circle_tree"}]
+
       assert {:error, :already_submitted} =
                dispatch(
                  game,
@@ -122,11 +125,15 @@ defmodule D20.KoalaRescueClub.GameTest do
                  submit_shape("plant_trees", value, 0, [cell("a", 0, 1), cell("a", 0, 2)])
                )
 
+      assert game.players["p1"].turns == [%{turn: 1, die_value: value, action: "circle_tree"}]
+
       assert {:ok, %Game{phase: :roll, turn: 2, roll: nil} = game} =
                dispatch(game, "circle_tree", "p2", submit_tree(value, "a", 0, 0))
 
       assert game.players["p1"].status == :ready
       assert game.players["p2"].status == :ready
+
+      assert game.players["p2"].turns == [%{turn: 1, die_value: value, action: "circle_tree"}]
     end
 
     test "replaces whole-shape commands with atomic full-selection submission" do
@@ -447,6 +454,31 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
 
       assert %{tree_lover: :large} = game.players["p1"].badges
+    end
+  end
+
+  describe "turn history" do
+    test "stores the accepted value and exact successful primary action" do
+      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 6)
+
+      assert {:ok, game} =
+               dispatch(
+                 game,
+                 "submit_turn_selection",
+                 "p1",
+                 submit_shape("plant_trees", 1, 1, [cell("a", 0, 0), cell("a", 0, 1)])
+               )
+
+      assert [%{turn: 1, die_value: 1, action: "plant_trees"}] = game.players["p1"].turns
+
+      game = force_submit_turn(game, 2, 1, 1)
+
+      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
+
+      assert [
+               %{turn: 1, die_value: 1, action: "plant_trees"},
+               %{turn: 2, die_value: 1, action: "circle_tree"}
+             ] = game.players["p1"].turns
     end
   end
 
