@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -61,9 +61,8 @@ channels:
     description: >
       Stateful channel for one game session. A successful join tracks player
       presence and returns the initial session projection in the join response.
-      Accepted game commands receive an empty success response. Stateless turn
-      selection projection requests return their caller-specific selection in
-      the reply without changing or broadcasting session state.
+      Accepted game commands receive an empty success response and publish the
+      resulting caller-specific projection when session state changes.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -85,10 +84,12 @@ channels:
         $ref: "#/components/messages/sessionProjection"
       startSession:
         $ref: "#/components/messages/startSession"
-      projectTurnSelection:
-        $ref: "#/components/messages/projectTurnSelection"
-      turnSelectionReply:
-        $ref: "#/components/messages/turnSelectionReply"
+      select:
+        $ref: "#/components/messages/select"
+      deselect:
+        $ref: "#/components/messages/deselect"
+      reset:
+        $ref: "#/components/messages/reset"
       submitTurnSelection:
         $ref: "#/components/messages/submitTurnSelection"
       circleTree:
@@ -133,32 +134,53 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  projectTurnSelection:
+  select:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Project a client-owned tree or koala shape selection
+    summary: Add one cell to the caller's pending shape selection
     description: |
-      A pending player sends `project_turn_selection` with the complete local
-      draft. The server validates it against the current committed game and
-      returns selected cells, legal continuation cells, completion, and bonus
-      options without changing or broadcasting session state.
+      A pending player sends `select` with full context for the first cell or
+      only a target cell to continue a stored compatible selection.
     messages:
-      - $ref: "#/channels/gameSession/messages/projectTurnSelection"
+      - $ref: "#/channels/gameSession/messages/select"
     reply:
       channel:
         $ref: "#/channels/gameSession"
       messages:
-        - $ref: "#/channels/gameSession/messages/turnSelectionReply"
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  deselect:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Remove one cell from the caller's pending shape selection
+    messages:
+      - $ref: "#/channels/gameSession/messages/deselect"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  reset:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Clear the caller's pending shape selection
+    messages:
+      - $ref: "#/channels/gameSession/messages/reset"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
   submitTurnSelection:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Commit a complete shape selection and its bonuses
+    summary: Commit the stored complete shape selection and its bonuses
     description: |
-      The client sends the complete local draft and ordered bonus decisions.
-      The command succeeds only when that selection is still legal against the
-      current committed game.
+      The client sends ordered bonus decisions. The server revalidates and
+      atomically commits the caller's stored complete selection.
     messages:
       - $ref: "#/channels/gameSession/messages/submitTurnSelection"
     reply:
@@ -286,22 +308,27 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/emptyPayload"
-    projectTurnSelection:
-      name: project_turn_selection
-      title: Project Turn Selection
-      summary: Validate and derive details for the caller's complete local shape draft
+    select:
+      name: select
+      title: Select Turn Cell
+      summary: Add one legal cell to the caller's stored shape selection
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/turnSelectionDraftPayload"
-    turnSelectionReply:
-      name: phx_reply
-      title: Turn Selection Projection Reply
-      summary: Derived selection details or a validation error
-      tags:
-        - name: channel-protocol
+        $ref: "#/components/schemas/selectPayload"
+    deselect:
+      name: deselect
+      title: Deselect Turn Cell
+      summary: Remove one cell from the caller's stored shape selection
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/turnSelectionReply"
+        $ref: "#/components/schemas/deselectPayload"
+    reset:
+      name: reset
+      title: Reset Turn Selection
+      summary: Clear the caller's stored shape selection
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
     submitTurnSelection:
       name: submit_turn_selection
       title: Submit Turn Selection
@@ -402,28 +429,6 @@ components:
             response:
               $ref: "#/components/schemas/commandError"
           additionalProperties: false
-    turnSelectionReply:
-      oneOf:
-        - type: object
-          required:
-            - status
-            - response
-          properties:
-            status:
-              const: ok
-            response:
-              $ref: "#/components/schemas/turnSelection"
-          additionalProperties: false
-        - type: object
-          required:
-            - status
-            - response
-          properties:
-            status:
-              const: error
-            response:
-              $ref: "#/components/schemas/commandError"
-          additionalProperties: false
     joinError:
       type: object
       required:
@@ -464,6 +469,7 @@ components:
         - mixed_action
         - invalid_shape
         - no_legal_placement
+        - missing_turn_selection
         - incomplete_turn_selection
         - invalid_target
         - invalid_area
@@ -490,6 +496,7 @@ components:
         - game
         - permissions
         - options
+        - selection
       properties:
         id:
           type: string
@@ -516,6 +523,11 @@ components:
           $ref: "#/components/schemas/permissions"
         options:
           $ref: "#/components/schemas/turnOptions"
+        selection:
+          description: Caller-owned unfinished selection, or null when none is actionable.
+          oneOf:
+            - $ref: "#/components/schemas/turnSelection"
+            - type: "null"
       additionalProperties: false
     permissions:
       type: object
@@ -661,10 +673,12 @@ components:
             $ref: "#/components/schemas/roundScore"
         turns:
           type: array
-          description: Confirmed player turn results in ascending global turn order.
+          description: Accepted adjusted die values in chronological order.
           maxItems: 30
           items:
-            $ref: "#/components/schemas/turnResult"
+            type: integer
+            minimum: 1
+            maximum: 6
       additionalProperties: false
     playerSheet:
       type: object
@@ -828,31 +842,6 @@ components:
         total:
           type: integer
       additionalProperties: false
-    turnResult:
-      type: object
-      description: Accepted value and primary action committed by one player turn.
-      required:
-        - turn
-        - die_value
-        - action
-      properties:
-        turn:
-          type: integer
-          minimum: 1
-          maximum: 30
-        die_value:
-          type: integer
-          description: Submitted value after any volunteer adjustment, not the shared roll.
-          minimum: 1
-          maximum: 6
-        action:
-          type: string
-          enum:
-            - plant_trees
-            - rehome_koalas
-            - circle_tree
-            - circle_koala
-      additionalProperties: false
     finalScore:
       type: object
       required:
@@ -999,62 +988,45 @@ components:
         bonus:
           $ref: "#/components/schemas/bonusDetails"
       additionalProperties: false
-    turnSelectionDraftPayload:
+    selectPayload:
+      oneOf:
+        - type: object
+          required:
+            - action
+            - die_value
+            - volunteers_used
+            - target_cell
+          properties:
+            action:
+              type: string
+              enum:
+                - plant_trees
+                - rehome_koalas
+            die_value:
+              type: integer
+              minimum: 1
+              maximum: 6
+            volunteers_used:
+              type: integer
+              minimum: 0
+              maximum: 3
+            target_cell:
+              $ref: "#/components/schemas/cellRef"
+          additionalProperties: false
+        - $ref: "#/components/schemas/deselectPayload"
+    deselectPayload:
       type: object
       required:
-        - action
-        - die_value
-        - volunteers_used
-        - selected_cells
+        - target_cell
       properties:
-        action:
-          type: string
-          enum:
-            - plant_trees
-            - rehome_koalas
-        die_value:
-          type: integer
-          minimum: 1
-          maximum: 6
-        volunteers_used:
-          type: integer
-          minimum: 0
-          maximum: 3
-        selected_cells:
-          type: array
-          maxItems: 4
-          uniqueItems: true
-          items:
-            $ref: "#/components/schemas/cellRef"
+        target_cell:
+          $ref: "#/components/schemas/cellRef"
       additionalProperties: false
     submitTurnSelectionPayload:
       type: object
       required:
-        - action
-        - die_value
-        - volunteers_used
-        - selected_cells
         - bonus_actions
       properties:
-        action:
-          type: string
-          enum:
-            - plant_trees
-            - rehome_koalas
-        die_value:
-          type: integer
-          minimum: 1
-          maximum: 6
-        volunteers_used:
-          type: integer
-          minimum: 0
-          maximum: 3
-        selected_cells:
-          type: array
-          maxItems: 4
-          uniqueItems: true
-          items:
-            $ref: "#/components/schemas/cellRef"
         bonus_actions:
           type: array
           items:

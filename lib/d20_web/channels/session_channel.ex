@@ -68,18 +68,6 @@ defmodule D20Web.SessionChannel do
   end
 
   @impl true
-  def handle_in("project_turn_selection" = event, payload, socket) do
-    scope = socket.assigns.current_scope
-
-    with %{id: session_id} <- scope.session,
-         {:ok, {session, _slug}} <- Sessions.get(session_id),
-         {:ok, projection} <- Projection.render_event(scope, session, event, payload) do
-      {:reply, {:ok, projection}, socket}
-    else
-      {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
-    end
-  end
-
   def handle_in(event, payload, socket) do
     case Sessions.dispatch(socket.assigns.current_scope, event, payload) do
       {:ok, _session} -> {:reply, :ok, socket}

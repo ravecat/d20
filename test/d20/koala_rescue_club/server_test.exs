@@ -86,17 +86,30 @@ defmodule D20.KoalaRescueClub.ServerTest do
     rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
     player_sheet = rolled_session.game.players["owner"].sheet
 
-    selected_cells =
+    [first_cell | remaining_cells] =
       rulesheet
       |> Rules.legal_shape_placements(player_sheet, "plant_trees", value)
       |> List.first()
 
-    assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
-             Sessions.dispatch(scope(session.id), "submit_turn_selection", %{
+    assert {:ok, %Session{game: %Game{phase: :submit}} = first_selection} =
+             Sessions.dispatch(scope(session.id), "select", %{
                "action" => "plant_trees",
                "die_value" => value,
                "volunteers_used" => 0,
-               "selected_cells" => selected_cells,
+               "target_cell" => first_cell
+             })
+
+    assert_receive {:session, ^first_selection}
+
+    Enum.each(remaining_cells, fn cell ->
+      assert {:ok, %Session{game: %Game{phase: :submit}} = selection} =
+               Sessions.dispatch(scope(session.id), "select", %{"target_cell" => cell})
+
+      assert_receive {:session, ^selection}
+    end)
+
+    assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
+             Sessions.dispatch(scope(session.id), "submit_turn_selection", %{
                "bonus_actions" => []
              })
 

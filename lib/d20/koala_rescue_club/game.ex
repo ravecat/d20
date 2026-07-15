@@ -47,33 +47,33 @@ defmodule D20.KoalaRescueClub.Game do
           required(:bonuses) => [Ruleset.bonus_ref()]
         }
   @type phase :: :setup | :ready | :roll | :submit | :finished
-  @type round :: 1..2
-  @type turn :: 0..30
+  @type turn :: 0 | Ruleset.turn()
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
-  @type round_score :: %{
+  @type round :: %{
           required(:trees) => non_neg_integer(),
           required(:koalas) => non_neg_integer(),
           required(:hospitals) => integer(),
           required(:total) => integer()
         }
-  @type turn_action :: String.t()
-  @type turn_result :: %{
-          required(:turn) => turn(),
-          required(:die_value) => 1..6,
-          required(:action) => turn_action()
+  @type selection :: %{
+          required(:action) => String.t(),
+          required(:value) => Ruleset.die_value(),
+          required(:volunteers) => non_neg_integer(),
+          required(:cells) => [Ruleset.cell()]
         }
   @type player :: %{
           required(:status) => player_status(),
           required(:sheet) => sheet(),
+          required(:selection) => selection() | nil,
           required(:badges) => %{optional(Ruleset.badge()) => badge_award()},
-          required(:rounds) => [round_score()],
-          required(:turns) => [turn_result()]
+          required(:rounds) => [round()],
+          required(:turns) => [Ruleset.die_value()]
         }
-  @type roll :: %{required(:value) => 1..6}
+  @type roll :: %{required(:value) => Ruleset.die_value()}
   @type t :: %__MODULE__{
           phase: phase(),
           sheet: Ruleset.id(),
-          round: round(),
+          round: Ruleset.round(),
           turn: turn(),
           order: [player_id()],
           players: %{optional(player_id()) => player()},
@@ -131,7 +131,14 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{event: event} = command)
-      when event in ["submit_turn_selection", "circle_tree", "circle_koala"] do
+      when event in [
+             "select",
+             "deselect",
+             "reset",
+             "submit_turn_selection",
+             "circle_tree",
+             "circle_koala"
+           ] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -159,7 +166,8 @@ defmodule D20.KoalaRescueClub.Game do
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
     players =
       Map.new(game.players, fn {player_id, player} ->
-        {player_id, Map.merge(player, %{status: :ready, rounds: [], badges: %{}, turns: []})}
+        {player_id,
+         Map.merge(player, %{status: :ready, selection: nil, rounds: [], badges: %{}, turns: []})}
       end)
 
     %{game | phase: :roll, round: 1, turn: 1, players: players}
@@ -169,9 +177,20 @@ defmodule D20.KoalaRescueClub.Game do
          %__MODULE__{phase: :submit} = game,
          %D20.Command{event: event, actor_id: actor_id} = command
        )
-       when event in ["submit_turn_selection", "circle_tree", "circle_koala"] do
+       when event in ["select", "deselect", "reset"] do
     {:ok, player} = Rules.resolve_turn(game, command)
-    player = record_turn(player, game.turn, command)
+
+    put_in(game.players[actor_id], player)
+  end
+
+  defp apply_command(
+         %__MODULE__{phase: :submit} = game,
+         %D20.Command{event: event, actor_id: actor_id} = command
+       )
+       when event in ["submit_turn_selection", "circle_tree", "circle_koala"] do
+    value = turn_value(game, command)
+    {:ok, player} = Rules.resolve_turn(game, command)
+    player = record_turn(player, value)
 
     game
     |> put_in([Access.key!(:players), actor_id], player)
@@ -207,7 +226,7 @@ defmodule D20.KoalaRescueClub.Game do
         bonuses: []
       }
 
-      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
+      player = %{status: :ready, sheet: sheet, selection: nil, rounds: [], badges: %{}, turns: []}
 
       %{
         game
@@ -223,11 +242,14 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp maybe_mark_ready(game), do: game
 
-  defp record_turn(player, turn, %D20.Command{event: event, attrs: attrs}) do
-    action = if event == "submit_turn_selection", do: attrs.action, else: event
-    result = %{turn: turn, die_value: attrs.die_value, action: action}
+  defp turn_value(game, %D20.Command{event: "submit_turn_selection", actor_id: actor_id}) do
+    game.players[actor_id].selection.value
+  end
 
-    Map.put(player, :turns, Map.get(player, :turns, []) ++ [result])
+  defp turn_value(_game, %D20.Command{attrs: %{die_value: value}}), do: value
+
+  defp record_turn(player, value) do
+    Map.put(player, :turns, Map.get(player, :turns, []) ++ [value])
   end
 
   defp maybe_resolve_turn(game) do
@@ -407,7 +429,9 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp set_player_statuses(game, status) when status in @player_statuses do
     players =
-      Map.new(game.players, fn {player_id, player} -> {player_id, %{player | status: status}} end)
+      Map.new(game.players, fn {player_id, player} ->
+        {player_id, %{player | status: status, selection: nil}}
+      end)
 
     %{game | players: players}
   end

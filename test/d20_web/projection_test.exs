@@ -201,10 +201,10 @@ defmodule D20Web.ProjectionTest do
       refute Map.has_key?(projection, :turn)
       refute Map.has_key?(projection, :turn_options)
       refute Map.has_key?(projection, :turn_selection)
-      refute Map.has_key?(projection, :selection)
+      assert projection.selection == nil
     end
 
-    test "renders confirmed Koala turn history with a legacy fallback" do
+    test "renders confirmed Koala turn history as adjusted values" do
       {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
       {:ok, game} = dispatch_koala(game, "join", "owner")
       {:ok, game} = dispatch_koala(game, "join", "p2")
@@ -212,10 +212,7 @@ defmodule D20Web.ProjectionTest do
 
       game =
         game
-        |> put_in([Access.key!(:players), "owner", Access.key!(:turns)], [
-          %{turn: 1, die_value: 6, action: "plant_trees"},
-          %{turn: 2, die_value: 1, action: "circle_koala"}
-        ])
+        |> put_in([Access.key!(:players), "owner", Access.key!(:turns)], [6, 1])
         |> update_in([Access.key!(:players), "p2"], &Map.delete(&1, :turns))
 
       session = %Session{
@@ -228,19 +225,8 @@ defmodule D20Web.ProjectionTest do
 
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
-      assert %{
-               game: %{
-                 players: %{
-                   "owner" => %{
-                     turns: [
-                       %{turn: 1, die_value: 6, action: "plant_trees"},
-                       %{turn: 2, die_value: 1, action: "circle_koala"}
-                     ]
-                   },
-                   "p2" => %{turns: []}
-                 }
-               }
-             } = Projection.render(scope, session)
+      assert %{game: %{players: %{"owner" => %{turns: [6, 1]}, "p2" => %{turns: []}}}} =
+               Projection.render(scope, session)
     end
 
     test "renders empty top-level Koala turn fields without an active roll" do
@@ -258,14 +244,13 @@ defmodule D20Web.ProjectionTest do
 
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
-      assert %{options: %{}} = projection = Projection.render(scope, session)
+      assert %{options: %{}, selection: nil} = projection = Projection.render(scope, session)
       refute Map.has_key?(projection, :turn)
       refute Map.has_key?(projection, :turn_options)
       refute Map.has_key?(projection, :turn_selection)
-      refute Map.has_key?(projection, :selection)
     end
 
-    test "projects an incremental Koala selection without changing regular projections" do
+    test "renders a stored Koala selection only for its owner" do
       {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
       {:ok, game} = dispatch_koala(game, "join", "owner")
       {:ok, game} = dispatch_koala(game, "join", "p2")
@@ -273,6 +258,14 @@ defmodule D20Web.ProjectionTest do
       {:ok, game} = dispatch_koala(game, "roll", nil)
 
       value = game.roll.value
+
+      assert {:ok, game} =
+               dispatch_koala(game, "select", "owner", %{
+                 "action" => "plant_trees",
+                 "die_value" => value,
+                 "volunteers_used" => 0,
+                 "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+               })
 
       session = %Session{
         id: "session-1",
@@ -285,48 +278,28 @@ defmodule D20Web.ProjectionTest do
       owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
       other_scope = Scope.for_actor(%Actor{id: "p2", type: :anonymous})
 
-      attrs = %{
-        "action" => "plant_trees",
-        "die_value" => value,
-        "volunteers_used" => 0,
-        "selected_cells" => [%{"area" => "a", "row" => 0, "column" => 0}]
-      }
-
-      assert {:ok,
-              %{
-                action: "plant_trees",
-                die_value: ^value,
-                volunteers_used: 0,
-                required_cells: required_cells,
-                selected_cells: [%{area: :a, row: 0, column: 0}],
-                available_cells: available_cells,
-                complete: false,
-                bonus_options: []
-              }} = Projection.render_event(owner_scope, session, "project_turn_selection", attrs)
-
-      assert required_cells in 2..4
-      assert available_cells != []
-      assert session.game == game
-
       owner_projection = Projection.render(owner_scope, session)
       other_projection = Projection.render(other_scope, session)
 
+      assert %{
+               action: "plant_trees",
+               die_value: ^value,
+               volunteers_used: 0,
+               required_cells: required_cells,
+               selected_cells: [%{area: :a, row: 0, column: 0}],
+               available_cells: available_cells,
+               complete: false,
+               bonus_options: []
+             } = owner_projection.selection
+
+      assert required_cells in 2..4
+      assert available_cells != []
+
       refute Map.has_key?(owner_projection, :turn)
       refute Map.has_key?(other_projection, :turn)
-      refute Map.has_key?(owner_projection, :selection)
-      refute Map.has_key?(other_projection, :selection)
-      refute Map.has_key?(owner_projection.game.players["owner"], :turn_selection)
-      refute Map.has_key?(other_projection.game.players["owner"], :turn_selection)
-
-      invalid_attrs = %{attrs | "selected_cells" => [%{"area" => "b", "row" => 0, "column" => 0}]}
-
-      assert {:error, :invalid_target} =
-               Projection.render_event(
-                 owner_scope,
-                 session,
-                 "project_turn_selection",
-                 invalid_attrs
-               )
+      assert other_projection.selection == nil
+      refute Map.has_key?(owner_projection.game.players["owner"], :selection)
+      refute Map.has_key?(other_projection.game.players["owner"], :selection)
 
       assert %{tree: false, koala: false} =
                other_projection.game.players["owner"].sheet.areas.a.rows
@@ -334,7 +307,7 @@ defmodule D20Web.ProjectionTest do
                |> Enum.at(0)
     end
 
-    test "projects bonus options from a complete shape without committing the sheet" do
+    test "derives bonus options from a complete stored shape without committing the sheet" do
       {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
       {:ok, game} = dispatch_koala(game, "join", "owner")
       {:ok, game} = dispatch_koala(game, "start", "owner")
@@ -351,6 +324,19 @@ defmodule D20Web.ProjectionTest do
           Enum.take(row, 2)
         )
 
+      assert {:ok, game} =
+               dispatch_koala(game, "select", "owner", %{
+                 "action" => "rehome_koalas",
+                 "die_value" => 1,
+                 "volunteers_used" => 0,
+                 "target_cell" => %{"area" => "a", "row" => 0, "column" => 2}
+               })
+
+      assert {:ok, game} =
+               dispatch_koala(game, "select", "owner", %{
+                 "target_cell" => %{"area" => "a", "row" => 0, "column" => 3}
+               })
+
       session = %Session{
         id: "session-1",
         phase: :in_progress,
@@ -361,24 +347,13 @@ defmodule D20Web.ProjectionTest do
 
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
-      attrs = %{
-        "action" => "rehome_koalas",
-        "die_value" => 1,
-        "volunteers_used" => 0,
-        "selected_cells" => [
-          %{"area" => "a", "row" => 0, "column" => 2},
-          %{"area" => "a", "row" => 0, "column" => 3}
-        ]
-      }
-
-      assert {:ok,
-              %{
-                complete: true,
-                available_cells: [],
-                bonus_options: [
-                  %{ref: %{area: :a, axis: :row, index: 0}, bonus: %{kind: :skybridge, to: :b}}
-                ]
-              }} = Projection.render_event(scope, session, "project_turn_selection", attrs)
+      assert %{
+               complete: true,
+               available_cells: [],
+               bonus_options: [
+                 %{ref: %{area: :a, axis: :row, index: 0}, bonus: %{kind: :skybridge, to: :b}}
+               ]
+             } = Projection.render(scope, session).selection
 
       assert game.players["owner"].sheet.koalas == Enum.take(row, 2)
     end

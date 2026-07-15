@@ -241,15 +241,15 @@ defmodule D20Web.SessionChannelTest do
       assert_reply ref, :error, %{reason: "invalid_phase"}
     end
 
-    test "should project a Koala turn selection without mutating or broadcasting the session" do
+    test "should dispatch Koala selection commands and push regular projections" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       {session_id, rolled_session} = create_koala_submit_session(actor.id)
 
-      assert {:ok, %{options: options}, socket} = join_session_channel(session_id, actor)
+      assert {:ok, %{options: options, selection: nil}, socket} =
+               join_session_channel(session_id, actor)
+
       assert options != %{}
       assert_push "projection", _presence_projection
-
-      assert {:ok, {before_projection, "koala-rescue-club"}} = D20.Sessions.get(session_id)
 
       value = rolled_session.game.roll.value
       rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
@@ -261,35 +261,57 @@ defmodule D20Web.SessionChannelTest do
         |> List.first()
 
       ref =
-        push(socket, "project_turn_selection", %{
+        push(socket, "select", %{
           "action" => "plant_trees",
           "die_value" => value,
           "volunteers_used" => 0,
-          "selected_cells" => [first_cell]
+          "target_cell" => first_cell
         })
 
-      assert_reply ref, :ok, %{
-        action: "plant_trees",
-        die_value: ^value,
-        selected_cells: [^first_cell],
-        available_cells: available_cells,
-        complete: false
+      assert_reply ref, :ok
+
+      assert_push "projection", %{
+        selection: %{
+          action: "plant_trees",
+          die_value: ^value,
+          selected_cells: [^first_cell],
+          available_cells: available_cells,
+          complete: false
+        }
       }
 
       assert available_cells != []
 
+      assert {:ok, {%Session{game: game}, "koala-rescue-club"}} = D20.Sessions.get(session_id)
+
+      assert game.players[actor.id].selection == %{
+               action: "plant_trees",
+               value: value,
+               volunteers: 0,
+               cells: [first_cell]
+             }
+
+      assert {:ok,
+              %{
+                selection: %{
+                  action: "plant_trees",
+                  die_value: ^value,
+                  selected_cells: [^first_cell]
+                }
+              }, _reconnected_socket} = join_session_channel(session_id, actor)
+
+      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
+      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
+
       invalid_ref =
-        push(socket, "project_turn_selection", %{
-          "action" => "plant_trees",
-          "die_value" => value,
-          "volunteers_used" => 0,
-          "selected_cells" => [%{"area" => "b", "row" => 0, "column" => 0}]
-        })
+        push(socket, "select", %{"target_cell" => %{"area" => "b", "row" => 0, "column" => 0}})
 
       assert_reply invalid_ref, :error, %{reason: "invalid_target"}
       refute_push "projection", _payload, 100
 
-      assert {:ok, {^before_projection, "koala-rescue-club"}} = D20.Sessions.get(session_id)
+      reset_ref = push(socket, "reset", %{})
+      assert_reply reset_ref, :ok
+      assert_push "projection", %{selection: nil}
     end
   end
 

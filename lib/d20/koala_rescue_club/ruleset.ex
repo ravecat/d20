@@ -31,6 +31,9 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @sheet_modules %{dharug: Dharug, yugambeh: Yugambeh}
 
   @type id :: :dharug | :yugambeh
+  @type round :: 1..2
+  @type turn :: 1..30
+  @type die_value :: 1..6
   @type area :: atom()
   @type badge :: atom()
   @type cell :: %{
@@ -64,7 +67,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
   def player_count_range, do: @player_count_range
 
   @doc "Returns the 1-based round for a valid turn."
-  @spec round(term()) :: {:ok, pos_integer()} | {:error, :invalid_turn}
+  @spec round(term()) :: {:ok, round()} | {:error, :invalid_turn}
   def round(turn) when is_integer(turn) and turn in @turn_range do
     {:ok, div(turn - 1, @turns_per_round) + 1}
   end

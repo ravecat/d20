@@ -61,99 +61,104 @@ defmodule D20.KoalaRescueClub.CommandTest do
                })
     end
 
-    test "normalizes projected and submitted full turn selections" do
+    test "normalizes initial and continuing selection edits" do
       assert {:ok,
               %Command{
-                event: "project_turn_selection",
+                event: "select",
                 attrs: %{
                   action: "plant_trees",
                   die_value: 4,
                   volunteers_used: 1,
-                  selected_cells: [%{area: :a, row: 1, column: 2}]
+                  target_cell: %{area: :a, row: 1, column: 2}
                 }
               }} =
                KoalaCommand.validate(%Command{
-                 event: "project_turn_selection",
+                 event: "select",
                  actor_id: "p1",
                  attrs: %{
                    "action" => "plant_trees",
                    "die_value" => 4,
                    "volunteers_used" => 1,
-                   "selected_cells" => [%{"area" => "a", "row" => 1, "column" => 2}]
+                   "target_cell" => %{"area" => "a", "row" => 1, "column" => 2}
                  }
                })
 
-      assert {:ok, %Command{attrs: %{selected_cells: []}}} =
+      assert {:ok, %Command{event: "select", attrs: %{target_cell: cell}}} =
                KoalaCommand.validate(%Command{
-                 event: "project_turn_selection",
+                 event: "select",
                  actor_id: "p1",
-                 attrs: %{
-                   "action" => "plant_trees",
-                   "die_value" => 4,
-                   "volunteers_used" => 1,
-                   "selected_cells" => []
-                 }
+                 attrs: %{"target_cell" => %{"area" => "a", "row" => 1, "column" => 2}}
                })
 
-      assert {:ok,
-              %Command{
-                event: "submit_turn_selection",
-                attrs: %{
-                  action: "rehome_koalas",
-                  die_value: 1,
-                  volunteers_used: 0,
-                  selected_cells: [%{area: :a, row: 0, column: 0}, %{area: :a, row: 0, column: 1}],
-                  bonus_actions: []
-                }
-              }} =
+      assert cell == %{area: :a, row: 1, column: 2}
+
+      assert {:ok, %Command{event: "deselect", attrs: %{target_cell: ^cell}}} =
+               KoalaCommand.validate(%Command{
+                 event: "deselect",
+                 actor_id: "p1",
+                 attrs: %{"target_cell" => %{"area" => "a", "row" => 1, "column" => 2}}
+               })
+
+      assert {:ok, %Command{event: "reset", attrs: %{}}} =
+               KoalaCommand.validate(%Command{event: "reset", actor_id: "p1", attrs: nil})
+    end
+
+    test "normalizes stored-selection submission to bonus decisions only" do
+      assert {:ok, %Command{event: "submit_turn_selection", attrs: %{bonus_actions: []}}} =
                KoalaCommand.validate(%Command{
                  event: "submit_turn_selection",
                  actor_id: "p1",
-                 attrs: %{
-                   "action" => "rehome_koalas",
-                   "die_value" => 1,
-                   "volunteers_used" => 0,
-                   "selected_cells" => [
-                     %{"area" => "a", "row" => 0, "column" => 0},
-                     %{"area" => "a", "row" => 0, "column" => 1}
-                   ],
-                   "bonus_actions" => []
-                 }
+                 attrs: %{"bonus_actions" => []}
+               })
+
+      assert {:ok, %Command{attrs: %{bonus_actions: []}}} =
+               KoalaCommand.validate(%Command{
+                 event: "submit_turn_selection",
+                 actor_id: "p1",
+                 attrs: %{"ignored_selection" => true, "bonus_actions" => []}
                })
 
       assert {:error, %Ecto.Changeset{errors: errors}} =
                KoalaCommand.validate(%Command{
                  event: "submit_turn_selection",
                  actor_id: "p1",
-                 attrs: %{
-                   "action" => "rehome_koalas",
-                   "die_value" => 1,
-                   "volunteers_used" => 0,
-                   "selected_cells" => [
-                     %{"area" => "a", "row" => 0, "column" => 0},
-                     %{"area" => "a", "row" => 0, "column" => 1}
-                   ]
-                 }
+                 attrs: %{}
                })
 
       assert {:bonus_actions, {"can't be blank", []}} in errors
+    end
 
+    test "rejects malformed selection edits and removed projection commands" do
       assert {:error, %Ecto.Changeset{}} =
                KoalaCommand.validate(%Command{
-                 event: "project_turn_selection",
+                 event: "select",
                  actor_id: "p1",
                  attrs: %{
                    "action" => "plant_trees",
-                   "selected_cells" => [%{"area" => "a", "row" => 1, "column" => 2}]
+                   "target_cell" => %{"area" => "a", "row" => 1, "column" => 2}
                  }
                })
-    end
 
-    test "rejects retired draft mutation commands" do
-      for event <- ["select_turn_cell", "deselect_turn_cell", "reset_turn_selection"] do
-        assert {:error, :unknown_command} =
-                 KoalaCommand.validate(%Command{event: event, actor_id: "p1", attrs: %{}})
-      end
+      assert {:error, %Ecto.Changeset{}} =
+               KoalaCommand.validate(%Command{
+                 event: "deselect",
+                 actor_id: "p1",
+                 attrs: %{"target_cell" => %{"area" => "missing", "row" => 0, "column" => 0}}
+               })
+
+      assert {:error, %Ecto.Changeset{}} =
+               KoalaCommand.validate(%Command{
+                 event: "reset",
+                 actor_id: "p1",
+                 attrs: %{"target_cell" => %{}}
+               })
+
+      assert {:error, :unknown_command} =
+               KoalaCommand.validate(%Command{
+                 event: "project_turn_selection",
+                 actor_id: "p1",
+                 attrs: %{}
+               })
     end
 
     test "rejects obsolete whole-shape commands" do
