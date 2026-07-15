@@ -219,6 +219,25 @@ defmodule D20.Sessions.SessionTest do
   end
 
   describe "game events" do
+    test "starts Koala Rescue Club from members still present after pre-start leaves" do
+      {:ok, session} = Session.new(KoalaGame, "p1", %{"sheet" => "dharug"})
+      {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p1"))
+      {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p2"))
+
+      assert {:ok,
+              %Session{
+                phase: :waiting_for_players,
+                members: %{"p1" => %{}},
+                game: %KoalaGame{phase: :ready, mode: nil, players: %{"p1" => _player}}
+              } = session} = Session.dispatch(session, KoalaGame, command("leave", "p2"))
+
+      assert {:ok,
+              %Session{
+                phase: :in_progress,
+                game: %KoalaGame{phase: :roll, mode: :solo, players: %{"p1" => _player}}
+              }} = Session.dispatch(session, KoalaGame, command("start", "p1"))
+    end
+
     test "starts the hosted game and delegates commands while in progress" do
       {:ok, session} = Session.new(TestGame, "p1")
       {:ok, session} = Session.dispatch(session, TestGame, command("join", "p1"))
@@ -237,15 +256,18 @@ defmodule D20.Sessions.SessionTest do
       {:ok, session} = Session.new(KoalaGame, "p1", %{"sheet" => "dharug"})
       {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p1"))
 
-      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :roll}} = session} =
+      assert {:ok,
+              %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, mode: :solo}} = session} =
                Session.dispatch(session, KoalaGame, command("start", "p1"))
 
-      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :submit}} = session} =
-               Session.dispatch(session, KoalaGame, %Command{event: "roll"})
+      assert {:ok,
+              %Session{phase: :in_progress, game: %KoalaGame{phase: :submit, mode: :solo}} =
+                session} = Session.dispatch(session, KoalaGame, %Command{event: "roll"})
 
       value = session.game.roll.value
 
-      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, turn: 2}}} =
+      assert {:ok,
+              %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, mode: :solo, turn: 2}}} =
                Session.dispatch(
                  session,
                  KoalaGame,

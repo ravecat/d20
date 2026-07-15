@@ -12,12 +12,13 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
 
     test "starts with a selected sheet and encodes state as JSON" do
-      assert {:ok, %Game{phase: :setup, sheet: :yugambeh} = game} =
+      assert {:ok, %Game{phase: :setup, sheet: :yugambeh, mode: nil} = game} =
                D20.Game.init(Game, %{"sheet" => "yugambeh"})
 
-      assert {:ok, %Game{phase: :ready, order: ["p1"]} = game} = dispatch(game, "join", "p1")
+      assert {:ok, %Game{phase: :ready, mode: nil, order: ["p1"]} = game} =
+               dispatch(game, "join", "p1")
 
-      assert {:ok, %Game{phase: :roll, sheet: :yugambeh, turn: 1, round: 1} = game} =
+      assert {:ok, %Game{phase: :roll, sheet: :yugambeh, mode: :solo, turn: 1, round: 1} = game} =
                dispatch(game, "start", "p1")
 
       assert game.players["p1"].sheet.volunteers == [
@@ -35,6 +36,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert decoded["phase"] == "roll"
       assert decoded["sheet"] == "yugambeh"
+      assert decoded["mode"] == "solo"
       assert decoded["players"]["p1"]["sheet"]["trees"] == []
       assert decoded["players"]["p1"]["turns"] == []
     end
@@ -101,7 +103,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, game} = dispatch(game, "join", "p1")
       assert {:ok, game} = dispatch(game, "join", "p2")
-      assert {:ok, game} = dispatch(game, "start", "p1")
+      assert {:ok, %Game{mode: :multiplayer} = game} = dispatch(game, "start", "p1")
 
       assert {:ok, %Game{phase: :submit, roll: %{value: value}} = game} =
                dispatch(game, "roll", nil)
@@ -129,6 +131,39 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p2"].status == :ready
 
       assert game.players["p2"].turns == [value]
+    end
+
+    test "freezes multiplayer mode and the accepted roster after start" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+
+      assert {:ok, %Game{phase: :roll, mode: :multiplayer, order: ["p1", "p2"]} = game} =
+               dispatch(game, "start", "p1")
+
+      assert {:ok, ^game} = dispatch(game, "join", "p3")
+      assert {:ok, ^game} = dispatch(game, "leave", "p1")
+    end
+
+    test "derives mode from players still present when the game starts" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+
+      assert {:ok,
+              %Game{phase: :ready, mode: nil, order: ["p1"], players: %{"p1" => _player}} = game} =
+               dispatch(game, "leave", "p2")
+
+      assert {:ok, %Game{phase: :roll, mode: :solo, players: %{"p1" => _player}}} =
+               dispatch(game, "start", "p1")
+    end
+
+    test "returns to setup when the last player leaves before start" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:ok, game} = dispatch(game, "join", "p1")
+
+      assert {:ok, %Game{phase: :setup, mode: nil, order: [], players: %{}}} =
+               dispatch(game, "leave", "p1")
     end
 
     test "stores canonical selection and submits it atomically" do
@@ -502,6 +537,25 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert %{tree_lover: :large} = game.players["p1"].badges
     end
+
+    test "uses solo round timing for badge awards" do
+      map = Ruleset.sheet!(:dharug)
+      c_trees = Ruleset.area_cells(map, :c)
+
+      game =
+        "dharug"
+        |> started_game()
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)],
+          c_trees
+        )
+        |> force_submit_turn(16, 2, 1)
+
+      assert {:ok, %Game{mode: :solo} = game} =
+               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+
+      assert %{tree_lover: :small} = game.players["p1"].badges
+    end
   end
 
   describe "turn history" do
@@ -570,6 +624,25 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok,
               %Game{phase: :finished, scores: %{"p1" => %{total: 9, rank: :junior_club_member}}}} =
                dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+    end
+
+    test "does not assign solo ranks to multiplayer scores" do
+      assert {:ok, game} = D20.Game.init(Game, %{"sheet" => "dharug"})
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+      assert {:ok, %Game{mode: :multiplayer} = game} = dispatch(game, "start", "p1")
+
+      game = force_submit_turn(game, 30, 2, 1)
+
+      assert {:ok, %Game{phase: :submit} = game} =
+               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+
+      assert {:ok,
+              %Game{
+                phase: :finished,
+                mode: :multiplayer,
+                scores: %{"p1" => %{rank: nil}, "p2" => %{rank: nil}}
+              }} = dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
     end
   end
 

@@ -130,6 +130,7 @@ defmodule D20Web.ProjectionTest do
                options: turn_options,
                game: %{
                  sheet: :dharug,
+                 mode: :multiplayer,
                  phase: :submit,
                  round: 1,
                  turn: 1,
@@ -165,6 +166,9 @@ defmodule D20Web.ProjectionTest do
                  }
                }
              } = projection
+
+      other_scope = Scope.for_actor(%Actor{id: "p2", type: :anonymous})
+      assert %{game: %{mode: :multiplayer}} = Projection.render(other_scope, session)
 
       assert Map.keys(turn_options) |> Enum.sort() == ~w(1 2 3 4 5 6)
 
@@ -202,6 +206,25 @@ defmodule D20Web.ProjectionTest do
       refute Map.has_key?(projection, :turn_options)
       refute Map.has_key?(projection, :turn_selection)
       assert projection.selection == nil
+    end
+
+    test "renders an unset Koala mode while the roster is open" do
+      {:ok, game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
+      {:ok, game} = dispatch_koala(game, "join", "owner")
+
+      session = %Session{
+        id: "session-1",
+        phase: :waiting_for_players,
+        owner_id: "owner",
+        members: %{},
+        game: game
+      }
+
+      owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+      spectator_scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
+
+      assert %{game: %{mode: nil}} = Projection.render(owner_scope, session)
+      assert %{game: %{mode: nil}} = Projection.render(spectator_scope, session)
     end
 
     test "renders confirmed Koala turn history as adjusted values" do
@@ -244,7 +267,9 @@ defmodule D20Web.ProjectionTest do
 
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
-      assert %{options: %{}, selection: nil} = projection = Projection.render(scope, session)
+      assert %{options: %{}, selection: nil, game: %{mode: :solo}} =
+               projection = Projection.render(scope, session)
+
       refute Map.has_key?(projection, :turn)
       refute Map.has_key?(projection, :turn_options)
       refute Map.has_key?(projection, :turn_selection)

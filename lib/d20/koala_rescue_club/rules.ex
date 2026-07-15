@@ -80,8 +80,8 @@ defmodule D20.KoalaRescueClub.Rules do
   def validate(%Game{}, %D20.Command{}), do: {:error, :invalid_phase}
 
   @spec ready_to_start?(Game.t()) :: boolean()
-  def ready_to_start?(%Game{order: player_ids}) do
-    length(player_ids) in Ruleset.player_count_range()
+  def ready_to_start?(%Game{players: players}) do
+    map_size(players) in Ruleset.player_count_range()
   end
 
   @spec submit_allowed?(Game.t(), Game.player_id()) :: boolean()
@@ -485,12 +485,12 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_missing_actor(%D20.Command{actor_id: nil}), do: :ok
   defp require_missing_actor(%D20.Command{}), do: {:error, :invalid_identity}
 
-  defp require_player_count_in_range(%Game{order: player_ids} = game, player_id \\ nil) do
+  defp require_player_count_in_range(%Game{players: players} = game, player_id \\ nil) do
     count =
       cond do
-        is_nil(player_id) -> length(player_ids)
-        match?({:ok, _player}, Game.fetch_player(game, player_id)) -> length(player_ids)
-        true -> length(player_ids) + 1
+        is_nil(player_id) -> map_size(players)
+        match?({:ok, _player}, Game.fetch_player(game, player_id)) -> map_size(players)
+        true -> map_size(players) + 1
       end
 
     if count in Ruleset.player_count_range(),

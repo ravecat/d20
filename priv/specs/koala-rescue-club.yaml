@@ -572,6 +572,7 @@ components:
       description: Authoritative Koala Rescue Club game state.
       required:
         - sheet
+        - mode
         - phase
         - round
         - turn
@@ -582,6 +583,14 @@ components:
       properties:
         sheet:
           $ref: "#/components/schemas/sheetId"
+        mode:
+          description: Mode captured from the accepted roster when the game starts.
+          oneOf:
+            - type: string
+              enum:
+                - solo
+                - multiplayer
+            - type: "null"
         phase:
           $ref: "#/components/schemas/gamePhase"
         round:

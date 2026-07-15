@@ -52,6 +52,7 @@ defmodule D20.KoalaRescueClub.Projection do
         }
   @type game :: %{
           required(:sheet) => Ruleset.id(),
+          required(:mode) => Game.mode() | nil,
           required(:phase) => Game.phase(),
           required(:round) => Ruleset.round(),
           required(:turn) => Game.turn(),
@@ -127,6 +128,7 @@ defmodule D20.KoalaRescueClub.Projection do
   defp render_game(rulesheet, %Game{} = game) do
     %{
       sheet: game.sheet,
+      mode: game.mode,
       phase: game.phase,
       round: game.round,
       turn: game.turn,

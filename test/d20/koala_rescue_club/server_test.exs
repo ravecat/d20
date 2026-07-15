@@ -37,8 +37,9 @@ defmodule D20.KoalaRescueClub.ServerTest do
   end
 
   test "schedules and performs one server-owned roll", %{pid: pid, session: session} do
-    assert {:ok, %Session{game: %Game{phase: :roll, roll: nil}} = roll_session} =
-             Sessions.dispatch(scope(session.id), "start", %{})
+    assert {:ok,
+            %Session{game: %Game{phase: :roll, mode: :solo, order: ["owner"], roll: nil}} =
+              roll_session} = Sessions.dispatch(scope(session.id), "start", %{})
 
     assert_receive {:session, ^roll_session}
     assert {:roll, {"koala-rescue-club", Game, ^roll_session}} = :sys.get_state(pid)
@@ -50,13 +51,13 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert_receive {:session,
                     %Session{
                       members: %{"player-2" => %{online_at: 123}},
-                      game: %Game{phase: :roll}
+                      game: %Game{phase: :roll, mode: :solo, order: ["owner"]}
                     } = presence_session}
 
     assert {:roll, {"koala-rescue-club", Game, ^presence_session}} = :sys.get_state(pid)
 
     assert_receive {:session,
-                    %Session{game: %Game{phase: :submit, roll: %{value: value}}} =
+                    %Session{game: %Game{phase: :submit, mode: :solo, roll: %{value: value}}} =
                       submitted_session},
                    5_000
 
@@ -76,11 +77,15 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert {:ok, %Session{}} = Sessions.dispatch(scope(session.id, "player-2"), "join", %{})
     assert_receive {:session, %Session{game: %Game{order: ["owner", "player-2"]}}}
 
-    assert {:ok, %Session{}} = Sessions.dispatch(scope(session.id), "start", %{})
-    assert_receive {:session, %Session{game: %Game{phase: :roll}}}
+    assert {:ok, %Session{game: %Game{mode: :multiplayer}}} =
+             Sessions.dispatch(scope(session.id), "start", %{})
+
+    assert_receive {:session, %Session{game: %Game{phase: :roll, mode: :multiplayer}}}
 
     assert_receive {:session,
-                    %Session{game: %Game{phase: :submit, roll: %{value: value}}} = rolled_session},
+                    %Session{
+                      game: %Game{phase: :submit, mode: :multiplayer, roll: %{value: value}}
+                    } = rolled_session},
                    5_000
 
     rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
@@ -122,10 +127,10 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _slug}} =
              Sessions.get(session.id)
 
-    assert {:ok, %Session{game: %Game{phase: :roll, turn: 2}}} =
+    assert {:ok, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}} =
              Sessions.dispatch(scope(session.id, "player-2"), "circle_tree", payload)
 
-    assert_receive {:session, %Session{game: %Game{phase: :roll, turn: 2}}}
+    assert_receive {:session, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}}
   end
 
   test "resets idle expiration without replacing the automatic roll timeout", %{

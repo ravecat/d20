@@ -14,6 +14,7 @@ defmodule D20.KoalaRescueClub.Game do
   alias D20.KoalaRescueClub.Ruleset
 
   @phases [:setup, :ready, :roll, :submit, :finished]
+  @modes [:solo, :multiplayer]
   @player_statuses [:ready, :pending, :submitted]
   @derive Jason.Encoder
   @primary_key false
@@ -24,6 +25,7 @@ defmodule D20.KoalaRescueClub.Game do
       default: :setup
 
     field :sheet, Ecto.Enum, values: [:dharug, :yugambeh], default: :dharug
+    field :mode, Ecto.Enum, values: @modes
     field :round, :integer, default: 1
     field :turn, :integer, default: 0
     field :order, {:array, :string}, default: []
@@ -47,6 +49,7 @@ defmodule D20.KoalaRescueClub.Game do
           required(:bonuses) => [Ruleset.bonus_ref()]
         }
   @type phase :: :setup | :ready | :roll | :submit | :finished
+  @type mode :: :solo | :multiplayer
   @type turn :: 0 | Ruleset.turn()
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
   @type round :: %{
@@ -73,6 +76,7 @@ defmodule D20.KoalaRescueClub.Game do
   @type t :: %__MODULE__{
           phase: phase(),
           sheet: Ruleset.id(),
+          mode: mode() | nil,
           round: Ruleset.round(),
           turn: turn(),
           order: [player_id()],
@@ -112,9 +116,10 @@ defmodule D20.KoalaRescueClub.Game do
       when event in ["join", "leave"] and phase in [:roll, :submit],
       do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "leave"})
-      when phase in [:setup, :ready],
-      do: {:ok, game}
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "leave", actor_id: actor_id})
+      when phase in [:setup, :ready] do
+    {:ok, game |> leave_player(actor_id) |> refresh_setup_phase()}
+  end
 
   def dispatch(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"} = command) do
     with {:ok, command} <- Command.validate(command),
@@ -153,7 +158,7 @@ defmodule D20.KoalaRescueClub.Game do
   defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
     game
     |> join_player(actor_id)
-    |> maybe_mark_ready()
+    |> refresh_setup_phase()
   end
 
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
@@ -163,7 +168,7 @@ defmodule D20.KoalaRescueClub.Game do
          Map.merge(player, %{status: :ready, selection: nil, rounds: [], badges: %{}, turns: []})}
       end)
 
-    %{game | phase: :roll, round: 1, turn: 1, players: players}
+    %{game | phase: :roll, mode: game_mode(game.players), round: 1, turn: 1, players: players}
   end
 
   defp apply_command(
@@ -229,11 +234,22 @@ defmodule D20.KoalaRescueClub.Game do
     end
   end
 
-  defp maybe_mark_ready(%__MODULE__{phase: :setup} = game) do
-    if Rules.ready_to_start?(game), do: %{game | phase: :ready}, else: game
+  defp leave_player(game, player_id) do
+    %{
+      game
+      | order: List.delete(game.order, player_id),
+        players: Map.delete(game.players, player_id)
+    }
   end
 
-  defp maybe_mark_ready(game), do: game
+  defp refresh_setup_phase(game) do
+    phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
+
+    %{game | phase: phase}
+  end
+
+  defp game_mode(players) when map_size(players) == 1, do: :solo
+  defp game_mode(players) when map_size(players) > 1, do: :multiplayer
 
   defp turn_value(game, %D20.Command{event: "submit", actor_id: actor_id}) do
     game.players[actor_id].selection.value
@@ -313,12 +329,14 @@ defmodule D20.KoalaRescueClub.Game do
   defp award_badges(game) do
     rulesheet = Ruleset.sheet!(game.sheet)
 
-    if length(game.order) == 1 do
-      award_solo_badges(game, rulesheet)
-    else
-      award_multiplayer_badges(game, rulesheet)
-    end
+    award_badges(game, rulesheet)
   end
+
+  defp award_badges(%__MODULE__{mode: :solo} = game, rulesheet),
+    do: award_solo_badges(game, rulesheet)
+
+  defp award_badges(%__MODULE__{mode: :multiplayer} = game, rulesheet),
+    do: award_multiplayer_badges(game, rulesheet)
 
   defp award_solo_badges(game, map) do
     [player_id] = game.order
@@ -407,7 +425,7 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp points_for_badge(badge, award), do: Map.fetch!(badge.awards, award)
 
-  defp solo_rank(%__MODULE__{order: [_one]}, rulesheet, total) do
+  defp solo_rank(%__MODULE__{mode: :solo}, rulesheet, total) do
     {:ok, %{rank: rank}} = Ruleset.solo_rating(rulesheet, total)
     rank
   end
