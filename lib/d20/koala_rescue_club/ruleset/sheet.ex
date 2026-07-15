@@ -14,11 +14,9 @@ defmodule D20.KoalaRescueClub.Ruleset.Sheet do
           skybridges: [skybridge()],
           badges: badges()
         }
+  @type bonus_kind :: :tree | :koala | :volunteer | :hospital | :skybridge
   @type bonus_value ::
-          %{
-            required(:kind) => :tree | :koala | :volunteer | :hospital | :skybridge,
-            optional(:to) => atom()
-          }
+          %{required(:kind) => bonus_kind(), optional(:to) => atom()}
   @type bonus :: %{
           required(:axis) => :row | :column,
           required(:index) => non_neg_integer(),

@@ -85,10 +85,12 @@ defmodule D20.KoalaRescueClub.Rules do
   @spec submit_allowed?(Game.t(), Game.player_id()) :: boolean()
   def submit_allowed?(%Game{} = game, player_id) do
     with :ok <- require_phase(game, :submit),
-         :ok <- require_player_status(game, player_id, :pending),
+         {:ok, player} <- Game.fetch_player(game, player_id),
+         :ok <- require_player_status(player, :pending),
          :ok <- require_roll(game) do
       true
     else
+      :error -> false
       {:error, _reason} -> false
     end
   end
@@ -126,11 +128,7 @@ defmodule D20.KoalaRescueClub.Rules do
 
   def resolve_turn(%Game{} = game, %D20.Command{event: event, actor_id: actor_id, attrs: attrs})
       when event in ["circle_tree", "circle_koala"] do
-    with :ok <- require_phase(game, :submit),
-         :ok <- require_roll(game),
-         :ok <- require_player_status(game, actor_id, :pending),
-         rulesheet = Ruleset.sheet!(game.sheet),
-         player <- Map.fetch!(game.players, actor_id),
+    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
          {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, attrs),
          {:ok, sheet} <- apply_turn_action(rulesheet, sheet, event, attrs, attrs.die_value),
          {:ok, sheet} <- apply_bonus_actions(rulesheet, sheet, attrs.bonus_actions) do
@@ -179,8 +177,12 @@ defmodule D20.KoalaRescueClub.Rules do
   defp pending_player(game, player_id) do
     with :ok <- require_phase(game, :submit),
          :ok <- require_roll(game),
-         :ok <- require_player_status(game, player_id, :pending) do
-      {:ok, Map.fetch!(game.players, player_id), Ruleset.sheet!(game.sheet)}
+         {:ok, player} <- Game.fetch_player(game, player_id),
+         :ok <- require_player_status(player, :pending) do
+      {:ok, player, Ruleset.sheet!(game.sheet)}
+    else
+      :error -> {:error, :not_joined}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -263,11 +265,11 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_missing_actor(%D20.Command{actor_id: nil}), do: :ok
   defp require_missing_actor(%D20.Command{}), do: {:error, :invalid_identity}
 
-  defp require_player_count_in_range(%{order: player_ids, players: players}, player_id \\ nil) do
+  defp require_player_count_in_range(%Game{order: player_ids} = game, player_id \\ nil) do
     count =
       cond do
         is_nil(player_id) -> length(player_ids)
-        Map.has_key?(players, player_id) -> length(player_ids)
+        match?({:ok, _player}, Game.fetch_player(game, player_id)) -> length(player_ids)
         true -> length(player_ids) + 1
       end
 
@@ -276,17 +278,11 @@ defmodule D20.KoalaRescueClub.Rules do
       else: {:error, :invalid_player_count}
   end
 
-  defp require_player(game, player_id) do
-    if Map.has_key?(game.players, player_id), do: :ok, else: {:error, :not_joined}
-  end
-
-  defp require_player_status(game, player_id, status) do
-    with :ok <- require_player(game, player_id) do
-      case game.players[player_id].status do
-        ^status -> :ok
-        :submitted -> {:error, :already_submitted}
-        _status -> {:error, :invalid_phase}
-      end
+  defp require_player_status(player, status) do
+    case player.status do
+      ^status -> :ok
+      :submitted -> {:error, :already_submitted}
+      _status -> {:error, :invalid_phase}
     end
   end
 

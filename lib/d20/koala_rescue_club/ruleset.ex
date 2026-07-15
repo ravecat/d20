@@ -43,10 +43,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
           required(:axis) => :row | :column,
           required(:index) => non_neg_integer()
         }
-  @type bonus :: %{
-          required(:kind) => :tree | :koala | :volunteer | :hospital | :skybridge,
-          optional(:to) => area()
-        }
+  @type bonus :: %{required(:kind) => Sheet.bonus_kind(), optional(:to) => area()}
   @type bonus_entry :: %{required(:ref) => bonus_ref(), required(:bonus) => bonus()}
   @type rank ::
           :junior_club_member

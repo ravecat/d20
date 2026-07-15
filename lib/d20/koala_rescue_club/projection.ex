@@ -34,35 +34,54 @@ defmodule D20.KoalaRescueClub.Projection do
           required(:complete) => boolean(),
           required(:bonus_options) => [Ruleset.bonus_entry()]
         }
-  @type cell :: %{required(:tree) => boolean(), required(:koala) => boolean()}
-  @type area :: %{required(:accessible) => boolean(), required(:rows) => [[cell() | nil]]}
-  @type bonus_kind :: :tree | :koala | :volunteer | :hospital | :skybridge
-  @type bonus_details :: %{
-          required(:kind) => bonus_kind(),
-          optional(:from) => Ruleset.area(),
-          optional(:to) => Ruleset.area()
+  @type area :: %{
+          required(:accessible) => boolean(),
+          required(:rows) => [
+            [%{required(:tree) => boolean(), required(:koala) => boolean()} | nil]
+          ]
         }
   @type bonus :: %{
           required(:ref) => Ruleset.bonus_ref(),
           required(:state) => :locked | :unlocked | :resolved,
-          required(:bonus) => bonus_details()
+          required(:bonus) => %{
+            required(:kind) => Ruleset.Sheet.bonus_kind(),
+            optional(:from) => Ruleset.area(),
+            optional(:to) => Ruleset.area()
+          }
         }
   @type sheet :: %{
-          required(:volunteers) => [:available | :locked | :used],
+          required(:volunteers) => [Game.volunteer()],
           required(:hospitals) => %{optional(atom()) => Ruleset.hospital()},
           required(:skybridges) => [Game.skybridge()],
           required(:bonuses) => [bonus()],
           required(:areas) => %{optional(Ruleset.area()) => area()}
+        }
+  @type game :: %{
+          required(:sheet) => Ruleset.id(),
+          required(:phase) => Game.phase(),
+          required(:round) => Game.round(),
+          required(:turn) => Game.turn(),
+          required(:order) => [Game.player_id()],
+          required(:players) => %{
+            optional(Game.player_id()) => %{
+              required(:status) => Game.player_status(),
+              required(:sheet) => sheet(),
+              required(:badges) => %{optional(Ruleset.badge()) => Game.badge_award()},
+              required(:rounds) => [Game.round_score()]
+            }
+          },
+          required(:roll) => Game.roll() | nil,
+          required(:scores) => %{optional(Game.player_id()) => Game.score()}
         }
   @type t :: %{
           required(:id) => Session.id(),
           required(:phase) => Session.phase(),
           required(:owner_id) => Session.player_id(),
           required(:members) => Session.members(),
-          required(:self) => Game.player_id(),
+          required(:self) => Session.player_id(),
           required(:permissions) => Permission.t(),
           required(:options) => options(),
-          required(:game) => Game.state(sheet())
+          required(:game) => game()
         }
 
   @spec render(Scope.t(), Session.t()) :: t()
@@ -94,7 +113,7 @@ defmodule D20.KoalaRescueClub.Projection do
     command = %Command{event: "project_turn_selection", actor_id: actor_id, attrs: attrs}
 
     with {:ok, command} <- KoalaCommand.validate(command),
-         {:ok, player} <- fetch_player(game, actor_id),
+         {:ok, player} <- Game.fetch_player(game, actor_id),
          true <- Rules.submit_allowed?(game, actor_id),
          :ok <- validate_volunteer_cost(game, player.sheet, command.attrs),
          {:ok, selection} <- render_selection(game, player.sheet, command.attrs) do
@@ -107,8 +126,9 @@ defmodule D20.KoalaRescueClub.Projection do
   end
 
   defp render_options(game, actor_id) do
-    if Rules.submit_allowed?(game, actor_id) do
-      player_sheet = game.players[actor_id].sheet
+    with true <- Rules.submit_allowed?(game, actor_id),
+         {:ok, player} <- Game.fetch_player(game, actor_id) do
+      player_sheet = player.sheet
       rulesheet = Ruleset.sheet!(game.sheet)
       available_volunteers = Enum.count(player_sheet.volunteers, &(&1 == :available))
 
@@ -125,7 +145,7 @@ defmodule D20.KoalaRescueClub.Projection do
         {Integer.to_string(die_value), %{volunteer_cost: volunteer_cost, actions: actions}}
       end)
     else
-      %{}
+      _reason -> %{}
     end
   end
 
@@ -219,8 +239,6 @@ defmodule D20.KoalaRescueClub.Projection do
         []
     end
   end
-
-  defp fetch_player(game, actor_id), do: Map.fetch(game.players, actor_id)
 
   defp validate_volunteer_cost(game, sheet, attrs) do
     with {:ok, needed} <- Ruleset.volunteers_needed(game.roll.value, attrs.die_value),

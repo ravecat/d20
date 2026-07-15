@@ -33,16 +33,18 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   @type player_id :: D20.Actors.Actor.id()
+  @type volunteer :: :available | :locked | :used
+  @type player_status :: :ready | :pending | :submitted
+  @type badge_award :: :large | :small
   @type skybridge :: %{required(:from) => Ruleset.area(), required(:to) => Ruleset.area()}
-  @type bonus_ref :: Ruleset.bonus_ref()
   @type sheet :: %{
           required(:trees) => [Ruleset.cell()],
           required(:koalas) => [Ruleset.cell()],
           required(:areas) => %{optional(Ruleset.area()) => true},
-          required(:volunteers) => [:available | :locked | :used],
+          required(:volunteers) => [volunteer()],
           required(:hospitals) => %{optional(atom()) => non_neg_integer()},
           required(:skybridges) => [skybridge()],
-          required(:bonuses) => [bonus_ref()]
+          required(:bonuses) => [Ruleset.bonus_ref()]
         }
   @type phase :: :setup | :ready | :roll | :submit | :finished
   @type round :: 1..2
@@ -54,25 +56,13 @@ defmodule D20.KoalaRescueClub.Game do
           required(:hospitals) => integer(),
           required(:total) => integer()
         }
-  @type player(player_sheet) :: %{
-          required(:status) => :ready | :pending | :submitted,
-          required(:sheet) => player_sheet,
-          required(:badges) => %{optional(Ruleset.badge()) => atom()},
+  @type player :: %{
+          required(:status) => player_status(),
+          required(:sheet) => sheet(),
+          required(:badges) => %{optional(Ruleset.badge()) => badge_award()},
           required(:rounds) => [round_score()]
         }
-  @type player :: player(sheet())
   @type roll :: %{required(:value) => 1..6}
-  @type state(player_sheet) :: %{
-          required(:sheet) => Ruleset.id(),
-          required(:phase) => phase(),
-          required(:round) => round(),
-          required(:turn) => turn(),
-          required(:order) => [player_id()],
-          required(:players) => %{optional(player_id()) => player(player_sheet)},
-          required(:roll) => roll() | nil,
-          required(:scores) => %{optional(player_id()) => score()}
-        }
-  @type state :: state(sheet())
   @type t :: %__MODULE__{
           phase: phase(),
           sheet: Ruleset.id(),
@@ -148,6 +138,10 @@ defmodule D20.KoalaRescueClub.Game do
   @spec finished?(t()) :: boolean()
   def finished?(%__MODULE__{phase: :finished}), do: true
   def finished?(%__MODULE__{}), do: false
+
+  @doc "Fetches a player from the game by id."
+  @spec fetch_player(t(), player_id()) :: {:ok, player()} | :error
+  def fetch_player(%__MODULE__{players: players}, player_id), do: Map.fetch(players, player_id)
 
   defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
     game
