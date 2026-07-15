@@ -23,4 +23,18 @@ defmodule D20Web.Projection do
   def render(%Scope{}, %Session{} = session) do
     session
   end
+
+  @doc "Renders a caller-specific interaction response without changing session state."
+  @spec render_event(Scope.t(), Session.t(), String.t(), term()) ::
+          {:ok, map()} | {:error, term()}
+  def render_event(
+        %Scope{} = scope,
+        %Session{game: %KoalaRescueClub.Game{}} = session,
+        "project_turn_selection",
+        attrs
+      ) do
+    KoalaRescueClub.Projection.project_turn_selection(scope, session, attrs)
+  end
+
+  def render_event(%Scope{}, %Session{}, _event, _attrs), do: {:error, :unknown_projection}
 end

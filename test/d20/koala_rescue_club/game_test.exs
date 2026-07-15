@@ -3,7 +3,6 @@ defmodule D20.KoalaRescueClub.GameTest do
 
   alias D20.Command
   alias D20.KoalaRescueClub.Game
-  alias D20.KoalaRescueClub.Rules
   alias D20.KoalaRescueClub.Ruleset
   alias D20.KoalaRescueClub.Server
 
@@ -105,7 +104,13 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p1"].status == :submitted
       assert game.players["p1"].sheet.trees == [%{area: :a, row: 0, column: 0}]
 
-      assert {:error, :already_submitted} = click_cell(game, "plant_trees", value, 0, "a", 0, 1)
+      assert {:error, :already_submitted} =
+               dispatch(
+                 game,
+                 "submit_turn_selection",
+                 "p1",
+                 submit_shape("plant_trees", value, 0, [cell("a", 0, 1), cell("a", 0, 2)])
+               )
 
       assert {:ok, %Game{phase: :roll, turn: 2, roll: nil} = game} =
                dispatch(game, "circle_tree", "p2", submit_tree(value, "a", 0, 0))
@@ -114,7 +119,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p2"].status == :ready
     end
 
-    test "replaces whole-shape commands with staged shape submission" do
+    test "replaces whole-shape commands with atomic full-selection submission" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
       assert {:error, :invalid_phase} =
@@ -124,135 +129,69 @@ defmodule D20.KoalaRescueClub.GameTest do
                  "target_cells" => [cell("a", 0, 0), cell("a", 0, 1)]
                })
 
-      assert {:ok, game} = click_cell(game, "plant_trees", 1, 0, "a", 0, 0)
-      assert game.players["p1"].sheet.trees == []
-      assert game.players["p1"].sheet.volunteers == available_volunteers()
-
-      assert {:ok, game} = select_cell(game, "a", 0, 1)
-
-      assert %{complete: true, available_cells: []} = Rules.turn_selection(game, "p1")
-      assert game.players["p1"].sheet.trees == []
-
-      assert {:ok, %Game{} = game} = dispatch(game, "submit_turn_selection", "p1")
+      assert {:ok, %Game{} = game} =
+               dispatch(
+                 game,
+                 "submit_turn_selection",
+                 "p1",
+                 submit_shape("plant_trees", 1, 0, [cell("a", 0, 0), cell("a", 0, 1)])
+               )
 
       assert %{area: :a, row: 0, column: 0} in game.players["p1"].sheet.trees
       assert %{area: :a, row: 0, column: 1} in game.players["p1"].sheet.trees
-
-      assert game.players["p1"].turn_selection == nil
+      refute Map.has_key?(game.players["p1"], :turn_selection)
     end
 
-    test "starts and switches a shape selection with cell clicks" do
+    test "rejects retired draft mutation commands without changing the game" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, selected} = click_cell(game, "plant_trees", 1, 0, "a", 0, 0)
+      assert {:error, :invalid_phase} =
+               dispatch(game, "select_turn_cell", "p1", %{"target_cell" => cell("a", 0, 0)})
 
-      assert %{
-               action: "plant_trees",
-               die_value: 1,
-               volunteers_used: 0,
-               selected_cells: [%{area: :a, row: 0, column: 0}]
-             } = selected.players["p1"].turn_selection
+      assert {:error, :invalid_phase} =
+               dispatch(game, "deselect_turn_cell", "p1", %{"target_cell" => cell("a", 0, 0)})
 
-      assert selected.players["p1"].sheet == game.players["p1"].sheet
-
-      assert {:ok, switched} = click_cell(selected, "plant_trees", 2, 1, "a", 0, 1)
-
-      assert %{
-               action: "plant_trees",
-               die_value: 2,
-               volunteers_used: 1,
-               selected_cells: [%{area: :a, row: 0, column: 1}]
-             } = switched.players["p1"].turn_selection
+      assert {:error, :invalid_phase} = dispatch(game, "reset_turn_selection", "p1")
+      refute Map.has_key?(game.players["p1"], :turn_selection)
     end
 
     test "requires complete koala placements on eligible trees" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:error, :no_legal_placement} = click_cell(game, "rehome_koalas", 1, 0, "a", 0, 0)
+      selection = submit_shape("rehome_koalas", 1, 0, [cell("a", 0, 0), cell("a", 0, 1)])
+
+      assert {:error, :koala_requires_tree} =
+               dispatch(game, "submit_turn_selection", "p1", selection)
 
       trees = [%{area: :a, row: 0, column: 0}, %{area: :a, row: 0, column: 1}]
       game = put_in(game.players["p1"].sheet.trees, trees)
 
-      assert {:ok, game} = click_cell(game, "rehome_koalas", 1, 0, "a", 0, 0)
-      assert {:ok, game} = select_cell(game, "a", 0, 1)
-      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1")
+      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1", selection)
 
       assert game.players["p1"].sheet.koalas == trees
-    end
-
-    test "edits, replaces, and resets a partial selection without side effects" do
-      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
-
-      assert {:ok, selected} = click_cell(game, "plant_trees", 1, 0, "a", 0, 0)
-      assert {:ok, ^selected} = select_cell(selected, "a", 0, 0)
-
-      assert {:error, :invalid_target} = select_cell(selected, "b", 0, 0)
-
-      assert {:ok, deselected} =
-               dispatch(selected, "deselect_turn_cell", "p1", %{"target_cell" => cell("a", 0, 0)})
-
-      assert deselected.players["p1"].turn_selection.selected_cells == []
-
-      assert {:ok, ^deselected} =
-               dispatch(deselected, "deselect_turn_cell", "p1", %{
-                 "target_cell" => cell("a", 0, 0)
-               })
-
-      assert {:ok, replaced} = click_cell(selected, "plant_trees", 2, 1, "a", 0, 1)
-
-      assert %{
-               action: "plant_trees",
-               die_value: 2,
-               volunteers_used: 1,
-               selected_cells: [%{area: :a, row: 0, column: 1}]
-             } = replaced.players["p1"].turn_selection
-
-      assert replaced.players["p1"].sheet == game.players["p1"].sheet
-
-      assert {:error, :no_legal_placement} =
-               click_cell(replaced, "rehome_koalas", 2, 1, "a", 0, 0)
-
-      assert {:ok, reset} = dispatch(replaced, "reset_turn_selection", "p1")
-      assert reset.players["p1"].turn_selection == nil
-      assert reset.players["p1"].sheet == game.players["p1"].sheet
-      assert reset.players["p1"].status == :pending
-    end
-
-    test "derives the same continuation regardless of selection order" do
-      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 4)
-
-      assert {:ok, first_order} = click_cell(game, "plant_trees", 4, 0, "a", 0, 0)
-      assert {:ok, first_order} = select_cell(first_order, "a", 0, 1)
-
-      assert {:ok, second_order} = click_cell(game, "plant_trees", 4, 0, "a", 0, 1)
-      assert {:ok, second_order} = select_cell(second_order, "a", 0, 0)
-
-      assert %{
-               complete: first_complete,
-               selected_cells: first_selected,
-               available_cells: first_available
-             } = Rules.turn_selection(first_order, "p1")
-
-      assert %{
-               complete: ^first_complete,
-               selected_cells: ^first_selected,
-               available_cells: ^first_available
-             } = Rules.turn_selection(second_order, "p1")
     end
 
     test "rejects incomplete submission and delays volunteer spending until commit" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} = click_cell(game, "plant_trees", 2, 1, "a", 0, 0)
-
-      assert {:error, :incomplete_turn_selection} = dispatch(game, "submit_turn_selection", "p1")
+      assert {:error, :incomplete_turn_selection} =
+               dispatch(
+                 game,
+                 "submit_turn_selection",
+                 "p1",
+                 submit_shape("plant_trees", 2, 1, [cell("a", 0, 0)])
+               )
 
       assert game.players["p1"].sheet.trees == []
       assert game.players["p1"].sheet.volunteers == available_volunteers()
-      assert game.players["p1"].turn_selection != nil
 
-      assert {:ok, game} = select_cell(game, "a", 0, 1)
-      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1")
+      assert {:ok, game} =
+               dispatch(
+                 game,
+                 "submit_turn_selection",
+                 "p1",
+                 submit_shape("plant_trees", 2, 1, [cell("a", 0, 0), cell("a", 0, 1)])
+               )
 
       assert game.players["p1"].sheet.volunteers == [
                :used,
@@ -264,17 +203,20 @@ defmodule D20.KoalaRescueClub.GameTest do
              ]
     end
 
-    test "advances a multiplayer turn after staged and fallback submissions" do
+    test "advances a multiplayer turn after shape and fallback submissions" do
       {:ok, game} = D20.Game.init(Game)
       assert {:ok, game} = dispatch(game, "join", "p1")
       assert {:ok, game} = dispatch(game, "join", "p2")
       assert {:ok, game} = dispatch(game, "start", "p1")
       game = force_submit_turn(game, 1, 1, 1)
 
-      assert {:ok, game} = click_cell(game, "plant_trees", 1, 0, "a", 0, 0)
-      assert {:ok, game} = select_cell(game, "a", 0, 1)
-
-      assert {:ok, %Game{phase: :submit} = game} = dispatch(game, "submit_turn_selection", "p1")
+      assert {:ok, %Game{phase: :submit} = game} =
+               dispatch(
+                 game,
+                 "submit_turn_selection",
+                 "p1",
+                 submit_shape("plant_trees", 1, 0, [cell("a", 0, 0), cell("a", 0, 1)])
+               )
 
       assert game.players["p1"].status == :submitted
       assert game.players["p2"].status == :pending
@@ -282,8 +224,8 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, %Game{phase: :roll, turn: 2} = game} =
                dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
 
-      assert game.players["p1"].turn_selection == nil
-      assert game.players["p2"].turn_selection == nil
+      refute Map.has_key?(game.players["p1"], :turn_selection)
+      refute Map.has_key?(game.players["p2"], :turn_selection)
     end
 
     test "rejects inaccessible areas and insufficient volunteer adjustments" do
@@ -337,7 +279,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                })
     end
 
-    test "previews staged bonuses and preserves the complete draft on invalid submission" do
+    test "applies a full shape and its bonuses atomically" do
       row_0 = row_cells("a", 0, 0..3)
       existing_koalas = Enum.take(row_0, 2)
 
@@ -351,42 +293,31 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} = click_cell(game, "rehome_koalas", 1, 0, "a", 0, 2)
-      assert {:ok, game} = select_cell(game, "a", 0, 3)
-
-      assert %{
-               complete: true,
-               bonus_options: [
-                 %{ref: %{area: :a, axis: :row, index: 0}, bonus: %{kind: :skybridge, to: :b}}
-               ]
-             } = Rules.turn_selection(game, "p1")
+      selection = submit_shape("rehome_koalas", 1, 0, [cell("a", 0, 2), cell("a", 0, 3)])
 
       refute %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
 
-      invalid_bonus = %{
-        "bonus_actions" => [
+      invalid_bonus =
+        Map.put(selection, "bonus_actions", [
           %{
             "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
             "action" => %{"kind" => "skybridge", "to" => "c"}
           }
-        ]
-      }
+        ])
 
       assert {:error, :invalid_bonus} =
                dispatch(game, "submit_turn_selection", "p1", invalid_bonus)
 
-      assert Rules.turn_selection(game, "p1").complete
       assert game.players["p1"].sheet.koalas == existing_koalas
       assert game.players["p1"].status == :pending
 
-      valid_bonus = %{
-        "bonus_actions" => [
+      valid_bonus =
+        Map.put(selection, "bonus_actions", [
           %{
             "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
             "action" => %{"kind" => "skybridge", "to" => "b"}
           }
-        ]
-      }
+        ])
 
       assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1", valid_bonus)
 
@@ -399,7 +330,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
       assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
-      assert game.players["p1"].turn_selection == nil
+      refute Map.has_key?(game.players["p1"], :turn_selection)
       assert [%{area: :a, row: 0, column: 0}] = game.players["p1"].sheet.trees
 
       game =
@@ -417,7 +348,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                  "target_cell" => cell("a", 0, 0)
                })
 
-      assert game.players["p1"].turn_selection == nil
+      refute Map.has_key?(game.players["p1"], :turn_selection)
       assert [%{area: :a, row: 0, column: 0}] = game.players["p1"].sheet.koalas
     end
 
@@ -509,51 +440,6 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
   end
 
-  describe "turn_options/2" do
-    test "projects all die values with costs and server-derived primary actions" do
-      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
-
-      options = Rules.turn_options(game, "p1")
-
-      assert Map.keys(options) |> Enum.sort() == ~w(1 2 3 4 5 6)
-      assert options["1"].volunteer_cost == 0
-      assert options["2"].volunteer_cost == 1
-      assert options["3"].volunteer_cost == 2
-      assert options["4"].volunteer_cost == 3
-      assert options["5"].volunteer_cost == 2
-      assert options["6"].volunteer_cost == 1
-
-      assert %{available_cells: plant_cells} = options["1"].actions["plant_trees"]
-      assert %{available_cells: tree_cells} = options["1"].actions["circle_tree"]
-      assert plant_cells != []
-      assert tree_cells != []
-      assert Enum.all?(tree_cells, &(&1.area == :a))
-      refute Map.has_key?(options["1"].actions, "rehome_koalas")
-      refute Map.has_key?(options["1"].actions, "circle_koala")
-
-      assert options["3"].actions == %{}
-      assert options["4"].actions == %{}
-      assert options["5"].actions == %{}
-    end
-
-    test "derives single-koala cells from the caller sheet and clears options after submission" do
-      tree = %{area: :a, row: 0, column: 0}
-
-      game =
-        "dharug"
-        |> started_game()
-        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)], [tree])
-        |> force_submit_turn(1, 1, 1)
-
-      assert %{available_cells: [^tree]} =
-               Rules.turn_options(game, "p1")["1"].actions["circle_koala"]
-
-      submitted = put_in(game.players["p1"].status, :submitted)
-
-      assert Rules.turn_options(submitted, "p1") == %{}
-    end
-  end
-
   describe "scores" do
     test "stores separate tree, koala, hospital, and total scores for scoring turns" do
       map = Ruleset.sheet!(:dharug)
@@ -619,24 +505,18 @@ defmodule D20.KoalaRescueClub.GameTest do
         turn: turn,
         round: round,
         roll: %{value: value},
-        players:
-          Map.new(game.players, fn {id, player} ->
-            {id, %{player | status: :pending, turn_selection: nil}}
-          end)
+        players: Map.new(game.players, fn {id, player} -> {id, %{player | status: :pending}} end)
     }
   end
 
-  defp select_cell(game, area, row, column) do
-    dispatch(game, "select_turn_cell", "p1", %{"target_cell" => cell(area, row, column)})
-  end
-
-  defp click_cell(game, action, die_value, volunteers_used, area, row, column) do
-    dispatch(game, "select_turn_cell", "p1", %{
+  defp submit_shape(action, die_value, volunteers_used, selected_cells) do
+    %{
       "action" => action,
       "die_value" => die_value,
       "volunteers_used" => volunteers_used,
-      "target_cell" => cell(area, row, column)
-    })
+      "selected_cells" => selected_cells,
+      "bonus_actions" => []
+    }
   end
 
   defp available_volunteers do

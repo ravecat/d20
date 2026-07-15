@@ -5,6 +5,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
   alias D20.Actors.Actor
   alias D20.KoalaRescueClub.Game
   alias D20.KoalaRescueClub.Rules
+  alias D20.KoalaRescueClub.Ruleset
   alias D20.KoalaRescueClub.Server
   alias D20.Sessions
   alias D20.Sessions.Session
@@ -82,24 +83,22 @@ defmodule D20.KoalaRescueClub.ServerTest do
                     %Session{game: %Game{phase: :submit, roll: %{value: value}}} = rolled_session},
                    5_000
 
-    option = Rules.turn_options(rolled_session.game, "owner")[Integer.to_string(value)]
-    action = option.actions["plant_trees"]
-    [first_cell | _rest] = action.available_cells
+    rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
+    player_sheet = rolled_session.game.players["owner"].sheet
 
-    assert {:ok, %Session{game: %Game{phase: :submit}} = staged_session} =
-             Sessions.dispatch(scope(session.id), "select_turn_cell", %{
+    selected_cells =
+      rulesheet
+      |> Rules.legal_shape_placements(player_sheet, "plant_trees", value)
+      |> List.first()
+
+    assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
+             Sessions.dispatch(scope(session.id), "submit_turn_selection", %{
                "action" => "plant_trees",
                "die_value" => value,
                "volunteers_used" => 0,
-               "target_cell" => first_cell
+               "selected_cells" => selected_cells,
+               "bonus_actions" => []
              })
-
-    assert_receive {:session, ^staged_session}
-
-    staged_session = complete_selection(session.id, staged_session, "owner")
-
-    assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
-             Sessions.dispatch(scope(session.id), "submit_turn_selection", %{})
 
     assert_receive {:session, ^owner_submitted}
 
@@ -108,8 +107,6 @@ defmodule D20.KoalaRescueClub.ServerTest do
       "volunteers_used" => 0,
       "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
     }
-
-    assert Rules.turn_selection(staged_session.game, "owner").complete
 
     assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _slug}} =
              Sessions.get(session.id)
@@ -149,21 +146,5 @@ defmodule D20.KoalaRescueClub.ServerTest do
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
     |> Scope.put_game("koala-rescue-club")
-  end
-
-  defp complete_selection(session_id, session, actor_id) do
-    case Rules.turn_selection(session.game, actor_id) do
-      %{complete: true} ->
-        session
-
-      %{available_cells: [cell | _rest]} ->
-        assert {:ok, %Session{} = updated_session} =
-                 Sessions.dispatch(scope(session_id, actor_id), "select_turn_cell", %{
-                   "target_cell" => cell
-                 })
-
-        assert_receive {:session, ^updated_session}
-        complete_selection(session_id, updated_session, actor_id)
-    end
   end
 end

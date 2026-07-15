@@ -5,6 +5,9 @@ defmodule D20Web.SessionChannelTest do
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.KoalaRescueClub.Game, as: KoalaGame
+  alias D20.KoalaRescueClub.Rules
+  alias D20.KoalaRescueClub.Ruleset
   alias D20.Sessions.Session
   alias D20Web.ModuleSocket
   alias D20Web.Presence
@@ -237,6 +240,57 @@ defmodule D20Web.SessionChannelTest do
 
       assert_reply ref, :error, %{reason: "invalid_phase"}
     end
+
+    test "should project a Koala turn selection without mutating or broadcasting the session" do
+      actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      {session_id, rolled_session} = create_koala_submit_session(actor.id)
+
+      assert {:ok, %{options: options}, socket} = join_session_channel(session_id, actor)
+      assert options != %{}
+      assert_push "projection", _presence_projection
+
+      assert {:ok, {before_projection, "koala-rescue-club"}} = D20.Sessions.get(session_id)
+
+      value = rolled_session.game.roll.value
+      rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
+      player_sheet = rolled_session.game.players[actor.id].sheet
+
+      [first_cell | _rest] =
+        rulesheet
+        |> Rules.legal_shape_placements(player_sheet, "plant_trees", value)
+        |> List.first()
+
+      ref =
+        push(socket, "project_turn_selection", %{
+          "action" => "plant_trees",
+          "die_value" => value,
+          "volunteers_used" => 0,
+          "selected_cells" => [first_cell]
+        })
+
+      assert_reply ref, :ok, %{
+        action: "plant_trees",
+        die_value: ^value,
+        selected_cells: [^first_cell],
+        available_cells: available_cells,
+        complete: false
+      }
+
+      assert available_cells != []
+
+      invalid_ref =
+        push(socket, "project_turn_selection", %{
+          "action" => "plant_trees",
+          "die_value" => value,
+          "volunteers_used" => 0,
+          "selected_cells" => [%{"area" => "b", "row" => 0, "column" => 0}]
+        })
+
+      assert_reply invalid_ref, :error, %{reason: "invalid_target"}
+      refute_push "projection", _payload, 100
+
+      assert {:ok, {^before_projection, "koala-rescue-club"}} = D20.Sessions.get(session_id)
+    end
   end
 
   defp create_runtime_session(owner_id) do
@@ -245,6 +299,37 @@ defmodule D20Web.SessionChannelTest do
     on_exit(fn -> D20.Sessions.stop(session.id) end)
 
     session.id
+  end
+
+  defp create_koala_submit_session(owner_id) do
+    assert {:ok, session} =
+             D20.Sessions.create("koala-rescue-club", KoalaGame, owner_id, %{"sheet" => "dharug"})
+
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
+
+    assert {:ok, %Session{}} =
+             D20.Sessions.dispatch(
+               session_scope(session.id, owner_id, "koala-rescue-club"),
+               "join",
+               %{}
+             )
+
+    assert_receive {:session, %Session{game: %KoalaGame{phase: :ready}}}
+
+    assert {:ok, %Session{}} =
+             D20.Sessions.dispatch(
+               session_scope(session.id, owner_id, "koala-rescue-club"),
+               "start",
+               %{}
+             )
+
+    assert_receive {:session, %Session{game: %KoalaGame{phase: :roll}}}
+
+    assert_receive {:session, %Session{game: %KoalaGame{phase: :submit}} = rolled_session},
+                   5_000
+
+    {session.id, rolled_session}
   end
 
   defp join_session_channel(session_id, actor) do
@@ -259,11 +344,11 @@ defmodule D20Web.SessionChannelTest do
     connect UserSocket, %{}, connect_info: %{auth_token: token}
   end
 
-  defp session_scope(session_id, actor_id) do
+  defp session_scope(session_id, actor_id, slug \\ "qwinto") do
     %Actor{id: actor_id, type: :anonymous}
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
-    |> Scope.put_game("qwinto")
+    |> Scope.put_game(slug)
   end
 
   defp connect_module_socket(session_id, actor, opts \\ []) do

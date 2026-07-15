@@ -21,75 +21,33 @@ defmodule D20.KoalaRescueClub.Command do
 
   def validate(%D20.Command{event: "start"} = command), do: {:ok, command}
 
-  def validate(%D20.Command{event: "select_turn_cell", attrs: attrs} = command) do
-    types = %{action: :string, die_value: :integer, volunteers_used: :integer, target_cell: :map}
+  def validate(%D20.Command{event: event, attrs: attrs} = command)
+      when event in ["project_turn_selection", "submit_turn_selection"] do
+    types = %{
+      action: :string,
+      die_value: :integer,
+      volunteers_used: :integer,
+      selected_cells: {:array, :map},
+      bonus_actions: {:array, :map}
+    }
+
+    fields =
+      if event == "submit_turn_selection",
+        do: Map.keys(types),
+        else: [:action, :die_value, :volunteers_used, :selected_cells]
 
     changeset =
       {%{}, types}
-      |> cast(attrs || %{}, Map.keys(types))
-      |> validate_required([:target_cell])
-      |> validate_selection_context()
+      |> cast(attrs || %{}, fields)
+      |> validate_required([:action, :die_value, :volunteers_used, :selected_cells])
+      |> require_submit_bonus_actions(event, attrs)
       |> validate_inclusion(:action, @shape_actions)
       |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
       |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
 
     case apply_action(changeset, :turn_selection) do
-      {:ok, %{target_cell: cell} = attrs} ->
-        case normalize_cell(cell) do
-          {:ok, cell} ->
-            {:ok,
-             %{command | attrs: attrs |> Map.take(Map.keys(types)) |> Map.put(:target_cell, cell)}}
-
-          :error ->
-            changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
-  end
-
-  def validate(%D20.Command{event: "deselect_turn_cell", attrs: attrs} = command) do
-    changeset =
-      {%{}, %{target_cell: :map}}
-      |> cast(attrs || %{}, [:target_cell])
-      |> validate_required([:target_cell])
-
-    case apply_action(changeset, :turn_selection) do
-      {:ok, %{target_cell: cell}} ->
-        case normalize_cell(cell) do
-          {:ok, cell} -> {:ok, %{command | attrs: %{target_cell: cell}}}
-          :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
-  end
-
-  def validate(%D20.Command{event: "reset_turn_selection", attrs: attrs} = command)
-      when attrs == %{} or attrs == nil,
-      do: {:ok, %{command | attrs: %{}}}
-
-  def validate(%D20.Command{event: "reset_turn_selection"} = command) do
-    {%{}, %{event: :string, attrs: :map}}
-    |> cast(Map.from_struct(command), [:event, :attrs])
-    |> add_error(:attrs, "must be empty")
-    |> apply_action(:turn_selection)
-  end
-
-  def validate(%D20.Command{event: "submit_turn_selection", attrs: attrs} = command) do
-    changeset = cast({%{}, %{bonus_actions: {:array, :map}}}, attrs || %{}, [:bonus_actions])
-
-    case apply_action(changeset, :turn_selection) do
-      {:ok, attrs} ->
-        case normalize_bonus_actions(Map.get(attrs, :bonus_actions, [])) do
-          {:ok, bonus_actions} -> {:ok, %{command | attrs: %{bonus_actions: bonus_actions}}}
-          :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
+      {:ok, attrs} -> normalize_shape_selection(command, attrs, changeset)
+      {:error, changeset} -> {:error, changeset}
     end
   end
 
@@ -122,15 +80,47 @@ defmodule D20.KoalaRescueClub.Command do
 
   def validate(%D20.Command{}), do: {:error, :unknown_command}
 
-  defp validate_selection_context(changeset) do
-    fields = [:action, :die_value, :volunteers_used]
+  defp normalize_shape_selection(command, attrs, changeset) do
+    with {:ok, selected_cells} <- normalize_cells(attrs.selected_cells),
+         {:ok, bonus_actions} <- normalize_selection_bonus_actions(command.event, attrs) do
+      normalized = %{
+        action: attrs.action,
+        die_value: attrs.die_value,
+        volunteers_used: attrs.volunteers_used,
+        selected_cells: selected_cells
+      }
 
-    if Enum.any?(fields, &get_field(changeset, &1)) do
-      validate_required(changeset, fields)
+      normalized =
+        if command.event == "submit_turn_selection",
+          do: Map.put(normalized, :bonus_actions, bonus_actions),
+          else: normalized
+
+      {:ok, %{command | attrs: normalized}}
     else
-      changeset
+      :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
     end
   end
+
+  defp normalize_selection_bonus_actions("submit_turn_selection", attrs) do
+    normalize_bonus_actions(Map.get(attrs, :bonus_actions, []))
+  end
+
+  defp normalize_selection_bonus_actions("project_turn_selection", _attrs), do: {:ok, []}
+
+  defp require_submit_bonus_actions(changeset, "submit_turn_selection", attrs)
+       when is_map(attrs) do
+    if Map.has_key?(attrs, :bonus_actions) or Map.has_key?(attrs, "bonus_actions") do
+      changeset
+    else
+      add_error(changeset, :bonus_actions, "can't be blank")
+    end
+  end
+
+  defp require_submit_bonus_actions(changeset, "submit_turn_selection", _attrs) do
+    add_error(changeset, :bonus_actions, "can't be blank")
+  end
+
+  defp require_submit_bonus_actions(changeset, "project_turn_selection", _attrs), do: changeset
 
   defp normalize_turn_command(command, attrs) do
     with {:ok, target_cells} <- normalize_target_cells(attrs),
@@ -156,6 +146,21 @@ defmodule D20.KoalaRescueClub.Command do
       {:ok, %{target_cell: cell}}
     end
   end
+
+  defp normalize_cells(cells) when is_list(cells) do
+    Enum.reduce_while(cells, {:ok, []}, fn cell, {:ok, cells} ->
+      case normalize_cell(cell) do
+        {:ok, cell} -> {:cont, {:ok, [cell | cells]}}
+        :error -> {:halt, :error}
+      end
+    end)
+    |> case do
+      {:ok, cells} -> {:ok, Enum.reverse(cells)}
+      :error -> :error
+    end
+  end
+
+  defp normalize_cells(_cells), do: :error
 
   defp normalize_cell(attrs) when is_map(attrs) do
     with {:ok, area} <- fetch_area(attrs, :area),
