@@ -118,7 +118,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p1"].turns == [value]
 
       assert {:error, :already_submitted} =
-               dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+               dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].turns == [value]
 
@@ -162,8 +162,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, game} = dispatch(game, "select", "p1", %{"target_cell" => cell("a", 0, 1)})
 
-      assert {:ok, %Game{} = game} =
-               dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+      assert {:ok, %Game{} = game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert %{area: :a, row: 0, column: 0} in game.players["p1"].sheet.trees
       assert %{area: :a, row: 0, column: 1} in game.players["p1"].sheet.trees
@@ -226,7 +225,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = put_in(game.players["p1"].selection, selection)
 
       assert {:error, :no_legal_placement} =
-               dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+               dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].selection == selection
       assert game.players["p1"].sheet.koalas == []
@@ -234,7 +233,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       trees = [%{area: :a, row: 0, column: 0}, %{area: :a, row: 0, column: 1}]
       game = put_in(game.players["p1"].sheet.trees, trees)
 
-      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+      assert {:ok, game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].sheet.koalas == trees
     end
@@ -246,7 +245,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       selection = game.players["p1"].selection
 
       assert {:error, :incomplete_turn_selection} =
-               dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+               dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].sheet.trees == []
       assert game.players["p1"].sheet.volunteers == available_volunteers()
@@ -254,7 +253,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, game} = dispatch(game, "select", "p1", %{"target_cell" => cell("a", 0, 1)})
 
-      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+      assert {:ok, game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].sheet.volunteers == [
                :used,
@@ -276,7 +275,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, %Game{phase: :submit} = game} =
                game
                |> select_shape("p1", "plant_trees", 1, 0, [cell("a", 0, 0), cell("a", 0, 1)])
-               |> dispatch("submit_turn_selection", "p1", %{"bonus_actions" => []})
+               |> dispatch("submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].status == :submitted
       assert game.players["p2"].status == :pending
@@ -368,8 +367,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         ]
       }
 
-      assert {:error, :invalid_bonus} =
-               dispatch(game, "submit_turn_selection", "p1", invalid_bonus)
+      assert {:error, :invalid_bonus} = dispatch(game, "submit", "p1", invalid_bonus)
 
       assert game.players["p1"].sheet.koalas == existing_koalas
       assert game.players["p1"].status == :pending
@@ -384,7 +382,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         ]
       }
 
-      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1", valid_bonus)
+      assert {:ok, game} = dispatch(game, "submit", "p1", valid_bonus)
 
       assert game.players["p1"].sheet.koalas == row_0
       assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
@@ -512,7 +510,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       game = select_shape(game, "p1", "plant_trees", 1, 1, [cell("a", 0, 0), cell("a", 0, 1)])
 
-      assert {:ok, game} = dispatch(game, "submit_turn_selection", "p1", %{"bonus_actions" => []})
+      assert {:ok, game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert [1] = game.players["p1"].turns
 

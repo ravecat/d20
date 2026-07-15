@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.5.0
+  version: 0.6.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -90,8 +90,8 @@ channels:
         $ref: "#/components/messages/deselect"
       reset:
         $ref: "#/components/messages/reset"
-      submitTurnSelection:
-        $ref: "#/components/messages/submitTurnSelection"
+      submit:
+        $ref: "#/components/messages/submit"
       circleTree:
         $ref: "#/components/messages/circleTree"
       circleKoala:
@@ -173,7 +173,7 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  submitTurnSelection:
+  submit:
     action: send
     channel:
       $ref: "#/channels/gameSession"
@@ -182,7 +182,7 @@ operations:
       The client sends ordered bonus decisions. The server revalidates and
       atomically commits the caller's stored complete selection.
     messages:
-      - $ref: "#/channels/gameSession/messages/submitTurnSelection"
+      - $ref: "#/channels/gameSession/messages/submit"
     reply:
       channel:
         $ref: "#/channels/gameSession"
@@ -329,9 +329,9 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/emptyPayload"
-    submitTurnSelection:
-      name: submit_turn_selection
-      title: Submit Turn Selection
+    submit:
+      name: submit
+      title: Submit Turn
       summary: Commit a complete shape selection and ordered bonus decisions
       contentType: application/json
       payload:

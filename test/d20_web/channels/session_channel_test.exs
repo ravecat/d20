@@ -243,6 +243,7 @@ defmodule D20Web.SessionChannelTest do
 
     test "should dispatch Koala selection commands and push regular projections" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      actor_id = actor.id
       {session_id, rolled_session} = create_koala_submit_session(actor.id)
 
       assert {:ok, %{options: options, selection: nil}, socket} =
@@ -255,7 +256,7 @@ defmodule D20Web.SessionChannelTest do
       rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
       player_sheet = rolled_session.game.players[actor.id].sheet
 
-      [first_cell | _rest] =
+      [first_cell | remaining_cells] =
         rulesheet
         |> Rules.legal_shape_placements(player_sheet, "plant_trees", value)
         |> List.first()
@@ -303,6 +304,10 @@ defmodule D20Web.SessionChannelTest do
       assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
       assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
 
+      legacy_submit_ref = push(socket, "submit_turn_selection", %{"bonus_actions" => []})
+      assert_reply legacy_submit_ref, :error, %{reason: "invalid_phase"}
+      refute_push "projection", _payload, 100
+
       invalid_ref =
         push(socket, "select", %{"target_cell" => %{"area" => "b", "row" => 0, "column" => 0}})
 
@@ -312,6 +317,42 @@ defmodule D20Web.SessionChannelTest do
       reset_ref = push(socket, "reset", %{})
       assert_reply reset_ref, :ok
       assert_push "projection", %{selection: nil}
+      assert_push "projection", %{selection: nil}
+
+      select_ref =
+        push(socket, "select", %{
+          "action" => "plant_trees",
+          "die_value" => value,
+          "volunteers_used" => 0,
+          "target_cell" => first_cell
+        })
+
+      assert_reply select_ref, :ok
+      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
+      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
+
+      Enum.each(remaining_cells, fn cell ->
+        select_ref = push(socket, "select", %{"target_cell" => cell})
+        assert_reply select_ref, :ok
+        assert_push "projection", %{selection: %{selected_cells: selected_cells}}
+        assert_push "projection", %{selection: %{selected_cells: ^selected_cells}}
+        assert cell in selected_cells
+      end)
+
+      submit_ref = push(socket, "submit", %{"bonus_actions" => []})
+      assert_reply submit_ref, :ok
+
+      assert_push "projection", %{
+        options: %{},
+        selection: nil,
+        game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
+      }
+
+      assert_push "projection", %{
+        options: %{},
+        selection: nil,
+        game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
+      }
     end
   end
 

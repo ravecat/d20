@@ -68,14 +68,7 @@ defmodule D20.KoalaRescueClub.Rules do
   end
 
   def validate(game, %D20.Command{event: event} = command)
-      when event in [
-             "select",
-             "deselect",
-             "reset",
-             "submit_turn_selection",
-             "circle_tree",
-             "circle_koala"
-           ] do
+      when event in ["select", "deselect", "reset", "submit", "circle_tree", "circle_koala"] do
     with :ok <- require_actor(command) do
       case resolve_turn(game, command) do
         {:ok, _player} -> :ok
@@ -192,11 +185,7 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  def resolve_turn(%Game{} = game, %D20.Command{
-        event: "submit_turn_selection",
-        actor_id: actor_id,
-        attrs: attrs
-      }) do
+  def resolve_turn(%Game{} = game, %D20.Command{event: "submit", actor_id: actor_id, attrs: attrs}) do
     with {:ok, player, rulesheet} <- pending_player(game, actor_id),
          {:ok, selection} <- require_selection(player),
          {:ok, %{complete: true}} <- analyze_selection(rulesheet, player.sheet, selection),

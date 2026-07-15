@@ -131,14 +131,7 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{event: event} = command)
-      when event in [
-             "select",
-             "deselect",
-             "reset",
-             "submit_turn_selection",
-             "circle_tree",
-             "circle_koala"
-           ] do
+      when event in ["select", "deselect", "reset", "submit", "circle_tree", "circle_koala"] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -187,7 +180,7 @@ defmodule D20.KoalaRescueClub.Game do
          %__MODULE__{phase: :submit} = game,
          %D20.Command{event: event, actor_id: actor_id} = command
        )
-       when event in ["submit_turn_selection", "circle_tree", "circle_koala"] do
+       when event in ["submit", "circle_tree", "circle_koala"] do
     value = turn_value(game, command)
     {:ok, player} = Rules.resolve_turn(game, command)
     player = record_turn(player, value)
@@ -242,7 +235,7 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp maybe_mark_ready(game), do: game
 
-  defp turn_value(game, %D20.Command{event: "submit_turn_selection", actor_id: actor_id}) do
+  defp turn_value(game, %D20.Command{event: "submit", actor_id: actor_id}) do
     game.players[actor_id].selection.value
   end
 

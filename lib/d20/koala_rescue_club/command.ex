@@ -74,7 +74,7 @@ defmodule D20.KoalaRescueClub.Command do
     |> apply_action(:turn_selection)
   end
 
-  def validate(%D20.Command{event: "submit_turn_selection", attrs: attrs} = command) do
+  def validate(%D20.Command{event: "submit", attrs: attrs} = command) do
     changeset =
       {%{}, %{bonus_actions: {:array, :map}}}
       |> cast(attrs || %{}, [:bonus_actions])

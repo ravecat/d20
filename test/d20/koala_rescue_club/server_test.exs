@@ -109,9 +109,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
     end)
 
     assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
-             Sessions.dispatch(scope(session.id), "submit_turn_selection", %{
-               "bonus_actions" => []
-             })
+             Sessions.dispatch(scope(session.id), "submit", %{"bonus_actions" => []})
 
     assert_receive {:session, ^owner_submitted}
 

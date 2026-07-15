@@ -104,28 +104,31 @@ defmodule D20.KoalaRescueClub.CommandTest do
     end
 
     test "normalizes stored-selection submission to bonus decisions only" do
-      assert {:ok, %Command{event: "submit_turn_selection", attrs: %{bonus_actions: []}}} =
+      assert {:ok, %Command{event: "submit", attrs: %{bonus_actions: []}}} =
                KoalaCommand.validate(%Command{
-                 event: "submit_turn_selection",
+                 event: "submit",
                  actor_id: "p1",
                  attrs: %{"bonus_actions" => []}
                })
 
       assert {:ok, %Command{attrs: %{bonus_actions: []}}} =
                KoalaCommand.validate(%Command{
-                 event: "submit_turn_selection",
+                 event: "submit",
                  actor_id: "p1",
                  attrs: %{"ignored_selection" => true, "bonus_actions" => []}
                })
 
       assert {:error, %Ecto.Changeset{errors: errors}} =
+               KoalaCommand.validate(%Command{event: "submit", actor_id: "p1", attrs: %{}})
+
+      assert {:bonus_actions, {"can't be blank", []}} in errors
+
+      assert {:error, :unknown_command} =
                KoalaCommand.validate(%Command{
                  event: "submit_turn_selection",
                  actor_id: "p1",
-                 attrs: %{}
+                 attrs: %{"bonus_actions" => []}
                })
-
-      assert {:bonus_actions, {"can't be blank", []}} in errors
     end
 
     test "rejects malformed selection edits and removed projection commands" do
