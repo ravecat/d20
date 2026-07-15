@@ -1,9 +1,9 @@
 ## ADDED Requirements
 
-### Requirement: In-progress game module renders as a fixed viewport overlay
-The system SHALL render the game module frame as a fixed viewport overlay when a session is in progress.
+### Requirement: Started game module renders as a fixed viewport overlay
+The system SHALL render the game module frame as a fixed viewport overlay when a session is in progress or finished.
 
-This behavior is for keeping the playable game surface stable and centered after the session starts, independent of the game detail page's preview, metadata, activation panel, description panel, or scroll position.
+This behavior is for keeping the playable game surface stable and centered after the session starts, including while the embedded game renders its terminal state, independent of the game detail page's preview, metadata, activation panel, description panel, or scroll position.
 
 #### Scenario: In-progress session shows the module above the page
 - **WHEN** a user opens `/games/qwinto?session=<session-id>`
@@ -11,6 +11,12 @@ This behavior is for keeping the playable game surface stable and centered after
 - **THEN** the module iframe is rendered above the full page content
 - **AND** the module iframe is not laid out as an in-flow child of the activation panel
 - **AND** the game detail page content remains behind the overlay
+
+#### Scenario: Finished session keeps the module above the page
+- **WHEN** a user opens `/games/qwinto?session=<session-id>`
+- **AND** the session phase is `finished`
+- **THEN** the module iframe remains rendered above the full page content
+- **AND** the embedded game can render the final session projection and results
 
 #### Scenario: Module frame is centered in the viewport
 - **WHEN** the module overlay is visible
@@ -45,7 +51,7 @@ This behavior is for keeping the playable game surface stable and centered after
 The system SHALL preserve the existing module iframe and session connection contracts while changing only the frame placement.
 
 #### Scenario: Module props are unchanged
-- **WHEN** the game page renders the in-progress module frame
+- **WHEN** the game page renders the in-progress or finished module frame
 - **THEN** the existing module `embedUrl`, `allowedOrigins`, and `sandbox` values are passed to the iframe behavior unchanged
 - **AND** the existing connection bootstrap data is passed unchanged
 
@@ -58,3 +64,8 @@ The system SHALL preserve the existing module iframe and session connection cont
 - **WHEN** the session phase is `waiting_for_players`
 - **THEN** the page renders the existing waiting-session start controls and joined-player area
 - **AND** the fixed module overlay is not visible
+
+#### Scenario: Module frame waits for the realtime session phase
+- **WHEN** the realtime session projection is still loading and its phase is unavailable
+- **THEN** the fixed module overlay is not visible
+- **AND** the module iframe is not mounted speculatively

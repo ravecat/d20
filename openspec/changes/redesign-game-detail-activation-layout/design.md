@@ -13,6 +13,7 @@ The current page renders the preview, a clamped description, and either a standa
 - Render player range, play-time, age, complexity, and rating metadata from game metadata API props.
 - Keep the page-level no-session activation CTA in the left panel.
 - Keep session start, joined players, and module frame behavior owned by the existing `SessionPanel`.
+- Keep the module frame mounted for both in-progress and finished sessions so embedded games can render terminal state.
 - Preserve existing routes, session creation, session channel commands, and module iframe contracts.
 - Preserve the existing `SessionPanel` public props API.
 - Preserve accessible labels, disabled states, loading states, error states, and responsive behavior.
@@ -64,6 +65,12 @@ The current page renders the preview, a clamped description, and either a standa
 
    Alternative considered: duplicate session presence logic in `game.svelte`. That would be faster to sketch but risks split loading, error, and permission behavior.
 
+7. Treat waiting as the only known session phase without a module frame.
+
+   `SessionPanel` mounts the module frame only after the realtime session projection reports `in_progress` or `finished`. A finished session keeps the frame mounted so the embedded game receives and renders its final projection. An unavailable phase during initial loading does not mount the frame.
+
+   Alternative considered: unmount the frame as soon as the session becomes `finished`. That removes the embedded game before its terminal UI can remain visible and prevents a completed session URL from reopening its results.
+
 ## Risks / Trade-offs
 
 - Provider metadata can be missing or differ from engine limits - the UI must avoid hardcoded and placeholder fallbacks, and implementation tests should cover missing metadata. A future API change can reconcile provider metadata with engine-authoritative limits if needed.
@@ -72,12 +79,13 @@ The current page renders the preview, a clamped description, and either a standa
 - Moving session UI can break existing tests around `SessionPanel` - preserve the panel API and keep its focused tests on existing behavior.
 - CTA meaning can be confused between session creation and game start - keep page-level `Play` scoped to creating a session and leave waiting-session `Start` inside `SessionPanel`.
 - Failed joined-player presence can produce non-actionable copy - keep the loading state, but omit unavailable-presence text when there are no visible members.
+- Keeping a finished module mounted leaves dismissal UX to the embedded game or a later shell control - accept that limitation for this focused lifecycle fix.
 
 ## Migration Plan
 
 1. Update BGG metadata parsing, Svelte layout, metadata label components, and styling for the game detail page.
 2. Place the existing `SessionPanel` inside the activation panel without changing its props API or session ownership.
-3. Add or update focused Vitest coverage for metadata formatting, no-session CTA, preserved `SessionPanel` API, and responsive-safe DOM structure.
+3. Add or update focused Vitest coverage for metadata formatting, no-session CTA, preserved `SessionPanel` API, terminal frame visibility, and responsive-safe DOM structure.
 4. Add backend coverage for newly exposed metadata fields.
 5. Roll back by restoring the previous vertical detail flow and standalone session panel placement.
 

@@ -12,6 +12,7 @@ The game detail page currently places the description and session controls in on
 - Use player, play-time, age, complexity, and rating values from the game metadata API props rather than hardcoding game-specific values or placeholder labels.
 - Keep the no-session primary CTA full-width in the activation panel and label it `Play`.
 - Keep the waiting-session `Start` action inside `SessionPanel`, styled like the page primary CTA.
+- Keep the module iframe overlay mounted after a session finishes so the embedded game can render its terminal state and results.
 - Avoid rendering presence-unavailable copy inside `SessionPanel` when no joined players can see it.
 - Render the existing `SessionPanel` in the activation panel once a session exists, without changing its public props API or session ownership.
 - Preserve existing `/games/:slug`, `/games/:slug/sessions`, session channel, `SessionPanel`, and iframe module contracts.
@@ -28,9 +29,9 @@ The game detail page currently places the description and session controls in on
 
 ## Impact
 
-- Affected UI modules: `assets/js/pages/game.svelte`, metadata label components, and related Svelte tests. `SessionPanel` remains on its existing public API.
+- Affected UI modules: `assets/js/pages/game.svelte`, `assets/js/components/session_panel.svelte`, metadata label components, and related Svelte tests. `SessionPanel` remains on its existing public API.
 - Affected data contract: game detail props must expose `minPlayers`, `maxPlayers`, `playingTime`, `minPlayTime`, `maxPlayTime`, `minAge`, `complexity`, and `rating` when available from runtime metadata.
 - Affected backend validation: BGG statistics parsing and game metadata serialization coverage.
 - No database migration is required.
 - No route, session creation, session channel, `SessionPanel` API, iframe module, or game engine behavior change is intended.
-- Rollback impact is limited to restoring the previous detail page composition and session panel placement.
+- Rollback impact is limited to restoring the previous detail page composition, session panel placement, and finished-session frame visibility.

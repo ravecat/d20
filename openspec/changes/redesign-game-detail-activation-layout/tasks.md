@@ -31,3 +31,9 @@
 - [x] 4.4 Run `mix typecheck`.
 - [x] 4.5 Run `mix assets.test`.
 - [x] 4.6 Run `mix test test/d20_web/controllers/page_controller_test.exs` if backend serialization or controller behavior changes.
+
+## 5. Finished Session Frame
+
+- [x] 5.1 Extend the module-frame overlay specification and `SessionPanel` rendering so finished sessions keep the iframe mounted while waiting and loading states do not mount it.
+- [x] 5.2 Update focused `SessionPanel` component coverage for finished-session and unavailable-phase frame visibility.
+- [x] 5.3 Run the targeted component test, frontend formatting check, and typecheck for the finished-session frame change.

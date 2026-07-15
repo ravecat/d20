@@ -84,7 +84,7 @@
   </section>
 {/if}
 
-{#if phase === "in_progress"}
+{#if phase === "in_progress" || phase === "finished"}
   <section class="session-panel-frame">
     <Frame {module} {connection} />
   </section>

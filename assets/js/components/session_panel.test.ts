@@ -7,7 +7,7 @@ import type { Session } from "~types/game";
 import type { ModuleConnection, ModuleEntry } from "~types/module";
 
 type SessionState = {
-  value: Session;
+  value?: Session;
   status: "connected" | "failed" | "loading";
   processing: { start: boolean };
   timeouts: { start: boolean };
@@ -233,7 +233,7 @@ describe("SessionPanel", () => {
     expect(vi.mocked(exposeModule).mock.calls[0]?.[0].bootstrap).not.toBe(connection);
   });
 
-  it("does not show active members after the session is finished", () => {
+  it("keeps the module frame mounted after the session is finished", () => {
     renderPanel({
       value: sessionWithPhase("finished"),
       status: "connected",
@@ -245,6 +245,18 @@ describe("SessionPanel", () => {
     expect(document.body.textContent).not.toContain("Start");
     expect(document.body.textContent).not.toContain("Ada");
     expect(document.body.textContent).not.toContain("Grace");
+    expect(document.querySelector('iframe[title="Game module"]')).not.toBeNull();
+  });
+
+  it("does not mount the module frame before the session phase is available", () => {
+    renderPanel({
+      value: undefined,
+      status: "loading",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
     expect(document.querySelector('iframe[title="Game module"]')).toBeNull();
   });
 });
