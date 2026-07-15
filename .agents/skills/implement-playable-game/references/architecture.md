@@ -1,0 +1,298 @@
+# Game Module Patterns
+
+## Purpose
+
+Use this reference to convert an unknown rules specification into D20 module boundaries. It describes stable architectural patterns and intentionally contains no game-specific mechanics.
+
+## Dependency Direction
+
+Keep dependencies directed from orchestration and rendering toward domain facts:
+
+```text
+Server -> Session -> Game -> Rules -> Ruleset
+                         ^        ^
+                         |        |
+                    Command   rulesheets
+
+Projection -> Permission -> Rules -> Ruleset
+Projection -----------------> Rules -> Ruleset
+```
+
+`Ruleset`, rulesheet data, and predicates must not depend on Phoenix channels, session processes, or transport formatting.
+
+## Discovery Artifact Templates
+
+Use these table shapes before implementation. Fill them with language from the supplied specification.
+
+### Transition table
+
+| Current phase | Stimulus | Required predicates | Atomic effects | Next phase | Errors |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |
+
+### Command table
+
+| Event | Actor class | Payload | Allowed phases | State-changing | Stable errors |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |
+
+### Predicate catalog
+
+| Predicate | Inputs | Return shape | Owner | Consumers | Failure precedence |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |
+
+### Visibility matrix
+
+| Caller role | Lifecycle state | Visible fields | Hidden fields | Derived fields |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |
+
+## Ruleset and Rulesheet Pattern
+
+### Purpose
+
+Represent all facts that are stable for the lifetime of a game and can be queried without a live aggregate.
+
+### Put here
+
+- supported configuration values
+- bounded domains and fixed limits
+- static layouts and relationships
+- lookup and outcome tables
+- static validation and transformation helpers
+- mapping from a variant id to a normalized rulesheet
+
+### Keep out
+
+- current phase or participant state
+- current occupancy, progress, or availability
+- caller identity
+- command payload parsing
+- public JSON representation
+
+Use a rulesheet behavior when several variants must expose the same attributes. The behavior defines the complete source shape. A constructor normalizes that source into one struct consumed by all other modules. Keep each variant declarative and prevent the rest of the namespace from branching on variant names.
+
+Static predicates answer questions about the configuration itself. Examples of predicate shape, not domain semantics:
+
+```elixir
+@spec valid_ref?(t(), ref()) :: boolean()
+@spec fetch_value(t(), key()) :: {:ok, value()} | :error
+```
+
+Prefer these functions over duplicating id lists and structural assumptions in Command, Rules, Projection, and AsyncAPI.
+
+## Command Pattern
+
+### Purpose
+
+Turn an untrusted wire payload into a bounded internal command representation before state-dependent rules see it.
+
+`D20.Command` is trusted only for actor attribution when it was created by `D20.Sessions`. Its `attrs` remain untrusted.
+
+Validate:
+
+- the event is supported
+- attributes have the expected container type
+- required fields exist
+- scalar and nested values have correct types
+- numbers and collections meet structural bounds
+- external enum strings belong to a finite mapping
+
+Normalize string keys and bounded string values. Do not use `String.to_atom/1` or equivalent unbounded conversions.
+
+Do not check live phase, membership, current availability, or action legality here. The same payload can be structurally valid while illegal in the current game.
+
+## Rules and Predicate Pattern
+
+### Purpose
+
+Centralize every decision that depends on committed game state, actor context, or the selected rulesheet.
+
+### Predicate categories
+
+Use distinct function shapes for distinct consumers:
+
+| Category | Return shape | Typical consumer |
+| --- | --- | --- |
+| Capability query | `boolean()` | Permission and Projection |
+| Authoritative requirement | `:ok | {:error, reason}` | `Rules.validate/2` and candidate resolution |
+| Lookup | `{:ok, value} | :error` | Rules composition |
+| Legal-choice derivation | collection or result tuple | Projection and validation |
+| Candidate application | `{:ok, candidate} | {:error, reason}` | Atomic transition preparation |
+| Completion predicate | `boolean()` | Game transition orchestration |
+
+Name predicates after domain language discovered in the specification. Avoid generic helpers such as `valid?/1` when several independent invariants exist.
+
+### Predicate properties
+
+- Pure: do not mutate state, send messages, generate transport responses, or depend on process state.
+- Total: return a defined result for unknown actors, missing data, setup, and terminal states.
+- Explicit: receive all relevant context as arguments.
+- Composable: small requirements combine through `with` or a similarly visible validation chain.
+- Stable: return deliberate reason values used by tests and the public contract.
+- Shared: permission and projection calculations reuse the same domain primitives as command validation.
+
+Validation order is observable behavior. Put identity, phase, membership, status, and domain constraints in a deliberate order and test conflicts where more than one predicate fails.
+
+Keep wire-map construction out of Rules. A legal-choice function should return domain values; Projection converts them to the public representation.
+
+For multi-step candidate evaluation, thread an immutable candidate through predicates:
+
+```elixir
+with :ok <- require_context(game, command),
+     {:ok, candidate} <- apply_primary_rule(game, command),
+     {:ok, candidate} <- apply_follow_up_rules(game, command, candidate) do
+  {:ok, candidate}
+end
+```
+
+`Game` commits the returned candidate only after the full chain succeeds.
+
+## Game State-Machine Pattern
+
+### Purpose
+
+Own shared committed state and define how accepted stimuli transform it.
+
+The aggregate should store facts needed to decide future behavior or render authoritative state. Do not store derived values that can be cheaply recomputed, process timers, connection state, or transient UI state.
+
+Implement:
+
+- `changeset/1` for creation-time configuration
+- `init/1` for initial aggregate construction
+- `dispatch/2` for phase and event routing
+- `finished?/1` for outer session completion
+- explicit aggregate types and terminal state
+
+Use phase-specific clauses to make the transition graph visible. Within a supported phase and event, validate the normalized payload, validate Rules, then apply one complete transition.
+
+```elixir
+def dispatch(%__MODULE__{phase: :some_phase} = game, %D20.Command{event: "some_event"} = command) do
+  with {:ok, command} <- Command.validate(command),
+       :ok <- Rules.validate(game, command) do
+    {:ok, transition(game, command)}
+  end
+end
+```
+
+The exact phase and event names must come from the supplied specification. The snippet defines control flow only.
+
+Every error must preserve the original aggregate. A transition may orchestrate several pure Rules functions, but no intermediate state becomes visible. Evaluate completion at the rule-defined boundary and enter a real terminal state so `D20.Sessions.Session` can finish.
+
+## Nested Session and Game Lifecycles
+
+The outer session owns generic multiplayer runtime concerns:
+
+```text
+waiting_for_players -> in_progress -> finished
+```
+
+The inner Game owns domain phases. These state machines are related but not interchangeable.
+
+- Session validates the owner for `start`.
+- Game Rules decide whether the game itself is ready.
+- Session tracks live members.
+- Game decides whether joining, leaving, reconnecting, or late participation changes domain state.
+- Rules define which participant set or snapshot is used by each in-progress completion predicate.
+- Session calls `Game.finished?/1` after accepted game transitions.
+
+Write membership semantics from the new specification. Do not inherit them from another namespace.
+
+## Event and Server Patterns
+
+### Client mutation command
+
+Use for any interaction that changes committed shared state:
+
+```text
+SessionChannel
+-> D20.Sessions.dispatch/3
+-> selected game server
+-> D20.Sessions.Session.dispatch/3
+-> Game.dispatch/2
+-> Command and Rules
+-> one stored and broadcast Session
+```
+
+The actor id comes from `Scope`, not the payload. Rejected commands keep the previous server state and do not broadcast.
+
+### Server-owned state-changing event
+
+Use a custom server only when an actual time or process boundary initiates the action.
+
+```elixir
+defmodule D20.MyGame.Server do
+  use D20.Game.Server
+
+  def callback_mode, do: [:handle_event_function, :state_enter]
+
+  def handle_event(:enter, _old_state, :scheduled_phase, _data) do
+    {:keep_state_and_data, [{:state_timeout, 1_000, :scheduled_event}]}
+  end
+
+  def handle_event(:state_timeout, :scheduled_event, :scheduled_phase, _data) do
+    command = %D20.Command{event: "scheduled_event"}
+    {:keep_state_and_data, [{:next_event, :internal, {:dispatch, command}}]}
+  end
+end
+```
+
+The phase and event names and timeout source must come from the specification. The pattern provides only scheduling and dispatch.
+
+`use D20.Game.Server` supplies startup, registry naming, calls, Presence handling, publication, idle expiry, and fallback callbacks. Add narrow clauses and never a catch-all that intercepts shared behavior.
+
+An internal state-changing event uses `actor_id: nil` and follows the same Session, Command, Rules, and Game path as other mutations. Rules must require the missing actor and reject a client actor for the same event.
+
+State timeouts are tied to the current `:gen_statem` state. Reads, Presence events, and rejected calls that keep the phase must not duplicate them. Named idle expiry is independent. The shared internal error path keeps old state, so add explicit observability or recovery when required by the specification.
+
+If an automatic event obtains a nondeterministic value, define one authoritative sampling point, when the sampled value becomes committed, and what a duplicate or retried event does. Tests need a controllable boundary or assertions that do not depend on one exact random result.
+
+### Synchronous follow-up
+
+Keep an immediate consequence of an accepted command inside the same Game transition. Do not introduce a custom process event unless ordering, time, or an external stimulus creates a real asynchronous boundary.
+
+## Permission Pattern
+
+Permissions translate Rules into a complete caller-specific capability map for clients. They are not the security boundary.
+
+- Implement the repository's `D20.Permission` and policy pattern.
+- Return all documented keys for every caller and lifecycle state.
+- Derive results from outer session context and total Rules predicates.
+- Repeat every authoritative check during command dispatch.
+
+## Projection Pattern
+
+Projection owns the public read model:
+
+- explicit session envelope
+- caller identity
+- complete permissions
+- public committed game facts
+- derived caller-specific legal choices
+- explicit redaction of private facts
+
+Create a visibility matrix for every caller role and lifecycle state. Test both the fields a caller receives and the fields that must be absent. Do not rely only on positive projection examples to detect leaks.
+
+Keep dependency direction `Projection -> Rules -> Ruleset`. Projection may derive legal choices through pure Rules functions, but it never validates commands or commits state.
+
+Render Projection only from caller context and the current Session. Do not route channel events, validate interaction payloads, or construct `%D20.Command{}` values in Projection.
+
+`D20Web.Projection.render/2` uses explicit engine routing. Add a clause for every playable engine. Its generic fallback returns the raw Session, so relying on it is a contract and data-exposure defect.
+
+## Shell Integration Pattern
+
+| Concern | Source |
+| --- | --- |
+| Engine binding and launch metadata | `config/config.exs` |
+| Registry validation | `lib/d20/games/registry.ex` |
+| Session creation and dispatch | `lib/d20/sessions.ex`, `lib/d20/sessions/session.ex` |
+| Public projection routing | `lib/d20_web/projection.ex` |
+| Channel command routing | `lib/d20_web/channels/session_channel.ex` |
+| AsyncAPI serving | `lib/d20_web/plugs/async_api.ex` |
+| Public contract | `priv/specs/<slug>.yaml` |
+| Developer contract index | `assets/js/pages/developers.svelte` |
+
+Creation forms and generic endpoints derive inputs from `Game.changeset/1`. Change shared controllers only when a discovered requirement cannot use the generic path.
+
+Cross-check code, tests, and AsyncAPI. Existing namespaces are evidence for repository patterns, not specifications for a new game's rules.

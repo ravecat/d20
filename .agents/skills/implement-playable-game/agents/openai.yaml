@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement D20 Game"
+  short_description: "Build a D20 game from rules to runtime"
+  default_prompt: "Use $implement-playable-game to implement a D20 game from its specification and verify the complete runtime integration."
