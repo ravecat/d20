@@ -95,6 +95,19 @@ defmodule D20.KoalaRescueClub.RulesetTest do
       assert {:ok, 4} = Ruleset.shape_size(5)
     end
 
+    test "uses the visible Dharug coordinates for shifted area rows" do
+      map = Ruleset.sheet!(:dharug)
+
+      assert Ruleset.cell_exists?(map, %{area: :b, row: 2, column: 3})
+      refute Ruleset.cell_exists?(map, %{area: :b, row: 2, column: 0})
+      assert Ruleset.cell_exists?(map, %{area: :c, row: 2, column: 3})
+      refute Ruleset.cell_exists?(map, %{area: :c, row: 2, column: 1})
+
+      assert {:ok, placements} = Ruleset.shape_placements(map, :b, 1)
+
+      assert [%{area: :b, row: 1, column: 3}, %{area: :b, row: 2, column: 3}] in placements
+    end
+
     test "reports volunteer adjustment cost" do
       assert {:ok, 2} = Ruleset.volunteers_needed(5, 1)
       assert {:ok, 0} = Ruleset.volunteers_needed(4, 4)

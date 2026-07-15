@@ -17,8 +17,8 @@ defmodule D20.KoalaRescueClub.Ruleset.Dharug do
 
   @areas [
     a: %{access: true, rows: [0..3, 0..3, 0..3, 1..3]},
-    b: %{rows: [0..3, 0..3, 0..2, 2..3]},
-    c: %{rows: [0..3, 0..3, 1..2]},
+    b: %{rows: [0..3, 0..3, 1..3, 2..3]},
+    c: %{rows: [0..3, 0..3, 2..3]},
     d: %{rows: [0..3, 0..3, 1..3]},
     e: %{rows: [0..3, 0..3, 0..3]}
   ]
