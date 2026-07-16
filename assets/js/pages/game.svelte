@@ -45,9 +45,9 @@
   }
 </script>
 
-<div class="game-detail-page bg-base-100 text-base-content">
+<div class="game-detail-page">
   <section class="game-detail-shell">
-    <article class="min-w-0">
+    <article class="game-detail-content">
       <div class="game-detail-preview">
         {#if game.imageUrl ?? game.thumbnailUrl}
           <img
@@ -199,7 +199,7 @@
         </aside>
 
         <section class="game-detail-description-panel" aria-labelledby="game-detail-description">
-          <h2 id="game-detail-description" class="sr-only">Description</h2>
+          <h2 id="game-detail-description" class="game-detail-description-heading">Description</h2>
           {#if game.description}
             <p class="game-detail-description">{game.description}</p>
           {:else}
@@ -224,6 +224,12 @@
 
   .game-detail-page {
     overflow-x: clip;
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  .game-detail-content {
+    min-inline-size: 0;
   }
 
   .game-detail-shell * {
@@ -304,6 +310,19 @@
     line-height: 1.7;
     text-wrap: pretty;
     white-space: pre-line;
+  }
+
+  .game-detail-description-heading {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    border: 0;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .game-detail-description--empty {
