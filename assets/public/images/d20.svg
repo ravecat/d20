@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="45.5 25.5 269 309">
+  <path fill="#626064" d="M180 29 311 101V258L180 331 49 258V101Z" />
+  <path
+    fill="none"
+    stroke="#f5f5f5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="8.4"
+    d="M180 29 311 101V258L180 331 49 258V101Z"
+  />
+  <path
+    fill="none"
+    stroke="#f5f5f5"
+    stroke-linejoin="round"
+    stroke-width="12.6"
+    d="M180 29V72M49 101 180 72M311 101 180 72M180 72 91 234M180 72 270 234M91 234H270M49 101 91 234M311 101 270 234M49 258 91 234M311 258 270 234M91 234 180 331M270 234 180 331"
+  />
+</svg>

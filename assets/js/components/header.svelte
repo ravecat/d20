@@ -1,6 +1,5 @@
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
-  import D20 from "~components/d20.svelte";
 
   type Variant = "default" | "catalog";
 
@@ -22,9 +21,7 @@
   }}
 >
   <div class="header__inner"><a class="brand" href="/" use:inertia={{ href: "/" }}>
-    <span class="brand__mark"
-      ><D20 {compact} /></span
-    >
+    <span class="brand__mark" aria-hidden="true"></span>
     <span class="brand__label">D20</span>
   </a></div>
 </header>
@@ -79,8 +76,14 @@
   }
 
   .brand__mark {
-    display: inline-flex;
+    display: block;
+    inline-size: 2.612rem;
+    block-size: 3rem;
     flex: none;
+    background: url("/images/d20.svg") center / contain no-repeat;
+    transition:
+      inline-size 180ms ease,
+      block-size 180ms ease;
   }
 
   .brand__label {
@@ -94,6 +97,11 @@
 
   .header--compact .brand {
     gap: 0.4rem;
+  }
+
+  .header--compact .brand__mark {
+    inline-size: 1.742rem;
+    block-size: 2rem;
   }
 
   .header--compact .brand__label {
@@ -125,11 +133,22 @@
     .header__inner {
       gap: 1rem;
     }
+
+    .brand__mark {
+      inline-size: 2.177rem;
+      block-size: 2.5rem;
+    }
+
+    .header--compact .brand__mark {
+      inline-size: 1.742rem;
+      block-size: 2rem;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .header__inner,
     .brand,
+    .brand__mark,
     .brand__label {
       transition: none;
     }

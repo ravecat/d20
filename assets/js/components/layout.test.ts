@@ -38,14 +38,9 @@ describe("Layout", () => {
 
     const content = document.body.querySelector("main");
     const header = document.body.querySelector("header");
-    const mark = header?.querySelector("svg");
 
-    if (
-      !(content instanceof HTMLElement) ||
-      !(header instanceof HTMLElement) ||
-      !(mark instanceof SVGElement)
-    ) {
-      throw new Error("Expected the app shell to render its header, D20 mark, and main content.");
+    if (!(content instanceof HTMLElement) || !(header instanceof HTMLElement)) {
+      throw new Error("Expected the app shell to render its header and main content.");
     }
 
     content.scrollTop = 25;
@@ -53,14 +48,12 @@ describe("Layout", () => {
     flushSync();
 
     expect(header.classList).toContain("header--compact");
-    expect(mark.classList).toContain("d20--compact");
 
     content.scrollTop = 0;
     content.dispatchEvent(new Event("scroll"));
     flushSync();
 
     expect(header.classList).not.toContain("header--compact");
-    expect(mark.classList).not.toContain("d20--compact");
   });
 });
 
