@@ -17,9 +17,7 @@ defmodule D20Web.PageController do
 
   @spec developers(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def developers(conn, _params) do
-    conn
-    |> assign(:page_title, "For developers")
-    |> render_inertia("developers")
+    render_inertia(conn, "developers")
   end
 
   @spec games(Plug.Conn.t(), params()) :: Plug.Conn.t()

@@ -202,7 +202,7 @@ defmodule D20Web.PageControllerTest do
 
     assert html_response(conn, 200) =~ ~s(id="app")
     assert inertia_component(conn) == "developers"
-    assert conn.assigns.page_title == "For developers"
+    refute Map.has_key?(conn.assigns, :page_title)
   end
 
   test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do

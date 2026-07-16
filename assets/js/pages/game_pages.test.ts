@@ -34,6 +34,7 @@ describe("developers page", () => {
     const entries = [...(list?.querySelectorAll("li") ?? [])];
 
     expect(document.querySelector("h1")?.textContent).toBe("For developers");
+    expect(document.title).toBe("For developers");
     expect(document.body.textContent).toContain("Build a compatible game client");
     expect(document.querySelector("h2")).toBeNull();
     expect(entries).toHaveLength(2);
