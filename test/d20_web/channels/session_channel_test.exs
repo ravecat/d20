@@ -8,6 +8,8 @@ defmodule D20Web.SessionChannelTest do
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.KoalaRescueClub.Rules
   alias D20.KoalaRescueClub.Ruleset
+  alias D20.NextStationLondon.Game, as: LondonGame
+  alias D20.NextStationLondon.Ruleset, as: LondonRuleset
   alias D20.Sessions.Session
   alias D20Web.ModuleSocket
   alias D20Web.Presence
@@ -353,6 +355,92 @@ defmodule D20Web.SessionChannelTest do
         selection: nil,
         game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
       }
+    end
+
+    test "should run Next Station London through automatic preparation and explicit projections" do
+      actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      actor_id = actor.id
+
+      assert {:ok, session} =
+               D20.Sessions.create("next-station-london", LondonGame, actor_id, %{
+                 "objectives" => true,
+                 "powers" => true
+               })
+
+      on_exit(fn -> D20.Sessions.stop(session.id) end)
+
+      assert {:ok,
+              %{
+                self: ^actor_id,
+                objectives: [],
+                powers: %{},
+                options: %{sections: []},
+                game: %{phase: :setup, players: %{}}
+              }, socket} = join_session_channel(session.id, actor)
+
+      assert_push "projection", projection
+
+      assert %{
+               self: ^actor_id,
+               permissions: %{can_start_game: true},
+               game: %{phase: :ready, players: %{^actor_id => %{status: :ready}}}
+             } = projection
+
+      refute Map.has_key?(projection, :attrs)
+
+      start_ref = push(socket, "start", %{})
+
+      assert_reply start_ref, :ok
+
+      assert_push "projection", %{phase: :in_progress, game: %{phase: :preparing_round, round: 1}}
+
+      assert_push "projection", %{
+        objectives: objectives,
+        powers: powers,
+        permissions: %{can_draw_sections: true, can_pass: true},
+        options: %{sections: sections},
+        game: %{
+          phase: :build,
+          round: 1,
+          reveals: [_first_reveal],
+          players: %{^actor_id => %{current_color: current_color, status: :pending}}
+        }
+      }
+
+      assert length(objectives) == 2
+      assert map_size(powers) == 4
+      assert current_color in LondonRuleset.colors()
+      assert sections != []
+
+      invalid_ref =
+        push(socket, "draw_sections", %{"sections" => [%{"from" => "r0c0", "to" => "r0c1"}]})
+
+      assert_reply invalid_ref, :error, %{reason: "invalid_origin"}
+      refute_push "projection", _projection, 100
+
+      pass_ref = push(socket, "pass", %{})
+      assert_reply pass_ref, :ok
+
+      assert_push "projection", %{
+        game: %{phase: :build, reveals: [_, _], players: %{^actor_id => %{status: :pending}}}
+      }
+
+      spectator = %{id: Ecto.UUID.generate(), type: :anonymous}
+
+      assert {:ok,
+              %{
+                self: spectator_id,
+                permissions: %{can_draw_sections: false, can_pass: false},
+                options: %{sections: [], power: nil},
+                game: %{players: %{^actor_id => _owner_player}}
+              }, _spectator_socket} = join_session_channel(session.id, spectator)
+
+      assert spectator_id == spectator.id
+
+      assert {:ok, %{self: ^actor_id, options: %{sections: reconnect_sections}}, _socket} =
+               join_session_channel(session.id, actor)
+
+      assert reconnect_sections != []
     end
   end
 

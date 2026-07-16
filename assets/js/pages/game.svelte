@@ -143,6 +143,24 @@
                                 <p class="game-detail-activation__error">{errors[name]}</p>
                               {/if}
                             </fieldset>
+                          {:else if attr.type === "boolean"}
+                            {@const optionId = attr.id || `${formId}-${name}`}
+                            <input type="hidden" name={fieldName} value="false">
+                            <div class="game-detail-start__field">
+                              <label class="game-detail-start__option" for={optionId}>
+                                <input
+                                  id={optionId}
+                                  type="checkbox"
+                                  name={fieldName}
+                                  value="true"
+                                  defaultChecked={fieldValue(attr) === "true"}
+                                >
+                                <span>{fieldLabel(name)}</span>
+                              </label>
+                              {#if errors[name]}
+                                <p class="game-detail-activation__error">{errors[name]}</p>
+                              {/if}
+                            </div>
                           {:else}
                             <label class="game-detail-start__field">
                               <span>{fieldLabel(name)}</span>

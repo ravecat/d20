@@ -106,6 +106,7 @@ defmodule D20.GamesTest do
     assert Enum.map(games, & &1.slug) == [
              "koala-rescue-club",
              "qwinto",
+             "next-station-london",
              "aquamarine",
              "confusing-lands",
              "death-valley",
@@ -113,7 +114,6 @@ defmodule D20.GamesTest do
              "flip-7",
              "fliptown",
              "lost-cities",
-             "next-station-london",
              "nimalia",
              "qwixx",
              "railroad-ink",
@@ -132,6 +132,9 @@ defmodule D20.GamesTest do
 
     assert %{status: :active, game: %Game{name: "Koala Rescue Club"}} =
              Enum.find(games, &(&1.slug == "koala-rescue-club"))
+
+    assert %{status: :in_progress, game: %Game{name: "Next Station: London"}} =
+             Enum.find(games, &(&1.slug == "next-station-london"))
 
     assert %Game{name: "Next Station: London"} = game_by_slug(games, "next-station-london")
 
@@ -155,28 +158,29 @@ defmodule D20.GamesTest do
     assert Games.fetch_by_slug("missing") == {:error, :game_not_found}
   end
 
-  test "allows active and in-progress session launch outside production" do
+  test "allows active and Next Station session launch when in-progress launch is enabled" do
+    Application.put_env(:d20, :allow_launch_in_progress, true)
     assert {:ok, active} = Registry.fetch("qwinto")
     assert {:ok, koala} = Registry.fetch("koala-rescue-club")
+    assert {:ok, next_station} = Registry.fetch("next-station-london")
     assert {:ok, inactive} = Registry.fetch("voyages")
-    in_progress = %Registry.Entry{slug: "preview", bgg_id: 1, status: :in_progress}
 
     assert Games.session_launch_available?(active)
     assert Games.session_launch_available?(koala)
-    assert Games.session_launch_available?(in_progress)
+    assert Games.session_launch_available?(next_station)
     refute Games.session_launch_available?(inactive)
   end
 
-  test "keeps active launch available when in-progress launch is disabled" do
+  test "keeps active launch available and disables Next Station when in-progress launch is disabled" do
     Application.put_env(:d20, :allow_launch_in_progress, false)
     assert {:ok, active} = Registry.fetch("qwinto")
     assert {:ok, koala} = Registry.fetch("koala-rescue-club")
+    assert {:ok, next_station} = Registry.fetch("next-station-london")
     assert {:ok, inactive} = Registry.fetch("voyages")
-    in_progress = %Registry.Entry{slug: "preview", bgg_id: 1, status: :in_progress}
 
     assert Games.session_launch_available?(active)
     assert Games.session_launch_available?(koala)
-    refute Games.session_launch_available?(in_progress)
+    refute Games.session_launch_available?(next_station)
     refute Games.session_launch_available?(inactive)
   end
 

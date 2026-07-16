@@ -53,6 +53,15 @@ defmodule D20Web.PageControllerTest do
   </items>
   """
 
+  @next_station_xml """
+  <?xml version="1.0" encoding="utf-8"?>
+  <items>
+    <item type="boardgame" id="353545">
+      <name type="primary" value="Next Station: London" />
+    </item>
+  </items>
+  """
+
   @voyages_xml """
   <?xml version="1.0" encoding="utf-8"?>
   <items>
@@ -129,6 +138,7 @@ defmodule D20Web.PageControllerTest do
     assert Enum.map(games, & &1.slug) == [
              "koala-rescue-club",
              "qwinto",
+             "next-station-london",
              "aquamarine",
              "confusing-lands",
              "death-valley",
@@ -136,7 +146,6 @@ defmodule D20Web.PageControllerTest do
              "flip-7",
              "fliptown",
              "lost-cities",
-             "next-station-london",
              "nimalia",
              "qwixx",
              "railroad-ink",
@@ -150,6 +159,7 @@ defmodule D20Web.PageControllerTest do
 
     assert %{status: nil} = Enum.find(games, &(&1.slug == "aquamarine"))
     assert %{status: :active} = Enum.find(games, &(&1.slug == "koala-rescue-club"))
+    assert %{status: :in_progress} = Enum.find(games, &(&1.slug == "next-station-london"))
     assert %{status: :active} = Enum.find(games, &(&1.slug == "qwinto"))
 
     game = game_by_slug(games, "qwinto")
@@ -258,21 +268,24 @@ defmodule D20Web.PageControllerTest do
     assert %{status: :active, canLaunchGame: true} = inertia_props(conn)
   end
 
-  test "GET /games/:slug disables in-progress launch when configured", %{conn: conn} do
+  test "GET /games/:slug allows Next Station launch when in-progress launch is enabled", %{
+    conn: conn
+  } do
+    Application.put_env(:d20, :allow_launch_in_progress, true)
+    stub_bgg_game(@next_station_xml, "353545")
+
+    conn = get(conn, ~p"/games/next-station-london")
+
+    assert %{status: :in_progress, canLaunchGame: true, attrs: %{}} = inertia_props(conn)
+  end
+
+  test "GET /games/:slug disables Next Station launch when in-progress launch is disabled", %{
+    conn: conn
+  } do
     Application.put_env(:d20, :allow_launch_in_progress, false)
+    stub_bgg_game(@next_station_xml, "353545")
 
-    put_registry_games(
-      qwinto: [
-        engine: D20.Qwinto.Game,
-        bgg_id: 183_006,
-        sandbox: ["allow-scripts"],
-        status: :in_progress
-      ]
-    )
-
-    stub_bgg_game(@resolved_qwinto_xml)
-
-    conn = get(conn, ~p"/games/qwinto")
+    conn = get(conn, ~p"/games/next-station-london")
 
     assert %{status: :in_progress, canLaunchGame: false, attrs: %{}} = inertia_props(conn)
   end

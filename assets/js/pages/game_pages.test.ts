@@ -20,6 +20,25 @@ const koalaAttrs: Attrs = {
   },
 };
 
+const nextStationAttrs: Attrs = {
+  objectives: {
+    id: "attrs_objectives",
+    name: "objectives",
+    type: "boolean",
+    value: false,
+    required: true,
+    errors: [],
+  },
+  powers: {
+    id: "attrs_powers",
+    name: "powers",
+    type: "boolean",
+    value: false,
+    required: true,
+    errors: [],
+  },
+};
+
 afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
@@ -27,7 +46,7 @@ afterEach(async () => {
 });
 
 describe("developers page", () => {
-  it("introduces client implementation and links both game specifications", () => {
+  it("introduces client implementation and links every game specification", () => {
     render(DevelopersPage, {});
 
     const list = document.querySelector('ul[aria-label="Game specifications"]');
@@ -37,10 +56,11 @@ describe("developers page", () => {
     expect(document.title).toBe("For developers");
     expect(document.body.textContent).toContain("Build a compatible game client");
     expect(document.querySelector("h2")).toBeNull();
-    expect(entries).toHaveLength(2);
+    expect(entries).toHaveLength(3);
     expect(entries.map((entry) => entry.querySelector(".spec-list__game")?.textContent)).toEqual([
       "Qwinto",
       "Koala Rescue Club",
+      "Next Station London",
     ]);
 
     expect(list?.querySelector('a[href="/developers/specs/qwinto"]')?.textContent).toBe(
@@ -52,6 +72,12 @@ describe("developers page", () => {
     );
     expect(
       list?.querySelector('a[href="/developers/specs/koala-rescue-club/raw"]')?.textContent,
+    ).toBe("YAML");
+    expect(
+      list?.querySelector('a[href="/developers/specs/next-station-london"]')?.textContent,
+    ).toBe("Open reference");
+    expect(
+      list?.querySelector('a[href="/developers/specs/next-station-london/raw"]')?.textContent,
     ).toBe("YAML");
     expect(document.body.textContent).not.toContain("available");
     expect(document.body.textContent).not.toContain("AsyncAPI 3.0");
@@ -433,6 +459,38 @@ describe("game detail page", () => {
     });
   });
 
+  it("renders boolean creation attrs as checkboxes and posts their values", () => {
+    render(GamePage, {
+      slug: "next-station-london",
+      game: gameMetadata({ name: "Next Station London" }),
+      attrs: nextStationAttrs,
+      status: "active",
+      canLaunchGame: true,
+      module: null,
+      connection: null,
+      session: null,
+    });
+
+    const objectives = inputByLabel("Objectives");
+    const powers = inputByLabel("Powers");
+
+    expect(objectives.type).toBe("checkbox");
+    expect(powers.type).toBe("checkbox");
+    expect(objectives.checked).toBe(false);
+    expect(powers.checked).toBe(false);
+    expect(objectives.required).toBe(false);
+    expect(powers.required).toBe(false);
+
+    powers.click();
+    document.querySelector("button")?.click();
+
+    expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
+      action: "/games/next-station-london/sessions",
+      method: "post",
+      data: { objectives: "false", powers: "true" },
+    });
+  });
+
   it("keeps game details visible without session controls when launch is unavailable", () => {
     render(GamePage, {
       slug: "voyages",
@@ -463,6 +521,18 @@ function render(Component: unknown, props: Record<string, unknown>) {
     await unmount(component);
     target.remove();
   };
+}
+
+function inputByLabel(label: string) {
+  const input = [...document.getElementsByTagName("input")].find((candidate) =>
+    [...(candidate.labels ?? [])].some((element) => element.textContent?.trim() === label),
+  );
+
+  if (!input) {
+    throw new Error(`Expected input labelled ${label}.`);
+  }
+
+  return input;
 }
 
 function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {

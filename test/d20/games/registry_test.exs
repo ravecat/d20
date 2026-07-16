@@ -55,7 +55,7 @@ defmodule D20.Games.RegistryTest do
              bgg_id: 353_545,
              engine: D20.NextStationLondon.Game,
              sandbox: next_station_sandbox,
-             status: nil
+             status: :in_progress
            } = entry_by_slug(entries, "next-station-london")
 
     assert %Registry.Entry{

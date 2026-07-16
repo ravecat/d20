@@ -1,0 +1,866 @@
+asyncapi: 3.0.0
+info:
+  title: Next Station London Session Async API
+  version: 1.0.0
+  description: >
+    Real-time contract for Next Station London sessions. Clients join one
+    session topic, start the game, submit simultaneous construction choices,
+    and receive authoritative caller-specific projections. Round decks, pencil
+    assignments, objectives, and powers are prepared by the server. Only
+    revealed cards are public.
+  license:
+    name: MIT
+  tags:
+    - name: session
+      description: Game-session messaging
+    - name: game
+      description: Next Station London commands and projections
+    - name: channel-protocol
+      description: WebSocket channel protocol messages
+servers:
+  userProduction:
+    host: "{domain}"
+    pathname: /socket/websocket
+    protocol: wss
+    description: Production WebSocket endpoint for clients
+    variables:
+      domain:
+        $ref: "#/components/serverVariables/domain"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+  userDevelopment:
+    host: "{domain}:{port}"
+    pathname: /socket/websocket
+    protocol: ws
+    description: Local WebSocket endpoint for clients
+    variables:
+      domain:
+        default: localhost
+      port:
+        $ref: "#/components/serverVariables/port"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+defaultContentType: application/json
+channels:
+  gameSession:
+    address: "session:{session_id}"
+    title: Next Station London Game Session
+    summary: WebSocket channel for one game session
+    description: >
+      A successful join tracks presence and returns the current caller-specific
+      projection. Accepted commands receive an empty success reply. State
+      changes and automatic round preparation are published as projections.
+    servers:
+      - $ref: "#/servers/userProduction"
+      - $ref: "#/servers/userDevelopment"
+    parameters:
+      session_id:
+        description: Session identifier assigned at creation.
+        examples:
+          - 6f218f3c-6b82-4d8d-9f9f-dc5af24118ee
+    messages:
+      joinSessionRequest:
+        $ref: "#/components/messages/joinSessionRequest"
+      joinSessionReply:
+        $ref: "#/components/messages/joinSessionReply"
+      channelError:
+        $ref: "#/components/messages/channelError"
+      channelClosed:
+        $ref: "#/components/messages/channelClosed"
+      sessionProjection:
+        $ref: "#/components/messages/sessionProjection"
+      startSession:
+        $ref: "#/components/messages/startSession"
+      drawSections:
+        $ref: "#/components/messages/drawSections"
+      passInstruction:
+        $ref: "#/components/messages/passInstruction"
+      commandReply:
+        $ref: "#/components/messages/commandReply"
+    bindings:
+      ws:
+        method: GET
+        bindingVersion: 0.1.0
+operations:
+  joinSession:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Join a session topic
+    description: >
+      On success the server replies with the current projection and tracks the
+      caller's presence. Joining after start does not add a game player.
+    messages:
+      - $ref: "#/channels/gameSession/messages/joinSessionRequest"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/joinSessionReply"
+  startSession:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Start the game
+    description: >
+      The joined session owner starts while waiting for players. Solo games
+      and multiplayer games use the same empty payload. A successful start
+      enters automatic round preparation, where the server assigns pencils.
+    messages:
+      - $ref: "#/channels/gameSession/messages/startSession"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  drawSections:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Draw one atomic construction action
+    description: >
+      A pending frozen player draws one section, or two sequential sections with
+      Double Section. Optional power fields are validated with the complete
+      action. Any failure leaves the network and submission status unchanged.
+    messages:
+      - $ref: "#/channels/gameSession/messages/drawSections"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  passInstruction:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Pass the current instruction
+    description: >
+      A pending player may pass. Double Station can be applied to an existing
+      station while passing. The next instruction is revealed only after every
+      frozen player submits.
+    messages:
+      - $ref: "#/channels/gameSession/messages/passInstruction"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  receiveSessionProjection:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive the latest caller-specific projection
+    description: >
+      Projections contain public revealed history and caller-only legal choices.
+      They never contain the remaining deck or future card order.
+    messages:
+      - $ref: "#/channels/gameSession/messages/sessionProjection"
+  receiveSessionError:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive a channel error
+    messages:
+      - $ref: "#/channels/gameSession/messages/channelError"
+  receiveSessionClose:
+    action: receive
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Receive a channel close
+    messages:
+      - $ref: "#/channels/gameSession/messages/channelClosed"
+components:
+  serverVariables:
+    domain:
+      description: Public server hostname.
+    port:
+      default: "5000"
+      description: Local endpoint port.
+  securitySchemes:
+    channelAuthToken:
+      type: httpApiKey
+      in: header
+      name: Sec-WebSocket-Protocol
+      description: Authentication token transported as a WebSocket subprotocol entry.
+  messages:
+    joinSessionRequest:
+      name: phx_join
+      title: Join Session
+      summary: Join request for one session topic
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/joinPayload"
+    joinSessionReply:
+      name: phx_reply
+      title: Join Session Reply
+      summary: Session join success or failure
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/sessionJoinReply"
+    channelError:
+      name: phx_error
+      title: Channel Error
+      summary: Channel error event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    channelClosed:
+      name: phx_close
+      title: Channel Closed
+      summary: Channel close event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    sessionProjection:
+      name: projection
+      title: Next Station London Session Projection
+      summary: Public state with caller-only legal actions and permissions
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/session"
+    startSession:
+      name: start
+      title: Start Session
+      summary: Start the game and request automatic first-round preparation
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/startPayload"
+    drawSections:
+      name: draw_sections
+      title: Draw Sections
+      summary: Submit one complete construction action
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/drawSectionsPayload"
+    passInstruction:
+      name: pass
+      title: Pass Instruction
+      summary: Submit no section for the current instruction
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/passPayload"
+    commandReply:
+      name: phx_reply
+      title: Command Reply
+      summary: Success or failure reply for a session command
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/commandReply"
+  schemas:
+    socketConnectQuery:
+      type: object
+      properties:
+        vsn:
+          type: string
+          const: 2.0.0
+      required:
+        - vsn
+      additionalProperties: true
+    creationAttrs:
+      type: object
+      description: >
+        Optional session-creation fields. Shared Objectives and Pencil Powers
+        are independently enabled at creation and assigned during round one.
+      properties:
+        objectives:
+          type: boolean
+          default: false
+        powers:
+          type: boolean
+          default: false
+      additionalProperties: false
+    joinPayload:
+      type: object
+      description: Channel join payload. Current channels ignore it.
+      additionalProperties: true
+    channelSystemPayload:
+      type: object
+      additionalProperties: true
+    emptyReplyResponse:
+      type: object
+      additionalProperties: false
+    sessionJoinReply:
+      oneOf:
+        - type: object
+          required: [status, response]
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/session"
+          additionalProperties: false
+        - type: object
+          required: [status, response]
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/joinError"
+          additionalProperties: false
+    commandReply:
+      oneOf:
+        - type: object
+          required: [status, response]
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/emptyReplyResponse"
+          additionalProperties: false
+        - type: object
+          required: [status, response]
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/commandError"
+          additionalProperties: false
+    joinError:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [forbidden, session_not_found]
+      additionalProperties: false
+    commandError:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          $ref: "#/components/schemas/commandErrorReason"
+      additionalProperties: false
+    commandErrorReason:
+      type: string
+      enum:
+        - forbidden
+        - session_not_found
+        - invalid_creation_attrs
+        - invalid_command
+        - invalid_identity
+        - not_owner
+        - invalid_phase
+        - player_limit_reached
+        - not_joined
+        - not_ready
+        - system_only
+        - invalid_system_setup
+        - already_submitted
+        - invalid_power
+        - power_already_used
+        - invalid_power_target
+        - invalid_section_count
+        - invalid_origin
+        - invalid_section
+        - station_revisited
+        - section_reused
+        - section_crossing
+        - invalid_destination
+        - invalid_choice
+        - finished
+        - unknown_command
+    startPayload:
+      type: object
+      description: Next Station London requires no caller-provided start attributes.
+      maxProperties: 0
+      additionalProperties: false
+    drawSectionsPayload:
+      type: object
+      required: [sections]
+      properties:
+        sections:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/section"
+        power:
+          $ref: "#/components/schemas/powerId"
+        chosen_symbol:
+          $ref: "#/components/schemas/ordinarySymbol"
+        power_target:
+          $ref: "#/components/schemas/stationId"
+      additionalProperties: false
+    passPayload:
+      type: object
+      properties:
+        power:
+          $ref: "#/components/schemas/powerId"
+        power_target:
+          $ref: "#/components/schemas/stationId"
+      additionalProperties: false
+    session:
+      type: object
+      description: Authoritative caller-specific session projection.
+      required:
+        - id
+        - phase
+        - owner_id
+        - members
+        - self
+        - objectives
+        - powers
+        - pencil_colors
+        - permissions
+        - options
+        - game
+      properties:
+        id:
+          type: string
+          format: uuid
+        phase:
+          type: string
+          enum: [waiting_for_players, in_progress, finished]
+        owner_id:
+          $ref: "#/components/schemas/participantId"
+        members:
+          type: object
+          description: Current presence members keyed by participant id.
+          additionalProperties:
+            $ref: "#/components/schemas/sessionMember"
+        self:
+          $ref: "#/components/schemas/participantId"
+        objectives:
+          $ref: "#/components/schemas/optionalObjectives"
+        powers:
+          $ref: "#/components/schemas/optionalPowers"
+        pencil_colors:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/color"
+        permissions:
+          $ref: "#/components/schemas/permissions"
+        options:
+          $ref: "#/components/schemas/legalOptions"
+        game:
+          $ref: "#/components/schemas/game"
+      additionalProperties: false
+    participantId:
+      type: string
+      minLength: 1
+    sessionMember:
+      type: object
+      properties:
+        online_at:
+          type: integer
+          minimum: 0
+        display_name:
+          type: string
+        avatar:
+          oneOf:
+            - type: string
+              format: uri
+            - type: "null"
+      additionalProperties: true
+    permissions:
+      type: object
+      required: [can_start_game, can_draw_sections, can_pass]
+      properties:
+        can_start_game:
+          type: boolean
+        can_draw_sections:
+          type: boolean
+        can_pass:
+          type: boolean
+      additionalProperties: false
+    game:
+      type: object
+      required:
+        - phase
+        - round
+        - pencil_cycle
+        - current_instruction
+        - reveals
+        - players
+        - scores
+        - outcome
+      properties:
+        phase:
+          type: string
+          enum: [setup, ready, preparing_round, build, finished]
+        round:
+          type: integer
+          minimum: 0
+          maximum: 4
+        pencil_cycle:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/color"
+        current_instruction:
+          oneOf:
+            - $ref: "#/components/schemas/instruction"
+            - type: "null"
+        reveals:
+          type: array
+          description: Public effective instructions in chronological order.
+          items:
+            $ref: "#/components/schemas/instruction"
+        players:
+          type: object
+          description: >
+            Sole unordered game roster, keyed by participant id. It is frozen
+            at start and never contains a separate player-order field.
+          additionalProperties:
+            $ref: "#/components/schemas/player"
+        scores:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/playerScore"
+        outcome:
+          oneOf:
+            - $ref: "#/components/schemas/multiplayerOutcome"
+            - $ref: "#/components/schemas/soloOutcome"
+            - type: "null"
+      additionalProperties: false
+    player:
+      type: object
+      required: [status, pencil_offset, current_color, lines]
+      properties:
+        status:
+          type: string
+          enum: [ready, pending, submitted]
+        pencil_offset:
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 3
+            - type: "null"
+        current_color:
+          oneOf:
+            - $ref: "#/components/schemas/color"
+            - type: "null"
+        lines:
+          type: object
+          required: [green, blue, pink, purple]
+          properties:
+            green:
+              $ref: "#/components/schemas/line"
+            blue:
+              $ref: "#/components/schemas/line"
+            pink:
+              $ref: "#/components/schemas/line"
+            purple:
+              $ref: "#/components/schemas/line"
+          additionalProperties: false
+      additionalProperties: false
+    line:
+      type: object
+      required: [edges, power_used, doubled_station]
+      properties:
+        edges:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/edgeId"
+        power_used:
+          type: boolean
+        doubled_station:
+          oneOf:
+            - $ref: "#/components/schemas/stationId"
+            - type: "null"
+      additionalProperties: false
+    instruction:
+      type: object
+      required: [turn, cards, destination, switch, final]
+      properties:
+        turn:
+          type: integer
+          minimum: 1
+        cards:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/cardId"
+        destination:
+          type: string
+          enum: [circle, square, triangle, pentagon, joker]
+        switch:
+          type: boolean
+          description: True only for an effective Railroad Switch after instruction two.
+        final:
+          type: boolean
+          description: True when this instruction reveals the fifth Underground card.
+      additionalProperties: false
+    legalOptions:
+      type: object
+      description: >
+        Caller-only legal choices. Every collection is empty for submitted
+        players and spectators.
+      required:
+        - sections
+        - wildcard_sections
+        - joker_sections
+        - switch_sections
+        - double_sections
+        - double_station_targets
+        - double_station_sections
+        - power
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/section"
+        wildcard_sections:
+          type: object
+          description: Legal sections grouped by Joker chosen symbol.
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/section"
+        joker_sections:
+          type: array
+          description: Legal alternatives when using the assigned Joker power.
+          items:
+            $ref: "#/components/schemas/section"
+        switch_sections:
+          type: array
+          description: Legal alternatives when using the assigned Railroad Switch power.
+          items:
+            $ref: "#/components/schemas/section"
+        double_sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/doubleSectionChoice"
+        double_station_targets:
+          type: array
+          description: Legal targets when Double Station is attached to a pass.
+          items:
+            $ref: "#/components/schemas/stationId"
+        double_station_sections:
+          type: array
+          description: Legal Double Station targets correlated with each legal drawn section.
+          items:
+            $ref: "#/components/schemas/doubleStationSectionChoice"
+        power:
+          oneOf:
+            - $ref: "#/components/schemas/powerId"
+            - type: "null"
+      additionalProperties: false
+    doubleSectionChoice:
+      type: object
+      required: [sections, chosen_symbol]
+      properties:
+        sections:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/section"
+        chosen_symbol:
+          oneOf:
+            - $ref: "#/components/schemas/ordinarySymbol"
+            - type: "null"
+      additionalProperties: false
+    doubleStationSectionChoice:
+      type: object
+      required: [section, targets]
+      properties:
+        section:
+          $ref: "#/components/schemas/section"
+        targets:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/stationId"
+      additionalProperties: false
+    section:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          $ref: "#/components/schemas/stationId"
+        to:
+          $ref: "#/components/schemas/stationId"
+      additionalProperties: false
+    optionalObjectives:
+      oneOf:
+        - type: array
+          minItems: 0
+          maxItems: 2
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/objectiveId"
+        - type: "null"
+    optionalPowers:
+      oneOf:
+        - type: object
+          description: Public color-to-power bijection after round-one preparation.
+          properties:
+            green:
+              $ref: "#/components/schemas/powerId"
+            blue:
+              $ref: "#/components/schemas/powerId"
+            pink:
+              $ref: "#/components/schemas/powerId"
+            purple:
+              $ref: "#/components/schemas/powerId"
+          additionalProperties: false
+        - type: "null"
+    playerScore:
+      type: object
+      required:
+        - lines
+        - line_total
+        - tourist_marks
+        - tourist_score
+        - interchange_counts
+        - interchange_score
+        - achieved_objectives
+        - objective_score
+        - total
+      properties:
+        lines:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/lineScore"
+        line_total:
+          type: integer
+          minimum: 0
+        tourist_marks:
+          type: integer
+          minimum: 0
+          maximum: 10
+        tourist_score:
+          type: integer
+          minimum: 0
+        interchange_counts:
+          type: object
+          description: Counts keyed by number of distinct colored lines, from 2 to 4.
+          additionalProperties:
+            type: integer
+            minimum: 0
+        interchange_score:
+          type: integer
+          minimum: 0
+        achieved_objectives:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/objectiveId"
+        objective_score:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    lineScore:
+      type: object
+      required: [districts, largest_district, thames_crossings, total]
+      properties:
+        districts:
+          type: integer
+          minimum: 1
+          maximum: 13
+        largest_district:
+          type: integer
+          minimum: 1
+        thames_crossings:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+    multiplayerOutcome:
+      type: object
+      required: [mode, winners, shared]
+      properties:
+        mode:
+          const: multiplayer
+        winners:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/participantId"
+        shared:
+          type: boolean
+      additionalProperties: false
+    soloOutcome:
+      type: object
+      required: [mode, player_id, score, rating_score, rating]
+      properties:
+        mode:
+          const: solo
+        player_id:
+          $ref: "#/components/schemas/participantId"
+        score:
+          type: integer
+          minimum: 0
+        rating_score:
+          type: integer
+        rating:
+          type: string
+          enum:
+            - under_90
+            - from_90_to_105
+            - from_106_to_120
+            - from_121_to_135
+            - from_136_to_150
+            - over_150
+      additionalProperties: false
+    color:
+      type: string
+      enum: [green, blue, pink, purple]
+    ordinarySymbol:
+      type: string
+      enum: [circle, square, triangle, pentagon]
+    objectiveId:
+      type: string
+      enum:
+        - eight_interchanges
+        - all_districts
+        - all_tourist_sites
+        - central_district
+        - six_thames_crossings
+    powerId:
+      type: string
+      enum: [double_section, joker, railroad_switch, double_station]
+    stationId:
+      type: string
+      pattern: "^r[0-9]c[0-9]$"
+    edgeId:
+      type: string
+      pattern: "^r[0-9]c[0-9]-r[0-9]c[0-9]$"
+    cardId:
+      type: string
+      enum:
+        - street_circle
+        - street_square
+        - street_triangle
+        - street_pentagon
+        - street_joker
+        - street_railroad_switch
+        - underground_circle
+        - underground_square
+        - underground_triangle
+        - underground_pentagon
+        - underground_joker

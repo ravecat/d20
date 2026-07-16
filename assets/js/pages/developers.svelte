@@ -27,6 +27,11 @@
       referenceUrl: "/developers/specs/koala-rescue-club",
       rawUrl: "/developers/specs/koala-rescue-club/raw",
     },
+    {
+      game: "Next Station London",
+      referenceUrl: "/developers/specs/next-station-london",
+      rawUrl: "/developers/specs/next-station-london/raw",
+    },
   ];
 </script>
 

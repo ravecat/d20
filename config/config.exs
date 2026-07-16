@@ -65,7 +65,8 @@ config :d20, D20.Games.Registry,
     "next-station-london": [
       engine: D20.NextStationLondon.Game,
       bgg_id: 353_545,
-      sandbox: ["allow-scripts", "allow-same-origin"]
+      sandbox: ["allow-scripts", "allow-same-origin"],
+      status: :in_progress
     ],
     "railroad-ink": [bgg_id: 245_654],
     qwinto: [
