@@ -29,6 +29,9 @@ export interface AttrConfig {
   id: string;
   name: string;
   type: string;
+  label?: string;
+  position?: number;
+  unique?: boolean;
   value?: string | number | boolean | null;
   required?: boolean;
   values?: string[];
@@ -54,5 +57,6 @@ export interface Session<TGame = unknown> {
   owner_id: string;
   members: Record<string, SessionMember>;
   permissions?: SessionPermissions;
+  attrs?: Attrs;
   game: TGame;
 }

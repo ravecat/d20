@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { formDataToObject } from "@inertiajs/core";
   import { untrack } from "svelte";
   import Frame from "~components/module_frame.svelte";
   import { createSession } from "~stores/session";
+  import type { AttrConfig } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   interface Props {
@@ -26,18 +28,107 @@
   );
   const status = $derived($session.status);
   const phase = $derived($session.value?.phase);
+  const attrFields = $derived(
+    Object.entries($session.value?.attrs ?? {}).sort(
+      ([, left], [, right]) => (left.position ?? 0) - (right.position ?? 0),
+    ),
+  );
+
+  function fieldValue(attr: AttrConfig) {
+    return attr.value == null ? "" : String(attr.value);
+  }
+
+  function fieldLabel(name: string, attr: AttrConfig) {
+    if (attr.label) return attr.label;
+
+    return humanize(name);
+  }
+
+  function humanize(value: string) {
+    const label = value.replace(/_/g, " ");
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
+  function startGame(event: SubmitEvent) {
+    event.preventDefault();
+
+    if (event.currentTarget instanceof HTMLFormElement) {
+      session.start(formDataToObject(new FormData(event.currentTarget)));
+    }
+  }
+
+  function keepUniqueValue(event: Event) {
+    if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+
+    const select = event.currentTarget;
+    const group = select.dataset.uniqueGroup;
+    const previousValue = select.dataset.previousValue;
+
+    if (!group || !previousValue || !select.form) return;
+
+    const duplicate = [...select.form.elements].find(
+      (element) =>
+        element instanceof HTMLSelectElement &&
+        element !== select &&
+        element.dataset.uniqueGroup === group &&
+        element.value === select.value,
+    );
+
+    if (duplicate instanceof HTMLSelectElement) {
+      duplicate.value = previousValue;
+      duplicate.dataset.previousValue = previousValue;
+    }
+
+    select.dataset.previousValue = select.value;
+  }
 </script>
 
 {#if phase === "waiting_for_players"}
   <section class="session-panel-start">
-    <div class="session-panel-start__content">
+    <form class="session-panel-start__content" onsubmit={startGame}>
+      {#if attrFields.length > 0}
+        <fieldset class="session-panel-start__fields">
+          <legend>Game setup</legend>
+          <div class="session-panel-start__field-grid">
+            {#each attrFields as [name, attr] (name)}
+              <label for={attr.id}>
+                <span>{fieldLabel(name, attr)}</span>
+                {#if attr.type === "enum"}
+                  <select
+                    id={attr.id}
+                    name={attr.name ?? name}
+                    value={fieldValue(attr)}
+                    required={attr.required ?? false}
+                    data-unique-group={attr.unique
+                      ? (attr.name ?? name).replace(/\[.*$/, "")
+                      : undefined}
+                    data-previous-value={fieldValue(attr)}
+                    onchange={keepUniqueValue}
+                  >
+                    {#each attr.values ?? [] as value (value)}
+                      <option {value}>{humanize(value)}</option>
+                    {/each}
+                  </select>
+                {:else}
+                  <input
+                    id={attr.id}
+                    name={attr.name ?? name}
+                    value={fieldValue(attr)}
+                    required={attr.required ?? false}
+                  >
+                {/if}
+              </label>
+            {/each}
+          </div>
+        </fieldset>
+      {/if}
+
       <button
         class="session-panel-start__action"
-        type="button"
+        type="submit"
         disabled={$session.processing.start ||
           !$session.value?.permissions?.can_start_game}
         aria-busy={$session.processing.start}
-        onclick={() => session.start()}
       >
         {#if $session.processing.start}
           <span class="session-panel-start__spinner" aria-hidden="true"></span>
@@ -80,7 +171,7 @@
           </ul>
         {/if}
       </div>
-    </div>
+    </form>
   </section>
 {/if}
 
@@ -103,6 +194,44 @@
     min-inline-size: 0;
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .session-panel-start__fields {
+    min-inline-size: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .session-panel-start__fields legend {
+    margin-block-end: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .session-panel-start__field-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 0.5rem;
+  }
+
+  .session-panel-start__field-grid label {
+    display: grid;
+    min-inline-size: 0;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .session-panel-start__field-grid select,
+  .session-panel-start__field-grid input {
+    min-block-size: 2.25rem;
+    inline-size: 100%;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    background: var(--color-base-100);
+    padding-inline: 0.5rem;
+    color: var(--color-base-content);
+    font: inherit;
   }
 
   .session-panel-start__action {

@@ -235,6 +235,24 @@ The inner Game owns domain phases. These state machines are related but not inte
 
 Write membership semantics from the new specification. Do not inherit them from another namespace.
 
+### Uniform session launch
+
+Every playable game uses the same outer launch path:
+
+```text
+create session
+-> waiting_for_players shell controls
+-> owner sends start through SessionPanel
+-> Session enters in_progress
+-> shell mounts the iframe module
+```
+
+The registry selects the engine and operational iframe metadata. It must not switch lifecycle ownership or choose a game-specific lobby. Do not add fields such as `start_in_module`, slug conditionals, or waiting-phase iframe exceptions.
+
+If a game's `start` command needs attributes, the caller-specific waiting projection exposes them as declarative `attrs`. The shared `SessionPanel` renders those descriptors and submits their values through the normal `start` channel event. Use explicit field names for nested payloads, bounded values from Ruleset, stable display order, and caller-safe defaults. For a game that uses this form, callers that cannot start and states outside the applicable waiting setup return an empty `attrs` map. Games with an empty `start` payload omit `attrs` from their runtime projections entirely.
+
+Projected start descriptors are read-model guidance, not authority. `Command` validates the submitted structure and finite values, `Rules` validates current legality, and `Game` commits the transition. Projection must not synthesize a command or trigger start.
+
 ## Event and Server Patterns
 
 ### Client mutation command
@@ -333,6 +351,7 @@ Render Projection only from caller context and the current Session. Do not route
 | Engine binding and launch metadata | `config/config.exs` |
 | Registry validation | `lib/d20/games/registry.ex` |
 | Session creation and dispatch | `lib/d20/sessions.ex`, `lib/d20/sessions/session.ex` |
+| Generic waiting controls and start form submission | `assets/js/components/session_panel.svelte`, `assets/js/stores/session.ts` |
 | Public projection routing | `lib/d20_web/projection.ex` |
 | Channel command routing | `lib/d20_web/channels/session_channel.ex` |
 | AsyncAPI serving | `lib/d20_web/plugs/async_api.ex` |
@@ -340,5 +359,7 @@ Render Projection only from caller context and the current Session. Do not route
 | Developer contract index | `assets/js/pages/developers.svelte` |
 
 Creation forms and generic endpoints derive inputs from `Game.changeset/1`. Change shared controllers only when a discovered requirement cannot use the generic path.
+
+Keep session creation inputs and waiting-session inputs distinct even though both are named attrs at their respective boundaries. Creation attrs come from `Game.changeset/1` before the process exists. When required, waiting-session attrs come from the caller-specific projection field `attrs` and are submitted by the shared shell. An empty start payload has no projected attrs. The iframe is mounted only after the outer session reaches `in_progress` or `finished`.
 
 Cross-check code, tests, and AsyncAPI. Existing namespaces are evidence for repository patterns, not specifications for a new game's rules.

@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type {
-    FormComponentProps,
-    FormComponentSlotProps,
-    FormDataConvertible,
+  import {
+    type FormComponentProps,
+    type FormComponentSlotProps,
+    type FormDataConvertible,
+    formDataToObject,
   } from "@inertiajs/core";
   import type { Snippet } from "svelte";
   import inertiaMock from "./inertia";
@@ -74,21 +75,7 @@
   }
 
   function getData() {
-    const data: Record<string, FormDataConvertible | FormDataConvertible[]> = {};
-
-    for (const [key, value] of getFormData()) {
-      const current = data[key];
-
-      if (current === undefined) {
-        data[key] = value;
-      } else if (Array.isArray(current)) {
-        current.push(value);
-      } else {
-        data[key] = [current, value];
-      }
-    }
-
-    return data as Record<string, FormDataConvertible>;
+    return formDataToObject(getFormData());
   }
 
   function actionUrl(action: FormComponentProps["action"]) {

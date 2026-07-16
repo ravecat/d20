@@ -3,6 +3,7 @@
 ## Rule Discovery
 
 - [ ] Record namespace, slug, launch metadata, and creation inputs.
+- [ ] Record every start-time input separately from session creation inputs.
 - [ ] Identify every authoritative source in the supplied specification.
 - [ ] Separate immutable configuration, mutable committed facts, and derived values.
 - [ ] List participants, identities, roles, and membership behavior.
@@ -86,6 +87,9 @@
 ## Session Interaction
 
 - [ ] Keep outer session phases separate from inner game phases.
+- [ ] Preserve `create -> waiting_for_players -> generic SessionPanel start -> in_progress -> iframe` for every game.
+- [ ] Keep the iframe unmounted while the outer session is waiting.
+- [ ] Avoid registry flags, slug branches, or game-specific shell lobby paths.
 - [ ] Define how `join` and `leave` affect both live membership and committed game state.
 - [ ] Define late join, reconnect, duplicate join, and leave behavior from the specification.
 - [ ] Test whether membership changes do or do not alter in-progress completion eligibility.
@@ -99,6 +103,8 @@
 - [ ] Return every permission key for every caller state.
 - [ ] Treat permissions as client guidance only.
 - [ ] Render an explicit public envelope instead of a raw Session or aggregate.
+- [ ] Project declarative `attrs` only when owner start requires game-specific input, return an empty form when that form is unavailable to the caller, and omit the field entirely for games with an empty start payload.
+- [ ] Include stable field order, labels, nested input names, caller-safe defaults, and bounded values in projected start descriptors.
 - [ ] Include caller identity and only the necessary public committed facts.
 - [ ] Derive legal choices from Rules predicates.
 - [ ] Include the permitted rule-derived statuses, constraints, progress, outcomes, and guidance needed by each supported client workflow.
@@ -135,6 +141,9 @@
 ## Shell and Contract Integration
 
 - [ ] Add or update the engine entry in `config/config.exs`.
+- [ ] Keep registry configuration limited to engine and operational launch metadata, not lifecycle ownership.
+- [ ] Route all owner starts through the shared `SessionPanel` and `start` event.
+- [ ] Cover projected start forms and submitted nested start payloads without game-specific shell branches.
 - [ ] Add registry coverage.
 - [ ] Add explicit `D20Web.Projection.render/2` routing.
 - [ ] Add `priv/specs/<slug>.yaml` for creation, commands, replies, projection, permissions, and errors.
@@ -155,6 +164,7 @@
 | Permission | Complete caller-specific booleans in every relevant state |
 | Projection | Complete client-ready public shape, visibility matrix, negative leak checks, derived choices and guidance, non-members, terminal state |
 | Session | Creation inputs, start ownership, membership policy, game-to-session completion |
+| Shell start | Empty starts for ordinary games, projected attrs when required, nested payload serialization, no waiting iframe |
 | Channel | Replies, accepted broadcasts, rejected non-broadcasts, caller-specific rendering |
 | Custom server | Selected module, scheduling, exactly-once action, actor rejection, nondeterministic-value idempotency, error behavior, idle coexistence |
 | Registry and contract | Engine discovery, contract serving, developer index |
@@ -194,5 +204,6 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 - [ ] Every supported client workflow receives its permitted rule-derived information without duplicating authoritative calculations.
 - [ ] Internal commands cannot be invoked with a client identity.
 - [ ] Game completion propagates to the outer session.
+- [ ] Every game follows the same shell-owned session launch lifecycle without registry or slug-specific bypasses.
 - [ ] Code, tests, AsyncAPI, and any in-scope client agree.
 - [ ] Validation commands and remaining rule gaps are reported.

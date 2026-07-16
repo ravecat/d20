@@ -119,7 +119,7 @@ describe("SessionPanel", () => {
     expect(startButton?.className).toContain("session-panel-start__action");
   });
 
-  it("starts the session without creation attrs", () => {
+  it("starts sessions without projected attrs", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
       status: "connected",
@@ -131,7 +131,38 @@ describe("SessionPanel", () => {
     document.querySelector("button")?.click();
     flushSync();
 
-    expect(sessionMock.start).toHaveBeenCalledWith();
+    expect(sessionMock.start).toHaveBeenCalledWith({});
+  });
+
+  it("submits projected attrs through the same start action", () => {
+    renderPanel({
+      value: {
+        ...sessionWithPhase("waiting_for_players"),
+        attrs: projectedAttrs(),
+      },
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    const seat1 = selectByLabel("Seat 1");
+    const seat4 = selectByLabel("Seat 4");
+
+    expect(seat1.value).toBe("ada");
+    expect(seat4.value).toBe("margaret");
+
+    seat1.value = "margaret";
+    seat1.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(seat4.value).toBe("ada");
+
+    document.querySelector("button")?.click();
+    flushSync();
+
+    expect(sessionMock.start).toHaveBeenCalledWith({
+      turn_order: ["margaret", "grace", "katherine", "ada"],
+    });
   });
 
   it("disables start when permissions do not allow starting the game", () => {
@@ -306,4 +337,38 @@ function sessionWithPhase(
     permissions,
     game: {},
   };
+}
+
+function projectedAttrs() {
+  const players = ["ada", "grace", "katherine", "margaret"];
+
+  return Object.fromEntries(
+    players.map((player, index) => [
+      `turn_order_${index}`,
+      {
+        id: `turn_order_${index}`,
+        name: `turn_order[${index}]`,
+        type: "enum",
+        label: `Seat ${index + 1}`,
+        position: index,
+        unique: true,
+        value: player,
+        required: true,
+        values: players,
+        errors: [],
+      },
+    ]),
+  );
+}
+
+function selectByLabel(label: string) {
+  const select = [...document.getElementsByTagName("select")].find((candidate) =>
+    [...candidate.labels].some((element) => element.textContent?.trim().startsWith(label)),
+  );
+
+  if (!select) {
+    throw new Error(`Expected select labelled ${label}.`);
+  }
+
+  return select;
 }

@@ -31,6 +31,7 @@ Turn an arbitrary game specification into one server-authoritative D20 game with
 Translate prose, tables, diagrams, and rulesheets into explicit decisions before writing modules. Capture:
 
 - session creation inputs and variants
+- start-time inputs required between session creation and the outer `start` transition
 - participants, identities, roles, and membership behavior
 - the participant set used by each progress or completion predicate, including the effect of join, leave, and reconnect
 - initial committed state
@@ -127,6 +128,14 @@ After `init/1`, every authoritative game-state change must result from an accept
 
 Remember that the game state machine is nested inside the generic session state machine. `D20.Sessions.Session` owns session membership, owner-only start, and outer completion. The game owns readiness, inner phases, legal transitions, and `finished?/1`.
 
+Preserve one shell-owned launch lifecycle for every game:
+
+```text
+create session -> waiting_for_players -> generic SessionPanel start -> in_progress -> iframe
+```
+
+Do not add registry capabilities, slug checks, or early iframe mounting to bypass game-specific start inputs. When `start` needs game-specific attributes, Projection must expose caller-specific declarative `attrs` that the shared `SessionPanel` can render and submit through the same `start` event. When `start` needs no game-specific attributes, omit `attrs` from the runtime projection entirely. The descriptor supplies fields and allowed values only. `Command` and `Rules` still normalize and validate the submitted payload, and Projection never constructs or dispatches the command.
+
 ### 7. Choose the event path and server
 
 Classify every state-changing stimulus:
@@ -170,6 +179,8 @@ Keep synchronous consequences of an accepted command inside the same `Game` tran
 Derive permission booleans from the same Rules predicates, but never treat them as authorization. Every dispatched command must still validate actor and legality authoritatively.
 
 Build an explicit caller-specific projection from the visibility matrix. Render it only from caller context and the current Session. Make it a complete, ready-to-consume read model for each supported client workflow: include permitted committed facts, caller identity, lifecycle and game statuses, permissions, legal choices, constraints, progress, outcomes, and other rule-derived guidance the client needs. Do not omit domain information merely because the client could recompute it from lower-level facts or event history. Keep client calculations limited to presentation concerns and ephemeral interaction state. Handle spectators and all lifecycle states without returning a raw aggregate, exposing private facts, or adding speculative fields that no supported workflow uses. Add negative tests that prove hidden fields do not leak to other caller roles.
+
+If owner start requires a payload, include a declarative `attrs` form in the waiting projection. Return an empty form for callers or lifecycle states that cannot use it. If start has an empty payload, omit the field instead of projecting an empty placeholder. Keep field ordering, labels, current values, bounded choices, and input names explicit enough for the shared shell to submit the intended nested payload without game-specific branches.
 
 For every projected field, verify that its value is reproducible from the current committed game state, immutable rules, and explicit caller and session context. If it is not, add the missing authoritative game fact to the aggregate instead of adding hidden state to Projection or relying on client history.
 
