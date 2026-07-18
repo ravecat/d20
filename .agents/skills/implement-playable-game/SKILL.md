@@ -43,6 +43,7 @@ Translate prose, tables, diagrams, and rulesheets into explicit decisions before
 - caller visibility and derived guidance
 - the minimal authoritative game facts needed to derive every caller projection from the current state, immutable rules, and caller and session context
 - the complete permitted facts and rule-derived guidance each supported client workflow needs without reimplementing domain logic or reconstructing state from event history
+- when a game client is in scope, every visible interaction, projection, informational, disabled, error, and focus state, including its semantic color role and non-color cue
 - randomness ownership, sampling point, persistence, retry behavior, testability, deadlines, timers, and automatic actions
 
 Produce four compact working artifacts in the plan or task notes:
@@ -186,19 +187,35 @@ For every projected field, verify that its value is reproducible from the curren
 
 Keep Projection a pure derivation of caller context and the current committed state held in Session. The same inputs must produce the same public read model. Projection may call pure Rules queries for permissions and legal choices, but it must not validate interaction payloads, dispatch commands, schedule work, call mutation APIs, retain authoritative state, or synthesize `%D20.Command{}` values. Rendering never advances the state machine.
 
-### 9. Complete runtime and contract integration
+### 9. Implement an accessible game client when in scope
+
+Treat accessible presentation as a completion requirement whenever the task explicitly includes the shell UI or a separate iframe client.
+
+- Derive gameplay UI from the public Projection and keep only presentation calculations and ephemeral interaction state on the client.
+- Inventory semantic roles such as available, preview, temporary, committed, bonus, danger, disabled, informational, and focus before choosing colors. Expose them through shared presentation tokens instead of repeating literals.
+- Meet WCAG 2.2 AA contrast in the actual rendered context: at least 4.5:1 for normal text, 3:1 for large text, and 3:1 for visual information required to identify controls, states, and meaningful graphics against adjacent colors. Test every state over the least-contrasting expected board or artwork region, and leave extra margin for thin SVG strokes and anti-aliasing.
+- Never use color as the only state cue. Combine it with shape, line style, pattern, icon, text, or another visible distinction so users with color-vision deficiencies, low vision, aging vision, or monochrome displays can understand the state.
+- Keep preview and temporary-selection geometry stable when they represent the same position and action. Change size or shape only when that difference conveys an intentional state transition.
+- Keep keyboard focus visible and distinct from persistent game state. Preserve system-color behavior in forced-colors mode.
+- Do not add a universal halo, keyline, or duplicated geometry solely to satisfy contrast. First verify that it cannot be mistaken for an empty space, legal target, or other game state and does not obscure the board. Prefer one authoritative semantic outline and use a local boundary only where it remains unambiguous.
+- Preserve accessible names, roles, pressed or selected states, keyboard operation, hit geometry, and pointer behavior. Keep decorative SVG overlays out of the accessibility tree while exposing the same meaningful state through operable controls or text.
+- Validate with computed contrast checks and browser interaction tests, then inspect the real artwork at actual desktop and narrow rendering scales. Include forced-colors and representative color-vision or monochrome evaluation when the client supports authored game colors.
+
+### 10. Complete runtime and contract integration
 
 Wire the playable engine into the registry, explicit web projection routing, public AsyncAPI document, developer contract index, and focused integration tests.
 
 Do not edit a separate client repository unless the task explicitly includes it. Report required client coordination when a public contract changes.
 
-### 10. Validate by boundary and end-to-end flow
+### 11. Validate by boundary and end-to-end flow
 
 Test static definitions, payload normalization, predicates, transitions, rejected-state preservation, completion, permissions, complete caller projections, session lifecycle, replies, broadcasts, registry wiring, and contract serving. Verify that supported client workflows receive their permitted rule-derived information without reimplementing authoritative calculations.
 
 For custom servers, test automatic-event identity, scheduling, duplicate prevention, failure behavior, and coexistence with idle expiry.
 
 Format touched files and broaden checks according to risk. Do not claim semantic AsyncAPI validation from `just check`; the repository currently has no native semantic validator for it.
+
+For an in-scope client, run its native format, lint, type, browser-test, and production-build commands. Verify accessibility and game-state presentation against the real assets, not only isolated token values.
 
 ## Completion Output
 

@@ -153,6 +153,22 @@
 - [ ] Cover non-default creation inputs through session and relevant web tests.
 - [ ] Coordinate a separate client only when explicitly in scope.
 
+## Client Presentation and Accessibility
+
+Complete this section whenever the shell UI or a separate iframe client is in scope.
+
+- [ ] Inventory every interaction, projection, informational, disabled, error, and focus state before choosing colors.
+- [ ] Map semantic state roles to shared presentation tokens instead of repeating color literals.
+- [ ] Verify WCAG 2.2 AA contrast against actual adjacent colors: 4.5:1 for normal text, 3:1 for large text, and 3:1 for required controls, states, and meaningful graphics.
+- [ ] Test every state over the least-contrasting expected area of the real board or artwork and avoid relying on nominal ratios for thin anti-aliased strokes.
+- [ ] Pair color with shape, line style, pattern, icon, text, or another visible cue.
+- [ ] Keep preview and temporary-selection geometry stable when both represent the same position and action.
+- [ ] Keep keyboard focus visible, distinct from persistent game state, and compatible with forced-colors mode.
+- [ ] Confirm halos, keylines, and local boundaries cannot be mistaken for game spaces, targets, or states and do not obscure the board.
+- [ ] Preserve accessible names, roles, selected or pressed states, keyboard behavior, hit geometry, and pointer behavior.
+- [ ] Keep decorative overlays out of the accessibility tree and expose meaningful game state through operable controls or text.
+- [ ] Run browser interaction and computed-style checks, then inspect real assets at desktop and narrow scales with forced-colors and representative color-vision or monochrome evaluation.
+
 ## Test Matrix
 
 | Layer | Minimum behavior |
@@ -168,6 +184,7 @@
 | Channel | Replies, accepted broadcasts, rejected non-broadcasts, caller-specific rendering |
 | Custom server | Selected module, scheduling, exactly-once action, actor rejection, nondeterministic-value idempotency, error behavior, idle coexistence |
 | Registry and contract | Engine discovery, contract serving, developer index |
+| In-scope client | Projection consumption, semantic states, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
 
 ## Validation Commands
 
@@ -206,4 +223,5 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 - [ ] Game completion propagates to the outer session.
 - [ ] Every game follows the same shell-owned session launch lifecycle without registry or slug-specific bypasses.
 - [ ] Code, tests, AsyncAPI, and any in-scope client agree.
+- [ ] Every in-scope client meets the contrast, non-color-cue, focus, accessible-interaction, and real-asset validation requirements.
 - [ ] Validation commands and remaining rule gaps are reported.
