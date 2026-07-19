@@ -199,7 +199,7 @@ defmodule D20.KoalaRescueClub.Rules do
              %{target_cells: selection.cells},
              selection.value
            ),
-         {:ok, sheet} <- apply_bonus_actions(rulesheet, sheet, attrs.bonus_actions) do
+         {:ok, sheet} <- apply_bonus_actions(rulesheet, player.sheet, sheet, attrs.bonus_actions) do
       {:ok, %{player | sheet: sheet, status: :submitted, selection: nil}}
     else
       {:ok, %{complete: false}} -> {:error, :incomplete_turn_selection}
@@ -212,7 +212,7 @@ defmodule D20.KoalaRescueClub.Rules do
     with {:ok, player, rulesheet} <- pending_player(game, actor_id),
          {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, attrs),
          {:ok, sheet} <- apply_turn_action(rulesheet, sheet, event, attrs, attrs.die_value),
-         {:ok, sheet} <- apply_bonus_actions(rulesheet, sheet, attrs.bonus_actions) do
+         {:ok, sheet} <- apply_bonus_actions(rulesheet, player.sheet, sheet, attrs.bonus_actions) do
       {:ok, %{player | sheet: sheet, status: :submitted, selection: nil}}
     end
   end
@@ -398,7 +398,7 @@ defmodule D20.KoalaRescueClub.Rules do
     case apply_turn_action(rulesheet, sheet, action, %{target_cells: cells}, value) do
       {:ok, simulated_sheet} ->
         rulesheet
-        |> unlocked_bonuses(simulated_sheet)
+        |> newly_unlocked_bonuses(sheet, simulated_sheet)
         |> Enum.sort_by(&{&1.ref.area, &1.ref.axis, &1.ref.index})
 
       {:error, _reason} ->
@@ -655,24 +655,30 @@ defmodule D20.KoalaRescueClub.Rules do
     if Ruleset.cell_exists?(rulesheet, cell), do: :ok, else: {:error, :invalid_target}
   end
 
-  defp apply_bonus_actions(map, sheet, bonus_actions) do
+  defp apply_bonus_actions(map, original_sheet, sheet, bonus_actions) do
+    legacy_bonus_refs = unlocked_bonus_refs(map, original_sheet)
+
     Enum.reduce_while(bonus_actions, {:ok, sheet}, fn bonus_action, {:ok, sheet} ->
-      case apply_bonus_action(map, sheet, bonus_action) do
+      case apply_bonus_action(map, sheet, legacy_bonus_refs, bonus_action) do
         {:ok, sheet} -> {:cont, {:ok, sheet}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
     |> case do
-      {:ok, sheet} -> {:ok, sheet}
+      {:ok, sheet} -> {:ok, resolve_unclaimed_bonuses(map, sheet)}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp apply_bonus_action(map, sheet, %{bonus: bonus_ref, action: action}) do
+  defp apply_bonus_action(map, sheet, legacy_bonus_refs, %{bonus: bonus_ref, action: action}) do
     with {:ok, bonus_entry} <- fetch_unlocked_bonus(map, sheet, bonus_ref),
+         false <- MapSet.member?(legacy_bonus_refs, bonus_ref(bonus_entry.ref)),
          :ok <- require_bonus_action_match(bonus_entry.bonus, action),
          {:ok, sheet} <- apply_bonus_effect(map, sheet, bonus_entry, action) do
       {:ok, put_bonus_resolution(sheet, bonus_ref, :resolved)}
+    else
+      true -> {:error, :invalid_bonus}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -796,6 +802,26 @@ defmodule D20.KoalaRescueClub.Rules do
       not bonus_resolved?(player_sheet, bonus_entry.ref) and cells != [] and
         Enum.all?(cells, &MapSet.member?(koalas, &1))
     end)
+  end
+
+  defp newly_unlocked_bonuses(map, original_sheet, sheet) do
+    previous_refs = unlocked_bonus_refs(map, original_sheet)
+
+    map
+    |> unlocked_bonuses(sheet)
+    |> Enum.reject(&MapSet.member?(previous_refs, bonus_ref(&1.ref)))
+  end
+
+  defp unlocked_bonus_refs(map, sheet) do
+    map
+    |> unlocked_bonuses(sheet)
+    |> MapSet.new(&bonus_ref(&1.ref))
+  end
+
+  defp resolve_unclaimed_bonuses(map, sheet) do
+    map
+    |> unlocked_bonuses(sheet)
+    |> Enum.reduce(sheet, &put_bonus_resolution(&2, &1.ref, :resolved))
   end
 
   defp bonus_resolved?(sheet, bonus_ref) do

@@ -3,6 +3,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
   alias D20.Command
   alias D20.KoalaRescueClub.Game
+  alias D20.KoalaRescueClub.Rules
   alias D20.KoalaRescueClub.Ruleset
   alias D20.KoalaRescueClub.Server
 
@@ -454,17 +455,35 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert [%{area: :a, row: 0, column: 0}] = game.players["p1"].sheet.koalas
     end
 
-    test "stores resolved bonus coordinates" do
+    test "forfeits an omitted current-turn bonus and prevents later reuse" do
       row_0 = row_cells("a", 0, 0..3)
+      existing_koalas = Enum.take(row_0, 3)
 
       game =
         "dharug"
         |> started_game()
         |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)], row_0)
-        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)], row_0)
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)],
+          existing_koalas
+        )
         |> force_submit_turn(1, 1, 1)
 
       assert {:ok, game} =
+               dispatch(game, "circle_koala", "p1", %{
+                 "die_value" => 1,
+                 "volunteers_used" => 0,
+                 "target_cell" => cell("a", 0, 3),
+                 "bonus_actions" => []
+               })
+
+      assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
+      assert game.players["p1"].sheet.skybridges == []
+      assert game.players["p1"].sheet.areas == %{a: true}
+
+      game = force_submit_turn(game, 2, 1, 1)
+
+      assert {:error, :bonus_already_resolved} =
                dispatch(game, "circle_tree", "p1", %{
                  "die_value" => 1,
                  "volunteers_used" => 0,
@@ -477,26 +496,11 @@ defmodule D20.KoalaRescueClub.GameTest do
                  ]
                })
 
-      assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
-      assert %{from: :a, to: :b} in game.players["p1"].sheet.skybridges
-      assert game.players["p1"].sheet.areas == %{a: true, b: true}
-
-      game =
-        "dharug"
-        |> started_game()
-        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)], row_0)
-        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)], row_0)
-        |> force_submit_turn(1, 1, 1)
-
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
-
-      refute Enum.any?(
-               game.players["p1"].sheet.bonuses,
-               &match?(%{area: :a, axis: :row, index: 0}, &1)
-             )
+      refute %{area: :a, row: 1, column: 0} in game.players["p1"].sheet.trees
+      assert game.players["p1"].sheet.skybridges == []
     end
 
-    test "marks an explicitly skipped optional bonus as resolved" do
+    test "rejects an earlier-turn bonus and cleans it up on a valid submission" do
       row_0 = row_cells("a", 0, 0..3)
 
       game =
@@ -506,11 +510,47 @@ defmodule D20.KoalaRescueClub.GameTest do
         |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)], row_0)
         |> force_submit_turn(1, 1, 1)
 
+      earlier_bonus = %{
+        "die_value" => 1,
+        "volunteers_used" => 0,
+        "target_cell" => cell("a", 1, 0),
+        "bonus_actions" => [
+          %{
+            "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
+            "action" => %{"kind" => "skybridge", "to" => "b"}
+          }
+        ]
+      }
+
+      assert {:error, :invalid_bonus} = dispatch(game, "circle_tree", "p1", earlier_bonus)
+      refute %{area: :a, row: 1, column: 0} in game.players["p1"].sheet.trees
+      assert game.players["p1"].sheet.bonuses == []
+
+      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
+
+      assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
+      assert game.players["p1"].sheet.skybridges == []
+    end
+
+    test "marks an explicitly skipped optional bonus as resolved" do
+      row_0 = row_cells("a", 0, 0..3)
+      existing_koalas = Enum.take(row_0, 3)
+
+      game =
+        "dharug"
+        |> started_game()
+        |> put_in([Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)], row_0)
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)],
+          existing_koalas
+        )
+        |> force_submit_turn(1, 1, 1)
+
       assert {:ok, game} =
-               dispatch(game, "circle_tree", "p1", %{
+               dispatch(game, "circle_koala", "p1", %{
                  "die_value" => 1,
                  "volunteers_used" => 0,
-                 "target_cell" => cell("a", 1, 0),
+                 "target_cell" => cell("a", 0, 3),
                  "bonus_actions" => [
                    %{
                      "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
@@ -521,6 +561,29 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
       assert game.players["p1"].sheet.skybridges == []
+    end
+
+    test "projects only bonuses opened by the current complete selection" do
+      row_0 = row_cells("a", 0, 0..3)
+      row_1 = row_cells("a", 1, 0..3)
+
+      game =
+        "dharug"
+        |> started_game()
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:trees)],
+          row_0 ++ row_1
+        )
+        |> put_in(
+          [Access.key!(:players), "p1", Access.key!(:sheet), Access.key!(:koalas)],
+          row_0 ++ Enum.take(row_1, 2)
+        )
+        |> force_submit_turn(1, 1, 1)
+        |> select_shape("p1", "rehome_koalas", 1, 0, Enum.drop(row_1, 2))
+
+      assert %{complete: true, bonus_options: bonus_options} = Rules.selection_details(game, "p1")
+
+      assert Enum.map(bonus_options, & &1.ref) == [%{area: :a, axis: :row, index: 1}]
     end
 
     test "awards badges from selected sheet predicates" do

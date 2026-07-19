@@ -31,12 +31,17 @@
 - [x] 4.3 Route Koala Rescue Club sessions through `D20Web.Projection` while preserving existing Qwinto projection behavior.
 - [x] 4.4 Add session tests for creating, joining, starting, rolling, submitting, receiving projections, permission changes, and finishing a Koala Rescue Club session.
 
-## 5. Validation
+## 5. Bonus Scope And Forfeiture
 
-- [x] 5.1 Run `mix test test/d20/koala_rescue_club`.
-- [x] 5.2 Run targeted affected tests for sessions and projection, including `mix test test/d20/sessions_test.exs test/d20/sessions/session_test.exs test/d20_web/projection_test.exs`.
-- [ ] 5.3 Run `mix format.check`.
-  - Blocked: `mix format.check` fails on pre-existing formatting in `test/d20/qwinto/game_test.exs`, which is outside this change.
-- [x] 5.4 Run `mix typecheck` if projection or frontend-facing payload types are changed.
-- [ ] 5.5 Run `just check` before completion unless blocked by unrelated pre-existing failures, and record any blocker with the failing command output.
-  - Blocked: `just check` stops at `mix format.check` on the same pre-existing `test/d20/qwinto/game_test.exs` formatting issue.
+- [x] 5.1 Scope bonus actions to bonuses newly unlocked by the submitted primary action or same-turn chains.
+- [x] 5.2 Resolve omitted current-turn and legacy unresolved bonuses without applying their effects, while retaining explicit skip support.
+- [x] 5.3 Limit selection bonus options to the current turn and document omission semantics in AsyncAPI.
+- [x] 5.4 Add tests for omission forfeiture, explicit skip, earlier-turn rejection, legacy cleanup, and later reuse prevention.
+
+## 6. Validation
+
+- [x] 6.1 Run `mix test test/d20/koala_rescue_club`.
+- [x] 6.2 Run targeted affected tests for sessions and projection, including `mix test test/d20/sessions_test.exs test/d20/sessions/session_test.exs test/d20_web/projection_test.exs`.
+- [x] 6.3 Run `mix format.check`.
+- [x] 6.4 Run `mix typecheck` if projection or frontend-facing payload types are changed.
+- [x] 6.5 Run `just check` before completion unless blocked by unrelated pre-existing failures, and record any blocker with the failing command output.

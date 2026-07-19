@@ -72,8 +72,8 @@ The system SHALL validate each player's submitted turn resolution against the sh
 - **WHEN** a player submits a turn that mixes tree and koala targets in one primary action
 - **THEN** the system rejects the command with a mixed-action result
 
-### Requirement: Bonus actions resolve immediately from completed koala lines
-The system SHALL unlock row and column bonuses only when a submitted action completes every koala in the associated row or column.
+### Requirement: Bonus actions resolve within the turn that completes koala lines
+The system SHALL unlock row and column bonuses only when an action completes every koala in the associated row or column, SHALL accept actions only for bonuses opened during the submitted turn, and SHALL resolve omitted bonuses without applying their effects.
 
 #### Scenario: Bonus is claimed in the same turn
 - **WHEN** a submitted turn completes a bonus-bearing row or column of koalas
@@ -88,9 +88,30 @@ The system SHALL unlock row and column bonuses only when a submitted action comp
 - **WHEN** a player attempts a bonus action that is not currently unlocked or has already been claimed
 - **THEN** the system rejects the bonus action with an invalid-bonus result
 
-#### Scenario: Optional bonus can be skipped
+#### Scenario: Optional bonus is omitted
 - **WHEN** a player unlocks a bonus but submits no bonus action for it
-- **THEN** the system leaves the bonus unclaimed only when the rules allow the player to skip the bonus
+- **THEN** the system accepts the otherwise valid turn
+- **AND** marks the omitted bonus resolved without applying its effect
+- **AND** the bonus cannot be claimed on a later turn
+
+#### Scenario: Optional bonus is explicitly skipped
+- **WHEN** a player submits an explicit skip for a bonus opened during the current turn
+- **THEN** the system resolves the skip in submitted order
+- **AND** marks the bonus resolved without applying its effect
+
+#### Scenario: Earlier-turn bonus is submitted
+- **WHEN** a bonus action refers to a line that was already unlocked before the current primary action
+- **THEN** the system rejects the bonus action as outside the current turn
+- **AND** does not mutate the committed sheet
+
+#### Scenario: Legacy unresolved bonus is cleaned up
+- **WHEN** a sheet already contains an unresolved bonus from an earlier turn
+- **AND** the player submits a later valid turn without referencing it
+- **THEN** the system marks the legacy bonus resolved without applying its effect
+
+#### Scenario: Selection bonus options use current-turn scope
+- **WHEN** an incremental primary selection becomes complete
+- **THEN** the projection exposes only bonuses newly unlocked by the simulated primary action
 
 ### Requirement: Round scoring follows map-specific area and hospital rules
 The system SHALL score Koala Rescue Club after turn 15 and turn 30 using the selected map's scoring rules.

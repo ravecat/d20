@@ -68,6 +68,14 @@ The supplied map PDFs describe the rules in prose and images. They do not curren
 
    Alternative considered: return raw aggregate state. That leaks implementation details and does not provide caller-specific permissions or legal-action hints.
 
+7. Resolve bonuses within the turn that opened them.
+
+   The rules resolver should compare the sheet before the primary action with the evolving draft. A submitted bonus action is eligible only when its reference was newly unlocked by the primary action or a preceding bonus effect in the same ordered sequence. After valid submitted actions are applied, every remaining newly unlocked reference is marked resolved without applying its effect.
+
+   An unresolved bonus already present before the primary action is legacy invalid state. It is not eligible for a later action and is marked resolved on the next successful turn submission. Incremental selection projections should expose only newly unlocked references.
+
+   Alternative considered: require an explicit skip action for every unused bonus. That duplicates an optional decision in clients and lets an unavailable bonus deadlock confirmation. Treating omission as forfeiture preserves the no-save rule while keeping the payload shape unchanged.
+
 ## Risks / Trade-offs
 
 - Map data transcription errors -> Add focused tests that assert counts, connectivity, scoring fixtures, and representative legal and illegal placements for each map.
@@ -75,6 +83,7 @@ The supplied map PDFs describe the rules in prose and images. They do not curren
 - Shape geometry mismatch -> Define one coordinate system for cells and shape offsets, then test every die value under rotations and flips against known legal and illegal placements.
 - Large first implementation -> Sequence work so map data validation lands before reducer placement logic.
 - Runtime behavior changes from `:not_implemented` to rule errors -> Add session tests around creating and starting Koala sessions to document expected new behavior.
+- Legacy sheets may contain unresolved bonuses from earlier turns -> Reject attempts to use them and resolve them without effect on the next successful turn.
 
 ## Migration Plan
 
