@@ -77,7 +77,8 @@ just serve
 
 Open [http://localhost:5000](http://localhost:5000).
 
-In development, Phoenix starts the Vite watcher. The asset dev server uses `VITE_PORT` or defaults to `5174`.
+In development, Phoenix starts the Vite watcher. The asset dev server uses `STATIC_PORT` or defaults to `5174`.
+D20 automatically uses the first private IPv4 address for development asset URLs, so the application can also be opened from another device on the same network. Set `STATIC_URL_HOST` to override the detected address.
 
 ## Local Module Development
 
@@ -121,7 +122,8 @@ just down
 | `DATABASE_URL`      | Yes                  | Production PostgreSQL connection URL.                                  |
 | `SECRET_KEY_BASE`   | Yes                  | Phoenix secret key base. Generate with `mix phx.gen.secret`.           |
 | `PORT`              | No                   | Phoenix HTTP port. Defaults to `5000`.                                 |
-| `VITE_PORT`         | No                   | Vite development server port. Defaults to `5174`.                      |
+| `STATIC_PORT`       | No                   | Development asset server port. Defaults to `5174`.                     |
+| `STATIC_URL_HOST`   | No                   | Development asset host. Defaults to an automatically detected LAN IP. |
 | `BGG_API_KEY`       | Yes                  | API key for the board-game metadata source.                            |
 | `PHX_HOST`          | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.   |
 | `PHX_SERVER`        | No                   | Enables the endpoint server when running a release.                    |

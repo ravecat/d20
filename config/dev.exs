@@ -2,6 +2,27 @@ import Config
 
 database_url = System.get_env("DATABASE_URL")
 
+static_url_host =
+  System.get_env("STATIC_URL_HOST") ||
+    case :inet.getifaddrs() do
+      {:ok, interfaces} ->
+        interfaces
+        |> Enum.flat_map(fn {_interface, options} -> Keyword.get_values(options, :addr) end)
+        |> Enum.find(fn
+          {10, _, _, _} -> true
+          {172, second, _, _} when second in 16..31 -> true
+          {192, 168, _, _} -> true
+          _ -> false
+        end)
+        |> case do
+          nil -> "localhost"
+          address -> address |> :inet.ntoa() |> List.to_string()
+        end
+
+      {:error, _reason} ->
+        "localhost"
+    end
+
 repo_config = [
   username: "postgres",
   password: "postgres",
@@ -37,9 +58,9 @@ config :d20, D20Web.Endpoint,
   watchers: [vite: {Bun, :install_and_run, [:vite, ~w(dev)]}],
   static_url: [
     scheme: System.get_env("PHX_URL_SCHEME") || "http",
-    host: System.get_env("VITE_URL_HOST") || "localhost",
+    host: static_url_host,
     port:
-      String.to_integer(System.get_env("PHX_URL_PORT") || System.get_env("VITE_PORT") || "5174")
+      String.to_integer(System.get_env("PHX_URL_PORT") || System.get_env("STATIC_PORT") || "5174")
   ]
 
 # ## SSL Support

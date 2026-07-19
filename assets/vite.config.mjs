@@ -6,23 +6,17 @@ import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
 
 const assetsDir = fileURLToPath(new URL(".", import.meta.url));
-const appPort = process.env.PORT || "5000";
-const vitePort = Number(process.env.VITE_PORT || "5174");
-const phoenixUrlPort = process.env.PHX_URL_PORT || appPort;
-const phoenixUrlScheme = process.env.PHX_URL_SCHEME || "http";
-const phoenixHost = process.env.PHX_HOST || "localhost";
-const defaultPhoenixOrigin = `${phoenixUrlScheme}://${phoenixHost}${
-  ["80", "443"].includes(phoenixUrlPort) ? "" : `:${phoenixUrlPort}`
-}`;
+const staticPort = Number(process.env.STATIC_PORT || "5174");
 const isVitest = process.env.VITEST === "true";
 
 export default defineConfig({
   root: assetsDir,
   server: {
-    host: "0.0.0.0",
-    port: vitePort,
+    host: true,
+    port: staticPort,
     strictPort: true,
-    cors: { origin: defaultPhoenixOrigin },
+    cors: true,
+    allowedHosts: true,
   },
   optimizeDeps: {
     // https://vitejs.dev/guide/dep-pre-bundling#monorepos-and-linked-dependencies
