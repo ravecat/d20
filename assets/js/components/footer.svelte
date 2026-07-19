@@ -26,7 +26,6 @@
 <style>
   .footer {
     width: 100%;
-    background: var(--color-base-100);
   }
 
   .footer__inner {

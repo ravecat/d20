@@ -32,7 +32,6 @@
     inset-block-start: 0;
     z-index: 20;
     width: 100%;
-    background: var(--color-base-100);
   }
 
   .header--overlay {
