@@ -7,12 +7,11 @@
   import PlayTimeLabel from "~components/play_time_label.svelte";
   import PlayerCountLabel from "~components/player_count_label.svelte";
   import SessionPanel from "~components/session_panel.svelte";
-  import type { AttrConfig, Attrs, GameMetadata, GameStatus, Session } from "~types/game";
+  import type { AttrConfig, Attrs, GameMetadata, Session } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   type Props = InertiaProps<{
     slug: string;
-    status: GameStatus | null;
     canLaunchGame: boolean;
     game: GameMetadata;
     attrs?: Attrs;
@@ -59,7 +58,7 @@
             loading="eager"
             decoding="async"
             fetchpriority="high"
-          >
+          />
         {:else}
           <div class="game-detail-preview__fallback" aria-hidden="true"></div>
         {/if}
@@ -111,10 +110,7 @@
               {/key}
             {:else if canLaunchGame}
               <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>
-                {#snippet children({
-                  errors,
-                  processing,
-                }: SessionFormSlotProps)}
+                {#snippet children({ errors, processing }: SessionFormSlotProps)}
                   <div class="game-detail-start">
                     {#if attrFields.length > 0}
                       <div class="game-detail-start__fields">
@@ -134,7 +130,7 @@
                                       {value}
                                       defaultChecked={fieldValue(attr) === value}
                                       required={attr.required ?? false}
-                                    >
+                                    />
                                     <span>{fieldLabel(value)}</span>
                                   </label>
                                 {/each}
@@ -145,7 +141,7 @@
                             </fieldset>
                           {:else if attr.type === "boolean"}
                             {@const optionId = attr.id || `${formId}-${name}`}
-                            <input type="hidden" name={fieldName} value="false">
+                            <input type="hidden" name={fieldName} value="false" />
                             <div class="game-detail-start__field">
                               <label class="game-detail-start__option" for={optionId}>
                                 <input
@@ -154,7 +150,7 @@
                                   name={fieldName}
                                   value="true"
                                   defaultChecked={fieldValue(attr) === "true"}
-                                >
+                                />
                                 <span>{fieldLabel(name)}</span>
                               </label>
                               {#if errors[name]}
@@ -169,7 +165,7 @@
                                 name={fieldName}
                                 value={fieldValue(attr)}
                                 required={attr.required ?? false}
-                              >
+                              />
                               {#if errors[name]}
                                 <p class="game-detail-activation__error">{errors[name]}</p>
                               {/if}

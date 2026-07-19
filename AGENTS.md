@@ -31,7 +31,7 @@
 | Frontend scripts and dependencies | [`assets/package.json`](assets/package.json) |
 | Frontend compiler and build configuration | [`assets/tsconfig.json`](assets/tsconfig.json), [`assets/vite.config.mjs`](assets/vite.config.mjs), [`assets/svelte.config.mjs`](assets/svelte.config.mjs) |
 | Elixir formatting and static checks | [`.formatter.exs`](.formatter.exs), [`.recode.exs`](.recode.exs) |
-| Frontend formatting and linting | [`biome.json`](biome.json) |
+| Frontend formatting and linting | [`assets/.oxfmtrc.json`](assets/.oxfmtrc.json), [`assets/eslint.config.mjs`](assets/eslint.config.mjs) |
 | OpenSpec workflow configuration | [`openspec/config.yaml`](openspec/config.yaml) |
 
 - Use the Nix or direnv environment when the required toolchain is unavailable.

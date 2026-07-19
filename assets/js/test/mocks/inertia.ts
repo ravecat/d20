@@ -68,7 +68,7 @@ const defaultPage = (): Page<PageProps> => ({
   version: null,
 });
 
-const page = defaultPage() as typeof import("@inertiajs/svelte")["page"];
+const page = defaultPage() as (typeof import("@inertiajs/svelte"))["page"];
 const preparedForms: InertiaFormMock[] = [];
 const createdForms: InertiaFormMock[] = [];
 const formSubmit = vi.fn((_submission: FormSubmission) => undefined);
@@ -144,7 +144,6 @@ function createForm<TForm extends object = InertiaFormFields>(
 ): InertiaFormMock<TForm> {
   const fieldKeys = new Set(Object.keys(fields));
   const defaults = { ...fields };
-  let form: InertiaFormMock<TForm>;
 
   const setState = (state: Partial<InertiaForm<TForm>>) => {
     Object.assign(form, normalizeFormState({ ...form, ...state }));
@@ -232,7 +231,7 @@ function createForm<TForm extends object = InertiaFormFields>(
   } as unknown as MethodMocks<InertiaFormProps<TForm>>;
   const { fields: _fields, state: stateOptions = {} } = options;
 
-  form = {
+  const form: InertiaFormMock<TForm> = {
     ...normalizeFormState({
       ...fields,
       isDirty: false,

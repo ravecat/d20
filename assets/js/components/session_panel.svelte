@@ -115,7 +115,7 @@
                     name={attr.name ?? name}
                     value={fieldValue(attr)}
                     required={attr.required ?? false}
-                  >
+                  />
                 {/if}
               </label>
             {/each}
@@ -126,8 +126,7 @@
       <button
         class="session-panel-start__action"
         type="submit"
-        disabled={$session.processing.start ||
-          !$session.value?.permissions?.can_start_game}
+        disabled={$session.processing.start || !$session.value?.permissions?.can_start_game}
         aria-busy={$session.processing.start}
       >
         {#if $session.processing.start}
@@ -156,7 +155,7 @@
                     alt=""
                     loading="lazy"
                     referrerpolicy="no-referrer"
-                  >
+                  />
                 {:else}
                   <span
                     class="session-panel-players__avatar session-panel-players__avatar--fallback"

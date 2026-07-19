@@ -20,10 +20,12 @@
     "header--overlay": overlay,
   }}
 >
-  <div class="header__inner"><a class="brand" href="/" use:inertia={{ href: "/" }}>
-    <span class="brand__mark" aria-hidden="true"></span>
-    <span class="brand__label">D20</span>
-  </a></div>
+  <div class="header__inner">
+    <a class="brand" href="/" use:inertia={{ href: "/" }}>
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span class="brand__label">D20</span>
+    </a>
+  </div>
 </header>
 
 <style>

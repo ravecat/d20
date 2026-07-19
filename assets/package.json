@@ -1,10 +1,10 @@
 {
   "private": true,
   "scripts": {
-    "check": "biome ci .",
-    "format": "biome check --write .",
-    "format.check": "biome ci .",
-    "lint": "biome lint .",
+    "check": "bun run format.check && bun run lint",
+    "format": "eslint . --fix && oxfmt .",
+    "format.check": "oxfmt --check .",
+    "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json"
   },
@@ -19,15 +19,20 @@
     "topbar": "^3.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.11",
+    "@eslint/js": "^10.0.1",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@tailwindcss/vite": "^4.1.0",
     "daisyui": "^5.0.0",
+    "eslint": "^10.4.1",
+    "eslint-plugin-svelte": "^3.19.0",
+    "globals": "^17.6.0",
     "jsdom": "28.1.0",
+    "oxfmt": "^0.54.0",
     "phoenix_vite": "file:../deps/phoenix_vite",
     "svelte-check": "^4.4.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.0",
     "vite": "^6.3.0",
     "vitest": "4.1.7"
   }

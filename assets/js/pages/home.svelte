@@ -27,57 +27,59 @@
         {#each games as entry (entry.slug)}
           {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
           {@const title = entry.game.name}
-          <li class="game-card-item"><a
-            class={{
+          <li class="game-card-item">
+            <a
+              class={{
                 "game-card": true,
                 "game-card--active": entry.status === "active",
                 "game-card--muted": entry.status !== "active",
                 "game-card--in-progress": entry.status === "in_progress",
               }}
-            href={`/games/${entry.slug}`}
-            aria-labelledby={title ? `game-title-${entry.slug}` : undefined}
-            aria-label={title ? undefined : "Open game"}
-            use:inertia={{ href: `/games/${entry.slug}` }}
-          >
-            <div class="game-preview">
-              {#if url}
-                <img
-                  class="game-preview-image"
-                  src={url}
-                  alt=""
-                  width="640"
-                  height="320"
-                  loading="lazy"
-                  decoding="async"
-                >
-              {:else}
-                <div class="game-preview-fallback" aria-hidden="true"></div>
-              {/if}
+              href={`/games/${entry.slug}`}
+              aria-labelledby={title ? `game-title-${entry.slug}` : undefined}
+              aria-label={title ? undefined : "Open game"}
+              use:inertia={{ href: `/games/${entry.slug}` }}
+            >
+              <div class="game-preview">
+                {#if url}
+                  <img
+                    class="game-preview-image"
+                    src={url}
+                    alt=""
+                    width="640"
+                    height="320"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                {:else}
+                  <div class="game-preview-fallback" aria-hidden="true"></div>
+                {/if}
 
-              <div class="game-preview-overlay" aria-hidden="true"></div>
-              {#if title}
-                <div class="game-title-scrim" aria-hidden="true"></div>
-              {/if}
-              {#if entry.game.categories.length > 0}
-                <div class="game-metadata-blocks">
-                  <ul
-                    class="game-metadata-block game-metadata-block--categories"
-                    aria-label="Categories"
-                  >
-                    {#each entry.game.categories as category (category)}
-                      <li class="game-metadata-chip game-metadata-chip--category">{category}</li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              {#if entry.status === "in_progress"}
-                <span class="game-status-badge">Soon</span>
-              {/if}
-              {#if title}
-                <h2 id={`game-title-${entry.slug}`} class="game-title">{title}</h2>
-              {/if}
-            </div>
-          </a></li>
+                <div class="game-preview-overlay" aria-hidden="true"></div>
+                {#if title}
+                  <div class="game-title-scrim" aria-hidden="true"></div>
+                {/if}
+                {#if entry.game.categories.length > 0}
+                  <div class="game-metadata-blocks">
+                    <ul
+                      class="game-metadata-block game-metadata-block--categories"
+                      aria-label="Categories"
+                    >
+                      {#each entry.game.categories as category (category)}
+                        <li class="game-metadata-chip game-metadata-chip--category">{category}</li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+                {#if entry.status === "in_progress"}
+                  <span class="game-status-badge">Soon</span>
+                {/if}
+                {#if title}
+                  <h2 id={`game-title-${entry.slug}`} class="game-title">{title}</h2>
+                {/if}
+              </div>
+            </a>
+          </li>
         {/each}
       </ul>
     {:else}
