@@ -133,18 +133,28 @@ just down
 
 ## Commands
 
-| Command          | Purpose                                                                                |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `just up`        | Start shared Docker Compose routing and run the development server.                    |
-| `just down`      | Stop the shared Docker Compose routing.                                                |
-| `just serve`     | Set up dependencies and start the development server.                                  |
-| `just setup`     | Fetch dependencies, set up the database, install asset dependencies, and build assets. |
-| `just test`      | Run ExUnit tests.                                                                      |
-| `just check`     | Run formatting checks, asset linting, type checks, and tests.                          |
-| `just typecheck` | Run TypeScript and Svelte checks.                                                      |
-| `just lint`      | Run frontend asset linting.                                                            |
-| `just format`    | Format Elixir and frontend assets.                                                     |
-| `just db-reset`  | Drop and recreate the development database.                                            |
+| Command                   | Purpose                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `just up`                 | Start shared Docker Compose routing and run the development server.                    |
+| `just down`               | Stop the shared Docker Compose routing.                                                |
+| `just serve`              | Set up dependencies and start the development server.                                  |
+| `just setup`              | Fetch dependencies, set up the database, install asset dependencies, and build assets. |
+| `just test`               | Run ExUnit tests.                                                                      |
+| `just check`              | Run agent skill, formatting, asset linting, type, and test checks.                     |
+| `just typecheck`          | Run TypeScript and Svelte checks.                                                      |
+| `just lint`               | Run frontend asset linting.                                                            |
+| `just format`             | Format Elixir and frontend assets.                                                     |
+| `just agent-skills-sync`  | Regenerate dependency-managed project skills.                                         |
+| `just agent-skills-check` | Fail when committed dependency-managed project skills are stale.                      |
+| `just db-reset`           | Drop and recreate the development database.                                            |
+
+## Agent Skills
+
+`AGENTS.md` and `.agents/skills/implement-playable-game/` are maintained manually. Skills containing `metadata.managed-by: usage-rules` are generated from the locked Mix dependencies configured in `mix.exs`.
+
+Run `just agent-skills-sync` after changing those dependencies or the UsageRules configuration, then review and commit the generated diff. `just check` includes the read-only `just agent-skills-check` drift check.
+
+UsageRules covers Mix dependencies only. Frontend guidance for Svelte, TypeScript, Inertia, Bun, and npm packages remains outside this synchronization path.
 
 ## Testing and Checks
 

@@ -33,6 +33,7 @@
 | Elixir formatting and static checks | [`.formatter.exs`](.formatter.exs), [`.recode.exs`](.recode.exs) |
 | Frontend formatting and linting | [`assets/.oxfmtrc.json`](assets/.oxfmtrc.json), [`assets/eslint.config.mjs`](assets/eslint.config.mjs) |
 | OpenSpec workflow configuration | [`openspec/config.yaml`](openspec/config.yaml) |
+| Dependency-managed agent skills | [`mix.exs`](mix.exs), [`.agents/skills/`](.agents/skills/) |
 
 - Use the Nix or direnv environment when the required toolchain is unavailable.
 - Treat versions in manifests and lockfiles as authoritative when prose documentation differs.
@@ -108,6 +109,9 @@
 
 ## Contracts and Generated Files
 
+- Skills containing `metadata.managed-by: usage-rules` are generated from locked Mix dependency rules configured in `mix.exs`; update the configuration or dependency and run `just agent-skills-sync` instead of editing managed sections.
+- Keep `.agents/skills/implement-playable-game/` manually owned and unchanged when synchronizing dependency-managed skills.
+- Review dependency-authored skill diffs after affected dependency updates; root repository guidance remains authoritative when generic package rules conflict with D20 architecture.
 - Update the matching file under [`priv/specs/`](priv/specs/) when channel events, payloads, projections, permissions, or error reasons change.
 - Update channel and projection tests together with public protocol changes.
 - Edit frontend sources under `assets/`, not generated Vite output under `priv/static/`.

@@ -10,6 +10,7 @@ defmodule D20.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      usage_rules: usage_rules(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]
@@ -62,8 +63,25 @@ defmodule D20.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:bodyguard, "~> 2.4.3"},
+      {:igniter, "~> 0.6", only: [:dev], runtime: false},
       {:recode, "~> 0.8", only: [:dev, :test], runtime: false},
+      {:usage_rules, "~> 1.2", only: [:dev], runtime: false},
       {:bun, "~> 1.5 and >= 1.5.1", runtime: Mix.env() == :dev}
+    ]
+  end
+
+  defp usage_rules do
+    [
+      skills: [
+        location: ".agents/skills",
+        build: [
+          "phoenix-framework": [
+            description:
+              "Use this skill working with Phoenix Framework. Consult this when working with the web layer, controllers, views, liveviews etc.",
+            usage_rules: [:phoenix, ~r/^phoenix_/]
+          ]
+        ]
+      ]
     ]
   end
 

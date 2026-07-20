@@ -37,7 +37,14 @@ format:
     mix format
     mix assets.format
 
+agent-skills-sync:
+    mix usage_rules.sync --yes
+
+agent-skills-check:
+    mix usage_rules.sync --check
+
 check:
+    just agent-skills-check
     mix format.check
     mix assets.format.check
     mix assets.lint
