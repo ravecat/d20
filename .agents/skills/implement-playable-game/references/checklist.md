@@ -157,6 +157,7 @@
 
 Complete this section whenever the shell UI or a separate iframe client is in scope.
 
+- [ ] Reuse the color schemes and presentation tokens supplied by the game assets for the client interface, overlays, and gameplay-related controls before introducing new tokens.
 - [ ] Inventory every interaction, projection, informational, disabled, error, and focus state before choosing colors.
 - [ ] Map semantic state roles to shared presentation tokens instead of repeating color literals.
 - [ ] Verify WCAG 2.2 AA contrast against actual adjacent colors: 4.5:1 for normal text, 3:1 for large text, and 3:1 for required controls, states, and meaningful graphics.

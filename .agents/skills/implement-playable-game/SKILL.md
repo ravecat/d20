@@ -192,6 +192,7 @@ Keep Projection a pure derivation of caller context and the current committed st
 Treat accessible presentation as a completion requirement whenever the task explicitly includes the shell UI or a separate iframe client.
 
 - Derive gameplay UI from the public Projection and keep only presentation calculations and ephemeral interaction state on the client.
+- Prefer the existing color schemes and presentation tokens supplied by the game assets when styling the client interface, overlays, and gameplay-related controls. Map semantic roles onto those tokens before introducing new ones, and add new tokens only when the asset palette cannot express a required state accessibly.
 - Inventory semantic roles such as available, preview, temporary, committed, bonus, danger, disabled, informational, and focus before choosing colors. Expose them through shared presentation tokens instead of repeating literals.
 - Meet WCAG 2.2 AA contrast in the actual rendered context: at least 4.5:1 for normal text, 3:1 for large text, and 3:1 for visual information required to identify controls, states, and meaningful graphics against adjacent colors. Test every state over the least-contrasting expected board or artwork region, and leave extra margin for thin SVG strokes and anti-aliasing.
 - Never use color as the only state cue. Combine it with shape, line style, pattern, icon, text, or another visible distinction so users with color-vision deficiencies, low vision, aging vision, or monochrome displays can understand the state.
