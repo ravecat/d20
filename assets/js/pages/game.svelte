@@ -6,8 +6,8 @@
   import ComplexityLabel from "~components/complexity_label.svelte";
   import PlayTimeLabel from "~components/play_time_label.svelte";
   import PlayerCountLabel from "~components/player_count_label.svelte";
-  import SessionPanel from "~components/session_panel.svelte";
-  import type { AttrConfig, Attrs, GameMetadata, Session } from "~types/game";
+  import Session from "~components/session.svelte";
+  import type { AttrConfig, Attrs, GameMetadata, Session as SessionProjection } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   type Props = InertiaProps<{
@@ -17,7 +17,7 @@
     attrs?: Attrs;
     module: ModuleEntry | null;
     connection: ModuleConnection | null;
-    session: Session | null;
+    session: SessionProjection | null;
   }>;
   type SessionFormFields = Record<string, string>;
   type SessionFormSlotProps = FormComponentSlotProps<SessionFormFields>;
@@ -106,7 +106,7 @@
           <div class="game-detail-activation__body">
             {#if session && module && connection}
               {#key session.id}
-                <SessionPanel {module} {connection} />
+                <Session moduleId={slug} {module} {connection} />
               {/key}
             {:else if canLaunchGame}
               <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>

@@ -32,7 +32,7 @@
 
 <iframe
   bind:this={iframe}
-  class="h-full w-full"
+  class="frame"
   title="Game module"
   src={module.embedUrl}
   loading="lazy"
@@ -40,11 +40,11 @@
 ></iframe>
 
 <style>
-  iframe {
-    inline-size: min(96vw, 72rem);
-    block-size: min(90dvh, 42rem);
+  .frame {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
     border: none;
     background: white;
-    box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.34);
   }
 </style>

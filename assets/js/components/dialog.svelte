@@ -1,19 +1,18 @@
 <script lang="ts">
-  import ModuleFrame from "~components/module_frame.svelte";
-  import type { ModuleConnection, ModuleEntry } from "~types/module";
+  import type { Snippet } from "svelte";
 
   interface Props {
-    module: ModuleEntry;
-    connection: ModuleConnection;
+    children: Snippet;
+    label: string;
   }
 
   type Mode = "compact" | "theater";
 
-  const { module, connection }: Props = $props();
+  const { children, label }: Props = $props();
 
   let mode = $state<Mode>("theater");
   let dialog = $state<HTMLDialogElement>();
-  let player = $state<HTMLDivElement>();
+  let fullscreenElement = $state<HTMLDivElement>();
   let fullscreen = $state(false);
 
   function show(nextMode: Mode) {
@@ -26,33 +25,18 @@
     if (!fullscreen) show("compact");
   }
 
-  function handleBackdropClick(event: MouseEvent) {
-    if (mode !== "theater" || !dialog || event.target !== dialog) {
-      return;
-    }
-
-    const bounds = dialog.getBoundingClientRect();
-    const clickedInside =
-      event.clientX >= bounds.left &&
-      event.clientX <= bounds.right &&
-      event.clientY >= bounds.top &&
-      event.clientY <= bounds.bottom;
-
-    if (!clickedInside) show("compact");
-  }
-
   function synchronizeFullscreen() {
-    fullscreen = document.fullscreenElement === player;
+    fullscreen = document.fullscreenElement === fullscreenElement;
   }
 
   async function toggleFullscreen() {
-    if (!player) return;
+    if (!fullscreenElement) return;
 
     try {
-      if (document.fullscreenElement === player) {
+      if (document.fullscreenElement === fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await player.requestFullscreen({ navigationUI: "hide" });
+        await fullscreenElement.requestFullscreen({ navigationUI: "hide" });
       }
     } catch {
       return;
@@ -60,20 +44,18 @@
   }
 
   $effect(() => {
-    const dialogElement = dialog;
+    if (!dialog) return;
 
-    if (!dialogElement) return;
-
-    if (dialogElement.open) dialogElement.close();
+    if (dialog.open) dialog.close();
 
     if (mode === "theater") {
-      dialogElement.showModal();
+      dialog.showModal();
     } else {
-      dialogElement.show();
+      dialog.show();
     }
 
     return () => {
-      if (dialogElement.open) dialogElement.close();
+      if (dialog?.open) dialog.close();
     };
   });
 </script>
@@ -82,21 +64,21 @@
 
 <dialog
   bind:this={dialog}
-  class="module-dialog"
-  class:module-dialog--compact={mode === "compact"}
-  class:module-dialog--theater={mode === "theater"}
-  aria-label="Game view"
+  class="dialog"
+  class:dialog--compact={mode === "compact"}
+  class:dialog--theater={mode === "theater"}
+  aria-label={label}
+  closedby={mode === "theater" ? "any" : undefined}
   oncancel={handleCancel}
-  onclick={handleBackdropClick}
 >
-  <div bind:this={player} class="module-dialog__player">
-    <ModuleFrame {module} {connection} />
+  <div bind:this={fullscreenElement} class="dialog__fullscreen">
+    {@render children()}
 
-    <div class="module-dialog__controls">
+    <div class="dialog__controls">
       {#if !fullscreen}
         {#if mode === "theater"}
           <button
-            class="module-dialog__control"
+            class="dialog__control"
             type="button"
             aria-label="Compact game view"
             onclick={() => show("compact")}
@@ -107,7 +89,7 @@
           </button>
         {:else}
           <button
-            class="module-dialog__control"
+            class="dialog__control"
             type="button"
             aria-label="Theater game view"
             onclick={() => show("theater")}
@@ -120,7 +102,7 @@
       {/if}
 
       <button
-        class="module-dialog__control"
+        class="dialog__control"
         type="button"
         aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         onclick={toggleFullscreen}
@@ -140,7 +122,7 @@
 </dialog>
 
 <style>
-  .module-dialog {
+  .dialog {
     position: fixed;
     z-index: 1000;
     box-sizing: border-box;
@@ -154,18 +136,18 @@
     color: inherit;
   }
 
-  .module-dialog::backdrop {
+  .dialog::backdrop {
     background: rgb(0 0 0 / 0.42);
   }
 
-  .module-dialog--theater {
+  .dialog--theater {
     inset: 0;
     inline-size: min(96dvw, 72rem);
     block-size: min(90dvh, 42rem);
     margin: auto;
   }
 
-  .module-dialog--compact {
+  .dialog--compact {
     inset-block-start: auto;
     inset-inline-start: auto;
     inset-inline-end: max(0.75rem, env(safe-area-inset-right));
@@ -174,7 +156,7 @@
     block-size: min(14rem, calc(100dvh - 1.5rem));
   }
 
-  .module-dialog__player {
+  .dialog__fullscreen {
     position: relative;
     inline-size: 100%;
     block-size: 100%;
@@ -184,11 +166,11 @@
     box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.34);
   }
 
-  .module-dialog__player:fullscreen {
+  .dialog__fullscreen:fullscreen {
     border-radius: 0;
   }
 
-  .module-dialog__controls {
+  .dialog__controls {
     position: absolute;
     inset-block-start: 0.5rem;
     inset-inline-end: 0.5rem;
@@ -197,7 +179,7 @@
     gap: 0.375rem;
   }
 
-  .module-dialog__control {
+  .dialog__control {
     display: grid;
     inline-size: 2.5rem;
     block-size: 2.5rem;
@@ -210,21 +192,21 @@
     cursor: pointer;
   }
 
-  .module-dialog__control:hover:not(:disabled) {
+  .dialog__control:hover:not(:disabled) {
     background: rgb(0 0 0 / 0.88);
   }
 
-  .module-dialog__control:focus-visible {
+  .dialog__control:focus-visible {
     outline: 2px solid white;
     outline-offset: 2px;
   }
 
-  .module-dialog__control:disabled {
+  .dialog__control:disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
 
-  .module-dialog__control svg {
+  .dialog__control svg {
     inline-size: 100%;
     block-size: 100%;
     fill: none;
@@ -235,12 +217,12 @@
   }
 
   @media (max-width: 34rem) {
-    .module-dialog--theater {
+    .dialog--theater {
       inline-size: calc(100dvw - 1rem);
       block-size: calc(100dvh - 1rem);
     }
 
-    .module-dialog--compact {
+    .dialog--compact {
       inset-inline-end: max(0.5rem, env(safe-area-inset-right));
       inset-block-end: max(0.5rem, env(safe-area-inset-bottom));
       inline-size: calc(100dvw - 1rem);

@@ -1,17 +1,19 @@
 <script lang="ts">
   import { formDataToObject } from "@inertiajs/core";
   import { untrack } from "svelte";
-  import Frame from "~components/module_frame.svelte";
+  import Dialog from "~components/dialog.svelte";
+  import Frame from "~components/frame.svelte";
   import { createSession } from "~stores/session";
   import type { AttrConfig } from "~types/game";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   interface Props {
+    moduleId: string;
     module: ModuleEntry;
     connection: ModuleConnection;
   }
 
-  const { module, connection }: Props = $props();
+  const { moduleId, module, connection }: Props = $props();
   const session = createSession(untrack(() => connection.topic));
 
   const members = $derived(
@@ -175,9 +177,9 @@
 {/if}
 
 {#if phase === "in_progress" || phase === "finished"}
-  <section class="session-panel-frame">
+  <Dialog label={moduleId}>
     <Frame {module} {connection} />
-  </section>
+  </Dialog>
 {/if}
 
 <style>
@@ -354,17 +356,6 @@
     overflow-wrap: break-word;
     text-align: center;
     text-wrap: balance;
-  }
-
-  .session-panel-frame {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: grid;
-    place-items: center;
-    overflow: hidden;
-    background: rgb(0 0 0 / 0.42);
-    box-sizing: border-box;
   }
 
   @keyframes session-panel-spin {
