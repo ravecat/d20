@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
+import compat from "eslint-plugin-compat";
 import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import ts from "typescript-eslint";
@@ -23,12 +24,16 @@ export default defineConfig(
   js.configs.recommended,
   ts.configs.recommended,
   svelte.configs.recommended,
+  compat.configs["flat/recommended"],
   {
     languageOptions: {
       globals: {
         ...globals.browser,
         ...globals.node,
       },
+    },
+    settings: {
+      lintAllEsApis: true,
     },
     rules: {
       "@typescript-eslint/no-this-alias": ["error", { allowedNames: ["fullscreenElement"] }],

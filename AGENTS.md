@@ -28,7 +28,7 @@
 | Runtime configuration | [`config/config.exs`](config/config.exs), [`config/runtime.exs`](config/runtime.exs) |
 | Development and test configuration | [`config/dev.exs`](config/dev.exs), [`config/test.exs`](config/test.exs) |
 | Environment variable template | [`envs/.env.example`](envs/.env.example) |
-| Frontend scripts and dependencies | [`assets/package.json`](assets/package.json) |
+| Frontend scripts, dependencies, and browser support policy | [`assets/package.json`](assets/package.json) |
 | Frontend compiler and build configuration | [`assets/tsconfig.json`](assets/tsconfig.json), [`assets/vite.config.mjs`](assets/vite.config.mjs), [`assets/svelte.config.mjs`](assets/svelte.config.mjs) |
 | Elixir formatting and static checks | [`.formatter.exs`](.formatter.exs), [`.recode.exs`](.recode.exs) |
 | Frontend formatting and linting | [`assets/.oxfmtrc.json`](assets/.oxfmtrc.json), [`assets/eslint.config.mjs`](assets/eslint.config.mjs) |
@@ -93,6 +93,9 @@
 - Run targeted frontend tests from `assets/` with `bun run test -- <path>`.
 - Run all backend tests with `just test`.
 - Run frontend checks with `mix assets.lint`, `mix assets.test`, and `mix typecheck`.
+- Treat the `browserslist` field in [`assets/package.json`](assets/package.json) as the browser support source of truth.
+- Inspect the resolved browser set and Vite compiler targets from `assets/` with `bun run browsers` and `bun run browsers:target`.
+- `mix assets.lint` enforces recognized Web and ES API compatibility, while `mix assets.build` applies the same policy to syntax and CSS compilation; neither command provides runtime polyfills or replaces real-browser validation.
 - Run `just check` for broad, cross-stack, or release-relevant changes.
 - Format touched Elixir files with `mix format <files>`.
 - Avoid repository-wide autocorrection when it would create unrelated changes.

@@ -2,10 +2,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
+import browserslistToEsbuild from "browserslist-to-esbuild";
 import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
 
 const assetsDir = fileURLToPath(new URL(".", import.meta.url));
+const browserTargets = browserslistToEsbuild(undefined, { path: assetsDir });
 const staticPort = Number(process.env.STATIC_PORT || "5174");
 const isVitest = process.env.VITEST === "true";
 
@@ -23,6 +25,7 @@ export default defineConfig({
     include: ["@inertiajs/svelte", "phoenix", "phoenix_html", "phoenix_live_view", "svelte"],
   },
   build: {
+    target: browserTargets,
     manifest: true,
     rolldownOptions: {
       input: ["js/app.js", "css/app.css"],
