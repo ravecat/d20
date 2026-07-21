@@ -141,7 +141,7 @@ Named `just` recipes are reserved for workflows that compose multiple project ac
 | `just serve`                     | Set up dependencies and start the development server.               |
 | `just up`                        | Start shared Docker Compose routing and run the development server. |
 | `just format`                    | Format Elixir and frontend assets.                                  |
-| `just check`                     | Run agent skill, formatting, asset, type, and test checks.          |
+| `just check`                     | Run formatting, asset, type, and test checks.                       |
 | `just mix <task> [args...]`      | Run any Mix task from the repository root.                          |
 | `just assets <script> [args...]` | Run any package script from `assets/` through Bun.                   |
 
@@ -165,7 +165,7 @@ Run single native operations directly, or use the matching dispatcher:
 
 `AGENTS.md` and `.agents/skills/implement-playable-game/` are maintained manually. Skills containing `metadata.managed-by: usage-rules` are generated from the locked Mix dependencies configured in `mix.exs`.
 
-Run `mix usage_rules.sync --yes` after changing those dependencies or the UsageRules configuration, then review and commit the generated diff. `just check` includes the read-only `mix usage_rules.sync --check` drift check.
+Run `mix usage_rules.sync --yes` after changing those dependencies or the UsageRules configuration, then review and commit the generated diff. Use `mix usage_rules.sync --check` when a read-only verification of generated agent skills is needed.
 
 UsageRules covers Mix dependencies only. Frontend guidance for Svelte, TypeScript, Inertia, Bun, and npm packages remains outside this synchronization path.
 

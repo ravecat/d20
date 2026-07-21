@@ -28,7 +28,6 @@ format:
     mix assets.format
 
 check:
-    mix usage_rules.sync --check
     mix format.check
     mix assets.format.check
     mix assets.lint

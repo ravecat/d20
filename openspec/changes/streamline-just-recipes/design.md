@@ -51,9 +51,9 @@ The retained command surface will be:
 - `serve`, which performs setup and starts the named IEx/Phoenix node with the current defaults.
 - `up`, which starts Docker Compose routing and then runs `serve`.
 - `format`, which formats backend and frontend sources.
-- `check`, which runs skill drift, formatting, linting, frontend tests, type checking, and backend tests.
+- `check`, which runs formatting, linting, frontend tests, type checking, and backend tests.
 
-`serve` will invoke `mix setup` and the existing `iex ... -S mix serve` command directly. `check` will invoke `mix usage_rules.sync --check` directly. This preserves workflow order without keeping private-looking aliases solely for dependency reuse.
+`serve` will invoke `mix setup` and the existing `iex ... -S mix serve` command directly. Product validation will not include `mix usage_rules.sync --check`, because generated agent guidance is service metadata rather than application behavior. This preserves workflow order without keeping private-looking aliases solely for dependency reuse.
 
 ### Keep documentation aligned with command ownership
 

@@ -69,7 +69,7 @@ The root `justfile` MUST NOT define the former `setup`, `start`, `down`, `test`,
 
 ### Requirement: Composite workflows retain their behavior
 
-The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named composite workflows, and each workflow MUST preserve its current action order and command semantics without depending on a removed recipe.
+The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named composite workflows, and each workflow MUST preserve its specified action order and command semantics without depending on a removed recipe.
 
 #### Scenario: Development server workflow runs
 
@@ -89,7 +89,8 @@ The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named c
 #### Scenario: Validation workflow runs
 
 - **WHEN** a developer runs `just check`
-- **THEN** the workflow checks generated agent-skill drift, formatting, asset linting, asset tests, frontend types, and backend tests in the existing order
+- **THEN** the workflow checks formatting, asset linting, asset tests, frontend types, and backend tests in the existing order
+- **AND** the workflow does not check generated agent-skill metadata
 
 ### Requirement: Default command discovery remains available
 

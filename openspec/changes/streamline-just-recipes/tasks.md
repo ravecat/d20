@@ -14,3 +14,4 @@
 - [x] 3.1 Run `just --fmt --check`, inspect `just --summary`, and confirm every removed single-action recipe is unavailable while `default`, `mix`, `assets`, `serve`, `up`, `format`, and `check` remain available.
 - [x] 3.2 Exercise `just mix help typecheck` and `just assets browsers`, and verify representative failing native commands preserve failure without a redundant `just` footer.
 - [x] 3.3 Dry-run `serve` and `up` to verify composition and argument defaults, then run `just check` to validate the retained cross-stack workflow.
+- [x] 3.4 Exclude generated agent-skill metadata from the product validation workflow, update its documentation and specification, and rerun the affected checks.
