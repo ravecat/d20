@@ -24,7 +24,7 @@ export default defineConfig({
   },
   build: {
     manifest: true,
-    rollupOptions: {
+    rolldownOptions: {
       input: ["js/app.js", "css/app.css"],
     },
     outDir: "../priv/static",
