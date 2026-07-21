@@ -62,14 +62,8 @@ if (inertiaRoot) {
       delay: 250,
       color: "#29d",
     },
-    defaults: {
-      visitOptions: (_href, options) => ({
-        ...options,
-        headers: {
-          ...options.headers,
-          "x-csrf-token": csrfToken,
-        },
-      }),
+    http: {
+      xsrfHeaderName: "x-csrf-token",
     },
     resolve: (name) => {
       const page = pages[`./pages/${name}.svelte`];
