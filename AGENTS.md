@@ -86,12 +86,14 @@
 
 ## Commands and Validation
 
-- Use [`justfile`](justfile) and the aliases in [`mix.exs`](mix.exs) as command sources of truth.
-- Use `just setup` only when the environment needs initialization.
+- Use [`justfile`](justfile), aliases in [`mix.exs`](mix.exs), and scripts in [`assets/package.json`](assets/package.json) as command sources of truth.
+- Reserve named root `just` recipes for workflows that visibly compose at least two meaningful actions; the default discovery recipe and generic `mix` and `assets` dispatchers are the only infrastructure exceptions.
+- Run individual Mix tasks directly or through `just mix <task> [args...]`, and run individual package scripts from `assets/` or through `just assets <script> [args...]`.
+- Use `mix setup` only when the environment needs initialization.
 - Be aware that `just serve` runs setup before starting the server.
 - Run targeted backend tests with `mix test test/path_test.exs[:line]`.
 - Run targeted frontend tests from `assets/` with `bun run test -- <path>`.
-- Run all backend tests with `just test`.
+- Run all backend tests with `mix test`.
 - Run frontend checks with `mix assets.lint`, `mix assets.test`, and `mix typecheck`.
 - Treat the `browserslist` field in [`assets/package.json`](assets/package.json) as the browser support source of truth.
 - Inspect the resolved browser set and Vite compiler targets from `assets/` with `bun run browsers` and `bun run browsers:target`.
@@ -100,7 +102,7 @@
 - Format touched Elixir files with `mix format <files>`.
 - Avoid repository-wide autocorrection when it would create unrelated changes.
 - `mix test` requires PostgreSQL and creates and migrates the test database through its Mix alias.
-- Do not run `just db-reset` or `mix ecto.reset` without explicit approval.
+- Do not run `mix ecto.reset` without explicit approval.
 
 ## Tests
 
@@ -112,7 +114,7 @@
 
 ## Contracts and Generated Files
 
-- Skills containing `metadata.managed-by: usage-rules` are generated from locked Mix dependency rules configured in `mix.exs`; update the configuration or dependency and run `just agent-skills-sync` instead of editing managed sections.
+- Skills containing `metadata.managed-by: usage-rules` are generated from locked Mix dependency rules configured in `mix.exs`; update the configuration or dependency and run `mix usage_rules.sync --yes` instead of editing managed sections.
 - Keep `.agents/skills/implement-playable-game/` manually owned and unchanged when synchronizing dependency-managed skills.
 - Review dependency-authored skill diffs after affected dependency updates; root repository guidance remains authoritative when generic package rules conflict with D20 architecture.
 - Update the matching file under [`priv/specs/`](priv/specs/) when channel events, payloads, projections, permissions, or error reasons change.

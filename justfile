@@ -1,62 +1,37 @@
 default:
     @just --list
 
-setup:
-    mix setup
-
-[arg("sname", long)]
-[arg("erl", long)]
 [no-exit-message]
-start sname="d20" erl="-proto_dist inet6_tcp":
-    iex --sname "{{sname}}" --erl "{{erl}}" -S mix serve
+[positional-arguments]
+mix +args:
+    @mix "$@"
 
-[arg("sname", long)]
-[arg("erl", long)]
+[no-exit-message]
+[positional-arguments]
+[working-directory('assets')]
+assets +args:
+    @bun run "$@"
+
+[arg("erl", long="erl")]
+[arg("sname", long="sname")]
 [no-exit-message]
 serve sname="d20" erl="-proto_dist inet6_tcp":
-    just setup
-    just start --sname "{{sname}}" --erl "{{erl}}"
+    mix setup
+    iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
 
 up:
     docker compose up -d
     just serve
 
-down:
-    docker compose down
-
-test:
-    mix test
-
-build:
-    mix deploy
-
-typecheck:
-    mix typecheck
-
 format:
     mix format
     mix assets.format
 
-agent-skills-sync:
-    mix usage_rules.sync --yes
-
-agent-skills-check:
-    mix usage_rules.sync --check
-
 check:
-    just agent-skills-check
+    mix usage_rules.sync --check
     mix format.check
     mix assets.format.check
     mix assets.lint
     mix assets.test
     mix typecheck
     mix test
-
-db-create:
-    mix ecto.create
-
-db-migrate:
-    mix ecto.migrate
-
-db-reset:
-    mix ecto.reset
