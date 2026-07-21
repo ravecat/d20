@@ -284,6 +284,66 @@ describe("Session", () => {
     expect(document.querySelector('iframe[title="Game module"]')).not.toBeNull();
   });
 
+  it("uses reduced proportional geometry for every game display control", async () => {
+    renderPanel({
+      value: sessionWithPhase("in_progress"),
+      status: "connected",
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: {},
+    });
+
+    const compactButton = buttonByName("Compact game view");
+    const enterFullscreenButton = buttonByName("Enter fullscreen");
+    const controls = compactButton.parentElement;
+
+    if (!controls || controls !== enterFullscreenButton.parentElement) {
+      throw new Error("Expected the display controls to share one overlay group.");
+    }
+
+    const expectReducedGeometry = (button: HTMLButtonElement) => {
+      const style = getComputedStyle(button);
+      const icon = button.querySelector("svg");
+
+      if (!icon) throw new Error("Expected the display control to render its icon.");
+
+      expect(style.blockSize).toBe("2rem");
+      expect(style.boxSizing).toBe("border-box");
+      expect(style.inlineSize).toBe("2rem");
+      expect(style.padding).toBe("0.4rem");
+      expect(style.borderWidth).toBe("1px");
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+      expect(getComputedStyle(icon).inlineSize).toBe("100%");
+      expect(getComputedStyle(icon).blockSize).toBe("100%");
+    };
+    const expectReducedGroupGeometry = () => {
+      const style = getComputedStyle(controls);
+
+      expect(style.gap).toBe("0.3rem");
+      expect(style.insetBlockStart).toBe("0.4rem");
+      expect(style.insetInlineEnd).toBe("0.4rem");
+    };
+
+    expectReducedGeometry(compactButton);
+    expectReducedGeometry(enterFullscreenButton);
+    expectReducedGroupGeometry();
+
+    compactButton.click();
+    flushSync();
+
+    expectReducedGeometry(buttonByName("Theater game view"));
+    expectReducedGeometry(buttonByName("Enter fullscreen"));
+    expectReducedGroupGeometry();
+
+    buttonByName("Enter fullscreen").click();
+
+    await vi.waitFor(() => expect(buttonByName("Exit fullscreen")).toBeDefined());
+
+    expectReducedGeometry(buttonByName("Exit fullscreen"));
+    expect(controls.childElementCount).toBe(1);
+    expectReducedGroupGeometry();
+  });
+
   it("configures native theater light dismiss and preserves the game across modes", () => {
     renderPanel({
       value: sessionWithPhase("in_progress"),

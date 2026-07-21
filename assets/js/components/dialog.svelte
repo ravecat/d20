@@ -172,22 +172,23 @@
 
   .dialog__controls {
     position: absolute;
-    inset-block-start: 0.5rem;
-    inset-inline-end: 0.5rem;
+    inset-block-start: 0.4rem;
+    inset-inline-end: 0.4rem;
     z-index: 1;
     display: flex;
-    gap: 0.375rem;
+    gap: 0.3rem;
   }
 
   .dialog__control {
+    box-sizing: border-box;
     display: grid;
-    inline-size: 2.5rem;
-    block-size: 2.5rem;
+    inline-size: 2rem;
+    block-size: 2rem;
     place-items: center;
     border: 1px solid rgb(255 255 255 / 0.32);
     border-radius: var(--radius-sm);
     background: rgb(0 0 0 / 0.72);
-    padding: 0.5rem;
+    padding: 0.4rem;
     color: white;
     cursor: pointer;
   }

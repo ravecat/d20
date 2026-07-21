@@ -56,6 +56,9 @@ export default defineConfig({
       }),
   ],
   test: {
+    css: {
+      include: [/dialog\.svelte/],
+    },
     environment: "jsdom",
     include: ["js/**/*.test.ts"],
     setupFiles: ["js/test/setup.ts"],
