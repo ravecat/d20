@@ -19,7 +19,6 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
-    "baseUrl": ".",
     "paths": {
       "~/*": ["./js/*"],
       "~actions/*": ["./js/actions/*"],
