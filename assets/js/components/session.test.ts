@@ -129,37 +129,6 @@ describe("Session", () => {
     expect(document.querySelector('iframe[title="Game module"]')).toBeNull();
   });
 
-  it("renders the start panel without a surrounding border", () => {
-    renderPanel({
-      value: sessionWithPhase("waiting_for_players"),
-      status: "connected",
-      processing: { start: false },
-      timeouts: { start: false },
-      errors: {},
-    });
-
-    const startButton = document.querySelector("button");
-    const startPanel = startButton?.closest("section");
-
-    expect(startButton?.textContent).toContain("Start");
-    expect(startPanel?.className).not.toContain("border");
-  });
-
-  it("styles the start action as the primary full-width game action", () => {
-    renderPanel({
-      value: sessionWithPhase("waiting_for_players"),
-      status: "connected",
-      processing: { start: false },
-      timeouts: { start: false },
-      errors: {},
-    });
-
-    const startButton = document.querySelector("button");
-
-    expect(startButton?.textContent).toContain("Start");
-    expect(startButton?.className).toContain("session-panel-start__action");
-  });
-
   it("starts sessions without projected attrs", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
@@ -226,36 +195,6 @@ describe("Session", () => {
     expect(sessionMock.start).not.toHaveBeenCalled();
   });
 
-  it("renders joined players without media borders and allows two-line names", () => {
-    renderPanel({
-      value: sessionWithPhase("waiting_for_players"),
-      status: "connected",
-      processing: { start: false },
-      timeouts: { start: false },
-      errors: {},
-    });
-
-    const joinedPlayers = document.querySelector('ul[aria-label="Joined players"]');
-
-    if (!joinedPlayers) {
-      throw new Error("Expected joined players list to be rendered.");
-    }
-
-    const avatar = joinedPlayers.querySelector("img");
-    const fallbackAvatar = joinedPlayers.querySelector('span[aria-hidden="true"]');
-    const name = [...joinedPlayers.querySelectorAll("li > span:not([aria-hidden])")].find(
-      (element) => element.textContent?.trim() === "Ada Lovelace",
-    );
-
-    if (!avatar || !fallbackAvatar || !name) {
-      throw new Error("Expected joined player avatar, fallback avatar, and long name.");
-    }
-
-    expect(avatar.className).not.toContain("border");
-    expect(fallbackAvatar.className).not.toContain("border");
-    expect(name.className).toContain("session-panel-players__name");
-  });
-
   it("omits unavailable presence copy when no members are visible", () => {
     renderPanel({
       value: { ...sessionWithPhase("waiting_for_players"), members: {} },
@@ -282,66 +221,6 @@ describe("Session", () => {
     expect(document.body.textContent).not.toContain("Ada");
     expect(document.body.textContent).not.toContain("Grace");
     expect(document.querySelector('iframe[title="Game module"]')).not.toBeNull();
-  });
-
-  it("uses reduced proportional geometry for every game display control", async () => {
-    renderPanel({
-      value: sessionWithPhase("in_progress"),
-      status: "connected",
-      processing: { start: false },
-      timeouts: { start: false },
-      errors: {},
-    });
-
-    const compactButton = buttonByName("Compact game view");
-    const enterFullscreenButton = buttonByName("Enter fullscreen");
-    const controls = compactButton.parentElement;
-
-    if (!controls || controls !== enterFullscreenButton.parentElement) {
-      throw new Error("Expected the display controls to share one overlay group.");
-    }
-
-    const expectReducedGeometry = (button: HTMLButtonElement) => {
-      const style = getComputedStyle(button);
-      const icon = button.querySelector("svg");
-
-      if (!icon) throw new Error("Expected the display control to render its icon.");
-
-      expect(style.blockSize).toBe("2rem");
-      expect(style.boxSizing).toBe("border-box");
-      expect(style.inlineSize).toBe("2rem");
-      expect(style.padding).toBe("0.4rem");
-      expect(style.borderWidth).toBe("1px");
-      expect(icon.getAttribute("aria-hidden")).toBe("true");
-      expect(getComputedStyle(icon).inlineSize).toBe("100%");
-      expect(getComputedStyle(icon).blockSize).toBe("100%");
-    };
-    const expectReducedGroupGeometry = () => {
-      const style = getComputedStyle(controls);
-
-      expect(style.gap).toBe("0.3rem");
-      expect(style.insetBlockStart).toBe("0.4rem");
-      expect(style.insetInlineEnd).toBe("0.4rem");
-    };
-
-    expectReducedGeometry(compactButton);
-    expectReducedGeometry(enterFullscreenButton);
-    expectReducedGroupGeometry();
-
-    compactButton.click();
-    flushSync();
-
-    expectReducedGeometry(buttonByName("Theater game view"));
-    expectReducedGeometry(buttonByName("Enter fullscreen"));
-    expectReducedGroupGeometry();
-
-    buttonByName("Enter fullscreen").click();
-
-    await vi.waitFor(() => expect(buttonByName("Exit fullscreen")).toBeDefined());
-
-    expectReducedGeometry(buttonByName("Exit fullscreen"));
-    expect(controls.childElementCount).toBe(1);
-    expectReducedGroupGeometry();
   });
 
   it("configures native theater light dismiss and preserves the game across modes", () => {

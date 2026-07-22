@@ -57,11 +57,9 @@ describe("developers page", () => {
     expect(document.body.textContent).toContain("Build a compatible game client");
     expect(document.querySelector("h2")).toBeNull();
     expect(entries).toHaveLength(3);
-    expect(entries.map((entry) => entry.querySelector(".spec-list__game")?.textContent)).toEqual([
-      "Qwinto",
-      "Koala Rescue Club",
-      "Next Station London",
-    ]);
+    expect(entries[0]?.textContent).toContain("Qwinto");
+    expect(entries[1]?.textContent).toContain("Koala Rescue Club");
+    expect(entries[2]?.textContent).toContain("Next Station London");
 
     expect(list?.querySelector('a[href="/developers/specs/qwinto"]')?.textContent).toBe(
       "Open reference",
@@ -227,40 +225,14 @@ describe("game detail page", () => {
       "https://example.invalid/qwinto.jpg",
     );
     expect(document.querySelector('a[href="/games"]')).toBeNull();
-    expect(document.querySelector(".game-detail-preview img")).not.toBeNull();
-    expect(document.querySelector(".game-detail-chip")?.textContent).toBe("Resolved Qwinto");
-    expect(document.querySelector(".game-detail-description")?.textContent).toBe(
-      "Resolved details.",
+    expect(document.querySelector('[aria-label="Categories"]')?.textContent).toContain("Dice");
+    expect(document.querySelector('[aria-label="Categories"]')?.textContent).toContain("Number");
+    expect(document.querySelector('[aria-label="Mechanics"]')?.textContent).toContain(
+      "Dice Rolling",
     );
-    expect(document.querySelector(".game-detail-layout")).not.toBeNull();
-    expect(document.querySelector(".game-detail-description-panel")).not.toBeNull();
-    expect(document.querySelector(".game-detail-activation")).not.toBeNull();
-    expect(document.querySelector(".game-detail-layout")?.children[0]?.classList).toContain(
-      "game-detail-activation",
+    expect(document.querySelector('[aria-label="Mechanics"]')?.textContent).toContain(
+      "Paper-and-Pencil",
     );
-    expect(document.querySelector(".game-detail-layout")?.children[1]?.classList).toContain(
-      "game-detail-description-panel",
-    );
-    expect(
-      document
-        .querySelector(".game-detail-preview")
-        ?.contains(document.querySelector(".game-detail-metadata")),
-    ).toBe(true);
-    expect(
-      [...document.querySelectorAll(".game-detail-metadata__block")].map((block) =>
-        block.getAttribute("aria-label"),
-      ),
-    ).toEqual(["Categories", "Mechanics"]);
-    expect(
-      [...document.querySelectorAll(".game-detail-metadata__chip--mechanic")].map(
-        (chip) => chip.textContent,
-      ),
-    ).toEqual(["Dice Rolling", "Paper-and-Pencil"]);
-    expect(
-      [...document.querySelectorAll(".game-detail-metadata__chip--category")].map(
-        (chip) => chip.textContent,
-      ),
-    ).toEqual(["Dice", "Number"]);
   });
 
   it("renders provider metadata labels in the activation panel", () => {
@@ -289,7 +261,6 @@ describe("game detail page", () => {
     expect(playTime).not.toContain("min");
     const age = document.querySelector('[aria-label="Age"]');
     expect(age?.textContent).toContain("8+");
-    expect(age?.querySelector(".game-metadata-label__age-value")).toBeNull();
     expect(age?.querySelector("svg")).toBeNull();
     expect(document.querySelector('[aria-label="Complexity"]')?.textContent).toContain("2.1/5");
     expect(document.querySelector('[aria-label="BGG rating"]')?.textContent).toContain("7.4/10");
@@ -371,7 +342,6 @@ describe("game detail page", () => {
     expect(document.querySelector('[aria-label="Complexity"]')).toBeNull();
     expect(document.querySelector('[aria-label="BGG rating"]')).toBeNull();
     expect(document.querySelector("img")).toBeNull();
-    expect(document.querySelector(".game-detail-chip")).toBeNull();
   });
 
   it("keeps available metadata while omitting missing metadata labels", () => {

@@ -141,10 +141,12 @@
   }
 
   .dialog--theater {
-    inset: 0;
-    inline-size: min(96dvw, 72rem);
-    block-size: min(90dvh, 42rem);
-    margin: auto;
+    inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
+    inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
+    inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
+    inset-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
+    inline-size: auto;
+    block-size: auto;
   }
 
   .dialog--compact {
@@ -218,11 +220,6 @@
   }
 
   @media (max-width: 34rem) {
-    .dialog--theater {
-      inline-size: calc(100dvw - 1rem);
-      block-size: calc(100dvh - 1rem);
-    }
-
     .dialog--compact {
       inset-inline-end: max(0.5rem, env(safe-area-inset-right));
       inset-block-end: max(0.5rem, env(safe-area-inset-bottom));
