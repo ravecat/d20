@@ -60,7 +60,8 @@ For other shells, use the [direnv hook docs](https://direnv.net/docs/hook.html).
 
 <br>
 
-- Enter the environment with `nix develop`, or run `direnv allow` once and let direnv load it automatically.
+- Run `direnv allow` once so development commands can reload `envs/.env`.
+- Enter the environment with `nix develop`, or let direnv load it automatically.
 
 The flake provides the required environment.
 
@@ -76,6 +77,8 @@ just serve
 ```
 
 Open [http://localhost:5000](http://localhost:5000).
+
+The development server restarts automatically when `envs/.env`, shared configuration, runtime configuration, or the active Mix environment configuration changes.
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `STATIC_PORT` or defaults to `5174`.
 D20 automatically uses the first private IPv4 address for development asset URLs, so the application can also be opened from another device on the same network. Set `STATIC_URL_HOST` to override the detected address.

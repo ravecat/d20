@@ -30,10 +30,12 @@
           elixir
           pkgs.docker-client
           pkgs.docker-compose
+          pkgs.direnv
           pkgs.git
           pkgs.just
           # Phoenix uses PostgreSQL locally by default.
           pkgs.postgresql
+          pkgs.watchexec
         ];
       in {
         devShells.default = pkgs.mkShell {

@@ -17,7 +17,13 @@ assets +args:
 [no-exit-message]
 serve sname="d20" erl="-proto_dist inet6_tcp":
     mix setup
-    iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
+    watchexec --restart --shell=none --wrap-process=none --ignore-nothing \
+        --watch envs --watch config \
+        --filter envs/.env \
+        --filter config/config.exs \
+        --filter config/runtime.exs \
+        --filter "config/${MIX_ENV:-dev}.exs" -- \
+        direnv exec . iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
 
 up:
     docker compose up -d
