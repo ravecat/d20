@@ -50,6 +50,12 @@ defmodule D20.KoalaRescueClub.Projection do
           required(:bonuses) => [bonus()],
           required(:areas) => %{optional(Ruleset.area()) => area()}
         }
+  @type last_action :: %{
+          required(:turn) => Ruleset.turn(),
+          required(:action) => String.t(),
+          required(:die_value) => Ruleset.die_value(),
+          required(:target_cells) => [Ruleset.cell()]
+        }
   @type game :: %{
           required(:sheet) => Ruleset.id(),
           required(:mode) => Game.mode() | nil,
@@ -62,7 +68,8 @@ defmodule D20.KoalaRescueClub.Projection do
               required(:sheet) => sheet(),
               required(:badges) => %{optional(Ruleset.badge()) => Game.badge_award()},
               required(:rounds) => [Game.round()],
-              required(:turns) => [Ruleset.die_value()]
+              required(:turns) => [Ruleset.die_value()],
+              required(:last_action) => last_action() | nil
             }
           },
           required(:roll) => Game.roll() | nil,
@@ -147,7 +154,8 @@ defmodule D20.KoalaRescueClub.Projection do
       sheet: render_sheet(rulesheet, player.sheet),
       badges: player.badges,
       rounds: player.rounds,
-      turns: Map.get(player, :turns, [])
+      turns: Map.get(player, :turns, []),
+      last_action: Map.get(player, :last_action)
     }
   end
 

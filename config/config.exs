@@ -84,6 +84,8 @@ config :d20, D20.Games.Registry,
     waypoints: [bgg_id: 388_329]
   ]
 
+config :d20, D20.Games, metadata_source: D20.Games.Sources.BoardGameGeek
+
 config :d20, D20.Module.Token,
   salt: "module",
   max_age: 600

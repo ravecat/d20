@@ -5,8 +5,10 @@ defmodule D20Web.PageControllerTest do
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.Games
   alias D20.Games.Registry
   alias D20.Games.Sources.BoardGameGeek
+  alias D20.Games.Sources.Local
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions.Session
 
@@ -99,12 +101,14 @@ defmodule D20Web.PageControllerTest do
     Req.Test.verify_on_exit!()
 
     original_bgg_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
+    original_games_config = Application.get_env(:d20, Games, :not_configured)
     original_req_options = Req.default_options()
     original_registry_config = Application.fetch_env!(:d20, Registry)
 
     original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+    Application.put_env(:d20, Games, metadata_source: BoardGameGeek)
     Req.default_options(plug: {Req.Test, __MODULE__})
     Req.Test.stub(__MODULE__, fn conn -> Req.Test.text(conn, @qwinto_xml) end)
 
@@ -120,6 +124,11 @@ defmodule D20Web.PageControllerTest do
       case original_bgg_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
         config -> Application.put_env(:d20, BoardGameGeek, config)
+      end
+
+      case original_games_config do
+        :not_configured -> Application.delete_env(:d20, Games)
+        config -> Application.put_env(:d20, Games, config)
       end
     end)
   end
@@ -184,6 +193,17 @@ defmodule D20Web.PageControllerTest do
     assert game[:name] == "Resolved Qwinto"
     assert game[:thumbnailUrl] == "https://example.invalid/qwinto-thumb.jpg"
     assert game[:imageUrl] == "https://example.invalid/qwinto-image.jpg"
+  end
+
+  test "GET / renders the catalog from local metadata without a BGG request", %{conn: conn} do
+    Application.put_env(:d20, Games, metadata_source: Local)
+
+    conn = get(conn, ~p"/")
+
+    assert %{games: games} = inertia_props(conn)
+
+    assert %{status: :active, game: %{name: "Koala Rescue Club"}} =
+             Enum.find(games, &(&1.slug == "koala-rescue-club"))
   end
 
   test "GET / renders an empty catalog when runtime metadata is unavailable", %{conn: conn} do
@@ -297,6 +317,15 @@ defmodule D20Web.PageControllerTest do
 
     assert %{
              attrs: %{
+               opponent: %{
+                 id: "attrs_opponent",
+                 name: "opponent",
+                 type: "enum",
+                 value: "none",
+                 required: true,
+                 values: ["none", "bot_easy", "bot_normal", "bot_hard"],
+                 errors: []
+               },
                sheet: %{
                  id: "attrs_sheet",
                  name: "sheet",
@@ -358,7 +387,7 @@ defmodule D20Web.PageControllerTest do
     conn =
       conn
       |> put_req_header("x-inertia", "true")
-      |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "yugambeh"})
+      |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "yugambeh", opponent: "bot_hard"})
 
     redirected = redirected_to(conn, 303)
     assert redirected =~ ~r"^/games/koala-rescue-club\?session="
@@ -366,8 +395,9 @@ defmodule D20Web.PageControllerTest do
 
     on_exit(fn -> D20.Sessions.stop(session_id) end)
 
-    assert {:ok, {%Session{game: %KoalaGame{sheet: :yugambeh}}, "koala-rescue-club"}} =
-             D20.Sessions.get(session_id)
+    assert {:ok,
+            {%Session{game: %KoalaGame{sheet: :yugambeh, opponent: :bot_hard}},
+             "koala-rescue-club"}} = D20.Sessions.get(session_id)
   end
 
   test "POST /games/:slug/sessions forbids inactive games", %{conn: conn} do

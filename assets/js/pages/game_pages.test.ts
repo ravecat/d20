@@ -9,6 +9,15 @@ import inertiaMock from "../test/mocks/inertia";
 let cleanup: (() => Promise<void>) | undefined;
 
 const koalaAttrs: Attrs = {
+  opponent: {
+    id: "attrs_opponent",
+    name: "opponent",
+    type: "enum",
+    value: "none",
+    required: true,
+    values: ["none", "bot_easy", "bot_normal", "bot_hard"],
+    errors: [],
+  },
   sheet: {
     id: "attrs_sheet",
     name: "sheet",
@@ -438,6 +447,8 @@ describe("game detail page", () => {
 
     const defaultOption = document.querySelector('input[value="dharug"]');
     const selectedOption = document.querySelector('input[value="yugambeh"]');
+    const defaultOpponent = document.querySelector('input[value="none"]');
+    const hardBot = document.querySelector('input[value="bot_hard"]');
 
     if (!(defaultOption instanceof HTMLInputElement)) {
       throw new Error("Expected Dharug radio option.");
@@ -447,15 +458,25 @@ describe("game detail page", () => {
       throw new Error("Expected Yugambeh radio option.");
     }
 
+    if (!(defaultOpponent instanceof HTMLInputElement)) {
+      throw new Error("Expected no-opponent radio option.");
+    }
+
+    if (!(hardBot instanceof HTMLInputElement)) {
+      throw new Error("Expected hard bot radio option.");
+    }
+
     expect(defaultOption.checked).toBe(true);
+    expect(defaultOpponent.checked).toBe(true);
 
     selectedOption.click();
+    hardBot.click();
     document.querySelector("button")?.click();
 
     expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
       action: "/games/koala-rescue-club/sessions",
       method: "post",
-      data: { sheet: "yugambeh" },
+      data: { opponent: "bot_hard", sheet: "yugambeh" },
     });
   });
 

@@ -3,6 +3,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.KoalaRescueClub.Bot
   alias D20.KoalaRescueClub.Game
   alias D20.KoalaRescueClub.Rules
   alias D20.KoalaRescueClub.Ruleset
@@ -72,6 +73,97 @@ defmodule D20.KoalaRescueClub.ServerTest do
              Sessions.dispatch(scope(session.id), "start", %{})
 
     assert {:error, :invalid_identity} = Sessions.dispatch(scope(session.id), "roll", %{})
+  end
+
+  test "adds an enabled bot through the ordinary join transition and starts automatically" do
+    %{session: session} = start_bot_session()
+    bot_id = Bot.id(session.id)
+
+    assert_receive {:session,
+                    %Session{
+                      phase: :waiting_for_players,
+                      game: %Game{phase: :ready, players: %{"owner" => _owner}}
+                    }}
+
+    assert_receive {:session,
+                    %Session{
+                      members: %{
+                        "owner" => _owner_member,
+                        ^bot_id => %{
+                          bot: true,
+                          bot_difficulty: :normal,
+                          display_name: "Ranger Bot"
+                        }
+                      },
+                      game: %Game{phase: :ready, players: %{"owner" => _owner, ^bot_id => _bot}}
+                    } = joined_session}
+
+    assert Bot.joined?(joined_session)
+
+    assert_receive {:session,
+                    %Session{phase: :in_progress, game: %Game{phase: :roll, mode: :multiplayer}}},
+                   2_000
+  end
+
+  test "automatically dispatches one valid bot turn and publishes the usual update" do
+    %{pid: pid, session: session} = start_bot_session()
+    bot_id = Bot.id(session.id)
+
+    assert_receive {:session, %Session{game: %Game{players: %{"owner" => _owner}}}}
+
+    assert_receive {:session,
+                    %Session{game: %Game{players: %{"owner" => _owner, ^bot_id => _bot}}}}
+
+    assert_receive {:session, %Session{game: %Game{phase: :roll}}}, 2_000
+
+    assert_receive {:session,
+                    %Session{
+                      game: %Game{
+                        phase: :submit,
+                        players: %{"owner" => %{status: :pending}, ^bot_id => %{status: :pending}}
+                      }
+                    }},
+                   5_000
+
+    assert_receive {:session,
+                    %Session{
+                      game: %Game{
+                        phase: :submit,
+                        turn: 1,
+                        players: %{
+                          "owner" => %{status: :pending},
+                          ^bot_id => %{
+                            status: :submitted,
+                            turns: [value],
+                            last_action: %{turn: 1}
+                          }
+                        }
+                      }
+                    } = bot_session},
+                   2_000
+
+    assert value in 1..6
+    assert {:submit, {"koala-rescue-club", Game, ^bot_session}} = :sys.get_state(pid)
+
+    assert :ok = :gen_statem.cast(pid, :bot_turn)
+    assert :ok = :gen_statem.cast(pid, :bot_turn)
+    refute_receive {:session, %Session{game: %Game{turn: 1}}}, 100
+
+    assert {:ok, {^bot_session, "koala-rescue-club"}} = Sessions.get(session.id)
+  end
+
+  test "ignores bot triggers when it is not the bot's turn" do
+    %{pid: pid, session: session} = start_bot_session()
+
+    assert_receive {:session, %Session{game: %Game{players: %{"owner" => _owner}}}}
+    assert_receive {:session, %Session{game: %Game{players: players}}}
+    assert map_size(players) == 2
+
+    assert :ok = :gen_statem.cast(pid, :bot_turn)
+    refute_receive {:session, %Session{}}, 100
+
+    assert {:ok, {%Session{phase: :waiting_for_players}, "koala-rescue-club"}} =
+             Sessions.get(session.id)
   end
 
   test "schedules the next roll only after every player submits", %{session: session} do
@@ -165,5 +257,22 @@ defmodule D20.KoalaRescueClub.ServerTest do
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
     |> Scope.put_game("koala-rescue-club")
+  end
+
+  defp start_bot_session do
+    assert {:ok, %Session{} = session} =
+             Sessions.create("koala-rescue-club", Game, "owner", %{
+               "sheet" => "dharug",
+               "opponent" => "bot_normal"
+             })
+
+    on_exit(fn -> Sessions.stop(session.id) end)
+
+    assert {:ok, pid} = Sessions.lookup(session.id)
+    assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
+
+    send(pid, {:join, "owner", %{display_name: "Owner"}})
+
+    %{pid: pid, session: session}
   end
 end

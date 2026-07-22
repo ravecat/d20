@@ -117,19 +117,24 @@ just down
 
 ## Configuration
 
-| Key                 | Production required? | Purpose                                                                |
-| ------------------- | -------------------- | ---------------------------------------------------------------------- |
-| `DATABASE_URL`      | Yes                  | Production PostgreSQL connection URL.                                  |
-| `SECRET_KEY_BASE`   | Yes                  | Phoenix secret key base. Generate with `mix phx.gen.secret`.           |
-| `PORT`              | No                   | Phoenix HTTP port. Defaults to `5000`.                                 |
-| `STATIC_PORT`       | No                   | Development asset server port. Defaults to `5174`.                     |
-| `STATIC_URL_HOST`   | No                   | Development asset host. Defaults to an automatically detected LAN IP. |
-| `BGG_API_KEY`       | Yes                  | API key for the board-game metadata source.                            |
-| `PHX_HOST`          | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.   |
-| `PHX_SERVER`        | No                   | Enables the endpoint server when running a release.                    |
-| `POOL_SIZE`         | No                   | Ecto pool size. Defaults to `10`.                                      |
-| `ECTO_IPV6`         | No                   | Enables IPv6 socket options when set to `true` or `1`.                 |
-| `DNS_CLUSTER_QUERY` | No                   | DNS cluster query for distributed deployment discovery.                |
+| Key                     | Production required? | Purpose                                                                                 |
+| ----------------------- | -------------------- | --------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | Yes                  | Production PostgreSQL connection URL.                                                   |
+| `SECRET_KEY_BASE`       | Yes                  | Phoenix secret key base. Generate with `mix phx.gen.secret`.                            |
+| `PORT`                  | No                   | Phoenix HTTP port. Defaults to `5000`.                                                  |
+| `STATIC_PORT`           | No                   | Development asset server port. Defaults to `5174`.                                      |
+| `STATIC_URL_HOST`       | No                   | Development asset host. Defaults to an automatically detected LAN IP.                  |
+| `GAMES_METADATA_SOURCE` | No                   | `local` for offline development or `board_game_geek`. Dev defaults to local without a key. |
+| `BGG_API_KEY`           | Yes                  | API key for the BoardGameGeek metadata source.                                         |
+| `PHX_HOST`              | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.                    |
+| `PHX_SERVER`            | No                   | Enables the endpoint server when running a release.                                     |
+| `POOL_SIZE`             | No                   | Ecto pool size. Defaults to `10`.                                                       |
+| `ECTO_IPV6`             | No                   | Enables IPv6 socket options when set to `true` or `1`.                                  |
+| `DNS_CLUSTER_QUERY`     | No                   | DNS cluster query for distributed deployment discovery.                                |
+
+In development, the catalog automatically uses bundled minimal metadata when `BGG_API_KEY`
+is absent. Set `GAMES_METADATA_SOURCE=local` to force offline mode, or set
+`GAMES_METADATA_SOURCE=board_game_geek` together with a valid key for rich metadata.
 
 ## Commands
 

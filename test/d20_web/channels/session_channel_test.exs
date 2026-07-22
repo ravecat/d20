@@ -5,6 +5,7 @@ defmodule D20Web.SessionChannelTest do
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.KoalaRescueClub.Bot
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.KoalaRescueClub.Rules
   alias D20.KoalaRescueClub.Ruleset
@@ -355,6 +356,83 @@ defmodule D20Web.SessionChannelTest do
         selection: nil,
         game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
       }
+    end
+
+    test "runs a bot game through the module channel and restores it after reconnect" do
+      actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      actor_id = actor.id
+
+      assert {:ok, session} =
+               D20.Sessions.create("koala-rescue-club", KoalaGame, actor_id, %{
+                 "sheet" => "dharug",
+                 "opponent" => "bot_hard"
+               })
+
+      on_exit(fn -> D20.Sessions.stop(session.id) end)
+      bot_id = Bot.id(session.id)
+
+      assert {:ok, module_socket} =
+               connect_module_socket(session.id, actor, module_id: "koala-rescue-club")
+
+      assert {:ok, %{phase: :waiting_for_players}, socket} =
+               subscribe_and_join(module_socket, SessionChannel.topic(session.id), %{})
+
+      assert_push "projection",
+                  %{
+                    members: %{
+                      ^actor_id => _owner,
+                      ^bot_id => %{bot: true, bot_difficulty: :hard}
+                    }
+                  },
+                  3_000
+
+      assert_push "projection", %{phase: :in_progress, game: %{phase: :roll, turn: 1}}, 3_000
+
+      assert_push "projection",
+                  %{
+                    game: %{
+                      phase: :submit,
+                      players: %{
+                        ^actor_id => %{status: :pending},
+                        ^bot_id => %{status: :submitted, last_action: %{turn: 1}}
+                      }
+                    }
+                  },
+                  5_000
+
+      assert {:ok, {%Session{} = bot_session, "koala-rescue-club"}} = D20.Sessions.get(session.id)
+
+      human_command = bot_session.game |> Bot.candidates(actor_id) |> List.first()
+      assert %D20.Command{actor_id: ^actor_id} = human_command
+      payload = human_command.attrs |> Jason.encode!() |> Jason.decode!()
+
+      submit_ref = push(socket, human_command.event, payload)
+      assert_reply submit_ref, :ok
+
+      assert_push "projection",
+                  %{
+                    game: %{
+                      phase: :roll,
+                      turn: 2,
+                      players: %{
+                        ^actor_id => %{status: :ready, last_action: %{turn: 1}},
+                        ^bot_id => %{status: :ready, last_action: %{turn: 1}}
+                      }
+                    }
+                  },
+                  3_000
+
+      assert {:ok, reconnected_socket} =
+               connect_module_socket(session.id, actor, module_id: "koala-rescue-club")
+
+      assert {:ok, reconnected, _socket} =
+               subscribe_and_join(reconnected_socket, SessionChannel.topic(session.id), %{})
+
+      assert reconnected.id == session.id
+      assert reconnected.phase == :in_progress
+      assert reconnected.game.turn == 2
+      assert reconnected.game.players[actor_id].last_action.turn == 1
+      assert reconnected.game.players[bot_id].last_action.turn == 1
     end
 
     test "should run Next Station London through automatic preparation and explicit projections" do

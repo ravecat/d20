@@ -21,8 +21,28 @@ if System.get_env("PHX_SERVER") do
 end
 
 bgg_api_key = System.get_env("BGG_API_KEY")
+games_metadata_source = System.get_env("GAMES_METADATA_SOURCE")
+
+metadata_source =
+  case {config_env(), games_metadata_source, bgg_api_key} do
+    {:dev, source, key} when source in [nil, ""] and key in [nil, ""] ->
+      D20.Games.Sources.Local
+
+    {:dev, "local", _key} ->
+      D20.Games.Sources.Local
+
+    {_environment, source, _key} when source in [nil, "", "board_game_geek"] ->
+      D20.Games.Sources.BoardGameGeek
+
+    {_environment, "local", _key} ->
+      raise "GAMES_METADATA_SOURCE=local is only supported in development"
+
+    {_environment, source, _key} ->
+      raise "unsupported GAMES_METADATA_SOURCE: #{inspect(source)}"
+  end
 
 config :d20, D20.Games.Sources.BoardGameGeek, api_key: bgg_api_key
+config :d20, D20.Games, metadata_source: metadata_source
 
 if config_env() == :prod do
   if bgg_api_key in [nil, ""] do
