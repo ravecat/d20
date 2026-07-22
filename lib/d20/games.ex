@@ -6,6 +6,8 @@ defmodule D20.Games do
   product operations such as listing playable games, not upstream parser calls.
   """
 
+  require Logger
+
   alias D20.Games.Game
   alias D20.Games.Registry
   alias D20.Games.Sources.BoardGameGeek
@@ -16,17 +18,15 @@ defmodule D20.Games do
   def list do
     status_order = %{nil => 2, active: 0, in_progress: 1}
     entries = Enum.sort_by(Registry.list(), &Map.fetch!(status_order, &1.status))
+    {metadata_by_bgg_id, metadata_status} = fetch_catalog_metadata(entries)
 
-    with {:ok, attrs} <- entries |> Enum.map(& &1.bgg_id) |> BoardGameGeek.fetch_games_details(),
-         games_by_bgg_id = Map.new(attrs, &{&1.bgg_id, &1}),
-         {:ok, games} <-
+    with {:ok, games} <-
            Enum.reduce_while(entries, {:ok, []}, fn entry, {:ok, games} ->
-             with {:ok, game_attrs} <- Map.fetch(games_by_bgg_id, entry.bgg_id),
-                  {:ok, game} <- Game.new(game_attrs) do
-               {:cont, {:ok, [%{slug: entry.slug, status: entry.status, game: game} | games]}}
-             else
-               :error ->
-                 {:halt, {:error, {:game_metadata_unavailable, entry.slug, :game_not_found}}}
+             metadata = catalog_metadata(entry, metadata_by_bgg_id, metadata_status)
+
+             case Game.new(metadata) do
+               {:ok, game} ->
+                 {:cont, {:ok, [%{slug: entry.slug, status: entry.status, game: game} | games]}}
 
                {:error, reason} ->
                  {:halt, {:error, {:game_metadata_unavailable, entry.slug, reason}}}
@@ -38,10 +38,10 @@ defmodule D20.Games do
 
   @spec fetch_by_slug(String.t()) :: {:ok, Game.t()} | {:error, term()}
   def fetch_by_slug(slug) when is_binary(slug) do
-    with {:ok, entry} <- Registry.fetch(slug),
-         {:ok, attrs} <- BoardGameGeek.fetch_game_details(entry.bgg_id),
-         {:ok, game} <- Game.new(attrs) do
-      {:ok, game}
+    with {:ok, entry} <- Registry.fetch(slug) do
+      entry
+      |> fetch_game_metadata()
+      |> Game.new()
     end
   end
 
@@ -53,4 +53,49 @@ defmodule D20.Games do
   end
 
   def session_launch_available?(%Registry.Entry{}), do: false
+
+  defp fetch_catalog_metadata(entries) do
+    bgg_ids = Enum.map(entries, & &1.bgg_id)
+
+    case BoardGameGeek.fetch_games_details(bgg_ids) do
+      {:ok, metadata} ->
+        {Map.new(metadata, &{&1.bgg_id, &1}), :available}
+
+      {:error, reason} ->
+        log_metadata_fallback(:catalog, reason)
+        {%{}, :unavailable}
+    end
+  end
+
+  defp catalog_metadata(entry, metadata_by_bgg_id, :available) do
+    case Map.fetch(metadata_by_bgg_id, entry.bgg_id) do
+      {:ok, metadata} ->
+        metadata
+
+      :error ->
+        log_metadata_fallback({:game, entry.slug}, :game_not_found)
+        %{}
+    end
+  end
+
+  defp catalog_metadata(_entry, _metadata_by_bgg_id, :unavailable), do: %{}
+
+  defp fetch_game_metadata(entry) do
+    case BoardGameGeek.fetch_game_details(entry.bgg_id) do
+      {:ok, metadata} ->
+        metadata
+
+      {:error, reason} ->
+        log_metadata_fallback({:game, entry.slug}, reason)
+        %{}
+    end
+  end
+
+  defp log_metadata_fallback(scope, reason) do
+    Logger.warning("Failed to enrich game metadata; using local fallback",
+      source: :board_game_geek,
+      scope: scope,
+      reason: reason
+    )
+  end
 end

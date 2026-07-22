@@ -1,6 +1,8 @@
 defmodule D20.GamesTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias D20.Games
   alias D20.Games.Game
   alias D20.Games.Registry
@@ -142,16 +144,84 @@ defmodule D20.GamesTest do
              Enum.find(games, &(&1.slug == "qwinto"))
   end
 
-  test "returns batch metadata source errors without a game slug" do
+  test "lists empty fallback metadata when the batch request fails" do
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
 
-    assert Games.list() == {:error, {:http_error, 401}}
+    log =
+      capture_log(fn ->
+        assert {:ok, games} = Games.list()
+        assert length(games) == map_size(@registered_game_names)
+        assert %Game{name: nil, image_url: nil} = game_by_slug(games, "qwinto")
+      end)
+
+    assert log =~ "Failed to enrich game metadata; using local fallback"
   end
 
-  test "returns metadata source errors for registered games" do
+  test "returns empty fallback metadata for registered games when BGG is unavailable" do
+    api_key = "key-that-must-not-be-logged"
+    Application.put_env(:d20, BoardGameGeek, api_key: api_key)
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 503, "Unavailable") end)
 
-    assert Games.fetch_by_slug("qwinto") == {:error, {:http_error, 503}}
+    log =
+      capture_log(fn ->
+        assert {:ok, %Game{name: nil, description: nil, image_url: nil}} =
+                 Games.fetch_by_slug("qwinto")
+      end)
+
+    assert log =~ "Failed to enrich game metadata; using local fallback"
+    refute log =~ api_key
+    refute log =~ "authorization"
+  end
+
+  test "returns empty fallback metadata when the BGG request times out" do
+    Req.Test.expect(__MODULE__, &Req.Test.transport_error(&1, :timeout))
+
+    log =
+      capture_log(fn ->
+        assert {:ok, %Game{name: nil, playing_time: nil}} = Games.fetch_by_slug("qwinto")
+      end)
+
+    assert log =~ "Failed to enrich game metadata; using local fallback"
+  end
+
+  test "returns empty fallback metadata without configured BGG credentials" do
+    Application.delete_env(:d20, BoardGameGeek)
+
+    log =
+      capture_log(fn ->
+        assert {:ok, %Game{name: nil, rating: nil}} = Games.fetch_by_slug("qwinto")
+      end)
+
+    assert log =~ "Failed to enrich game metadata; using local fallback"
+  end
+
+  test "returns empty fallback metadata when BGG metadata cannot be parsed" do
+    Req.Test.expect(__MODULE__, fn conn -> Req.Test.text(conn, "not xml") end)
+
+    log =
+      capture_log(fn ->
+        assert {:ok, %Game{name: nil, categories: []}} = Games.fetch_by_slug("qwinto")
+      end)
+
+    assert log =~ "Failed to enrich game metadata; using local fallback"
+  end
+
+  test "preserves batch metadata while falling back for an omitted registered game" do
+    stub_registered_bgg_games(
+      %{"425873" => game_item_xml("425873", "Resolved Koala Rescue Club")},
+      ["183006"]
+    )
+
+    log =
+      capture_log(fn ->
+        assert {:ok, games} = Games.list()
+        assert %Game{name: nil, image_url: nil} = game_by_slug(games, "qwinto")
+
+        assert %Game{name: "Resolved Koala Rescue Club"} =
+                 game_by_slug(games, "koala-rescue-club")
+      end)
+
+    assert log =~ "Failed to enrich game metadata; using local fallback"
   end
 
   test "returns not found for unknown games" do
@@ -192,7 +262,7 @@ defmodule D20.GamesTest do
     end)
   end
 
-  defp stub_registered_bgg_games do
+  defp stub_registered_bgg_games(overrides \\ %{}, omitted_ids \\ []) do
     Req.Test.expect(__MODULE__, fn conn ->
       assert %{"id" => ids, "type" => "boardgame", "stats" => "1"} = conn.params
 
@@ -201,8 +271,10 @@ defmodule D20.GamesTest do
       assert MapSet.new(requested_ids) == MapSet.new(Map.keys(@registered_game_names))
 
       items =
-        Enum.map_join(requested_ids, fn id ->
-          game_item_xml(id, Map.fetch!(@registered_game_names, id))
+        requested_ids
+        |> Enum.reject(&(&1 in omitted_ids))
+        |> Enum.map_join(fn id ->
+          Map.get(overrides, id, game_item_xml(id, Map.fetch!(@registered_game_names, id)))
         end)
 
       Req.Test.text(conn, "<items>#{items}</items>")

@@ -127,7 +127,7 @@ docker compose down
 | `PORT`              | No                   | Phoenix HTTP port. Defaults to `5000`.                                 |
 | `STATIC_PORT`       | No                   | Development asset server port. Defaults to `5174`.                     |
 | `STATIC_URL_HOST`   | No                   | Development asset host. Defaults to an automatically detected LAN IP. |
-| `BGG_API_KEY`       | Yes                  | API key for the board-game metadata source.                            |
+| `BGG_API_KEY`       | Production           | BoardGameGeek enrichment key. Optional for local development, with fallback metadata when absent. |
 | `PHX_HOST`          | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.   |
 | `PHX_SERVER`        | No                   | Enables the endpoint server when running a release.                    |
 | `POOL_SIZE`         | No                   | Ecto pool size. Defaults to `10`.                                      |

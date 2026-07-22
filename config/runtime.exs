@@ -25,7 +25,7 @@ bgg_api_key = System.get_env("BGG_API_KEY")
 config :d20, D20.Games.Sources.BoardGameGeek, api_key: bgg_api_key
 
 if config_env() == :prod do
-  if bgg_api_key in [nil, ""] do
+  if is_nil(bgg_api_key) or String.trim(bgg_api_key) == "" do
     raise """
     environment variable BGG_API_KEY is missing.
     Register a BoardGameGeek API application and set its access token.

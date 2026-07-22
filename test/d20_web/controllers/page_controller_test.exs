@@ -186,7 +186,7 @@ defmodule D20Web.PageControllerTest do
     assert game[:imageUrl] == "https://example.invalid/qwinto-image.jpg"
   end
 
-  test "GET / renders an empty catalog when runtime metadata is unavailable", %{conn: conn} do
+  test "GET / renders the complete fallback catalog when BGG is unavailable", %{conn: conn} do
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
 
     log =
@@ -195,10 +195,27 @@ defmodule D20Web.PageControllerTest do
 
         assert html_response(conn, 200) =~ ~s(id="app")
         assert inertia_component(conn) == "home"
-        assert %{games: []} = inertia_props(conn)
+        assert %{games: games} = inertia_props(conn)
+        assert length(games) == map_size(@registered_game_names)
+        assert %{name: nil, imageUrl: nil} = game_by_slug(games, "qwinto")
       end)
 
-    assert log =~ "Failed to load game metadata"
+    assert log =~ "Failed to enrich game metadata; using local fallback"
+  end
+
+  test "GET / renders the complete fallback catalog without BGG credentials", %{conn: conn} do
+    Application.delete_env(:d20, BoardGameGeek)
+
+    capture_log(fn ->
+      conn = get(conn, ~p"/")
+
+      assert html_response(conn, 200) =~ ~s(id="app")
+      assert %{games: games} = inertia_props(conn)
+      assert length(games) == map_size(@registered_game_names)
+
+      assert %{status: :active, game: %{name: nil, imageUrl: nil}} =
+               Enum.find(games, &(&1.slug == "koala-rescue-club"))
+    end)
   end
 
   test "GET /games redirects to the home showcase", %{conn: conn} do
@@ -308,6 +325,29 @@ defmodule D20Web.PageControllerTest do
                }
              }
            } = inertia_props(conn)
+  end
+
+  test "GET /games/:slug renders fallback metadata and launch controls without BGG credentials",
+       %{conn: conn} do
+    Application.delete_env(:d20, BoardGameGeek)
+
+    capture_log(fn ->
+      conn = get(conn, ~p"/games/koala-rescue-club")
+
+      assert html_response(conn, 200) =~ ~s(id="app")
+      assert inertia_component(conn) == "game"
+
+      assert %{
+               slug: "koala-rescue-club",
+               status: :active,
+               canLaunchGame: true,
+               game: %{name: nil, imageUrl: nil},
+               attrs: %{sheet: %{value: "dharug"}},
+               session: nil,
+               module: nil,
+               connection: nil
+             } = inertia_props(conn)
+    end)
   end
 
   test "GET /games/:slug with a missing session redirects with errors", %{conn: conn} do
@@ -466,6 +506,27 @@ defmodule D20Web.PageControllerTest do
             }} = D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
 
     assert is_binary(actor_id)
+  end
+
+  test "GET /games/:slug with a session attaches module connection without BGG credentials", %{
+    conn: conn
+  } do
+    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
+    session_id = session.id
+
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
+    Application.delete_env(:d20, BoardGameGeek)
+
+    capture_log(fn ->
+      conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
+
+      assert %{
+               game: %{name: nil, imageUrl: nil},
+               module: %{embedUrl: "http://qwinto.example.com/"},
+               connection: %{topic: "session:" <> ^session_id},
+               session: %{id: ^session_id, phase: :waiting_for_players}
+             } = inertia_props(conn)
+    end)
   end
 
   test "GET /games/:slug with forwarded https attaches secure module URLs", %{conn: conn} do

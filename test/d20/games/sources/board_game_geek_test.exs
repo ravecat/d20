@@ -92,10 +92,15 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
       assert {:ok, %{name: "Example Trade Game"}} = BoardGameGeek.fetch_game_details(999_999)
     end
 
-    test "raises when source config is missing" do
+    test "returns a configuration error without an HTTP request when the API key is unavailable" do
       Application.delete_env(:d20, BoardGameGeek)
+      assert BoardGameGeek.fetch_game_details(999_999) == {:error, :api_key_not_configured}
 
-      assert_raise ArgumentError, fn -> BoardGameGeek.fetch_game_details(999_999) end
+      Application.put_env(:d20, BoardGameGeek, api_key: nil)
+      assert BoardGameGeek.fetch_game_details(999_999) == {:error, :api_key_not_configured}
+
+      Application.put_env(:d20, BoardGameGeek, api_key: "")
+      assert BoardGameGeek.fetch_game_details(999_999) == {:error, :api_key_not_configured}
     end
 
     test "returns http errors without parsing the response body" do
@@ -104,6 +109,15 @@ defmodule D20.Games.Sources.BoardGameGeekTest do
       Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
 
       assert BoardGameGeek.fetch_game_details(999_999) == {:error, {:http_error, 401}}
+    end
+
+    test "returns transport errors" do
+      Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+
+      Req.Test.expect(__MODULE__, &Req.Test.transport_error(&1, :timeout))
+
+      assert BoardGameGeek.fetch_game_details(999_999) ==
+               {:error, %Req.TransportError{reason: :timeout}}
     end
 
     test "returns not found when BGG returns no items" do

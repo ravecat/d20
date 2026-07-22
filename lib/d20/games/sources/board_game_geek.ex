@@ -43,7 +43,8 @@ defmodule D20.Games.Sources.BoardGameGeek do
 
   def fetch_games_details(bgg_ids) when is_list(bgg_ids) do
     if Enum.all?(bgg_ids, &(is_integer(&1) and &1 > 0)) do
-      with {:ok, body} <- request_game_details(bgg_ids, config!(:api_key)) do
+      with {:ok, api_key} <- fetch_api_key(),
+           {:ok, body} <- request_game_details(bgg_ids, api_key) do
         __MODULE__.Parser.parse_game_details(body)
       end
     else
@@ -69,10 +70,19 @@ defmodule D20.Games.Sources.BoardGameGeek do
     end
   end
 
-  defp config!(key) do
-    :d20
-    |> Application.fetch_env!(__MODULE__)
-    |> Keyword.fetch!(key)
+  defp fetch_api_key do
+    api_key = :d20 |> Application.get_env(__MODULE__, []) |> Keyword.get(:api_key)
+
+    case api_key do
+      api_key when is_binary(api_key) ->
+        case String.trim(api_key) do
+          "" -> {:error, :api_key_not_configured}
+          api_key -> {:ok, api_key}
+        end
+
+      _api_key ->
+        {:error, :api_key_not_configured}
+    end
   end
 
   defmodule Parser do
