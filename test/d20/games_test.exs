@@ -5,6 +5,7 @@ defmodule D20.GamesTest do
   alias D20.Games.Game
   alias D20.Games.Registry
   alias D20.Games.Sources.BoardGameGeek
+  alias D20.Games.Sources.Local
 
   @qwinto_xml """
   <?xml version="1.0" encoding="utf-8"?>
@@ -60,12 +61,14 @@ defmodule D20.GamesTest do
     Req.Test.verify_on_exit!()
 
     original_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
+    original_games_config = Application.get_env(:d20, Games, :not_configured)
 
     original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
 
     original_req_options = Req.default_options()
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+    Application.put_env(:d20, Games, metadata_source: BoardGameGeek)
     Req.default_options(plug: {Req.Test, __MODULE__})
 
     on_exit(fn ->
@@ -79,6 +82,11 @@ defmodule D20.GamesTest do
       case original_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
         config -> Application.put_env(:d20, BoardGameGeek, config)
+      end
+
+      case original_games_config do
+        :not_configured -> Application.delete_env(:d20, Games)
+        config -> Application.put_env(:d20, Games, config)
       end
     end)
   end
@@ -152,6 +160,18 @@ defmodule D20.GamesTest do
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 503, "Unavailable") end)
 
     assert Games.fetch_by_slug("qwinto") == {:error, {:http_error, 503}}
+  end
+
+  test "lists and fetches registered games from local metadata without HTTP requests" do
+    Application.put_env(:d20, Games, metadata_source: Local)
+
+    assert {:ok, games} = Games.list()
+    assert length(games) == map_size(@registered_game_names)
+
+    assert %{status: :active, game: %Game{name: "Koala Rescue Club"}} =
+             Enum.find(games, &(&1.slug == "koala-rescue-club"))
+
+    assert {:ok, %Game{name: "Koala Rescue Club"}} = Games.fetch_by_slug("koala-rescue-club")
   end
 
   test "returns not found for unknown games" do

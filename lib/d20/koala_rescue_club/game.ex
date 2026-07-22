@@ -15,6 +15,7 @@ defmodule D20.KoalaRescueClub.Game do
 
   @phases [:setup, :ready, :roll, :submit, :finished]
   @modes [:solo, :multiplayer]
+  @opponents [:none, :bot_easy, :bot_normal, :bot_hard]
   @player_statuses [:ready, :pending, :submitted]
   @derive Jason.Encoder
   @primary_key false
@@ -25,6 +26,7 @@ defmodule D20.KoalaRescueClub.Game do
       default: :setup
 
     field :sheet, Ecto.Enum, values: [:dharug, :yugambeh], default: :dharug
+    field :opponent, Ecto.Enum, values: @opponents, default: :none
     field :mode, Ecto.Enum, values: @modes
     field :round, :integer, default: 1
     field :turn, :integer, default: 0
@@ -49,6 +51,7 @@ defmodule D20.KoalaRescueClub.Game do
         }
   @type phase :: :setup | :ready | :roll | :submit | :finished
   @type mode :: :solo | :multiplayer
+  @type opponent :: :none | :bot_easy | :bot_normal | :bot_hard
   @type turn :: 0 | Ruleset.turn()
   @type score :: %{required(:total) => integer(), required(:rank) => Ruleset.rank() | nil}
   @type round :: %{
@@ -63,18 +66,26 @@ defmodule D20.KoalaRescueClub.Game do
           required(:volunteers) => non_neg_integer(),
           required(:cells) => [Ruleset.cell()]
         }
+  @type last_action :: %{
+          required(:turn) => Ruleset.turn(),
+          required(:action) => String.t(),
+          required(:die_value) => Ruleset.die_value(),
+          required(:target_cells) => [Ruleset.cell()]
+        }
   @type player :: %{
           required(:status) => player_status(),
           required(:sheet) => sheet(),
           required(:selection) => selection() | nil,
           required(:badges) => %{optional(Ruleset.badge()) => badge_award()},
           required(:rounds) => [round()],
-          required(:turns) => [Ruleset.die_value()]
+          required(:turns) => [Ruleset.die_value()],
+          required(:last_action) => last_action() | nil
         }
   @type roll :: %{required(:value) => Ruleset.die_value()}
   @type t :: %__MODULE__{
           phase: phase(),
           sheet: Ruleset.id(),
+          opponent: opponent(),
           mode: mode() | nil,
           round: Ruleset.round(),
           turn: turn(),
@@ -91,11 +102,14 @@ defmodule D20.KoalaRescueClub.Game do
   @impl D20.Game
   @spec changeset(map()) :: Ecto.Changeset.t()
   def changeset(params) do
-    types = %{sheet: Ecto.ParameterizedType.init(Ecto.Enum, values: Ruleset.sheets())}
+    types = %{
+      sheet: Ecto.ParameterizedType.init(Ecto.Enum, values: Ruleset.sheets()),
+      opponent: Ecto.ParameterizedType.init(Ecto.Enum, values: @opponents)
+    }
 
-    {%{sheet: :dharug}, types}
+    {%{sheet: :dharug, opponent: :none}, types}
     |> cast(params, Map.keys(types))
-    |> validate_required([:sheet])
+    |> validate_required([:sheet, :opponent])
   end
 
   @impl D20.Game
@@ -163,7 +177,14 @@ defmodule D20.KoalaRescueClub.Game do
     players =
       Map.new(game.players, fn {player_id, player} ->
         {player_id,
-         Map.merge(player, %{status: :ready, selection: nil, rounds: [], badges: %{}, turns: []})}
+         Map.merge(player, %{
+           status: :ready,
+           selection: nil,
+           rounds: [],
+           badges: %{},
+           turns: [],
+           last_action: nil
+         })}
       end)
 
     %{game | phase: :roll, mode: game_mode(game.players), round: 1, turn: 1, players: players}
@@ -185,8 +206,9 @@ defmodule D20.KoalaRescueClub.Game do
        )
        when event in ["submit", "circle_tree", "circle_koala"] do
     value = turn_value(game, command)
+    last_action = last_action(game, command)
     {:ok, player} = Rules.resolve_turn(game, command)
-    player = record_turn(player, value)
+    player = player |> record_turn(value) |> Map.put(:last_action, last_action)
 
     game
     |> put_in([Access.key!(:players), actor_id], player)
@@ -222,7 +244,15 @@ defmodule D20.KoalaRescueClub.Game do
         bonuses: []
       }
 
-      player = %{status: :ready, sheet: sheet, selection: nil, rounds: [], badges: %{}, turns: []}
+      player = %{
+        status: :ready,
+        sheet: sheet,
+        selection: nil,
+        rounds: [],
+        badges: %{},
+        turns: [],
+        last_action: nil
+      }
 
       %{game | players: Map.put(game.players, player_id, player)}
     end
@@ -246,6 +276,27 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   defp turn_value(_game, %D20.Command{attrs: %{die_value: value}}), do: value
+
+  defp last_action(%__MODULE__{turn: turn, players: players}, %D20.Command{
+         event: "submit",
+         actor_id: actor_id
+       }) do
+    %{selection: selection} = Map.fetch!(players, actor_id)
+
+    %{
+      turn: turn,
+      action: selection.action,
+      die_value: selection.value,
+      target_cells: selection.cells
+    }
+  end
+
+  defp last_action(%__MODULE__{turn: turn}, %D20.Command{
+         event: action,
+         attrs: %{die_value: value, target_cell: target_cell}
+       }) do
+    %{turn: turn, action: action, die_value: value, target_cells: [target_cell]}
+  end
 
   defp record_turn(player, value) do
     Map.put(player, :turns, Map.get(player, :turns, []) ++ [value])

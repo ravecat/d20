@@ -13,8 +13,8 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
 
     test "starts with a selected sheet and encodes state as JSON" do
-      assert {:ok, %Game{phase: :setup, sheet: :yugambeh, mode: nil} = game} =
-               D20.Game.init(Game, %{"sheet" => "yugambeh"})
+      assert {:ok, %Game{phase: :setup, sheet: :yugambeh, opponent: :bot_hard, mode: nil} = game} =
+               D20.Game.init(Game, %{"sheet" => "yugambeh", "opponent" => "bot_hard"})
 
       assert {:ok, %Game{phase: :ready, mode: nil, players: %{"p1" => _player}} = game} =
                dispatch(game, "join", "p1")
@@ -37,10 +37,12 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert decoded["phase"] == "roll"
       assert decoded["sheet"] == "yugambeh"
+      assert decoded["opponent"] == "bot_hard"
       assert decoded["mode"] == "solo"
       refute Map.has_key?(decoded, "order")
       assert decoded["players"]["p1"]["sheet"]["trees"] == []
       assert decoded["players"]["p1"]["turns"] == []
+      assert decoded["players"]["p1"]["last_action"] == nil
     end
 
     test "finishes after turn 30 is resolved" do
@@ -120,6 +122,13 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p1"].sheet.trees == [%{area: :a, row: 0, column: 0}]
 
       assert game.players["p1"].turns == [value]
+
+      assert game.players["p1"].last_action == %{
+               turn: 1,
+               action: "circle_tree",
+               die_value: value,
+               target_cells: [%{area: :a, row: 0, column: 0}]
+             }
 
       assert {:error, :already_submitted} =
                dispatch(game, "submit", "p1", %{"bonus_actions" => []})
@@ -713,11 +722,25 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert [1] = game.players["p1"].turns
 
+      assert game.players["p1"].last_action == %{
+               turn: 1,
+               action: "plant_trees",
+               die_value: 1,
+               target_cells: [%{area: :a, row: 0, column: 0}, %{area: :a, row: 0, column: 1}]
+             }
+
       game = force_submit_turn(game, 2, 1, 1)
 
       assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
 
       assert [1, 1] = game.players["p1"].turns
+
+      assert game.players["p1"].last_action == %{
+               turn: 2,
+               action: "circle_tree",
+               die_value: 1,
+               target_cells: [%{area: :a, row: 1, column: 0}]
+             }
     end
   end
 

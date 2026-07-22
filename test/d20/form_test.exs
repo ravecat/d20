@@ -13,6 +13,15 @@ defmodule D20.FormTest do
     changeset = D20.Game.changeset(KoalaGame)
 
     assert D20.Form.to_form(changeset) == %{
+             opponent: %{
+               id: "attrs_opponent",
+               name: "opponent",
+               type: "enum",
+               value: "none",
+               required: true,
+               values: ["none", "bot_easy", "bot_normal", "bot_hard"],
+               errors: []
+             },
              sheet: %{
                id: "attrs_sheet",
                name: "sheet",

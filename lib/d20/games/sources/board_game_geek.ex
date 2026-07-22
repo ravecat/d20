@@ -7,6 +7,8 @@ defmodule D20.Games.Sources.BoardGameGeek do
   attributes.
   """
 
+  @behaviour D20.Games.MetadataSource
+
   @type game :: %{
           optional(:bgg_id) => integer(),
           optional(:name) => String.t(),
@@ -27,6 +29,7 @@ defmodule D20.Games.Sources.BoardGameGeek do
           optional(:rating) => float()
         }
 
+  @impl true
   @spec fetch_game_details(integer()) :: {:ok, game()} | {:error, term()}
   def fetch_game_details(bgg_id) when is_integer(bgg_id) and bgg_id > 0 do
     with {:ok, games} <- fetch_games_details([bgg_id]),
@@ -38,6 +41,7 @@ defmodule D20.Games.Sources.BoardGameGeek do
     end
   end
 
+  @impl true
   @spec fetch_games_details([integer()]) :: {:ok, [game()]} | {:error, term()}
   def fetch_games_details([]), do: {:ok, []}
 

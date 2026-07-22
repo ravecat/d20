@@ -44,6 +44,8 @@ export interface SessionMember {
   online_at: number;
   display_name?: string;
   avatar?: string | null;
+  bot?: boolean;
+  bot_difficulty?: "easy" | "normal" | "hard";
 }
 
 export interface SessionPermissions {

@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.7.0
+  version: 0.9.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -562,6 +562,17 @@ components:
             - type: string
               format: uri
             - type: "null"
+        bot:
+          type: boolean
+          default: false
+          description: True when the participant is a server-controlled opponent.
+        bot_difficulty:
+          type: string
+          enum:
+            - easy
+            - normal
+            - hard
+          description: Strategy level used by a server-controlled opponent.
       additionalProperties: true
     participantId:
       type: string
@@ -646,6 +657,7 @@ components:
         - badges
         - rounds
         - turns
+        - last_action
       properties:
         status:
           type: string
@@ -682,6 +694,40 @@ components:
             type: integer
             minimum: 1
             maximum: 6
+        last_action:
+          description: Most recently accepted primary action for this player.
+          oneOf:
+            - $ref: "#/components/schemas/lastAction"
+            - type: "null"
+      additionalProperties: false
+    lastAction:
+      type: object
+      required:
+        - turn
+        - action
+        - die_value
+        - target_cells
+      properties:
+        turn:
+          type: integer
+          minimum: 1
+          maximum: 30
+        action:
+          type: string
+          enum:
+            - plant_trees
+            - rehome_koalas
+            - circle_tree
+            - circle_koala
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        target_cells:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/cellRef"
       additionalProperties: false
     playerSheet:
       type: object
