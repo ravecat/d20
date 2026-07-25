@@ -29,9 +29,9 @@ defmodule D20Web.SessionChannelTest do
 
       assert permissions.can_start_game == false
 
-      assert socket.assigns.current_scope.session == %{id: session_id}
+      assert socket.assigns.scope.session == %{id: session_id}
 
-      assert socket.assigns.current_scope.game == %{slug: "qwinto"}
+      assert socket.assigns.scope.game == %{slug: "qwinto"}
 
       assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
@@ -98,11 +98,11 @@ defmodule D20Web.SessionChannelTest do
 
       assert {:ok, socket} = connect_module_socket(session_id, actor)
 
-      assert socket.assigns.current_scope.actor == %Actor{id: actor.id, type: actor.type}
+      assert socket.assigns.scope.actor == %Actor{id: actor.id, type: actor.type}
 
-      assert socket.assigns.current_scope.session == %{id: session_id}
+      assert socket.assigns.scope.session == %{id: session_id}
 
-      assert socket.assigns.current_scope.game == %{slug: "qwinto"}
+      assert socket.assigns.scope.game == %{slug: "qwinto"}
 
       refute Map.has_key?(socket.assigns, :actor)
       refute Map.has_key?(socket.assigns, :module)
@@ -112,9 +112,9 @@ defmodule D20Web.SessionChannelTest do
 
       assert permissions.can_start_game == false
 
-      assert socket.assigns.current_scope.session == %{id: session_id}
+      assert socket.assigns.scope.session == %{id: session_id}
 
-      assert socket.assigns.current_scope.game == %{slug: "qwinto"}
+      assert socket.assigns.scope.game == %{slug: "qwinto"}
 
       assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 

@@ -19,7 +19,7 @@ defmodule D20Web.ModuleSocket do
         |> Scope.put_session(session_id)
         |> Scope.put_game(claims.slug)
 
-      {:ok, assign(socket, :current_scope, scope)}
+      {:ok, assign(socket, :scope, scope)}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -29,7 +29,7 @@ defmodule D20Web.ModuleSocket do
 
   @impl true
   @spec id(Phoenix.Socket.t()) :: String.t()
-  def id(%{assigns: %{current_scope: %{actor: actor, session: session, game: game}}}) do
+  def id(%{assigns: %{scope: %{actor: actor, session: session, game: game}}}) do
     "module_socket:#{game.slug}:#{session.id}:#{actor.id}"
   end
 end

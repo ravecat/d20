@@ -20,7 +20,7 @@ defmodule D20Web.SessionChannel do
         _payload,
         %{
           handler: D20Web.ModuleSocket,
-          assigns: %{current_scope: %{session: %{id: session_id}, game: %{slug: slug}}}
+          assigns: %{scope: %{session: %{id: session_id}, game: %{slug: slug}}}
         } = socket
       ) do
     with {:ok, {session, ^slug}} <- Sessions.get(session_id) do
@@ -38,13 +38,12 @@ defmodule D20Web.SessionChannel do
   def join(
         "session:" <> session_id,
         _payload,
-        %{assigns: %{current_scope: %{actor: %{id: _actor_id}}}} = socket
+        %{assigns: %{scope: %{actor: %{id: _actor_id}}}} = socket
       ) do
     with {:ok, {session, slug}} <- Sessions.get(session_id) do
-      scope =
-        socket.assigns.current_scope |> Scope.put_session(session.id) |> Scope.put_game(slug)
+      scope = socket.assigns.scope |> Scope.put_session(session.id) |> Scope.put_game(slug)
 
-      socket = assign(socket, :current_scope, scope)
+      socket = assign(socket, :scope, scope)
 
       join_session(socket, session)
     else
@@ -58,7 +57,7 @@ defmodule D20Web.SessionChannel do
 
   @impl true
   def handle_info(:after_join, socket) do
-    actor_id = Scope.actor_id(socket.assigns.current_scope)
+    actor_id = Scope.actor_id(socket.assigns.scope)
 
     attrs =
       actor_id
@@ -73,13 +72,13 @@ defmodule D20Web.SessionChannel do
 
   @impl true
   def handle_info({:session, session}, socket) do
-    push(socket, "projection", Projection.render(socket.assigns.current_scope, session))
+    push(socket, "projection", Projection.render(socket.assigns.scope, session))
     {:noreply, socket}
   end
 
   @impl true
   def handle_in(event, payload, socket) do
-    case Sessions.dispatch(socket.assigns.current_scope, event, payload) do
+    case Sessions.dispatch(socket.assigns.scope, event, payload) do
       {:ok, _session} -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
@@ -88,7 +87,7 @@ defmodule D20Web.SessionChannel do
   defp join_session(socket, session) do
     send(self(), :after_join)
 
-    {:ok, Projection.render(socket.assigns.current_scope, session), socket}
+    {:ok, Projection.render(socket.assigns.scope, session), socket}
   end
 
   defp join_error({:error, :forbidden}), do: {:error, %{reason: "forbidden"}}

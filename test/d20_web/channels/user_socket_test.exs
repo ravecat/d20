@@ -12,7 +12,7 @@ defmodule D20Web.UserSocketTest do
 
     assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token, uri: @uri})
 
-    assert socket.assigns.current_scope.actor == actor
+    assert socket.assigns.scope.actor == actor
     assert socket.assigns.request_uri == @uri
     refute Map.has_key?(socket.assigns, :actor)
   end

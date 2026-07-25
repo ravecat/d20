@@ -17,9 +17,7 @@ defmodule D20Web.UserSocket do
         request_uri = public_uri(uri, Map.get(connect_info, :x_headers, []))
 
         socket =
-          socket
-          |> assign(:current_scope, Scope.for_actor(actor))
-          |> assign(:request_uri, request_uri)
+          socket |> assign(:scope, Scope.for_actor(actor)) |> assign(:request_uri, request_uri)
 
         {:ok, socket}
 
@@ -32,7 +30,7 @@ defmodule D20Web.UserSocket do
 
   @impl true
   def id(socket) do
-    actor = socket.assigns.current_scope.actor
+    actor = socket.assigns.scope.actor
 
     "user_socket:#{actor.type}:#{actor.id}"
   end

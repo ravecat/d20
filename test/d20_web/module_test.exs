@@ -53,8 +53,7 @@ defmodule D20Web.ModuleTest do
     session_id = Ecto.UUID.generate()
     topic = "session:#{session_id}"
 
-    socket =
-      socket UserSocket, "socket-id", %{current_scope: Scope.for_actor(actor), request_uri: uri}
+    socket = socket UserSocket, "socket-id", %{scope: Scope.for_actor(actor), request_uri: uri}
 
     registry_entry = %D20.Games.Registry.Entry{
       slug: "qwinto",

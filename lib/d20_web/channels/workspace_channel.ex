@@ -12,7 +12,7 @@ defmodule D20Web.WorkspaceChannel do
   def join(
         @channel_topic,
         _payload,
-        %{assigns: %{current_scope: %Scope{actor: %{id: actor_id}}, request_uri: %URI{}}} = socket
+        %{assigns: %{scope: %Scope{actor: %{id: actor_id}}, request_uri: %URI{}}} = socket
       )
       when is_binary(actor_id) do
     :ok = Workspace.subscribe(actor_id)
@@ -29,7 +29,7 @@ defmodule D20Web.WorkspaceChannel do
   def handle_in(
         "close",
         %{"id" => session_id},
-        %{assigns: %{current_scope: %Scope{actor: %{id: actor_id}} = scope}} = socket
+        %{assigns: %{scope: %Scope{actor: %{id: actor_id}} = scope}} = socket
       ) do
     with {:ok, {%Session{members: members}, slug}} <- Sessions.get(session_id),
          true <- Map.has_key?(members, actor_id),
@@ -47,7 +47,7 @@ defmodule D20Web.WorkspaceChannel do
   end
 
   @impl true
-  def handle_info({:sessions_changed, actor_id}, %{assigns: %{current_scope: scope}} = socket)
+  def handle_info({:sessions_changed, actor_id}, %{assigns: %{scope: scope}} = socket)
       when actor_id == scope.actor.id do
     {:noreply, refresh(socket)}
   end

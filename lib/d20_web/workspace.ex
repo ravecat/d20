@@ -31,7 +31,7 @@ defmodule D20Web.Workspace do
   @spec snapshot(Phoenix.Socket.t()) :: {%{sessions: [map()]}, %{pid() => Sessions.id()}}
   def snapshot(socket) do
     sessions =
-      socket.assigns.current_scope
+      socket.assigns.scope
       |> Sessions.list_runtime()
       |> Enum.flat_map(fn
         {pid, {%Session{id: id, phase: :in_progress}, slug}} ->

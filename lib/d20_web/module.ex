@@ -69,7 +69,7 @@ defmodule D20Web.Module do
   end
 
   defp request_context(%Phoenix.Socket{
-         assigns: %{current_scope: %Scope{actor: %Actor{} = actor}, request_uri: %URI{} = uri}
+         assigns: %{scope: %Scope{actor: %Actor{} = actor}, request_uri: %URI{} = uri}
        }) do
     %{actor: actor, uri: uri}
   end
