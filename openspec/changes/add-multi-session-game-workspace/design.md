@@ -95,8 +95,9 @@ Each descriptor contains:
 ```
 
 Module bootstrap data is derived from the authenticated actor and the browser-facing user-socket
-request URI. Phoenix captures WebSocket connect info before endpoint plugs run, so UserSocket
-reconstructs that public URI from trusted forwarded scheme and port headers before storing it.
+request URI. The production Endpoint enables SSL rewriting from the trusted forwarded scheme.
+Phoenix runs that SSL handling before socket dispatch, so UserSocket receives and stores an
+already-normalized public URI without reading proxy headers itself.
 
 ### 4. Accepted transitions and Presence invalidate snapshots
 
@@ -189,8 +190,8 @@ Game-specific AsyncAPI files continue to describe SessionChannel only and gain n
 - Global close races - reduced by server-authoritative membership and complete snapshots.
 - Full reload may lose volatile membership after the final Presence `left` notification - accepted because restoration is outside scope.
 - Registry visibility remains node-local - unchanged from the existing runtime architecture.
-- Forwarded request metadata is trusted only at the existing proxy boundary - production ingress
-  must strip client-supplied forwarding headers and write the public scheme and port.
+- The production Endpoint trusts the forwarded scheme only at the existing proxy boundary -
+  production ingress must strip client-supplied forwarding headers and write the public scheme.
 
 ## Migration Plan
 

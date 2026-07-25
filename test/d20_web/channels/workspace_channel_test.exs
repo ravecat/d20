@@ -9,8 +9,7 @@ defmodule D20Web.WorkspaceChannelTest do
   alias D20Web.Workspace
   alias D20Web.WorkspaceChannel
 
-  @uri URI.parse("http://shell.example.com:80/socket/websocket?vsn=2.0.0")
-  @x_headers [{"x-forwarded-proto", "https"}, {"x-forwarded-port", "443"}]
+  @uri URI.parse("https://shell.example.com/socket/websocket?vsn=2.0.0")
 
   defmodule AutomaticServer do
     use D20.Game.Server
@@ -292,10 +291,7 @@ defmodule D20Web.WorkspaceChannelTest do
   defp join_workspace(actor) do
     token = D20.Actors.Token.sign(D20Web.Endpoint, actor)
 
-    assert {:ok, socket} =
-             connect(UserSocket, %{},
-               connect_info: %{auth_token: token, uri: @uri, x_headers: @x_headers}
-             )
+    assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token, uri: @uri})
 
     subscribe_and_join(socket, WorkspaceChannel, "workspace", %{})
   end

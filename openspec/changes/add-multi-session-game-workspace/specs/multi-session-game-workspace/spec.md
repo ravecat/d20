@@ -83,7 +83,8 @@ Every descriptor SHALL contain `id`, `slug`, `module`, fresh actor-bound `connec
 - **GIVEN** the browser connects securely through the trusted production proxy
 - **AND** Phoenix receives the socket upgrade through an internal HTTP connection
 - **WHEN** WorkspaceChannel builds a module descriptor
-- **THEN** the iframe URL uses HTTPS
+- **THEN** the production Endpoint normalizes the trusted forwarded scheme before socket dispatch
+- **AND** the iframe URL uses HTTPS
 - **AND** the module endpoint uses WSS with the public port
 
 #### Scenario: Presence overlap changes

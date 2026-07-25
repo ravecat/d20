@@ -20,8 +20,8 @@
 - [x] 3.4 Return that snapshot in the successful join reply with fresh actor-bound module connection data.
 - [x] 3.5 Subscribe each channel process to an internal actor-specific PubSub topic and push complete `snapshot` replacements directly to its client.
 - [x] 3.6 Cover authentication, empty and multiple snapshots, repeated slugs, phase and membership filtering, module omission, actor-bound credentials, and payload isolation in focused channel tests.
-- [x] 3.7 Capture trusted forwarded headers and normalize the browser-facing socket URI before workspace descriptor generation.
-- [x] 3.8 Add regression coverage for internal HTTP socket upgrades producing public HTTPS iframe and WSS module URLs.
+- [x] 3.7 Normalize the trusted production proxy scheme at the Endpoint before socket dispatch and keep UserSocket free of forwarded-header parsing.
+- [x] 3.8 Add regression coverage for endpoint-normalized HTTPS socket context producing public HTTPS iframe and WSS module URLs while local HTTP remains unchanged.
 
 ## 4. Publish Workspace Invalidations Centrally
 

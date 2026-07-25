@@ -12,7 +12,7 @@ defmodule D20Web.Endpoint do
     longpoll: [connect_info: [session: @session_options]]
 
   socket "/socket", D20Web.UserSocket,
-    websocket: [connect_info: [:uri, :x_headers]],
+    websocket: [connect_info: [:uri]],
     longpoll: false,
     auth_token: true
 
