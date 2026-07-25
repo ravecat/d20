@@ -340,7 +340,7 @@ defmodule D20.Qwinto.GameTest do
       assert map_size(game.scores) == 2
       assert game.scores["p1"].penalties == -20
       assert {:error, :finished} = dispatch(game, "join", "p3")
-      assert {:error, :finished} = dispatch(game, "leave", "p1")
+      assert {:error, :finished} = dispatch(game, "left", "p1")
       assert {:error, :finished} = dispatch(game, "roll", "p1")
     end
 

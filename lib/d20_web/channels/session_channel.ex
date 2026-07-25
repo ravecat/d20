@@ -1,13 +1,17 @@
 defmodule D20Web.SessionChannel do
   use D20Web, :channel
 
+  alias D20.Accounts
   alias D20.Accounts.Scope
   alias D20.Sessions
   alias D20Web.Presence
   alias D20Web.Projection
 
-  def topic(session_id), do: "session:#{session_id}"
-  def session_id("session:" <> id) when id != "", do: {:ok, id}
+  @spec topic(Sessions.id()) :: String.t()
+  def topic(session_id) when is_binary(session_id), do: "session:" <> session_id
+
+  @spec session_id(String.t()) :: {:ok, Sessions.id()} | {:error, :invalid_topic}
+  def session_id("session:" <> session_id) when session_id != "", do: {:ok, session_id}
   def session_id(_topic), do: {:error, :invalid_topic}
 
   @impl true
@@ -54,14 +58,20 @@ defmodule D20Web.SessionChannel do
 
   @impl true
   def handle_info(:after_join, socket) do
-    {:ok, _} =
-      Presence.track(socket, Scope.actor_id(socket.assigns.current_scope), %{
-        online_at: System.system_time(:second)
-      })
+    actor_id = Scope.actor_id(socket.assigns.current_scope)
+
+    attrs =
+      actor_id
+      |> Accounts.get_user_or_anonymous()
+      |> Map.take([:display_name, :avatar])
+      |> Map.put(:online_at, System.system_time(:second))
+
+    {:ok, _} = Presence.track(socket, actor_id, attrs)
 
     {:noreply, socket}
   end
 
+  @impl true
   def handle_info({:session, session}, socket) do
     push(socket, "projection", Projection.render(socket.assigns.current_scope, session))
     {:noreply, socket}

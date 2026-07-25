@@ -80,7 +80,7 @@ defmodule D20.Qwinto.Game do
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "leave"})
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left"})
       when phase in [:setup, :ready],
       do: {:ok, game}
 
@@ -97,7 +97,7 @@ defmodule D20.Qwinto.Game do
 
   def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "join"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "leave"}), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "left"}), do: {:ok, game}
 
   def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"} = command) do
     with {:ok, command} <- Command.validate(command),
@@ -112,7 +112,7 @@ defmodule D20.Qwinto.Game do
   def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: "join"}),
     do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: "leave"}),
+  def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: "left"}),
     do: {:ok, game}
 
   def dispatch(%__MODULE__{phase: :write_or_pass} = game, %D20.Command{event: event} = command)
@@ -128,7 +128,7 @@ defmodule D20.Qwinto.Game do
 
   def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "join"}), do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "leave"}), do: {:ok, game}
+  def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "left"}), do: {:ok, game}
 
   def dispatch(%__MODULE__{phase: :result} = game, %D20.Command{event: "write"} = command) do
     with {:ok, command} <- Command.validate(command),

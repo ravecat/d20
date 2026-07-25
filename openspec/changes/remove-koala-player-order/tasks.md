@@ -7,8 +7,8 @@
 
 ## 2. Backend Unordered Roster
 
-- [x] 2.1 Update focused Koala aggregate, rules, session, and server tests to remove order assertions and cover players-map capacity, pre-start leave, frozen mode, simultaneous badge awards, and complete final scoring
-- [x] 2.2 Remove the `order` schema field and type entry from `D20.KoalaRescueClub.Game`, and make join and leave mutate only `players`
+- [x] 2.1 Update focused Koala aggregate, rules, session, and server tests to remove order assertions and cover players-map capacity, pre-start `left`, frozen mode, simultaneous badge awards, and complete final scoring
+- [x] 2.2 Remove the `order` schema field and type entry from `D20.KoalaRescueClub.Game`, and make `join` and `left` mutate only `players`
 - [x] 2.3 Ensure readiness and player-count validation use `map_size(game.players)` and no roster count or mode rule reads an order list
 - [x] 2.4 Migrate solo and multiplayer badge evaluation and final scoring to map entries while preserving simultaneous award and score behavior without sorting players
 

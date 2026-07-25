@@ -52,10 +52,10 @@ defmodule D20.NextStationLondon.GameTest do
       assert {:error, :player_limit_reached} = dispatch(game, "join", "p5")
       assert map_size(game.players) == 4
 
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "leave", "p4")
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "leave", "p3")
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "leave", "p2")
-      assert {:ok, %Game{phase: :setup, players: %{}}} = dispatch(game, "leave", "p1")
+      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "left", "p4")
+      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "left", "p3")
+      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "left", "p2")
+      assert {:ok, %Game{phase: :setup, players: %{}}} = dispatch(game, "left", "p1")
     end
 
     test "requires the starting actor to be joined and defers pencil assignment" do
@@ -154,7 +154,7 @@ defmodule D20.NextStationLondon.GameTest do
     test "freezes players across reconnects and late spectators" do
       game = 2 |> started_game() |> prepare_game()
 
-      assert {:ok, ^game} = dispatch(game, "leave", "p1")
+      assert {:ok, ^game} = dispatch(game, "left", "p1")
       assert {:ok, ^game} = dispatch(game, "join", "p1")
       assert {:ok, ^game} = dispatch(game, "join", "spectator")
       assert {:error, :not_joined} = dispatch(game, "pass", "spectator")

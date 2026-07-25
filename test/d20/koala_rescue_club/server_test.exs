@@ -17,12 +17,15 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     on_exit(fn -> Sessions.stop(session.id) end)
 
-    assert {:ok, pid} = Sessions.lookup(session.id)
-    assert [{^pid, Server}] = Registry.lookup(D20.Registry, {:session, session.id})
+    assert [{pid, Server}] = Registry.lookup(D20.Registry, {:session, session.id})
 
     assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
 
-    send(pid, {:join, "owner", %{}})
+    send(pid, {:online, "owner", %{online_at: 1}})
+    assert_receive {:session, %Session{members: %{"owner" => %{status: :online}}}}
+
+    assert {:ok, %Session{game: %Game{phase: :ready}}} =
+             Sessions.dispatch(scope(session.id), "join", %{})
 
     assert_receive {:session, %Session{game: %Game{phase: :ready}}}
 
@@ -47,11 +50,11 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     assert {:ok, {^roll_session, "koala-rescue-club"}} = Sessions.get(session.id)
 
-    send(pid, {:join, "player-2", %{online_at: 123}})
+    send(pid, {:online, "owner", %{online_at: 123}})
 
     assert_receive {:session,
                     %Session{
-                      members: %{"player-2" => %{online_at: 123}},
+                      members: %{"owner" => %{status: :online, online_at: 123}},
                       game: %Game{phase: :roll, mode: :solo, players: %{"owner" => _player}}
                     } = presence_session}
 

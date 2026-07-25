@@ -17,7 +17,12 @@ defmodule D20.Sessions.Session do
   @type id :: Ecto.UUID.t()
   @type phase :: :waiting_for_players | :in_progress | :finished
   @type player_id :: D20.Actors.Actor.id()
-  @type member :: map()
+  @type member :: %{
+          required(:status) => :online | :offline,
+          optional(:online_at) => integer(),
+          optional(:display_name) => String.t(),
+          optional(:avatar) => String.t() | nil
+        }
   @type members :: %{optional(player_id()) => member()}
   @type event :: String.t()
   @type engine_reason :: term()
@@ -56,38 +61,12 @@ defmodule D20.Sessions.Session do
   def dispatch(
         %__MODULE__{phase: phase} = session,
         engine,
-        %Command{event: "join", actor_id: actor_id, attrs: attrs} = command
+        %Command{event: event, actor_id: actor_id} = command
       )
-      when phase in [:waiting_for_players, :in_progress] do
+      when phase in [:waiting_for_players, :in_progress] and event in ["join", "left"] do
     with :ok <- require_identity(actor_id),
          {:ok, game} <- engine.dispatch(session.game, command) do
-      members = Map.put(session.members, actor_id, attrs)
-
-      {:ok, %{session | game: game, members: members}}
-    end
-  end
-
-  def dispatch(
-        %__MODULE__{phase: phase} = session,
-        engine,
-        %Command{event: "leave", actor_id: actor_id} = command
-      )
-      when phase in [:waiting_for_players, :in_progress] do
-    with :ok <- require_identity(actor_id) do
-      case Map.fetch(session.members, actor_id) do
-        {:ok, _member} ->
-          case engine.dispatch(session.game, command) do
-            {:ok, game} ->
-              members = Map.delete(session.members, actor_id)
-              {:ok, %{session | game: game, members: members}}
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-
-        :error ->
-          {:ok, session}
-      end
+      {:ok, %{session | game: game}}
     end
   end
 
@@ -111,6 +90,38 @@ defmodule D20.Sessions.Session do
 
   def dispatch(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
 
+  @spec online(t(), player_id(), map()) :: {:ok, t()} | {:error, :invalid_identity}
+  def online(%__MODULE__{} = session, actor_id, attrs) when is_map(attrs) do
+    with :ok <- require_identity(actor_id) do
+      member =
+        attrs |> Map.take([:display_name, :avatar, :online_at]) |> Map.put(:status, :online)
+
+      members = Map.update(session.members, actor_id, member, &Map.merge(&1, member))
+
+      if members == session.members,
+        do: {:ok, session},
+        else: {:ok, %{session | members: members}}
+    end
+  end
+
+  @spec offline(t(), player_id()) :: {:ok, t()} | {:error, :invalid_identity}
+  def offline(%__MODULE__{} = session, actor_id) do
+    with :ok <- require_identity(actor_id) do
+      update_member(session, actor_id, &Map.put(&1, :status, :offline))
+    end
+  end
+
+  @spec remove_member(t(), player_id()) :: {:ok, t()} | {:error, :invalid_identity}
+  def remove_member(%__MODULE__{} = session, actor_id) do
+    with :ok <- require_identity(actor_id) do
+      members = Map.delete(session.members, actor_id)
+
+      if members == session.members,
+        do: {:ok, session},
+        else: {:ok, %{session | members: members}}
+    end
+  end
+
   defp maybe_finish(session, engine) do
     if engine.finished?(session.game) do
       %{session | phase: :finished}
@@ -127,4 +138,20 @@ defmodule D20.Sessions.Session do
 
   defp require_owner(%__MODULE__{owner_id: player_id}, player_id), do: :ok
   defp require_owner(%__MODULE__{}, _player_id), do: {:error, :not_owner}
+
+  defp update_member(session, actor_id, update) do
+    case Map.fetch(session.members, actor_id) do
+      {:ok, member} ->
+        updated_member = update.(member)
+
+        if updated_member == member do
+          {:ok, session}
+        else
+          {:ok, %{session | members: Map.put(session.members, actor_id, updated_member)}}
+        end
+
+      :error ->
+        {:ok, session}
+    end
+  end
 end

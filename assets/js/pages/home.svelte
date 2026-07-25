@@ -1,14 +1,3 @@
-<script module lang="ts">
-  import Layout from "~components/layout.svelte";
-
-  export const layout = {
-    component: Layout,
-    props: {
-      variant: "catalog",
-    },
-  };
-</script>
-
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
   import type { GameCatalogEntry } from "~types/game";

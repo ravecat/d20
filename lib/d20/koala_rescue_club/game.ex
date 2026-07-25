@@ -111,10 +111,10 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: event})
-      when event in ["join", "leave"] and phase in [:roll, :submit],
+      when event in ["join", "left"] and phase in [:roll, :submit],
       do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "leave", actor_id: actor_id})
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left", actor_id: actor_id})
       when phase in [:setup, :ready] do
     {:ok, game |> leave_player(actor_id) |> refresh_setup_phase()}
   end

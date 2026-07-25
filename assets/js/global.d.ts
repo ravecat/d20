@@ -2,12 +2,6 @@ import "@inertiajs/core";
 import type { LiveSocket } from "phoenix_live_view";
 import type { SharedPageProps } from "@inertiajs/core";
 
-declare module "@inertiajs/core" {
-  interface InertiaConfig {
-    sharedPageProps: Record<string, never>;
-  }
-}
-
 declare module "svelte/elements" {
   interface HTMLAttributes<T extends EventTarget> {
     "scroll-region"?: boolean | "";

@@ -11,7 +11,7 @@
 - [x] 2.2 Implement shared `:get` and command dispatch calls with `handle_event/4`, phase-derived transitions, reply actions, authoritative state storage, publication, and existing error behavior.
 - [x] 2.3 Replace `Process.send_after/3`, `roll_token`, and stale-message handling with a single roll-state timeout created only when entering `:roll` and cancelled by leaving that state.
 - [x] 2.4 Preserve `roll_due_at`, server-owned roll dispatch, later-turn scheduling, and `{:automatic_roll_failed, reason}` termination semantics.
-- [x] 2.5 Port Presence join and leave handling to info events without changing profile enrichment, membership dispatch, publication, or rejected-event behavior.
+- [x] 2.5 Port Presence `join` and `left` handling to info events without changing profile enrichment, membership dispatch, publication, or rejected-event behavior.
 - [x] 2.6 Implement a named idle timeout that is reset by supported calls, Presence events, and automatic transitions without replacing the roll-state timeout.
 - [x] 2.7 Remove the Koala server's client-roll callback and reject Koala `roll` events at `D20Web.SessionChannel` with the existing `automatic_roll` response.
 

@@ -13,10 +13,10 @@ defmodule D20Web.Plugs.AsyncApi do
   @impl true
   def call(%Plug.Conn{path_params: %{"slug" => slug}} = conn, mode)
       when mode in [:raw, :reference] do
-    with {:ok, %Registry.Entry{slug: registered_slug}} <- Registry.fetch(slug),
-         spec_path = path(registered_slug),
+    with {:ok, specification} <- specification(slug),
+         spec_path = path(specification),
          true <- File.regular?(spec_path) do
-      respond(conn, mode, registered_slug, spec_path)
+      respond(conn, mode, specification, spec_path)
     else
       _error -> not_found(conn)
     end
@@ -69,6 +69,15 @@ defmodule D20Web.Plugs.AsyncApi do
 
   defp path(slug) do
     Application.app_dir(:d20, "priv/specs/#{slug}.yaml")
+  end
+
+  defp specification("workspace"), do: {:ok, "workspace"}
+
+  defp specification(slug) do
+    case Registry.fetch(slug) do
+      {:ok, %Registry.Entry{slug: registered_slug}} -> {:ok, registered_slug}
+      {:error, :game_not_found} -> {:error, :specification_not_found}
+    end
   end
 
   defp not_found(conn) do

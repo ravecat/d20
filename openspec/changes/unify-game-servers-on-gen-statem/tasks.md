@@ -1,14 +1,14 @@
 ## 1. Runtime Characterization
 
 - [x] 1.1 Extend `test/d20/sessions_test.exs` to characterize the default server's registry value, shared lifecycle state names, get results, accepted and rejected dispatch behavior, publication order, and temporary restart semantics.
-- [x] 1.2 Add focused default-server tests for Presence join and leave enrichment, accepted and rejected membership updates, and idle expiration before changing the production fallback.
+- [x] 1.2 Add focused default-server tests for Presence `join` and `left` enrichment, accepted and rejected membership updates, and idle expiration before changing the production fallback.
 - [x] 1.3 Update `test/d20/game_test.exs` to characterize generated default-server selection and explicit custom-server selection.
 - [x] 1.4 Replace GenServer custom-server fixtures with `:gen_statem` fixtures and assert that default and custom implementations remain indistinguishable through `D20.Sessions`.
 
 ## 2. Unified Game Server Runtime
 
 - [x] 2.1 Make `D20.Game.Server` the concrete default runtime with direct initialization and event handling based on the shared session phase.
-- [x] 2.2 Port Presence subscription, profile enrichment, join and leave dispatch, and rejected Presence behavior to the default `:gen_statem` implementation.
+- [x] 2.2 Port Presence subscription, profile enrichment, `join` and `left` dispatch, and rejected Presence behavior to the default `:gen_statem` implementation.
 - [x] 2.3 Port the named idle timeout to the default implementation and verify supported activity resets it without changing shared session state names.
 - [x] 2.4 Simplify `D20.Game.Server` to a `:gen_statem`-only adapter with `server_ref/0` and `start_ret/0` types, temporary child specs, registry naming, client calls, and an overridable callback mode.
 - [x] 2.5 Make `use D20.Game.Server` accept no options and remove GenServer adapter examples, generated callbacks, and types.

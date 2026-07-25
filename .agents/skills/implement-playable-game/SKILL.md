@@ -33,7 +33,7 @@ Translate prose, tables, diagrams, and rulesheets into explicit decisions before
 - session creation inputs and variants
 - start-time inputs required between session creation and the outer `start` transition
 - participants, identities, roles, and membership behavior
-- the participant set used by each progress or completion predicate, including the effect of join, leave, and reconnect
+- the participant set used by each progress or completion predicate, including the effect of `join`, `left`, and reconnect
 - initial committed state
 - phases and transitions
 - external commands, actors, payloads, and errors

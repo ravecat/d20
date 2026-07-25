@@ -24,7 +24,7 @@ defmodule D20.Sessions.SessionTest do
       end
     end
 
-    def dispatch(state, %Command{event: "leave", actor_id: actor_id}) do
+    def dispatch(state, %Command{event: "left", actor_id: actor_id}) do
       {:ok, update_in(state.left, &Enum.uniq(&1 ++ [actor_id]))}
     end
 
@@ -89,23 +89,38 @@ defmodule D20.Sessions.SessionTest do
   end
 
   describe "session events" do
-    test "joins are idempotent and forwarded to the game" do
+    test "game joins are independent from session membership" do
       {:ok, session} = Session.new(TestGame, "p1")
 
       assert {:ok, session} =
-               Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 10}))
+               Session.dispatch(
+                 session,
+                 TestGame,
+                 command("join", "p2", %{
+                   display_name: "First name",
+                   avatar: "first-avatar",
+                   online_at: 10,
+                   phx_ref: "connection-ref"
+                 })
+               )
 
-      assert session.members["p2"] == %{online_at: 10}
+      assert session.members == %{}
       assert session.game.players == ["p2"]
+      assert {:ok, session} = Session.online(session, "p2", %{online_at: 20})
 
       assert {:ok, session} =
-               Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 11}))
+               Session.dispatch(
+                 session,
+                 TestGame,
+                 command("join", "p2", %{display_name: "Updated name", avatar: nil, online_at: 11})
+               )
 
-      assert session.members["p2"] == %{online_at: 11}
+      assert session.members["p2"] == %{status: :online, online_at: 20}
       assert session.game.players == ["p2"]
 
       assert {:ok, session} = Session.dispatch(session, TestGame, command("join", "p3"))
-      assert session.members["p3"] == %{}
+      refute Map.has_key?(session.members, "p3")
+      assert session.game.players == ["p2", "p3"]
     end
 
     test "propagates game join capacity errors without adding session members" do
@@ -126,7 +141,7 @@ defmodule D20.Sessions.SessionTest do
       assert {:error, :invalid_player_count} =
                Session.dispatch(session, QwintoGame, command("join", "p5", %{online_at: 50}))
 
-      assert Enum.sort(Map.keys(session.members)) == ["p1", "p2", "p3", "p4"]
+      assert session.members == %{}
       refute Map.has_key?(session.game.players, "p5")
     end
 
@@ -147,7 +162,7 @@ defmodule D20.Sessions.SessionTest do
 
       assert {:ok, session} = Session.dispatch(session, TestGame, command("join", "p2", []))
 
-      assert session.members["p2"] == []
+      assert session.members == %{}
       assert session.game.players == ["p2"]
     end
 
@@ -157,7 +172,7 @@ defmodule D20.Sessions.SessionTest do
       assert {:ok, session} =
                Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 10}))
 
-      assert session.members["p2"] == %{online_at: 10}
+      assert session.members == %{}
       assert session.game.players == ["p2"]
     end
 
@@ -176,50 +191,86 @@ defmodule D20.Sessions.SessionTest do
       assert {:ok, session} =
                Session.dispatch(session, TestGame, command("join", "p3", %{online_at: 13}))
 
-      assert session.members["p3"] == %{online_at: 13}
+      refute Map.has_key?(session.members, "p3")
       assert session.game.players == ["p1", "p3"]
     end
 
-    test "leaves remove existing members and are forwarded to the game" do
+    test "game leaves retain session members" do
       {:ok, session} = Session.new(TestGame, "p1")
+      {:ok, session} = Session.online(session, "p2", %{online_at: 10})
 
       {:ok, session} =
         Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 10}))
 
-      assert {:ok, session} = Session.dispatch(session, TestGame, command("leave", "p2"))
-      refute Map.has_key?(session.members, "p2")
+      assert {:ok, session} = Session.dispatch(session, TestGame, command("left", "p2"))
+      assert session.members["p2"] == %{status: :online, online_at: 10}
       assert session.game.left == ["p2"]
 
       assert {:ok, session} =
                Session.dispatch(session, TestGame, command("join", "p2", %{online_at: 12}))
 
-      assert session.members["p2"] == %{online_at: 12}
+      assert session.members["p2"] == %{status: :online, online_at: 10}
 
-      assert {:ok, ^session} = Session.dispatch(session, TestGame, command("leave", "p3"))
+      assert {:ok, session} = Session.dispatch(session, TestGame, command("left", "p3"))
+      assert session.game.left == ["p2", "p3"]
     end
 
-    test "keeps owner identity when the owner joins and leaves" do
+    test "keeps owner identity independent from game joins and leaves" do
       {:ok, session} = Session.new(TestGame, "p1")
 
-      assert {:ok, session} = Session.dispatch(session, TestGame, command("leave", "p1"))
+      assert {:ok, session} = Session.dispatch(session, TestGame, command("left", "p1"))
       assert session.owner_id == "p1"
       assert session.members == %{}
-      assert session.game.left == []
+      assert session.game.left == ["p1"]
 
       assert {:ok, session} =
                Session.dispatch(session, TestGame, command("join", "p1", %{online_at: 14}))
 
-      assert session.members["p1"] == %{online_at: 14}
+      assert session.members == %{}
 
-      assert {:ok, session} = Session.dispatch(session, TestGame, command("leave", "p1"))
+      assert {:ok, session} = Session.dispatch(session, TestGame, command("left", "p1"))
       assert session.owner_id == "p1"
-      refute Map.has_key?(session.members, "p1")
       assert session.game.left == ["p1"]
+    end
+
+    test "Presence updates membership without reaching the game" do
+      {:ok, session} = Session.new(TestGame, "p1")
+      game = session.game
+
+      assert {:ok, session} =
+               Session.online(session, "p1", %{
+                 online_at: 10,
+                 display_name: "Forged name",
+                 avatar: "forged-avatar",
+                 phx_ref: "connection-ref",
+                 phx_ref_prev: "previous-ref"
+               })
+
+      assert session.members["p1"] == %{
+               status: :online,
+               online_at: 10,
+               display_name: "Forged name",
+               avatar: "forged-avatar"
+             }
+
+      assert session.game == game
+
+      assert {:ok, session} = Session.offline(session, "p1")
+      assert session.members["p1"].status == :offline
+      assert session.game == game
+
+      assert {:ok, session} = Session.dispatch(session, TestGame, command("left", "p1"))
+      assert session.members["p1"].status == :offline
+      assert {:ok, session} = Session.online(session, "p1", %{online_at: 11})
+      assert session.members["p1"].status == :online
+      assert {:ok, session} = Session.remove_member(session, "p1")
+      assert session.members == %{}
+      assert {:ok, ^session} = Session.offline(session, "p1")
     end
   end
 
   describe "game events" do
-    test "starts Koala Rescue Club from members still present after pre-start leaves" do
+    test "starts Koala Rescue Club from game players after a pre-start leave" do
       {:ok, session} = Session.new(KoalaGame, "p1", %{"sheet" => "dharug"})
       {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p1"))
       {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p2"))
@@ -227,9 +278,9 @@ defmodule D20.Sessions.SessionTest do
       assert {:ok,
               %Session{
                 phase: :waiting_for_players,
-                members: %{"p1" => %{}},
+                members: %{},
                 game: %KoalaGame{phase: :ready, mode: nil, players: %{"p1" => _player}}
-              } = session} = Session.dispatch(session, KoalaGame, command("leave", "p2"))
+              } = session} = Session.dispatch(session, KoalaGame, command("left", "p2"))
 
       assert {:ok,
               %Session{
@@ -291,8 +342,7 @@ defmodule D20.Sessions.SessionTest do
 
       assert {:error, :invalid_phase} = Session.dispatch(session, TestGame, command("join", "p2"))
 
-      assert {:error, :invalid_phase} =
-               Session.dispatch(session, TestGame, command("leave", "p1"))
+      assert {:error, :invalid_phase} = Session.dispatch(session, TestGame, command("left", "p1"))
     end
   end
 

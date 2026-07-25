@@ -9,7 +9,7 @@
 
 ## 2. Command Boundary and Dynamic Rules
 
-- [x] 2.1 Add `D20.NextStationLondon.Command` validation and finite normalization for `join`, `leave`, empty `start`, actorless `prepare_round`, `draw_sections`, and `pass` payloads without accepting identity attrs or creating unbounded atoms.
+- [x] 2.1 Add `D20.NextStationLondon.Command` validation and finite normalization for `join`, `left`, empty `start`, actorless `prepare_round`, `draw_sections`, and `pass` payloads without accepting identity attrs or creating unbounded atoms.
 - [x] 2.2 Add Rules predicates for readiness, setup capacity, frozen participation, pending submission, system-only preparation, automatic pencil setup, and deliberate error precedence.
 - [x] 2.3 Add round-setup validation for exact deck permutations, multiplayer pencil cycles, participant-id-keyed distinct pencil offsets, enabled objective selection, and enabled power bijections.
 - [x] 2.4 Add pure instruction derivation for normal cards, Jokers, paired Railroad Switch cards, first-two-instruction switch suppression, reveal history, and fifth-Underground round end.
@@ -22,7 +22,7 @@
 ## 3. Game Aggregate and State Machine
 
 - [x] 3.1 Replace the placeholder with a typed JSON-encodable Ecto embedded aggregate, top-level `objectives` and `powers` state fields without a variants wrapper, and a creation changeset for their boolean attrs.
-- [x] 3.2 Implement `players` as the sole participant-id-keyed roster, setup join, setup leave, readiness, owner-player start validation, frozen map membership, automatic pencil rotation, and in-progress reconnect and spectator behavior without introducing a roster order or changing generic Session contracts.
+- [x] 3.2 Implement `players` as the sole participant-id-keyed roster, setup `join`, setup `left`, readiness, owner-player start validation, frozen map membership, automatic pencil rotation, and in-progress reconnect and spectator behavior without introducing a roster order or changing generic Session contracts.
 - [x] 3.3 Implement actorless round preparation that commits sampled pencil cycles, participant-id-keyed pencil offsets, enabled objective and power assignments, and the hidden deck exactly once, reveals the first effective instruction, and marks frozen players pending.
 - [x] 3.4 Implement phase-gated `draw_sections` and `pass` transitions, immediate committed network updates, per-instruction statuses, and synchronous next-instruction reveal after the final participant submits.
 - [x] 3.5 Implement fifth-Underground round resolution, line and tourist scoring, round increment, four-color rotation, round-only power cleanup, and transition back to preparation for rounds 2 through 4.

@@ -1,14 +1,3 @@
-<script module lang="ts">
-  import Layout from "~components/layout.svelte";
-
-  export const layout = {
-    component: Layout,
-    props: {
-      variant: "catalog",
-    },
-  };
-</script>
-
 <script lang="ts">
   type Specification = {
     game: string;
@@ -31,6 +20,11 @@
       game: "Next Station London",
       referenceUrl: "/developers/specs/next-station-london",
       rawUrl: "/developers/specs/next-station-london/raw",
+    },
+    {
+      game: "Workspace",
+      referenceUrl: "/developers/specs/workspace",
+      rawUrl: "/developers/specs/workspace/raw",
     },
   ];
 </script>

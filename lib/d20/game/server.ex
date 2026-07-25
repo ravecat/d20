@@ -14,7 +14,6 @@ defmodule D20.Game.Server do
 
   @behaviour :gen_statem
 
-  alias D20.Accounts
   alias D20.Command
   alias D20.Sessions
   alias D20.Sessions.Session
@@ -35,7 +34,7 @@ defmodule D20.Game.Server do
       @behaviour :gen_statem
       @before_compile D20.Game.Server
 
-      import D20.Game.Server, only: [broadcast: 1, idle_action: 0]
+      import D20.Game.Server, only: [broadcast: 2, idle_action: 0]
 
       @type opts :: D20.Game.Server.opts()
       @type state :: D20.Game.Server.state()
@@ -135,7 +134,7 @@ defmodule D20.Game.Server do
   end
 
   def handle_event(:info, :presence, _state, {_slug, _engine, session} = data) do
-    case Presence.subscribe(SessionChannel.topic(session.id)) do
+    case Presence.subscribe(session.id) do
       :ok -> {:keep_state_and_data, [idle_action()]}
       {:error, reason} -> {:stop, reason, data}
     end
@@ -148,8 +147,11 @@ defmodule D20.Game.Server do
         {slug, engine, session}
       ) do
     case Session.dispatch(session, engine, command) do
+      {:ok, ^session} ->
+        {:keep_state_and_data, [{:reply, from, {:ok, session}}, idle_action()]}
+
       {:ok, %Session{} = updated_session} ->
-        broadcast(updated_session)
+        broadcast(session, updated_session)
 
         data = {slug, engine, updated_session}
         next_state = state(updated_session)
@@ -167,10 +169,29 @@ defmodule D20.Game.Server do
     end
   end
 
+  def handle_event({:call, from}, {:remove_member, actor_id}, _state, {slug, engine, session}) do
+    case Session.remove_member(session, actor_id) do
+      {:ok, ^session} ->
+        {:keep_state_and_data, [{:reply, from, {:ok, session}}, idle_action()]}
+
+      {:ok, %Session{} = updated_session} ->
+        broadcast(session, updated_session)
+
+        {:keep_state, {slug, engine, updated_session},
+         [{:reply, from, {:ok, updated_session}}, idle_action()]}
+
+      {:error, reason} ->
+        {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle_action()]}
+    end
+  end
+
   def handle_event(:internal, {:dispatch, %Command{} = command}, state, {slug, engine, session}) do
     case Session.dispatch(session, engine, command) do
+      {:ok, ^session} ->
+        {:keep_state_and_data, [idle_action()]}
+
       {:ok, %Session{} = updated_session} ->
-        broadcast(updated_session)
+        broadcast(session, updated_session)
 
         data = {slug, engine, updated_session}
         next_state = state(updated_session)
@@ -186,18 +207,12 @@ defmodule D20.Game.Server do
     end
   end
 
-  def handle_event(:info, {:join, actor_id, attrs}, _state, _data) do
-    profile = Accounts.get_user_or_anonymous(actor_id)
-    member = Map.merge(attrs, Map.take(profile, [:display_name, :avatar]))
-    command = %Command{event: "join", actor_id: actor_id, attrs: member}
-
-    {:keep_state_and_data, [{:next_event, :internal, {:dispatch, command}}]}
+  def handle_event(:info, {:online, actor_id, attrs}, state, data) do
+    update_presence(state, data, &Session.online(&1, actor_id, attrs))
   end
 
-  def handle_event(:info, {:left, actor_id}, _state, _data) do
-    command = %Command{event: "leave", actor_id: actor_id, attrs: %{}}
-
-    {:keep_state_and_data, [{:next_event, :internal, {:dispatch, command}}]}
+  def handle_event(:info, {:offline, actor_id}, state, data) do
+    update_presence(state, data, &Session.offline(&1, actor_id))
   end
 
   def handle_event({:timeout, :idle}, :expire, _state, data) do
@@ -207,13 +222,16 @@ defmodule D20.Game.Server do
   def handle_event(_event_type, _event_content, _state, _data), do: :keep_state_and_data
 
   @doc false
-  @spec broadcast(Session.t()) :: :ok | {:error, term()}
-  def broadcast(session) do
-    Phoenix.PubSub.local_broadcast(
-      D20.PubSub,
-      SessionChannel.topic(session.id),
-      {:session, session}
-    )
+  @spec broadcast(Session.t(), Session.t()) :: :ok | {:error, term()}
+  def broadcast(previous_session, session) do
+    with :ok <-
+           Phoenix.PubSub.local_broadcast(
+             D20.PubSub,
+             SessionChannel.topic(session.id),
+             {:session, session}
+           ) do
+      Sessions.publish_actor_changes(previous_session, session)
+    end
   end
 
   @doc false
@@ -224,4 +242,18 @@ defmodule D20.Game.Server do
 
   defp state(%Session{game: %{phase: phase}}), do: phase
   defp state(%Session{phase: phase}), do: phase
+
+  defp update_presence(_state, {slug, engine, session}, update) do
+    case update.(session) do
+      {:ok, ^session} ->
+        {:keep_state_and_data, [idle_action()]}
+
+      {:ok, %Session{} = updated_session} ->
+        broadcast(session, updated_session)
+        {:keep_state, {slug, engine, updated_session}, [idle_action()]}
+
+      {:error, _reason} ->
+        {:keep_state_and_data, [idle_action()]}
+    end
+  end
 end

@@ -14,7 +14,7 @@ defmodule D20.NextStationLondon.Game do
 
   @phases [:setup, :ready, :preparing_round, :build, :finished]
   @player_statuses [:ready, :pending, :submitted]
-  @known_events ["join", "leave", "start", "prepare_round", "draw_sections", "pass"]
+  @known_events ["join", "left", "start", "prepare_round", "draw_sections", "pass"]
   @derive Jason.Encoder
   @primary_key false
 
@@ -89,7 +89,7 @@ defmodule D20.NextStationLondon.Game do
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "leave"} = command)
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left"} = command)
       when phase in [:setup, :ready] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
@@ -123,7 +123,7 @@ defmodule D20.NextStationLondon.Game do
   end
 
   def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: event})
-      when event in ["join", "leave"] and phase in [:preparing_round, :build] do
+      when event in ["join", "left"] and phase in [:preparing_round, :build] do
     {:ok, game}
   end
 

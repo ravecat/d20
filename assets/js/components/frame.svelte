@@ -1,5 +1,7 @@
 <script lang="ts">
   import { module as expose } from "@rvct/d20sdk";
+  import { untrack } from "svelte";
+  import type { Attachment } from "svelte/attachments";
   import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   interface Props {
@@ -9,29 +11,27 @@
 
   const { module, connection }: Props = $props();
 
-  let iframe: HTMLIFrameElement | undefined;
+  const connectFrame: Attachment<HTMLIFrameElement> = (iframe) => {
+    return untrack(() => {
+      if (!iframe.contentWindow) return;
 
-  $effect(() => {
-    if (!iframe?.contentWindow) return;
+      const bridge = expose({
+        remoteWindow: iframe.contentWindow,
+        allowedOrigins: module.allowedOrigins,
+        bootstrap: {
+          endpoint: connection.endpoint,
+          topic: connection.topic,
+          token: connection.token,
+        },
+      });
 
-    const bridge = expose({
-      remoteWindow: iframe.contentWindow,
-      allowedOrigins: module.allowedOrigins,
-      bootstrap: {
-        endpoint: connection.endpoint,
-        topic: connection.topic,
-        token: connection.token,
-      },
+      return () => bridge.destroy();
     });
-
-    return () => {
-      bridge.destroy();
-    };
-  });
+  };
 </script>
 
 <iframe
-  bind:this={iframe}
+  {@attach connectFrame}
   class="frame"
   title="Game module"
   src={module.embedUrl}

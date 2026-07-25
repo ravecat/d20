@@ -1,7 +1,9 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { onDestroy, type Snippet } from "svelte";
   import Footer from "~components/footer.svelte";
   import Header from "~components/header.svelte";
+  import WorkspaceView from "~components/workspace.svelte";
+  import { createWorkspace } from "~stores/workspace";
 
   type Variant = "default" | "catalog";
 
@@ -11,7 +13,10 @@
   };
 
   const { children, variant = "default" }: Props = $props();
+  const workspace = createWorkspace();
   let compactHeader = $state(false);
+
+  onDestroy(workspace.dispose);
 
   function handleScroll(event: UIEvent) {
     const scrollRegion = event.currentTarget as HTMLElement;
@@ -25,6 +30,7 @@
     {@render children?.()}
   </main>
   <Footer {variant} />
+  <WorkspaceView {workspace} />
 </div>
 
 <style>

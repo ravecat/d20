@@ -3,8 +3,6 @@ defmodule D20Web.PageControllerTest do
 
   import ExUnit.CaptureLog
 
-  alias D20.Accounts.Scope
-  alias D20.Actors.Actor
   alias D20.Games.Registry
   alias D20.Games.Sources.BoardGameGeek
   alias D20.KoalaRescueClub.Game, as: KoalaGame
@@ -232,6 +230,16 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(conn.assigns, :page_title)
   end
 
+  test "Inertia pages do not bootstrap workspace sessions or module tokens", %{conn: conn} do
+    conn = get(conn, ~p"/developers")
+    props = inertia_props(conn)
+
+    refute Map.has_key?(props, :sessions)
+    refute Map.has_key?(props, :module)
+    refute Map.has_key?(props, :connection)
+    refute "sessions" in inertia_shared_props(conn)
+  end
+
   test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do
     stub_bgg_game(@resolved_qwinto_xml)
 
@@ -239,8 +247,10 @@ defmodule D20Web.PageControllerTest do
 
     assert inertia_component(conn) == "game"
 
-    assert %{slug: "qwinto", module: nil, connection: nil, game: game, session: nil} =
-             inertia_props(conn)
+    assert %{slug: "qwinto", session: nil, game: game} = inertia_props(conn)
+
+    refute Map.has_key?(inertia_props(conn), :module)
+    refute Map.has_key?(inertia_props(conn), :connection)
 
     assert %{status: :active, canLaunchGame: true} = inertia_props(conn)
 
@@ -343,15 +353,14 @@ defmodule D20Web.PageControllerTest do
                canLaunchGame: true,
                game: %{name: nil, imageUrl: nil},
                attrs: %{sheet: %{value: "dharug"}},
-               session: nil,
-               module: nil,
-               connection: nil
+               session: nil
              } = inertia_props(conn)
     end)
   end
 
-  test "GET /games/:slug with a missing session redirects with errors", %{conn: conn} do
+  test "GET /games/:slug rejects a missing waiting session", %{conn: conn} do
     session_id = Ecto.UUID.generate()
+    stub_bgg_game(@resolved_qwinto_xml)
 
     conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
@@ -359,10 +368,10 @@ defmodule D20Web.PageControllerTest do
     assert inertia_errors(conn) == %{session: "Session not found."}
   end
 
-  test "GET /games/:slug with a session from another game redirects with errors", %{conn: conn} do
-    assert {:ok, session} = D20.Sessions.create("other-game", D20.Qwinto.Game, "p1")
-
+  test "GET /games/:slug rejects a waiting session from another game", %{conn: conn} do
+    assert {:ok, session} = D20.Sessions.create("other-game", D20.Qwinto.Game, "owner")
     on_exit(fn -> D20.Sessions.stop(session.id) end)
+    stub_bgg_game(@resolved_qwinto_xml)
 
     conn = get(conn, ~p"/games/qwinto?session=#{session.id}")
 
@@ -382,14 +391,26 @@ defmodule D20Web.PageControllerTest do
     assert html_response(conn, 404) == "Not Found"
   end
 
-  test "POST /games/:slug/sessions creates a session and redirects to shareable URL", %{
-    conn: conn
-  } do
+  test "POST /games/:slug/sessions creates a session and redirects to its lobby", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_progress, false)
 
     conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
-    assert redirected_to(conn, 303) =~ ~r"^/games/qwinto\?session="
+    redirect = redirected_to(conn, 303)
+    assert redirect =~ ~r"^/games/qwinto\?session="
+    %URI{query: query} = URI.parse(redirect)
+    %{"session" => session_id} = URI.decode_query(query)
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
+
+    stub_bgg_game(@resolved_qwinto_xml)
+    conn = conn |> recycle() |> get(redirect)
+
+    assert %{session: %{id: ^session_id, slug: "qwinto", topic: "session:" <> ^session_id}} =
+             inertia_props(conn)
+
+    refute Map.has_key?(inertia_props(conn), :module)
+    refute Map.has_key?(inertia_props(conn), :connection)
+    refute inspect(inertia_props(conn)) =~ "token"
   end
 
   test "POST /games/:slug/sessions creates a Koala session with submitted attrs", %{conn: conn} do
@@ -400,14 +421,30 @@ defmodule D20Web.PageControllerTest do
       |> put_req_header("x-inertia", "true")
       |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "yugambeh"})
 
-    redirected = redirected_to(conn, 303)
-    assert redirected =~ ~r"^/games/koala-rescue-club\?session="
-    [_, session_id] = Regex.run(~r/session=([^&]+)/, redirected)
+    redirect = redirected_to(conn, 303)
+    assert redirect =~ ~r"^/games/koala-rescue-club\?session="
+    %URI{query: query} = URI.parse(redirect)
+    %{"session" => session_id} = URI.decode_query(query)
 
     on_exit(fn -> D20.Sessions.stop(session_id) end)
 
     assert {:ok, {%Session{game: %KoalaGame{sheet: :yugambeh}}, "koala-rescue-club"}} =
              D20.Sessions.get(session_id)
+  end
+
+  test "GET /games/:slug renders a live waiting session without module credentials", %{conn: conn} do
+    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    stub_bgg_game(@resolved_qwinto_xml)
+
+    conn = get(conn, ~p"/games/qwinto?session=#{session.id}")
+
+    assert %{session: %{id: session_id, slug: "qwinto", topic: topic}} = inertia_props(conn)
+
+    assert session_id == session.id
+    assert topic == "session:#{session.id}"
+    refute Map.has_key?(inertia_props(conn), :module)
+    refute Map.has_key?(inertia_props(conn), :connection)
   end
 
   test "POST /games/:slug/sessions forbids inactive games", %{conn: conn} do
@@ -472,114 +509,6 @@ defmodule D20Web.PageControllerTest do
     assert inertia_errors(conn) == %{session: "Could not start session."}
   end
 
-  test "GET /games/:slug with a waiting session attaches module connection", %{conn: conn} do
-    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
-    session_id = session.id
-    session_ref = session_id
-
-    on_exit(fn -> D20.Sessions.stop(session_ref) end)
-
-    conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
-
-    assert %{module: module, connection: connection, session: session} = inertia_props(conn)
-    assert session.id == session_id
-    assert session.phase == :waiting_for_players
-    assert session.members == %{}
-    assert module[:embedUrl] == "http://qwinto.example.com/"
-    assert module[:allowedOrigins] == ["http://qwinto.example.com"]
-    assert "allow-scripts" in module[:sandbox]
-    refute Map.has_key?(module, :bootstrap)
-    refute Map.has_key?(connection, :moduleId)
-    refute Map.has_key?(connection, :socketUrl)
-    refute Map.has_key?(connection, :slug)
-    refute Map.has_key?(connection, :actor)
-    assert connection[:endpoint] == "ws://example.com/module"
-    topic = "session:#{session_id}"
-    assert connection[:topic] == topic
-
-    assert {:ok,
-            %{
-              endpoint: "ws://example.com/module",
-              slug: "qwinto",
-              topic: ^topic,
-              actor: %Actor{id: actor_id, type: :anonymous}
-            }} = D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
-
-    assert is_binary(actor_id)
-  end
-
-  test "GET /games/:slug with a session attaches module connection without BGG credentials", %{
-    conn: conn
-  } do
-    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
-    session_id = session.id
-
-    on_exit(fn -> D20.Sessions.stop(session_id) end)
-    Application.delete_env(:d20, BoardGameGeek)
-
-    capture_log(fn ->
-      conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
-
-      assert %{
-               game: %{name: nil, imageUrl: nil},
-               module: %{embedUrl: "http://qwinto.example.com/"},
-               connection: %{topic: "session:" <> ^session_id},
-               session: %{id: ^session_id, phase: :waiting_for_players}
-             } = inertia_props(conn)
-    end)
-  end
-
-  test "GET /games/:slug with forwarded https attaches secure module URLs", %{conn: conn} do
-    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
-    session_id = session.id
-    session_ref = session_id
-
-    on_exit(fn -> D20.Sessions.stop(session_ref) end)
-
-    conn =
-      conn
-      |> put_req_header("x-forwarded-proto", "https")
-      |> get(~p"/games/qwinto?session=#{session_id}")
-
-    assert %{module: module, connection: connection} = inertia_props(conn)
-    assert module[:embedUrl] == "https://qwinto.example.com/"
-    assert module[:allowedOrigins] == ["https://qwinto.example.com"]
-    assert connection[:endpoint] == "wss://example.com/module"
-
-    topic = "session:#{session_id}"
-
-    assert {:ok, %{endpoint: "wss://example.com/module", topic: ^topic}} =
-             D20.Module.Token.verify(D20Web.Endpoint, connection[:token])
-  end
-
-  test "GET /games/:slug with an in-progress session attaches module connection", %{conn: conn} do
-    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, "p1")
-    session_id = session.id
-    session_ref = session_id
-
-    on_exit(fn -> D20.Sessions.stop(session_ref) end)
-
-    assert {:ok, _session} =
-             D20.Sessions.dispatch(session_scope(session_ref, "p1"), "join", %{online_at: 100})
-
-    assert {:ok, _session} =
-             D20.Sessions.dispatch(session_scope(session_ref, "p2"), "join", %{online_at: 123})
-
-    assert {:ok, _session} = D20.Sessions.dispatch(session_scope(session_ref, "p1"), "start", %{})
-
-    conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
-
-    assert %{module: module, connection: connection, session: session} = inertia_props(conn)
-    assert session.id == session_id
-    assert session.phase == :in_progress
-    assert session.members == %{"p1" => %{online_at: 100}, "p2" => %{online_at: 123}}
-    refute Map.has_key?(module, :bootstrap)
-    refute Map.has_key?(connection, :moduleId)
-    refute Map.has_key?(connection, :socketUrl)
-    assert connection[:endpoint] == "ws://example.com/module"
-    assert connection[:topic] == "session:#{session_id}"
-  end
-
   defp put_registry_games(games) do
     Application.put_env(:d20, Registry, games: games)
   end
@@ -632,12 +561,5 @@ defmodule D20Web.PageControllerTest do
     games
     |> Enum.find(&(&1.slug == slug))
     |> Map.fetch!(:game)
-  end
-
-  defp session_scope(session_id, actor_id) do
-    %Actor{id: actor_id, type: :anonymous}
-    |> Scope.for_actor()
-    |> Scope.put_session(session_id)
-    |> Scope.put_game("qwinto")
   end
 end

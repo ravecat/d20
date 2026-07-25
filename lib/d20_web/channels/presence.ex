@@ -7,7 +7,12 @@ defmodule D20Web.Presence do
     otp_app: :d20,
     pubsub_server: D20.PubSub
 
-  @presence_prefix "presence:"
+  alias D20Web.SessionChannel
+
+  @spec subscribe(D20.Sessions.id()) :: :ok | {:error, term()}
+  def subscribe(session_id) when is_binary(session_id) do
+    Phoenix.PubSub.subscribe(D20.PubSub, topic(SessionChannel.topic(session_id)))
+  end
 
   def init(_opts) do
     {:ok, %{}}
@@ -15,32 +20,24 @@ defmodule D20Web.Presence do
 
   def handle_metas(topic, %{joins: joins, leaves: leaves}, presences, state) do
     for {actor_id, presence} <- joins do
-      %{metas: [member_attrs | _]} = presence
+      %{metas: [attrs | _]} = presence
 
-      Phoenix.PubSub.local_broadcast(
-        D20.PubSub,
-        presence_topic(topic),
-        {:join, actor_id, member_attrs}
-      )
+      Phoenix.PubSub.local_broadcast(D20.PubSub, topic(topic), {:online, actor_id, attrs})
     end
 
-    for {actor_id, _} <- leaves, not present?(presences, actor_id) do
-      Phoenix.PubSub.local_broadcast(D20.PubSub, presence_topic(topic), {:left, actor_id})
+    for {actor_id, _presence} <- leaves, not actor_present?(presences, actor_id) do
+      Phoenix.PubSub.local_broadcast(D20.PubSub, topic(topic), {:offline, actor_id})
     end
 
     {:ok, state}
   end
 
-  def subscribe(topic) do
-    Phoenix.PubSub.subscribe(D20.PubSub, presence_topic(topic))
-  end
-
-  defp present?(presences, actor_id) do
+  defp actor_present?(presences, actor_id) do
     case Map.get(presences, actor_id) do
       %{metas: [_ | _]} -> true
       _ -> false
     end
   end
 
-  defp presence_topic(topic), do: @presence_prefix <> topic
+  defp topic(topic), do: "presence:#{topic}"
 end

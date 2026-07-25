@@ -56,11 +56,12 @@ channels:
     title: Game Session
     summary: WebSocket channel for a single game session
     description: >
-      Stateful channel for one game session. A successful join tracks player
-      presence and returns the initial session projection in the join response.
-      Later accepted commands receive an empty success response; the updated
-      state and caller-specific permissions are delivered separately as the
-      latest session projection.
+      Stateful channel for one game session. A successful channel join returns
+      the initial session projection and then tracks transport presence, which
+      adds or refreshes the caller as a session member. Later
+      accepted commands receive an empty success response; the updated state
+      and caller-specific permissions are delivered separately as the latest
+      session projection.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -80,6 +81,10 @@ channels:
         $ref: "#/components/messages/channelClosed"
       sessionProjection:
         $ref: "#/components/messages/sessionProjection"
+      joinGame:
+        $ref: "#/components/messages/joinGame"
+      leaveGame:
+        $ref: "#/components/messages/leaveGame"
       startSession:
         $ref: "#/components/messages/startSession"
       rollDice:
@@ -106,8 +111,10 @@ operations:
     summary: Join a game session topic
     description: |
       Client joins `session:{session_id}`.
-      On success, the server replies with the current session projection,
-      including caller-specific permissions, and tracks player presence.
+      On success, the server replies with the current session projection and
+      tracks online status. Presence then adds or refreshes Session membership.
+      A transport disconnect marks the member offline but does not remove
+      membership or change game player state.
     messages:
       - $ref: "#/channels/gameSession/messages/joinSessionRequest"
     reply:
@@ -115,6 +122,36 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/joinSessionReply"
+  joinGame:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Join the Qwinto game
+    description: >
+      Client sends `join` with an empty payload. The server adds the actor to
+      game player state without changing session membership.
+    messages:
+      - $ref: "#/channels/gameSession/messages/joinGame"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
+  leaveGame:
+    action: send
+    channel:
+      $ref: "#/channels/gameSession"
+    summary: Leave the Qwinto game
+    description: >
+      Client sends `left` with an empty payload. The server updates player
+      state without removing the actor from session membership.
+    messages:
+      - $ref: "#/channels/gameSession/messages/leaveGame"
+    reply:
+      channel:
+        $ref: "#/channels/gameSession"
+      messages:
+        - $ref: "#/channels/gameSession/messages/commandReply"
   startSession:
     action: send
     channel:
@@ -221,7 +258,7 @@ operations:
     summary: Receive the latest session projection
     description: |
       Server pushes `projection` after accepted session state changes and after
-      player-presence tracking.
+      member online or offline status changes.
     messages:
       - $ref: "#/channels/gameSession/messages/sessionProjection"
   receiveSessionError:
@@ -296,6 +333,20 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/session"
+    joinGame:
+      name: join
+      title: Join Game
+      summary: Add the caller to Qwinto player state
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
+    leaveGame:
+      name: left
+      title: Leave Game
+      summary: Remove the caller from Qwinto player state
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/emptyPayload"
     startSession:
       name: start
       title: Start Session
@@ -528,12 +579,18 @@ components:
     sessionMember:
       type: object
       required:
-        - online_at
+        - status
       properties:
+        status:
+          type: string
+          enum:
+            - online
+            - offline
+          description: Current transport-presence status for this session member.
         online_at:
           type: integer
           minimum: 0
-          description: Unix epoch time in seconds.
+          description: Unix epoch time in seconds for the latest observed online transition.
         display_name:
           type: string
         avatar:

@@ -2,10 +2,12 @@ defmodule D20Web.PresenceTest do
   use ExUnit.Case, async: true
 
   alias D20Web.Presence
+  alias D20Web.SessionChannel
 
-  test "broadcasts join from presence joins with online metadata" do
-    topic = unique_topic()
-    :ok = Presence.subscribe(topic)
+  test "broadcasts online status from Presence joins with metadata" do
+    session_id = Ecto.UUID.generate()
+    topic = SessionChannel.topic(session_id)
+    :ok = Presence.subscribe(session_id)
 
     assert {:ok, %{}} =
              Presence.handle_metas(
@@ -15,12 +17,13 @@ defmodule D20Web.PresenceTest do
                %{}
              )
 
-    assert_receive {:join, "actor-1", %{online_at: 123}}
+    assert_receive {:online, "actor-1", %{online_at: 123}}
   end
 
-  test "broadcasts left only to the presence topic after the last meta leaves" do
-    topic = unique_topic()
-    :ok = Presence.subscribe(topic)
+  test "broadcasts offline status only after the last Presence meta leaves" do
+    session_id = Ecto.UUID.generate()
+    topic = SessionChannel.topic(session_id)
+    :ok = Presence.subscribe(session_id)
     Phoenix.PubSub.subscribe(D20.PubSub, topic)
 
     assert {:ok, %{}} =
@@ -31,7 +34,7 @@ defmodule D20Web.PresenceTest do
                %{}
              )
 
-    refute_receive {:left, "actor-1"}
+    refute_receive {:offline, "actor-1"}
     refute_receive :projection
 
     assert {:ok, %{}} =
@@ -42,11 +45,7 @@ defmodule D20Web.PresenceTest do
                %{}
              )
 
-    assert_receive {:left, "actor-1"}
+    assert_receive {:offline, "actor-1"}
     refute_receive :projection
-  end
-
-  defp unique_topic do
-    "presence-test:#{System.unique_integer([:positive])}"
   end
 end

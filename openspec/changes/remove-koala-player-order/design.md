@@ -2,7 +2,7 @@
 
 Koala Rescue Club is a simultaneous-play game. Every accepted player acts against the same roll, turn completion checks every player status, badge achievers in the same resolution receive the same award, and final scores are keyed by participant id. No rule consumes a first player, cursor, seat, or join position.
 
-Despite that model, `D20.KoalaRescueClub.Game` stores both `order: [player_id]` and `players: %{player_id => player}`. Join and pre-start leave must synchronize both structures. Badge and scoring helpers iterate `order`, the projection publishes it, and the dependent Svelte client uses it to render participants and invent positional fallback names. This makes an incidental join sequence appear to be a domain contract.
+Despite that model, `D20.KoalaRescueClub.Game` stores both `order: [player_id]` and `players: %{player_id => player}`. `join` and pre-start `left` must synchronize both structures. Badge and scoring helpers iterate `order`, the projection publishes it, and the dependent Svelte client uses it to render participants and invent positional fallback names. This makes an incidental join sequence appear to be a domain contract.
 
 The accepted-roster correction in `make-koala-game-mode-explicit` already establishes `game.players` as the source for readiness, player-count validation, and mode capture. This change completes that direction across the backend and dependent client. Koala aggregates are ephemeral, but the projection is a public iframe contract, so removing its field requires coordinated deployment.
 
@@ -29,7 +29,7 @@ The accepted-roster correction in `make-koala-game-mode-explicit` already establ
 
 ### Use the players map as the only roster representation
 
-The Koala embedded schema and `t()` type will remove `order`. Accepted join will add only to `players`; accepted pre-start leave will delete only from `players`. Readiness and player-count validation will use `map_size(players)`, and the start transition will continue to freeze mode from that same map. Active-phase join and leave behavior remains unchanged, so the gameplay roster and mode stay frozen after start.
+The Koala embedded schema and `t()` type will remove `order`. Accepted `join` will add only to `players`; accepted pre-start `left` will delete only from `players`. Readiness and player-count validation will use `map_size(players)`, and the start transition will continue to freeze mode from that same map. Active-phase `join` and `left` behavior remains unchanged, so the gameplay roster and mode stay frozen after start.
 
 A second list keyed by the same ids was rejected because the game has no ordering invariant to justify synchronization or conflict resolution. Replacing the map with a list was rejected because game commands, permissions, projections, and client selection all require direct lookup by participant id.
 
@@ -72,7 +72,7 @@ No aggregate data migration is required. A normal backend restart discards proce
 1. Update and validate the dependent client type, participant component, fixtures, and browser coverage while the backend still emits `order`.
 2. Deploy the client and verify participant switching, missing-member labels, and multiplayer standings against the current backend.
 3. Remove backend aggregate and rules dependencies, projection output, AsyncAPI property, and order-specific test fixtures.
-4. Deploy the backend and verify pre-start join and leave, solo and multiplayer start, simultaneous badge awards, final scores, projections, and reconnection.
+4. Deploy the backend and verify pre-start `join` and `left`, solo and multiplayer start, simultaneous badge awards, final scores, projections, and reconnection.
 5. For rollback, restore and deploy the backend field and projection first, then restore the previous client.
 
 ## Open Questions

@@ -90,8 +90,8 @@
 - [ ] Preserve `create -> waiting_for_players -> generic SessionPanel start -> in_progress -> iframe` for every game.
 - [ ] Keep the iframe unmounted while the outer session is waiting.
 - [ ] Avoid registry flags, slug branches, or game-specific shell lobby paths.
-- [ ] Define how `join` and `leave` affect both live membership and committed game state.
-- [ ] Define late join, reconnect, duplicate join, and leave behavior from the specification.
+- [ ] Define how `join` and `left` events affect both live membership and committed game state.
+- [ ] Define late join, reconnect, duplicate join, and `left` event behavior from the specification.
 - [ ] Test whether membership changes do or do not alter in-progress completion eligibility.
 - [ ] Preserve owner-only session start while applying game readiness predicates separately.
 - [ ] Confirm accepted commands produce one stored state and one publication.

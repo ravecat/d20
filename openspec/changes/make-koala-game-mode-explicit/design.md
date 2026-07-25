@@ -19,7 +19,7 @@ These checks currently agree because Koala Rescue Club freezes its gameplay rost
 
 - Letting callers choose or change mode independently of player count.
 - Adding mode to the generic `D20.Game` behavior, generic session envelope, or unrelated games.
-- Changing player limits, post-start join and leave behavior, score calculation, score shape, badge values, rankings, or result presentation.
+- Changing player limits, post-start `join` and `left` behavior, score calculation, score shape, badge values, rankings, or result presentation.
 - Removing the temporary `order` field; that breaking contract change belongs to `remove-koala-player-order`.
 - Persisting sessions or adding a database migration.
 - Adding a compatibility fallback that makes the new client infer mode from players, order, or scores.
@@ -28,9 +28,9 @@ These checks currently agree because Koala Rescue Club freezes its gameplay rost
 
 ### Store a nullable enum and freeze it at start
 
-The embedded game schema will add `mode` as an `Ecto.Enum` with `:solo` and `:multiplayer` values. Its initial value will be `nil` during `:setup` and `:ready`, because the roster is still open and no durable mode decision has been made. During those phases, `game.players` is the accepted roster: join adds the actor and leave removes the actor. The phase is recalculated after either mutation so an empty roster returns to `:setup`. The accepted `start` transition will use `map_size(game.players)` to set `:solo` for exactly one player and `:multiplayer` for two or more players in the same state update that moves the game to `:roll`.
+The embedded game schema will add `mode` as an `Ecto.Enum` with `:solo` and `:multiplayer` values. Its initial value will be `nil` during `:setup` and `:ready`, because the roster is still open and no durable mode decision has been made. During those phases, `game.players` is the accepted roster: `join` adds the actor and `left` removes the actor. The phase is recalculated after either mutation so an empty roster returns to `:setup`. The accepted `start` transition will use `map_size(game.players)` to set `:solo` for exactly one player and `:multiplayer` for two or more players in the same state update that moves the game to `:roll`.
 
-The existing player-count validation remains the gate before mode resolution, but it will count `game.players` for the same single-source invariant. Until `remove-koala-player-order` is implemented, pre-start join and leave will also update `order` as a compatibility field. After start, Koala Rescue Club ignores game roster mutations, so mode and the accepted roster remain unchanged for the full game and through reconnections or session membership changes.
+The existing player-count validation remains the gate before mode resolution, but it will count `game.players` for the same single-source invariant. Until `remove-koala-player-order` is implemented, pre-start `join` and `left` will also update `order` as a compatibility field. After start, Koala Rescue Club ignores game roster mutations, so mode and the accepted roster remain unchanged for the full game and through reconnections or session membership changes.
 
 Updating mode after every join was rejected because it would represent a provisional classification as authoritative and introduce synchronization logic that is unnecessary for gameplay. Deriving mode through a helper without storing it was rejected because it would preserve the current duplicated inference and would not make mode an aggregate fact.
 

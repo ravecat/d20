@@ -22,7 +22,7 @@ defmodule D20Web.SessionChannelTest do
       actor_id = actor.id
       session_id = create_runtime_session(actor_id)
 
-      :ok = Presence.subscribe(SessionChannel.topic(session_id))
+      :ok = Presence.subscribe(session_id)
 
       assert {:ok, %{members: %{}, permissions: permissions}, socket} =
                join_session_channel(session_id, actor)
@@ -33,14 +33,18 @@ defmodule D20Web.SessionChannelTest do
 
       assert socket.assigns.current_scope.game == %{slug: "qwinto"}
 
-      assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
+      assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
       assert_push "projection", %{members: members, permissions: permissions}
 
       assert permissions.can_start_game == false
 
-      assert %{online_at: ^tracked_online_at, display_name: display_name, avatar: avatar} =
-               members[actor_id]
+      assert %{
+               status: :online,
+               online_at: ^tracked_online_at,
+               display_name: display_name,
+               avatar: avatar
+             } = members[actor_id]
 
       assert is_binary(display_name)
       assert is_binary(avatar)
@@ -51,8 +55,12 @@ defmodule D20Web.SessionChannelTest do
 
       assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_id)
 
-      assert %{online_at: ^tracked_online_at, display_name: display_name, avatar: avatar} =
-               session.members[actor_id]
+      assert %{
+               status: :online,
+               online_at: ^tracked_online_at,
+               display_name: ^display_name,
+               avatar: ^avatar
+             } = session.members[actor_id]
 
       assert is_binary(display_name)
       assert is_binary(avatar)
@@ -63,12 +71,12 @@ defmodule D20Web.SessionChannelTest do
       actor = %{id: to_string(user.id), type: :user}
       session_id = create_runtime_session(actor.id)
 
-      assert {:ok, %{members: %{}, permissions: _permissions}, _socket} =
-               join_session_channel(session_id, actor)
+      assert {:ok, %{members: %{}}, _socket} = join_session_channel(session_id, actor)
 
       assert_push "projection", %{members: members, permissions: _permissions}
 
-      assert %{online_at: online_at, display_name: display_name, avatar: nil} = members[actor.id]
+      assert %{status: :online, online_at: online_at, display_name: display_name, avatar: nil} =
+               members[actor.id]
 
       assert is_integer(online_at)
       assert display_name == user.email
@@ -86,7 +94,7 @@ defmodule D20Web.SessionChannelTest do
       actor_id = actor.id
       session_id = create_runtime_session(actor.id)
 
-      :ok = Presence.subscribe(SessionChannel.topic(session_id))
+      :ok = Presence.subscribe(session_id)
 
       assert {:ok, socket} = connect_module_socket(session_id, actor)
 
@@ -108,15 +116,15 @@ defmodule D20Web.SessionChannelTest do
 
       assert socket.assigns.current_scope.game == %{slug: "qwinto"}
 
-      assert_receive {:join, ^actor_id, %{online_at: tracked_online_at}}
+      assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
       assert_push "projection", %{members: members, permissions: permissions}
 
       assert permissions.can_start_game == false
-      assert %{online_at: ^tracked_online_at} = members[actor_id]
+      assert %{status: :online, online_at: ^tracked_online_at} = members[actor_id]
 
       assert {:ok, {%Session{members: members}, "qwinto"}} = D20.Sessions.get(session_id)
-      assert %{online_at: ^tracked_online_at} = members[actor_id]
+      assert %{status: :online, online_at: ^tracked_online_at} = members[actor_id]
     end
 
     test "should reject tokens for another session" do
@@ -153,17 +161,21 @@ defmodule D20Web.SessionChannelTest do
               %{
                 id: ^session_id,
                 phase: :waiting_for_players,
-                members: %{"p2" => %{online_at: 123}},
+                members: %{},
                 permissions: join_permissions
               }, socket} = join_session_channel(session_id, actor)
 
       assert join_permissions.can_start_game == false
 
       assert_push "projection", %{members: members, permissions: permissions}
-      assert permissions.can_start_game == true
-      assert %{online_at: actor_online_at} = members[actor_id]
-      assert members["p2"] == %{online_at: 123}
+      assert permissions.can_start_game == false
+      assert %{status: :online, online_at: actor_online_at} = members[actor_id]
+      refute Map.has_key?(members, "p2")
       assert is_integer(actor_online_at)
+
+      join_ref = push(socket, "join", %{})
+      assert_reply join_ref, :ok
+      assert_push "projection", %{game: %D20.Qwinto.Game{order: ["p2", ^actor_id]}}
 
       ref = push(socket, "start", %{})
 
@@ -185,6 +197,11 @@ defmodule D20Web.SessionChannelTest do
       session_id = create_runtime_session(actor.id)
 
       assert {:ok, _payload, socket} = join_session_channel(session_id, actor)
+
+      assert_push "projection", %{game: %D20.Qwinto.Game{phase: :setup, order: []}}
+
+      join_ref = push(socket, "join", %{})
+      assert_reply join_ref, :ok
 
       assert_push "projection", %{game: %D20.Qwinto.Game{phase: :setup, order: [^actor_id]}}
 
@@ -273,15 +290,17 @@ defmodule D20Web.SessionChannelTest do
 
       assert_reply ref, :ok
 
-      assert_push "projection", %{
-        selection: %{
-          action: "plant_trees",
-          die_value: ^value,
-          selected_cells: [^first_cell],
-          available_cells: available_cells,
-          complete: false
-        }
-      }
+      assert_push "projection", projection
+
+      assert %{
+               selection: %{
+                 action: "plant_trees",
+                 die_value: ^value,
+                 selected_cells: [^first_cell],
+                 available_cells: available_cells,
+                 complete: false
+               }
+             } = projection
 
       assert available_cells != []
 
@@ -302,9 +321,6 @@ defmodule D20Web.SessionChannelTest do
                   selected_cells: [^first_cell]
                 }
               }, _reconnected_socket} = join_session_channel(session_id, actor)
-
-      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
-      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
 
       legacy_submit_ref = push(socket, "submit_turn_selection", %{"bonus_actions" => []})
       assert_reply legacy_submit_ref, :error, %{reason: "invalid_phase"}
@@ -374,7 +390,8 @@ defmodule D20Web.SessionChannelTest do
                 self: ^actor_id,
                 objectives: [],
                 powers: %{},
-                options: %{sections: []},
+                members: %{},
+                permissions: %{can_start_game: false},
                 game: %{phase: :setup, players: %{}}
               }, socket} = join_session_channel(session.id, actor)
 
@@ -382,11 +399,20 @@ defmodule D20Web.SessionChannelTest do
 
       assert %{
                self: ^actor_id,
-               permissions: %{can_start_game: true},
-               game: %{phase: :ready, players: %{^actor_id => %{status: :ready}}}
+               members: %{^actor_id => %{status: :online}},
+               permissions: %{can_start_game: false},
+               game: %{phase: :setup, players: %{}}
              } = projection
 
       refute Map.has_key?(projection, :attrs)
+
+      join_ref = push(socket, "join", %{})
+      assert_reply join_ref, :ok
+
+      assert_push "projection", %{
+        permissions: %{can_start_game: true},
+        game: %{phase: :ready, players: %{^actor_id => %{status: :ready}}}
+      }
 
       start_ref = push(socket, "start", %{})
 
@@ -492,7 +518,8 @@ defmodule D20Web.SessionChannelTest do
   defp connect_user_socket(actor) do
     token = D20.Actors.Token.sign(D20Web.Endpoint, %Actor{id: actor.id, type: actor.type})
 
-    connect UserSocket, %{}, connect_info: %{auth_token: token}
+    connect UserSocket, %{},
+      connect_info: %{auth_token: token, uri: URI.parse("ws://example.com/socket/websocket")}
   end
 
   defp session_scope(session_id, actor_id, slug \\ "qwinto") do

@@ -52,7 +52,7 @@ The default game server SHALL preserve the existing session state access, comman
 - **AND** returns the engine error without publishing a new session
 
 #### Scenario: Presence membership changes
-- **WHEN** the default game server receives a Presence join or leave notification
+- **WHEN** the default game server receives a Presence `join` or `left` notification
 - **THEN** it preserves the existing profile enrichment and membership dispatch behavior
 - **AND** stores and publishes an accepted update
 - **AND** preserves state without publication when the engine rejects the update

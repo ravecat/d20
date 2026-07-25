@@ -65,12 +65,12 @@ The system SHALL preserve the existing session lookup, Presence membership, publ
 - **THEN** the server returns the current live session and its slug through the shared server API
 
 #### Scenario: Presence membership event succeeds
-- **WHEN** a Koala server receives an accepted Presence join or leave event
+- **WHEN** a Koala server receives an accepted Presence `join` or `left` event
 - **THEN** it stores and publishes the updated session
 - **AND** preserves any active roll-state timeout when the game phase does not change
 
 #### Scenario: Presence membership event is rejected
-- **WHEN** the Koala engine rejects a Presence join or leave event
+- **WHEN** the Koala engine rejects a Presence `join` or `left` event
 - **THEN** the server preserves its current state and publishes no update
 
 #### Scenario: Session remains idle

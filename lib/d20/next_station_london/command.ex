@@ -5,7 +5,7 @@ defmodule D20.NextStationLondon.Command do
 
   alias D20.NextStationLondon.Ruleset
 
-  @simple_events ["join", "leave"]
+  @simple_events ["join", "left"]
   @prepare_keys [:deck, :pencil_cycle, :pencil_offsets, :objectives, :powers]
   @draw_keys [:sections, :power, :chosen_symbol, :power_target]
   @pass_keys [:power, :power_target]

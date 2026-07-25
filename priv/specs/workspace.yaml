@@ -1,0 +1,367 @@
+asyncapi: 3.0.0
+info:
+  title: Workspace Channel Async API
+  version: 0.1.0
+  description: >
+    Actor-authenticated discovery feed for live in-progress game sessions.
+    The channel returns complete replacement snapshots and accepts only the
+    shell-level close operation. Game state, game commands, and Presence remain
+    on session channels. Runtime membership survives a session-channel
+    disconnect, so a hard reload rediscovers sessions that remain available.
+  license:
+    name: MIT
+  tags:
+    - name: workspace
+      description: Shell-level session discovery
+    - name: channel-protocol
+      description: Phoenix Channel protocol messages
+servers:
+  production:
+    host: "{domain}"
+    pathname: /socket/websocket
+    protocol: wss
+    description: Production user-socket endpoint
+    variables:
+      domain:
+        $ref: "#/components/serverVariables/domain"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+  development:
+    host: "{domain}:{port}"
+    pathname: /socket/websocket
+    protocol: ws
+    description: Local user-socket endpoint
+    variables:
+      domain:
+        default: localhost
+      port:
+        $ref: "#/components/serverVariables/port"
+    security:
+      - $ref: "#/components/securitySchemes/channelAuthToken"
+    bindings:
+      ws:
+        method: GET
+        query:
+          $ref: "#/components/schemas/socketConnectQuery"
+        bindingVersion: 0.1.0
+defaultContentType: application/json
+channels:
+  workspace:
+    address: workspace
+    title: Actor Workspace
+    summary: Complete discovery snapshots for the authenticated actor
+    description: >
+      The actor is derived from the authenticated user socket. Join parameters
+      cannot select another actor. Only live in-progress runtime sessions whose
+      durable members include that actor are reported. Waiting, finished,
+      missing, and unconfigured sessions are excluded.
+    servers:
+      - $ref: "#/servers/production"
+      - $ref: "#/servers/development"
+    messages:
+      joinWorkspaceRequest:
+        $ref: "#/components/messages/joinWorkspaceRequest"
+      joinWorkspaceReply:
+        $ref: "#/components/messages/joinWorkspaceReply"
+      workspaceSnapshot:
+        $ref: "#/components/messages/workspaceSnapshot"
+      closeWorkspaceSession:
+        $ref: "#/components/messages/closeWorkspaceSession"
+      closeWorkspaceSessionReply:
+        $ref: "#/components/messages/closeWorkspaceSessionReply"
+      channelError:
+        $ref: "#/components/messages/channelError"
+      channelClosed:
+        $ref: "#/components/messages/channelClosed"
+    bindings:
+      ws:
+        method: GET
+        bindingVersion: 0.1.0
+operations:
+  joinWorkspace:
+    action: send
+    channel:
+      $ref: "#/channels/workspace"
+    summary: Join the authenticated actor workspace
+    messages:
+      - $ref: "#/channels/workspace/messages/joinWorkspaceRequest"
+    reply:
+      channel:
+        $ref: "#/channels/workspace"
+      messages:
+        - $ref: "#/channels/workspace/messages/joinWorkspaceReply"
+  receiveWorkspaceSnapshot:
+    action: receive
+    channel:
+      $ref: "#/channels/workspace"
+    summary: Receive a complete workspace replacement
+    messages:
+      - $ref: "#/channels/workspace/messages/workspaceSnapshot"
+  closeWorkspaceSession:
+    action: send
+    channel:
+      $ref: "#/channels/workspace"
+    summary: Close one reported session
+    description: >
+      The authenticated actor explicitly closes the selected in-progress
+      session. The resulting complete snapshot removes the window from every
+      actor tab without sending a game `left` command.
+    messages:
+      - $ref: "#/channels/workspace/messages/closeWorkspaceSession"
+    reply:
+      channel:
+        $ref: "#/channels/workspace"
+      messages:
+        - $ref: "#/channels/workspace/messages/closeWorkspaceSessionReply"
+  receiveWorkspaceError:
+    action: receive
+    channel:
+      $ref: "#/channels/workspace"
+    summary: Receive a workspace-channel error
+    messages:
+      - $ref: "#/channels/workspace/messages/channelError"
+  receiveWorkspaceClose:
+    action: receive
+    channel:
+      $ref: "#/channels/workspace"
+    summary: Receive a workspace-channel close
+    messages:
+      - $ref: "#/channels/workspace/messages/channelClosed"
+components:
+  serverVariables:
+    domain:
+      description: Public server hostname.
+    port:
+      default: "5000"
+      description: Local endpoint port.
+  securitySchemes:
+    channelAuthToken:
+      type: httpApiKey
+      in: header
+      name: Sec-WebSocket-Protocol
+      description: >
+        Actor token transported as a WebSocket subprotocol bearer-token entry.
+  messages:
+    joinWorkspaceRequest:
+      name: phx_join
+      title: Join Workspace
+      summary: Join request for the actor workspace
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/joinPayload"
+    joinWorkspaceReply:
+      name: phx_reply
+      title: Join Workspace Reply
+      summary: Complete initial snapshot or authentication failure
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/workspaceJoinReply"
+    workspaceSnapshot:
+      name: snapshot
+      title: Workspace Snapshot
+      summary: Complete replacement snapshot for the authenticated actor
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/workspaceSnapshot"
+    closeWorkspaceSession:
+      name: close
+      title: Close Workspace Session
+      summary: Explicitly close one session for the authenticated actor
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/closePayload"
+    closeWorkspaceSessionReply:
+      name: phx_reply
+      title: Close Workspace Session Reply
+      summary: Close acceptance or failure
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/closeReply"
+    channelError:
+      name: phx_error
+      title: Channel Error
+      summary: Channel error event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+    channelClosed:
+      name: phx_close
+      title: Channel Closed
+      summary: Channel close event
+      tags:
+        - name: channel-protocol
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/channelSystemPayload"
+  schemas:
+    socketConnectQuery:
+      type: object
+      description: Transport query parameters.
+      properties:
+        vsn:
+          type: string
+          const: 2.0.0
+          description: Channel serializer version.
+      required:
+        - vsn
+      additionalProperties: true
+    joinPayload:
+      type: object
+      description: Join payload. Actor identity is ignored and comes from socket authentication.
+      additionalProperties: true
+    channelSystemPayload:
+      type: object
+      additionalProperties: true
+    emptyReplyResponse:
+      type: object
+      additionalProperties: false
+    closePayload:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+      additionalProperties: false
+    closeReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/emptyReplyResponse"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/closeError"
+          additionalProperties: false
+    closeError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    workspaceJoinReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/workspaceSnapshot"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/joinError"
+          additionalProperties: false
+    joinError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          const: forbidden
+      additionalProperties: false
+    workspaceSnapshot:
+      type: object
+      required:
+        - sessions
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/workspaceSession"
+      additionalProperties: false
+    workspaceSession:
+      type: object
+      required:
+        - id
+        - slug
+        - module
+        - connection
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        module:
+          $ref: "#/components/schemas/moduleEntry"
+        connection:
+          $ref: "#/components/schemas/moduleConnection"
+      additionalProperties: false
+    moduleEntry:
+      type: object
+      required:
+        - embed_url
+        - allowed_origins
+        - sandbox
+      properties:
+        embed_url:
+          type: string
+          format: uri
+        allowed_origins:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uri
+        sandbox:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    moduleConnection:
+      type: object
+      required:
+        - endpoint
+        - topic
+        - token
+      properties:
+        endpoint:
+          type: string
+          format: uri
+        topic:
+          type: string
+          pattern: ^session:.+$
+        token:
+          type: string
+          description: Fresh signed token bound to the authenticated actor and session.
+      additionalProperties: false

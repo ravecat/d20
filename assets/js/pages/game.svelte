@@ -6,33 +6,25 @@
   import ComplexityLabel from "~components/complexity_label.svelte";
   import PlayTimeLabel from "~components/play_time_label.svelte";
   import PlayerCountLabel from "~components/player_count_label.svelte";
-  import Session from "~components/session.svelte";
-  import type { AttrConfig, Attrs, GameMetadata, Session as SessionProjection } from "~types/game";
-  import type { ModuleConnection, ModuleEntry } from "~types/module";
+  import Lobby from "~components/lobby.svelte";
+  import type { AttrConfig, Attrs, GameMetadata } from "~types/game";
+  import type { SessionDescriptor } from "~types/workspace";
 
   type Props = InertiaProps<{
     slug: string;
     canLaunchGame: boolean;
     game: GameMetadata;
     attrs?: Attrs;
-    module: ModuleEntry | null;
-    connection: ModuleConnection | null;
-    session: SessionProjection | null;
+    session?: SessionDescriptor | null;
   }>;
   type SessionFormFields = Record<string, string>;
   type SessionFormSlotProps = FormComponentSlotProps<SessionFormFields>;
 
-  const {
-    slug,
-    canLaunchGame = false,
-    game,
-    attrs = {},
-    module,
-    connection,
-    session,
-  }: Props = $props();
+  const { slug, canLaunchGame = false, game, attrs = {}, session = null }: Props = $props();
   const formId = $props.id();
   const attrFields = $derived(Object.entries(attrs));
+  let dismissedSessionId = $state<string | null>(null);
+  const lobbySession = $derived(session?.id === dismissedSessionId ? null : session);
 
   function fieldValue(attr: AttrConfig) {
     return attr.value == null ? "" : String(attr.value);
@@ -104,9 +96,12 @@
           </div>
 
           <div class="game-detail-activation__body">
-            {#if session && module && connection}
-              {#key session.id}
-                <Session moduleId={slug} {module} {connection} />
+            {#if lobbySession}
+              {#key lobbySession.id}
+                <Lobby
+                  session={lobbySession}
+                  onStarted={() => (dismissedSessionId = lobbySession.id)}
+                />
               {/key}
             {:else if canLaunchGame}
               <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>

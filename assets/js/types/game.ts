@@ -31,7 +31,6 @@ export interface AttrConfig {
   type: string;
   label?: string;
   position?: number;
-  unique?: boolean;
   value?: string | number | boolean | null;
   required?: boolean;
   values?: string[];
@@ -41,7 +40,8 @@ export interface AttrConfig {
 export type Attrs = Record<string, AttrConfig>;
 
 export interface SessionMember {
-  online_at: number;
+  status: "online" | "offline";
+  online_at?: number;
   display_name?: string;
   avatar?: string | null;
 }

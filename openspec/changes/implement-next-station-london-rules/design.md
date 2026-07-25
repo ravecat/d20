@@ -98,7 +98,7 @@ Alternative considered: keep only image coordinates and let callers infer adjace
 
 ### 3. The game uses one unordered players map and simultaneous instruction resolution
 
-The aggregate stores accepted gameplay membership only in `players`, keyed by participant id. It has no parallel participant set or player-order field. A setup join is idempotent and adds at most four map entries. A setup leave removes that entry. Start freezes the map by phase: after start, `join` and `leave` only update outer session membership, reconnecting actors retain the state at their existing key, and new actors are spectators. Round completion always waits for every entry in the frozen map, including a disconnected player. No rule sorts players or relies on map enumeration order. There is no automatic pass or forfeit.
+The aggregate stores accepted gameplay membership only in `players`, keyed by participant id. It has no parallel participant set or player-order field. A setup `join` is idempotent and adds at most four map entries. A setup `left` event removes that entry. Start freezes the map by phase: after start, `join` and `left` only update outer session membership, reconnecting actors retain the state at their existing key, and new actors are spectators. Round completion always waits for every entry in the frozen map, including a disconnected player. No rule sorts players or relies on map enumeration order. There is no automatic pass or forfeit.
 
 Each player owns four colored line graphs. The current line starts with its departure station as its only node. That node belongs to the colored line even if the player passes every instruction, so it participates in district, interchange, and objective calculations. A player is `pending` or `submitted` for the current shared instruction. Accepted sections are committed immediately to that player's graph, but the next instruction is not exposed until every frozen participant has drawn or passed.
 
@@ -111,7 +111,7 @@ Alternative considered: derive progress from current Presence members. A disconn
 | Current phase | Stimulus | Required predicates | Atomic effects | Next phase | Stable errors |
 | --- | --- | --- | --- | --- | --- |
 | `setup` or `ready` | `join` | valid actor, capacity available or duplicate | add player once and recompute readiness | `setup` or `ready` | `player_limit_reached` |
-| `setup` or `ready` | `leave` | actor identity | remove player before start and recompute readiness | `setup` or `ready` | none for an absent actor |
+| `setup` or `ready` | `left` | actor identity | remove player before start and recompute readiness | `setup` or `ready` | none for an absent actor |
 | `ready` | `start` | outer owner check, owner joined, 1 to 4 players, empty payload | freeze the players map and enter randomized preparation | `preparing_round` | `invalid_command`, `not_joined`, `not_ready` |
 | `preparing_round` | system `prepare_round` | actor is nil, payload is a valid sampled setup for this round | commit hidden deck, first-round random pencil cycle and participant offsets, enabled module assignments, reveal the first instruction, mark all players pending | `build` | `system_only`, `invalid_system_setup` |
 | `build` | `draw_sections` | participant is pending, payload and power are legal, all section predicates pass | commit one atomic action and mark caller submitted | `build` | rule-specific errors |
@@ -128,7 +128,7 @@ Line scoring and round advancement are synchronous consequences of the last acce
 | Event | Actor class | Payload | Allowed phases | State-changing | Stable errors |
 | --- | --- | --- | --- | --- | --- |
 | `join` | authenticated actor | generic member attrs are ignored by game rules | `setup`, `ready`, in progress reconnect or spectator join | yes before start, no game change after start | `player_limit_reached` |
-| `leave` | authenticated actor | empty | `setup`, `ready`, in progress disconnect | yes before start, no game change after start | none for absent actor |
+| `left` | authenticated actor | empty | `setup`, `ready`, in progress disconnect | yes before start, no game change after start | none for absent actor |
 | `start` | outer session owner | empty map | `ready` | yes | `invalid_command`, `not_joined`, `not_ready` |
 | `prepare_round` | system actor with `actor_id: nil` | exact deck permutation and round-one assignments | `preparing_round` | yes | `system_only`, `invalid_system_setup` |
 | `draw_sections` | frozen player | one or two `{from, to}` section maps, optional finite power kind, optional `chosen_symbol`, optional station-count target | `build` | yes | `invalid_command` plus rule errors |

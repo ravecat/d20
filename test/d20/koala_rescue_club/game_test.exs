@@ -148,7 +148,7 @@ defmodule D20.KoalaRescueClub.GameTest do
               } = game} = dispatch(game, "start", "p1")
 
       assert {:ok, ^game} = dispatch(game, "join", "p3")
-      assert {:ok, ^game} = dispatch(game, "leave", "p1")
+      assert {:ok, ^game} = dispatch(game, "left", "p1")
     end
 
     test "derives mode from players still present when the game starts" do
@@ -157,7 +157,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = dispatch(game, "join", "p2")
 
       assert {:ok, %Game{phase: :ready, mode: nil, players: %{"p1" => _player}} = game} =
-               dispatch(game, "leave", "p2")
+               dispatch(game, "left", "p2")
 
       assert {:ok, %Game{phase: :roll, mode: :solo, players: %{"p1" => _player}}} =
                dispatch(game, "start", "p1")
@@ -167,7 +167,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, game} = dispatch(game, "join", "p1")
 
-      assert {:ok, %Game{phase: :setup, mode: nil, players: %{}}} = dispatch(game, "leave", "p1")
+      assert {:ok, %Game{phase: :setup, mode: nil, players: %{}}} = dispatch(game, "left", "p1")
     end
 
     test "stores canonical selection and submits it atomically" do

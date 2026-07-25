@@ -27,7 +27,7 @@ defmodule D20.NextStationLondon.Server do
       ) do
     case Session.dispatch(session, Game, command) do
       {:ok, %Session{} = updated_session} ->
-        broadcast(updated_session)
+        broadcast(session, updated_session)
 
         {:next_state, updated_session.game.phase, {slug, Game, updated_session}, [idle_action()]}
 

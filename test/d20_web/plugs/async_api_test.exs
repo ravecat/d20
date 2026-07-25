@@ -8,7 +8,9 @@ defmodule D20Web.Plugs.AsyncApiTest do
       {"/developers/specs/koala-rescue-club", "/developers/specs/koala-rescue-club/raw",
        "title: Koala Rescue Club Session Async API"},
       {"/developers/specs/next-station-london", "/developers/specs/next-station-london/raw",
-       "title: Next Station London Session Async API"}
+       "title: Next Station London Session Async API"},
+      {"/developers/specs/workspace", "/developers/specs/workspace/raw",
+       "title: Workspace Channel Async API"}
     ]
 
     for {reference_path, raw_path, expected_title} <- specifications do

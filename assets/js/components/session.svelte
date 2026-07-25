@@ -1,37 +1,32 @@
 <script lang="ts">
   import { formDataToObject } from "@inertiajs/core";
-  import { untrack } from "svelte";
-  import Dialog from "~components/dialog.svelte";
-  import Frame from "~components/frame.svelte";
-  import { createSession } from "~stores/session";
+  import type { SessionStore } from "~stores/session";
   import type { AttrConfig } from "~types/game";
-  import type { ModuleConnection, ModuleEntry } from "~types/module";
 
   interface Props {
-    moduleId: string;
-    module: ModuleEntry;
-    connection: ModuleConnection;
+    controller: SessionStore;
   }
 
-  const { moduleId, module, connection }: Props = $props();
-  const session = createSession(untrack(() => connection.topic));
+  const { controller }: Props = $props();
 
   const members = $derived(
-    Object.entries($session.value?.members ?? {}).map(([id, member]) => {
-      const name = member.display_name || "Player";
+    Object.entries($controller.value?.members ?? {})
+      .filter(([, member]) => member.status === "online")
+      .map(([id, member]) => {
+        const name = member.display_name || "Player";
 
-      return {
-        id,
-        name,
-        avatar: member.avatar,
-        letter: name.charAt(0).toUpperCase() || "?",
-      };
-    }),
+        return {
+          id,
+          name,
+          avatar: member.avatar,
+          letter: name.charAt(0).toUpperCase() || "?",
+        };
+      }),
   );
-  const status = $derived($session.status);
-  const phase = $derived($session.value?.phase);
+  const status = $derived($controller.status);
+  const phase = $derived($controller.value?.phase);
   const attrFields = $derived(
-    Object.entries($session.value?.attrs ?? {}).sort(
+    Object.entries($controller.value?.attrs ?? {}).sort(
       ([, left], [, right]) => (left.position ?? 0) - (right.position ?? 0),
     ),
   );
@@ -40,48 +35,12 @@
     return attr.value == null ? "" : String(attr.value);
   }
 
-  function fieldLabel(name: string, attr: AttrConfig) {
-    if (attr.label) return attr.label;
-
-    return humanize(name);
-  }
-
-  function humanize(value: string) {
-    const label = value.replace(/_/g, " ");
-    return label.charAt(0).toUpperCase() + label.slice(1);
-  }
-
   function startGame(event: SubmitEvent) {
     event.preventDefault();
 
     if (event.currentTarget instanceof HTMLFormElement) {
-      session.start(formDataToObject(new FormData(event.currentTarget)));
+      controller.start(formDataToObject(new FormData(event.currentTarget)));
     }
-  }
-
-  function keepUniqueValue(event: Event) {
-    if (!(event.currentTarget instanceof HTMLSelectElement)) return;
-
-    const select = event.currentTarget;
-    const group = select.dataset.uniqueGroup;
-    const previousValue = select.dataset.previousValue;
-
-    if (!group || !previousValue || !select.form) return;
-
-    const duplicate = [...select.form.elements].find(
-      (element) =>
-        element instanceof HTMLSelectElement &&
-        element !== select &&
-        element.dataset.uniqueGroup === group &&
-        element.value === select.value,
-    );
-
-    if (duplicate instanceof HTMLSelectElement) {
-      duplicate.value = previousValue;
-      duplicate.dataset.previousValue = previousValue;
-    }
-
-    select.dataset.previousValue = select.value;
   }
 </script>
 
@@ -94,21 +53,16 @@
           <div class="session-panel-start__field-grid">
             {#each attrFields as [name, attr] (name)}
               <label for={attr.id}>
-                <span>{fieldLabel(name, attr)}</span>
+                <span>{attr.label ?? name}</span>
                 {#if attr.type === "enum"}
                   <select
                     id={attr.id}
                     name={attr.name ?? name}
                     value={fieldValue(attr)}
                     required={attr.required ?? false}
-                    data-unique-group={attr.unique
-                      ? (attr.name ?? name).replace(/\[.*$/, "")
-                      : undefined}
-                    data-previous-value={fieldValue(attr)}
-                    onchange={keepUniqueValue}
                   >
                     {#each attr.values ?? [] as value (value)}
-                      <option {value}>{humanize(value)}</option>
+                      <option {value}>{value}</option>
                     {/each}
                   </select>
                 {:else}
@@ -128,20 +82,20 @@
       <button
         class="session-panel-start__action"
         type="submit"
-        disabled={$session.processing.start || !$session.value?.permissions?.can_start_game}
-        aria-busy={$session.processing.start}
+        disabled={$controller.processing.start || !$controller.value?.permissions?.can_start_game}
+        aria-busy={$controller.processing.start}
       >
-        {#if $session.processing.start}
+        {#if $controller.processing.start}
           <span class="session-panel-start__spinner" aria-hidden="true"></span>
         {/if}
         Start
       </button>
 
       <div class="session-panel-start__players">
-        {#if $session.timeouts.start}
+        {#if $controller.timeouts.start}
           <p class="session-panel-start__error">timeout</p>
-        {:else if $session.errors.start?.reason}
-          <p class="session-panel-start__error">{$session.errors.start.reason}</p>
+        {:else if $controller.errors.start?.reason}
+          <p class="session-panel-start__error">{$controller.errors.start.reason}</p>
         {/if}
 
         {#if status === "loading"}
@@ -174,12 +128,6 @@
       </div>
     </form>
   </section>
-{/if}
-
-{#if phase === "in_progress" || phase === "finished"}
-  <Dialog label={moduleId}>
-    <Frame {module} {connection} />
-  </Dialog>
 {/if}
 
 <style>

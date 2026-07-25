@@ -80,7 +80,7 @@ defmodule D20.NextStationLondon.Rules do
       else: {:error, :player_limit_reached}
   end
 
-  def validate(_game, %D20.Command{event: "leave"}), do: :ok
+  def validate(_game, %D20.Command{event: "left"}), do: :ok
 
   def validate(game, %D20.Command{event: "start", actor_id: player_id}) do
     with :ok <- require_participant(game, player_id),

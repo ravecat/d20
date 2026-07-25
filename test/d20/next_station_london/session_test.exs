@@ -37,7 +37,7 @@ defmodule D20.NextStationLondon.SessionTest do
         attrs: %{deck: final_deck()}
       })
 
-    {:ok, session} = Session.dispatch(session, Game, command("leave", "owner"))
+    {:ok, session} = Session.dispatch(session, Game, command("left", "owner"))
     assert session.members == %{}
     assert Map.has_key?(session.game.players, "owner")
 

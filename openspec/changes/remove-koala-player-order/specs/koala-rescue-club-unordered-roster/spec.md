@@ -16,7 +16,7 @@ The Koala Rescue Club aggregate SHALL represent accepted gameplay membership onl
 #### Scenario: Start freezes the accepted roster
 - **WHEN** a valid game starts
 - **THEN** its mode is derived from the number of entries in `game.players`
-- **AND** later join, leave, disconnect, or reconnect activity does not mutate the gameplay roster or mode
+- **AND** later `join`, `left`, disconnect, or reconnect activity does not mutate the gameplay roster or mode
 
 ### Requirement: Game rules do not depend on player order
 Koala Rescue Club rules SHALL count, inspect, update, and score players directly through `game.players`. They SHALL NOT sort players or create a replacement roster sequence by join time, participant id, display name, or map enumeration position.

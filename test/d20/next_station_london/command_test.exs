@@ -13,8 +13,8 @@ defmodule D20.NextStationLondon.CommandTest do
                attrs: %{ignored: true}
              })
 
-    assert {:ok, %Command{event: "leave", attrs: %{}}} =
-             LondonCommand.validate(%Command{event: "leave", actor_id: "p1"})
+    assert {:ok, %Command{event: "left", attrs: %{}}} =
+             LondonCommand.validate(%Command{event: "left", actor_id: "p1"})
 
     assert {:ok, %Command{attrs: %{}}} =
              LondonCommand.validate(%Command{event: "start", actor_id: "p1", attrs: %{}})

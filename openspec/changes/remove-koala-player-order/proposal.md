@@ -1,6 +1,6 @@
 ## Why
 
-Koala Rescue Club has no rule that gives players a turn order, yet the aggregate and public projection expose an `order` array and the client treats it as an ordered roster. Keeping both `order` and `players` creates two sources of roster truth, adds synchronization work on join and leave, and encourages client behavior that the game does not define.
+Koala Rescue Club has no rule that gives players a turn order, yet the aggregate and public projection expose an `order` array and the client treats it as an ordered roster. Keeping both `order` and `players` creates two sources of roster truth, adds synchronization work on `join` and `left`, and encourages client behavior that the game does not define.
 
 ## What Changes
 

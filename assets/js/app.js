@@ -58,6 +58,12 @@ if (inertiaRoot) {
 
   createInertiaApp({
     title: (title) => (title ? `${title} · D20` : "D20"),
+    layout: (name) => ({
+      component: Layout,
+      props: {
+        variant: name === "home" || name === "developers" ? "catalog" : "default",
+      },
+    }),
     progress: {
       delay: 250,
       color: "#29d",
@@ -68,7 +74,7 @@ if (inertiaRoot) {
     resolve: (name) => {
       const page = pages[`./pages/${name}.svelte`];
       if (!page) throw new Error(`Page not found: ${name}`);
-      return { ...page, layout: page.layout ?? Layout };
+      return page;
     },
     setup({ el, App, props }) {
       mount(App, { target: el, props });

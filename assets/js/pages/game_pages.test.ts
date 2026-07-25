@@ -1,12 +1,38 @@
 import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
-import { afterEach, describe, expect, it } from "vitest";
+import { writable, type Writable } from "svelte/store";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DevelopersPage from "~pages/developers.svelte";
 import GamePage from "~pages/game.svelte";
 import HomePage from "~pages/home.svelte";
-import type { Attrs, GameMetadata } from "~types/game";
+import type { SessionState, SessionStore } from "~stores/session";
+import GamePageHarness from "~/test/mocks/game_page_harness.svelte";
+import type { Attrs, GameMetadata, Session } from "~types/game";
 import inertiaMock from "../test/mocks/inertia";
 
+const sessionMock = vi.hoisted(() => ({
+  createSession: vi.fn(),
+}));
+
+vi.mock("~stores/session", () => ({
+  createSession: sessionMock.createSession,
+}));
+
 let cleanup: (() => Promise<void>) | undefined;
+let waitingController: SessionStore;
+let waitingControllerState: Writable<SessionState>;
+let waitingDetach = vi.fn<() => void>();
+
+beforeEach(() => {
+  waitingControllerState = writable(waitingState("waiting_for_players"));
+  waitingDetach = vi.fn();
+  waitingController = {
+    subscribe: waitingControllerState.subscribe,
+    detach: waitingDetach,
+    join: vi.fn(),
+    start: vi.fn(),
+  } as unknown as SessionStore;
+  sessionMock.createSession.mockReturnValue(waitingController);
+});
 
 const koalaAttrs: Attrs = {
   sheet: {
@@ -43,6 +69,7 @@ afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.body.innerHTML = "";
+  sessionMock.createSession.mockClear();
 });
 
 describe("developers page", () => {
@@ -56,10 +83,11 @@ describe("developers page", () => {
     expect(document.title).toBe("For developers");
     expect(document.body.textContent).toContain("Build a compatible game client");
     expect(document.querySelector("h2")).toBeNull();
-    expect(entries).toHaveLength(3);
+    expect(entries).toHaveLength(4);
     expect(entries[0]?.textContent).toContain("Qwinto");
     expect(entries[1]?.textContent).toContain("Koala Rescue Club");
     expect(entries[2]?.textContent).toContain("Next Station London");
+    expect(entries[3]?.textContent).toContain("Workspace");
 
     expect(list?.querySelector('a[href="/developers/specs/qwinto"]')?.textContent).toBe(
       "Open reference",
@@ -214,9 +242,6 @@ describe("game detail page", () => {
       }),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.body.textContent).toContain("Resolved Qwinto");
@@ -250,9 +275,6 @@ describe("game detail page", () => {
       }),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("2-6");
@@ -278,9 +300,6 @@ describe("game detail page", () => {
       }),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("1");
@@ -298,9 +317,6 @@ describe("game detail page", () => {
       }),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     const playTime = document.querySelector('[aria-label="Play time"]')?.textContent;
@@ -327,9 +343,6 @@ describe("game detail page", () => {
       }),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.body.textContent).toContain("Play");
@@ -359,9 +372,6 @@ describe("game detail page", () => {
       }),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("2-6");
@@ -378,9 +388,6 @@ describe("game detail page", () => {
       game: gameMetadata(),
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.querySelector("button")?.textContent).toContain("Play");
@@ -394,6 +401,89 @@ describe("game detail page", () => {
     });
   });
 
+  it("keeps a query session in the lobby until it starts", () => {
+    const session = {
+      id: "session-a",
+      slug: "qwinto",
+      topic: "session:session-a",
+    };
+
+    render(GamePageHarness, {
+      pageProps: {
+        slug: "qwinto",
+        game: gameMetadata(),
+        status: "active",
+        canLaunchGame: true,
+        session,
+      },
+    });
+
+    expect(sessionMock.createSession).toHaveBeenCalledWith("session:session-a");
+    expect(waitingController.join).toHaveBeenCalledOnce();
+    expect(document.body.textContent).toContain("Start");
+    expect(document.body.textContent).toContain("Ada");
+    expect(document.body.textContent).not.toContain("Play");
+  });
+
+  it("returns to Play and detaches the Lobby channel after the session starts", async () => {
+    const session = {
+      id: "session-a",
+      slug: "qwinto",
+      topic: "session:session-a",
+    };
+
+    render(GamePageHarness, {
+      pageProps: {
+        slug: "qwinto",
+        game: gameMetadata(),
+        status: "active",
+        canLaunchGame: true,
+        session,
+      },
+    });
+
+    waitingControllerState.set(waitingState("in_progress"));
+    flushSync();
+
+    await vi.waitFor(() => {
+      expect(inertiaMock.router.get).toHaveBeenCalledWith(
+        "/games/qwinto",
+        {},
+        { preserveScroll: true, replace: true },
+      );
+    });
+
+    expect(document.body.textContent).toContain("Play");
+    expect(document.body.textContent).not.toContain("Start");
+    expect(waitingDetach).toHaveBeenCalledOnce();
+
+    await cleanup?.();
+    cleanup = undefined;
+
+    expect(waitingDetach).toHaveBeenCalledOnce();
+  });
+
+  it("detaches a waiting session when the caller leaves before Start", async () => {
+    render(GamePageHarness, {
+      pageProps: {
+        slug: "qwinto",
+        game: gameMetadata(),
+        status: "active",
+        canLaunchGame: true,
+        session: {
+          id: "session-a",
+          slug: "qwinto",
+          topic: "session:session-a",
+        },
+      },
+    });
+
+    await cleanup?.();
+    cleanup = undefined;
+
+    expect(waitingDetach).toHaveBeenCalledOnce();
+  });
+
   it("posts selected creation attrs when creating a session", () => {
     render(GamePage, {
       slug: "koala-rescue-club",
@@ -401,9 +491,6 @@ describe("game detail page", () => {
       attrs: koalaAttrs,
       status: "in_progress",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     const defaultOption = document.querySelector('input[value="dharug"]');
@@ -436,9 +523,6 @@ describe("game detail page", () => {
       attrs: nextStationAttrs,
       status: "active",
       canLaunchGame: true,
-      module: null,
-      connection: null,
-      session: null,
     });
 
     const objectives = inputByLabel("Objectives");
@@ -467,9 +551,6 @@ describe("game detail page", () => {
       status: null,
       canLaunchGame: false,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
-      module: null,
-      connection: null,
-      session: null,
     });
 
     expect(document.body.textContent).toContain("Voyages");
@@ -524,5 +605,30 @@ function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {
     complexity: 2.1,
     rating: 7.4,
     ...overrides,
+  };
+}
+
+function waitingState(phase: Session["phase"]): SessionState {
+  return {
+    value: {
+      id: "session-a",
+      phase,
+      owner_id: "actor-a",
+      members: {
+        "actor-a": {
+          status: "online",
+          display_name: "Ada",
+          avatar: null,
+          online_at: 1,
+        },
+      },
+      permissions: { can_start_game: true },
+      game: {},
+    },
+    status: "ready",
+    error: null,
+    processing: { join: false, start: false },
+    errors: { join: null, start: null },
+    timeouts: { join: false, start: false },
   };
 }

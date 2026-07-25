@@ -21,8 +21,7 @@ defmodule D20.NextStationLondon.ServerTest do
 
     on_exit(fn -> Sessions.stop(session.id) end)
 
-    assert {:ok, pid} = Sessions.lookup(session.id)
-    assert [{^pid, Server}] = Registry.lookup(D20.Registry, {:session, session.id})
+    assert [{pid, Server}] = Registry.lookup(D20.Registry, {:session, session.id})
     assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
 
     assert {:ok, %Session{game: %Game{phase: :ready}} = joined} =

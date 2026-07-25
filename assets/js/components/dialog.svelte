@@ -1,28 +1,32 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { Attachment } from "svelte/attachments";
+  import type { WorkspaceMode } from "~types/workspace";
 
   interface Props {
     children: Snippet;
+    closing: boolean;
     label: string;
+    mode: WorkspaceMode;
+    onCompact: () => void;
+    onClose: () => void;
+    onExpand: () => void;
   }
 
-  type Mode = "compact" | "theater";
+  const { children, closing, label, mode, onCompact, onClose, onExpand }: Props = $props();
 
-  const { children, label }: Props = $props();
-
-  let mode = $state<Mode>("theater");
-  let dialog = $state<HTMLDialogElement>();
-  let fullscreenElement = $state<HTMLDivElement>();
+  let fullscreenElement: HTMLDivElement | undefined;
   let fullscreen = $state(false);
-
-  function show(nextMode: Mode) {
-    mode = nextMode;
-  }
 
   function handleCancel(event: Event) {
     event.preventDefault();
 
-    if (!fullscreen) show("compact");
+    if (!fullscreen && mode === "theater") onCompact();
+  }
+
+  function handleClose(event: Event) {
+    const dialog = event.currentTarget;
+    if (dialog instanceof HTMLDialogElement && !dialog.open && mode === "theater") onCompact();
   }
 
   function synchronizeFullscreen() {
@@ -43,56 +47,52 @@
     }
   }
 
-  $effect(() => {
-    if (!dialog) return;
+  function showDialog(currentMode: WorkspaceMode): Attachment<HTMLDialogElement> {
+    return (dialog) => {
+      if (currentMode === "theater") {
+        dialog.showModal();
+      } else {
+        dialog.show();
+      }
 
-    if (dialog.open) dialog.close();
+      return () => {
+        if (dialog.open) dialog.close();
+      };
+    };
+  }
 
-    if (mode === "theater") {
-      dialog.showModal();
-    } else {
-      dialog.show();
-    }
+  const captureFullscreenElement: Attachment<HTMLDivElement> = (element) => {
+    fullscreenElement = element;
 
     return () => {
-      if (dialog?.open) dialog.close();
+      if (fullscreenElement === element) fullscreenElement = undefined;
     };
-  });
+  };
 </script>
 
 <svelte:document onfullscreenchange={synchronizeFullscreen} />
 
 <dialog
-  bind:this={dialog}
+  {@attach showDialog(mode)}
   class="dialog"
   class:dialog--compact={mode === "compact"}
   class:dialog--theater={mode === "theater"}
   aria-label={label}
   closedby={mode === "theater" ? "any" : undefined}
   oncancel={handleCancel}
+  onclose={handleClose}
 >
-  <div bind:this={fullscreenElement} class="dialog__fullscreen">
+  <div {@attach captureFullscreenElement} class="dialog__surface">
     {@render children()}
 
-    <div class="dialog__controls">
+    <div class="dialog__controls" aria-label={`${label} window controls`}>
       {#if !fullscreen}
-        {#if mode === "theater"}
+        {#if mode === "compact"}
           <button
             class="dialog__control"
             type="button"
-            aria-label="Compact game view"
-            onclick={() => show("compact")}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18v14H3zM12 19v-7h9" />
-            </svg>
-          </button>
-        {:else}
-          <button
-            class="dialog__control"
-            type="button"
-            aria-label="Theater game view"
-            onclick={() => show("theater")}
+            aria-label={`Expand ${label}`}
+            onclick={onExpand}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 5h18v14H3zM6 8h12v8H6z" />
@@ -104,7 +104,20 @@
       <button
         class="dialog__control"
         type="button"
-        aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        aria-label={`Close ${label}`}
+        aria-busy={closing}
+        disabled={closing}
+        onclick={onClose}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18" />
+        </svg>
+      </button>
+
+      <button
+        class="dialog__control"
+        type="button"
+        aria-label={fullscreen ? `Exit ${label} fullscreen` : `Enter ${label} fullscreen`}
         onclick={toggleFullscreen}
       >
         {#if fullscreen}
@@ -123,7 +136,6 @@
 
 <style>
   .dialog {
-    position: fixed;
     z-index: 1000;
     box-sizing: border-box;
     max-inline-size: none;
@@ -137,10 +149,12 @@
   }
 
   .dialog::backdrop {
-    background: rgb(0 0 0 / 0.42);
+    background: rgb(10 12 14 / 0.54);
+    backdrop-filter: blur(2px);
   }
 
   .dialog--theater {
+    position: fixed;
     inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
     inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
     inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
@@ -150,25 +164,27 @@
   }
 
   .dialog--compact {
-    inset-block-start: auto;
-    inset-inline-start: auto;
-    inset-inline-end: max(0.75rem, env(safe-area-inset-right));
-    inset-block-end: max(0.75rem, env(safe-area-inset-bottom));
-    inline-size: min(24rem, calc(100dvw - 1.5rem));
-    block-size: min(14rem, calc(100dvh - 1.5rem));
+    position: relative;
+    inset: auto;
+    inline-size: 100%;
+    min-inline-size: 0;
+    block-size: clamp(12rem, 28dvh, 18rem);
   }
 
-  .dialog__fullscreen {
+  .dialog__surface {
     position: relative;
+    box-sizing: border-box;
     inline-size: 100%;
     block-size: 100%;
-    overflow: clip;
+    overflow: auto;
+    border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--color-base-100);
     box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.34);
   }
 
-  .dialog__fullscreen:fullscreen {
+  .dialog__surface:fullscreen {
+    border: 0;
     border-radius: 0;
   }
 
@@ -176,7 +192,7 @@
     position: absolute;
     inset-block-start: 0.4rem;
     inset-inline-end: 0.4rem;
-    z-index: 1;
+    z-index: 2;
     display: flex;
     gap: 0.3rem;
   }
@@ -189,14 +205,14 @@
     place-items: center;
     border: 1px solid rgb(255 255 255 / 0.32);
     border-radius: var(--radius-sm);
-    background: rgb(0 0 0 / 0.72);
+    background: rgb(0 0 0 / 0.76);
     padding: 0.4rem;
     color: white;
     cursor: pointer;
   }
 
   .dialog__control:hover:not(:disabled) {
-    background: rgb(0 0 0 / 0.88);
+    background: rgb(0 0 0 / 0.92);
   }
 
   .dialog__control:focus-visible {
@@ -219,12 +235,9 @@
     stroke-width: 1.75;
   }
 
-  @media (max-width: 34rem) {
-    .dialog--compact {
-      inset-inline-end: max(0.5rem, env(safe-area-inset-right));
-      inset-block-end: max(0.5rem, env(safe-area-inset-bottom));
-      inline-size: calc(100dvw - 1rem);
-      block-size: min(13rem, 40dvh);
+  @media (prefers-reduced-motion: reduce) {
+    .dialog::backdrop {
+      backdrop-filter: none;
     }
   }
 </style>

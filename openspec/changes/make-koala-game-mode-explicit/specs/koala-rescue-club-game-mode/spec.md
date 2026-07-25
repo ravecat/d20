@@ -16,14 +16,14 @@ The Koala Rescue Club game aggregate SHALL store `mode` as `solo`, `multiplayer`
 - **WHEN** the owner starts a valid game whose accepted roster contains two or more players
 - **THEN** the game enters the roll phase with mode `multiplayer`
 
-#### Scenario: A pre-start leave updates the accepted roster
+#### Scenario: A pre-start `left` event updates the accepted roster
 - **WHEN** an accepted player leaves while the game is in setup or ready phase
 - **THEN** that player is removed from `game.players`
 - **AND** readiness is recalculated from the remaining accepted players
 - **AND** a later start derives mode without counting the departed player
 
 #### Scenario: Mode remains stable after start
-- **WHEN** an active player disconnects, reconnects, or an in-progress join or leave event is processed
+- **WHEN** an active player disconnects, reconnects, or an in-progress `join` or `left` event is processed
 - **THEN** the game mode remains the value captured at start
 - **AND** the accepted gameplay roster remains unchanged
 
