@@ -2,10 +2,9 @@ defmodule D20Web.WorkspaceChannel do
   use D20Web, :channel
 
   alias D20.Accounts.Scope
-  alias D20.Games.Registry
   alias D20.Sessions
   alias D20.Sessions.Session
-  alias D20Web.Module
+  alias D20Web.Workspace
 
   @channel_topic "workspace"
 
@@ -16,9 +15,9 @@ defmodule D20Web.WorkspaceChannel do
         %{assigns: %{current_scope: %Scope{actor: %{id: actor_id}}, request_uri: %URI{}}} = socket
       )
       when is_binary(actor_id) do
-    :ok = Sessions.subscribe_actor(actor_id)
+    :ok = Workspace.subscribe(actor_id)
 
-    {snapshot, runtimes} = snapshot(socket)
+    {snapshot, runtimes} = Workspace.snapshot(socket)
     socket = sync_monitors(socket, runtimes)
 
     {:ok, snapshot, socket}
@@ -65,42 +64,10 @@ defmodule D20Web.WorkspaceChannel do
   end
 
   defp refresh(socket) do
-    {snapshot, runtimes} = snapshot(socket)
+    {snapshot, runtimes} = Workspace.snapshot(socket)
     socket = sync_monitors(socket, runtimes)
     push(socket, "snapshot", snapshot)
     socket
-  end
-
-  defp snapshot(socket) do
-    sessions =
-      socket.assigns.current_scope
-      |> Sessions.list_runtime()
-      |> Enum.flat_map(fn
-        {pid, {%Session{id: id, phase: :in_progress}, slug}} ->
-          case Registry.fetch(slug) do
-            {:ok, %Registry.Entry{} = entry} ->
-              descriptor = %{
-                id: id,
-                slug: slug,
-                module: Module.entry(socket, entry),
-                connection: Module.connection(socket, slug, id)
-              }
-
-              [{descriptor, pid}]
-
-            {:error, :game_not_found} ->
-              []
-          end
-
-        {_pid, {%Session{}, _slug}} ->
-          []
-      end)
-      |> Enum.sort_by(fn {%{id: id}, _pid} -> id end)
-
-    descriptors = Enum.map(sessions, fn {descriptor, _pid} -> descriptor end)
-    runtimes = Map.new(sessions, fn {%{id: id}, pid} -> {pid, id} end)
-
-    {%{sessions: descriptors}, runtimes}
   end
 
   defp sync_monitors(socket, runtimes) do

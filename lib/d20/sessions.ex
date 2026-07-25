@@ -86,30 +86,6 @@ defmodule D20.Sessions do
 
   def remove_member(%Scope{}), do: {:error, :forbidden}
 
-  @spec subscribe_actor(Session.player_id()) :: :ok | {:error, term()}
-  def subscribe_actor(actor_id) when is_binary(actor_id) do
-    Phoenix.PubSub.subscribe(D20.PubSub, actor_topic(actor_id))
-  end
-
-  @spec publish_actor_changes(Session.t(), Session.t()) :: :ok
-  def publish_actor_changes(%Session{} = previous_session, %Session{} = session) do
-    if discovery_changed?(previous_session, session) do
-      previous_session.members
-      |> Map.keys()
-      |> Kernel.++(Map.keys(session.members))
-      |> Enum.uniq()
-      |> Enum.each(fn actor_id ->
-        Phoenix.PubSub.local_broadcast(
-          D20.PubSub,
-          actor_topic(actor_id),
-          {:sessions_changed, actor_id}
-        )
-      end)
-    end
-
-    :ok
-  end
-
   @spec stop(id(), term(), timeout()) :: :ok
   def stop(id, reason \\ :normal, timeout \\ :infinity)
 
@@ -135,11 +111,4 @@ defmodule D20.Sessions do
 
     DynamicSupervisor.start_child(D20.Sessions.Supervisor, {server, opts})
   end
-
-  defp discovery_changed?(previous_session, session) do
-    previous_session.phase != session.phase or
-      MapSet.new(Map.keys(previous_session.members)) != MapSet.new(Map.keys(session.members))
-  end
-
-  defp actor_topic(actor_id), do: "sessions:actor:" <> actor_id
 end

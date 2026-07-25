@@ -6,6 +6,7 @@ defmodule D20Web.WorkspaceChannelTest do
   alias D20.Sessions
   alias D20.Sessions.Session
   alias D20Web.UserSocket
+  alias D20Web.Workspace
   alias D20Web.WorkspaceChannel
 
   @uri URI.parse("http://shell.example.com:80/socket/websocket?vsn=2.0.0")
@@ -171,8 +172,8 @@ defmodule D20Web.WorkspaceChannelTest do
     assert {:ok, {current, "qwinto"}} = Sessions.get(session.id)
     previous = %{current | phase: :waiting_for_players}
 
-    assert :ok = Sessions.publish_actor_changes(previous, current)
-    assert :ok = Sessions.publish_actor_changes(previous, current)
+    assert :ok = Workspace.publish_session_changes(previous, current)
+    assert :ok = Workspace.publish_session_changes(previous, current)
 
     assert_push "snapshot", %{sessions: [%{id: session_id}]}
     assert_push "snapshot", %{sessions: [%{id: ^session_id}]}

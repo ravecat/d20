@@ -19,6 +19,7 @@ defmodule D20.Game.Server do
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
+  alias D20Web.Workspace
 
   @type opts :: [slug: Sessions.slug(), engine: D20.Game.engine(), session: Session.t()]
   @type state :: {Sessions.slug(), D20.Game.engine(), Session.t()}
@@ -230,7 +231,7 @@ defmodule D20.Game.Server do
              SessionChannel.topic(session.id),
              {:session, session}
            ) do
-      Sessions.publish_actor_changes(previous_session, session)
+      Workspace.publish_session_changes(previous_session, session)
     end
   end
 
