@@ -113,7 +113,7 @@ defmodule D20Web.WorkspaceChannelTest do
     assert Process.alive?(pid)
   end
 
-  test "removes a session after an accepted transition finishes it" do
+  test "keeps a session discoverable after an accepted transition finishes it" do
     actor = actor()
     session = create_lifecycle_session(actor.id)
 
@@ -123,7 +123,18 @@ defmodule D20Web.WorkspaceChannelTest do
     assert {:ok, %Session{phase: :finished}} =
              Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "finish", %{})
 
-    assert_push "snapshot", %{sessions: []}
+    assert_push "snapshot", %{sessions: [%{id: ^session_id}]}
+  end
+
+  test "returns a current-member finished session on a new workspace join" do
+    actor = actor()
+    session = create_lifecycle_session(actor.id)
+
+    assert {:ok, %Session{phase: :finished}} =
+             Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "finish", %{})
+
+    assert {:ok, %{sessions: [%{id: session_id}]}, _socket} = join_workspace(actor)
+    assert session_id == session.id
   end
 
   test "keeps an offline member discoverable until an explicit leave" do
@@ -161,7 +172,7 @@ defmodule D20Web.WorkspaceChannelTest do
 
     send(pid, :finish)
 
-    assert_push "snapshot", %{sessions: []}
+    assert_push "snapshot", %{sessions: [%{id: ^session_id}]}
   end
 
   test "treats duplicate invalidations as idempotent complete replacements" do
@@ -192,9 +203,12 @@ defmodule D20Web.WorkspaceChannelTest do
     assert_push "snapshot", %{sessions: []}
   end
 
-  test "accepts close through WorkspaceChannel and keeps the runtime alive" do
+  test "accepts close for a finished session and keeps the runtime alive" do
     actor = actor()
-    session = create_session("qwinto", actor.id)
+    session = create_lifecycle_session(actor.id)
+
+    assert {:ok, %Session{phase: :finished}} =
+             Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "finish", %{})
 
     assert {:ok, %{sessions: [_]}, socket} = join_workspace(actor)
     reference = push(socket, "close", %{"id" => session.id})

@@ -3,7 +3,8 @@ info:
   title: Workspace Channel Async API
   version: 0.1.0
   description: >
-    Actor-authenticated discovery feed for live in-progress game sessions.
+    Actor-authenticated discovery feed for live in-progress and finished game
+    sessions.
     The channel returns complete replacement snapshots and accepts only the
     shell-level close operation. Game state, game commands, and Presence remain
     on session channels. Runtime membership survives a session-channel
@@ -58,8 +59,8 @@ channels:
     summary: Complete discovery snapshots for the authenticated actor
     description: >
       The actor is derived from the authenticated user socket. Join parameters
-      cannot select another actor. Only live in-progress runtime sessions whose
-      durable members include that actor are reported. Waiting, finished,
+      cannot select another actor. Only live in-progress or finished runtime
+      sessions whose durable members include that actor are reported. Waiting,
       missing, and unconfigured sessions are excluded.
     servers:
       - $ref: "#/servers/production"
@@ -109,9 +110,9 @@ operations:
       $ref: "#/channels/workspace"
     summary: Close one reported session
     description: >
-      The authenticated actor explicitly closes the selected in-progress
-      session. The resulting complete snapshot removes the window from every
-      actor tab without sending a game `left` command.
+      The authenticated actor explicitly closes the selected in-progress or
+      finished session. The resulting complete snapshot removes the window from
+      every actor tab without sending a game `left` command.
     messages:
       - $ref: "#/channels/workspace/messages/closeWorkspaceSession"
     reply:

@@ -8,6 +8,14 @@ defmodule D20Web.Workspace do
   alias D20.Sessions.Session
   alias D20Web.Module
 
+  @type descriptor :: %{
+          required(:id) => Sessions.id(),
+          required(:slug) => Sessions.slug(),
+          required(:module) => Module.entry(),
+          required(:connection) => Module.connection()
+        }
+  @type snapshot :: %{required(:sessions) => [descriptor()]}
+
   @spec subscribe(Session.player_id()) :: :ok | {:error, term()}
   def subscribe(actor_id) when is_binary(actor_id) do
     Phoenix.PubSub.subscribe(D20.PubSub, topic(actor_id))
@@ -28,26 +36,16 @@ defmodule D20Web.Workspace do
     :ok
   end
 
-  @spec snapshot(Phoenix.Socket.t()) :: {%{sessions: [map()]}, %{pid() => Sessions.id()}}
+  @spec snapshot(Phoenix.Socket.t()) :: {snapshot(), %{pid() => Sessions.id()}}
   def snapshot(socket) do
     sessions =
       socket.assigns.scope
       |> Sessions.list_runtime()
       |> Enum.flat_map(fn
-        {pid, {%Session{id: id, phase: :in_progress}, slug}} ->
+        {pid, {%Session{id: id, phase: phase}, slug}} when phase in [:in_progress, :finished] ->
           case Registry.fetch(slug) do
-            {:ok, %Registry.Entry{} = entry} ->
-              descriptor = %{
-                id: id,
-                slug: slug,
-                module: Module.entry(socket, entry),
-                connection: Module.connection(socket, slug, id)
-              }
-
-              [{descriptor, pid}]
-
-            {:error, :game_not_found} ->
-              []
+            {:ok, %Registry.Entry{} = entry} -> [{descriptor(socket, entry, id), pid}]
+            {:error, :game_not_found} -> []
           end
 
         {_pid, {%Session{}, _slug}} ->
@@ -59,6 +57,16 @@ defmodule D20Web.Workspace do
     runtimes = Map.new(sessions, fn {%{id: id}, pid} -> {pid, id} end)
 
     {%{sessions: descriptors}, runtimes}
+  end
+
+  @spec descriptor(Phoenix.Socket.t(), Registry.Entry.t(), Sessions.id()) :: descriptor()
+  defp descriptor(socket, %Registry.Entry{slug: slug} = entry, id) do
+    %{
+      id: id,
+      slug: slug,
+      module: Module.entry(socket, entry),
+      connection: Module.connection(socket, slug, id)
+    }
   end
 
   defp discovery_changed?(previous, session) do
