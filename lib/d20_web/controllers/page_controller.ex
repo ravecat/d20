@@ -64,7 +64,7 @@ defmodule D20Web.PageController do
 
   @spec create_game_session(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def create_game_session(conn, %{"slug" => slug} = params) do
-    actor = conn.assigns.current_scope.actor
+    actor = conn.assigns.scope.actor
     attrs = Map.delete(params, "slug")
 
     with {:ok, %Registry.Entry{} = entry} <- Registry.fetch(slug),

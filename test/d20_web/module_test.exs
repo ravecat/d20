@@ -30,7 +30,7 @@ defmodule D20Web.ModuleTest do
     actor = %Actor{id: "p1", type: :anonymous}
     session_id = Ecto.UUID.generate()
     topic = "session:#{session_id}"
-    conn = assign(conn, :current_scope, %Scope{actor: actor})
+    conn = assign(conn, :scope, %Scope{actor: actor})
     connection = Module.connection(conn, "qwinto", session_id)
 
     assert %{endpoint: "ws://example.com/module", topic: ^topic, token: token} = connection

@@ -51,7 +51,7 @@ The authenticated user socket exposes:
 workspace
 ```
 
-The actor always comes from `socket.assigns.current_scope`. Join returns a complete snapshot and `snapshot` events replace the prior authoritative set.
+The actor always comes from `socket.assigns.scope`. Join returns a complete snapshot and `snapshot` events replace the prior authoritative set.
 
 WorkspaceChannel accepts one shell operation:
 

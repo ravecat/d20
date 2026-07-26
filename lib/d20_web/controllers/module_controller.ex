@@ -38,7 +38,7 @@ defmodule D20Web.ModuleController do
     if Games.session_launch_available?(entry) do
       attrs = Map.get(params, "attrs", %{})
 
-      Sessions.create(slug, engine, conn.assigns.current_scope.actor.id, attrs)
+      Sessions.create(slug, engine, conn.assigns.scope.actor.id, attrs)
     else
       {:error, :forbidden}
     end

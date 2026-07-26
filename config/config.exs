@@ -11,7 +11,7 @@ config :d20, :scopes,
   actor: [
     default: true,
     module: D20.Accounts.Scope,
-    assign_key: :current_scope,
+    assign_key: :scope,
     access_path: [:actor, :id],
     schema_key: :actor_id,
     schema_type: :string,

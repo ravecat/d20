@@ -63,7 +63,7 @@ defmodule D20Web.Module do
     context = %{uri: conn |> Plug.Conn.request_url() |> URI.parse()}
 
     case conn.assigns do
-      %{current_scope: %Scope{actor: %Actor{} = actor}} -> Map.put(context, :actor, actor)
+      %{scope: %Scope{actor: %Actor{} = actor}} -> Map.put(context, :actor, actor)
       _assigns -> context
     end
   end
