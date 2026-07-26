@@ -63,6 +63,11 @@
 - Do not treat every directory under `openspec/changes/` as current behavior.
 - Changes to a separate iframe game repository require explicit task scope.
 
+## Project Management
+
+- Use `$github-management` for work involving GitHub issues and Project items.
+- Before making any repository change, ensure it is tracked by a corresponding issue in the [D20 GitHub Project](https://github.com/users/ravecat/projects/5). If no issue exists, create it and add it to the Project before editing.
+
 ## Architecture Boundaries
 
 - Use `D20.Sessions` as the public runtime boundary for game sessions.
