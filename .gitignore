@@ -59,6 +59,8 @@ node_modules/
 /.nx/
 coverage/
 **/coverage/
+.vitest-attachments/
+**/.vitest-attachments/
 tmp/
 **/tmp/
 temp/

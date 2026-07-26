@@ -1,6 +1,5 @@
 <script lang="ts">
   import GameWindow from "~components/game_window.svelte";
-  import WorkspaceDock from "~components/workspace_dock.svelte";
   import type { WorkspaceStore } from "~stores/workspace";
   import type { WorkspaceEntry } from "~types/workspace";
 
@@ -31,7 +30,7 @@
 </script>
 
 <div class="workspace">
-  <div class="workspace__tiles" aria-label="Open game sessions">
+  <section class="workspace__tiles" aria-label="Open game sessions">
     {#each $workspace.entries as entry (entry.id)}
       {@const label = entryLabel(entry)}
       <GameWindow
@@ -48,9 +47,7 @@
         onClose={() => workspace.close(entry.id)}
       />
     {/each}
-  </div>
-
-  <WorkspaceDock entries={$workspace.entries} />
+  </section>
 </div>
 
 <style>
@@ -62,12 +59,13 @@
   .workspace__tiles {
     position: fixed;
     z-index: 900;
-    inset-inline: max(0.75rem, env(safe-area-inset-left, 0px))
-      max(0.75rem, env(safe-area-inset-right, 0px));
-    inset-block-end: calc(max(0.75rem, env(safe-area-inset-bottom, 0px)) + 4.5rem);
+    inset-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
+    inset-block-end: max(0.75rem, env(safe-area-inset-bottom, 0px));
     display: grid;
-    max-block-size: 42dvh;
+    inline-size: 50vw;
+    block-size: max(25dvh, 8rem);
     grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
+    grid-auto-rows: minmax(8rem, 1fr);
     gap: 0.75rem;
     overflow: auto;
     pointer-events: none;
@@ -80,7 +78,8 @@
 
   @media (max-width: 48rem) {
     .workspace__tiles {
-      inset-block-end: calc(max(0.75rem, env(safe-area-inset-bottom, 0px)) + 6.75rem);
+      inset-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
+      inline-size: auto;
       grid-template-columns: minmax(0, 1fr);
     }
   }

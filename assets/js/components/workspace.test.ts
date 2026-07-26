@@ -82,13 +82,23 @@ describe("Workspace presentation", () => {
 
     expect(showModalDialog).toHaveBeenCalledOnce();
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
+    expect(windowControls("Qwinto session session-a")).toEqual([
+      "Close Qwinto session session-a",
+      "Compact Qwinto session session-a",
+      "Enter Qwinto session session-a fullscreen",
+    ]);
 
-    dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    button("Compact Qwinto session session-a").click();
     flushSync();
 
     expect(showDialog).toHaveBeenCalledOnce();
     expect(gameFrame()).toBe(iframe);
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
+    expect(windowControls("Qwinto session session-a")).toEqual([
+      "Close Qwinto session session-a",
+      "Expand Qwinto session session-a",
+      "Enter Qwinto session session-a fullscreen",
+    ]);
 
     button("Expand Qwinto session session-a").click();
     flushSync();
@@ -98,25 +108,41 @@ describe("Workspace presentation", () => {
 
     button("Enter Qwinto session session-a fullscreen").click();
     await vi.waitFor(() => expect(requestFullscreen).toHaveBeenCalledOnce());
+    expect(windowControls("Qwinto session session-a")).toEqual([
+      "Close Qwinto session session-a",
+      "Exit Qwinto session session-a fullscreen",
+    ]);
     button("Exit Qwinto session session-a fullscreen").click();
     await vi.waitFor(() => expect(exitFullscreen).toHaveBeenCalledOnce());
+    await vi.waitFor(() =>
+      expect(windowControls("Qwinto session session-a")).toEqual([
+        "Close Qwinto session session-a",
+        "Compact Qwinto session session-a",
+        "Enter Qwinto session session-a fullscreen",
+      ]),
+    );
 
+    dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    flushSync();
+
+    expect(showDialog).toHaveBeenCalledTimes(2);
     expect(gameFrame()).toBe(iframe);
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
   });
 
-  it("uses one overlay close control and does not duplicate window actions in the dock", () => {
+  it("renders active windows without a duplicate workspace session panel", () => {
     const harness = workspaceHarness();
     renderWorkspace(harness.workspace);
     harness.ready([descriptor("session-a"), descriptor("session-b", "koala-rescue-club")]);
     flushSync();
 
-    const dock = document.querySelector('aside[aria-label="Workspace sessions"]');
-
-    expect(dock?.querySelectorAll("button")).toHaveLength(0);
-    expect(findButton("Focus Qwinto session session-a")).toBeUndefined();
-    expect(findButton("Minimize Qwinto session session-a")).toBeUndefined();
-    expect(findButton("Detach Qwinto session session-a")).toBeUndefined();
+    expect(document.querySelector('[aria-label="Workspace sessions"]')).toBeNull();
+    expect(document.querySelectorAll("dialog")).toHaveLength(2);
+    expect(document.querySelectorAll('iframe[title="Game module"]')).toHaveLength(2);
+    expect(windowControls("Qwinto session session-a")).toContain("Close Qwinto session session-a");
+    expect(windowControls("Koala Rescue Club session session-b")).toContain(
+      "Close Koala Rescue Club session session-b",
+    );
 
     button("Close Qwinto session session-a").click();
 
@@ -280,6 +306,20 @@ function gameDialog(name: string) {
   );
   if (!dialog) throw new Error(`Expected dialog named ${name}.`);
   return dialog;
+}
+
+function windowControlGroup(name: string) {
+  const group = [...document.querySelectorAll('[role="group"]')].find(
+    (candidate) => candidate.getAttribute("aria-label") === `${name} window controls`,
+  );
+  if (!(group instanceof HTMLElement)) throw new Error(`Expected controls for ${name}.`);
+  return group;
+}
+
+function windowControls(name: string) {
+  return [...windowControlGroup(name).getElementsByTagName("button")].map((control) =>
+    control.getAttribute("aria-label"),
+  );
 }
 
 function button(name: string) {

@@ -8,6 +8,8 @@
     "format.check": "oxfmt --check .",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:browser": "vitest run --project browser",
+    "test:unit": "vitest run --project unit",
     "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json"
   },
   "dependencies": {
@@ -25,6 +27,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tailwindcss/vite": "^4.1.0",
     "@typescript/native": "npm:typescript@^7.0.2",
+    "@vitest/browser-playwright": "4.1.7",
     "browserslist": "^4.28.6",
     "browserslist-to-esbuild": "^2.1.1",
     "daisyui": "^5.0.0",
@@ -35,6 +38,7 @@
     "jsdom": "28.1.0",
     "oxfmt": "^0.54.0",
     "phoenix_vite": "file:../deps/phoenix_vite",
+    "playwright": "^1.58.2",
     "svelte-check": "^4.4.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^6.0.3",

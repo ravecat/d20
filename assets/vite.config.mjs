@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
+import { playwright } from "@vitest/browser-playwright";
 import browserslistToEsbuild from "browserslist-to-esbuild";
 import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
@@ -22,7 +23,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     // https://vitejs.dev/guide/dep-pre-bundling#monorepos-and-linked-dependencies
-    include: ["@inertiajs/svelte", "phoenix", "phoenix_html", "phoenix_live_view", "svelte"],
+    include: isVitest
+      ? ["svelte"]
+      : ["@inertiajs/svelte", "phoenix", "phoenix_html", "phoenix_live_view", "svelte"],
   },
   build: {
     target: browserTargets,
@@ -56,8 +59,35 @@ export default defineConfig({
       }),
   ],
   test: {
-    environment: "jsdom",
-    include: ["js/**/*.test.ts"],
-    setupFiles: ["js/test/setup.ts"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "jsdom",
+          include: ["js/**/*.test.ts"],
+          exclude: ["js/**/*.browser.test.ts"],
+          setupFiles: ["js/test/setup.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "browser",
+          include: ["js/**/*.browser.test.ts"],
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright({
+              launchOptions: {
+                channel: "chrome",
+              },
+            }),
+            instances: [{ browser: "chromium" }],
+            viewport: { width: 1280, height: 800 },
+          },
+        },
+      },
+    ],
   },
 });

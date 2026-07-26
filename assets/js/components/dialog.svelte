@@ -47,7 +47,7 @@
     }
   }
 
-  function showDialog(currentMode: WorkspaceMode): Attachment<HTMLDialogElement> {
+  function show(currentMode: WorkspaceMode): Attachment<HTMLDialogElement> {
     return (dialog) => {
       if (currentMode === "theater") {
         dialog.showModal();
@@ -73,7 +73,7 @@
 <svelte:document onfullscreenchange={synchronizeFullscreen} />
 
 <dialog
-  {@attach showDialog(mode)}
+  {@attach show(mode)}
   class="dialog"
   class:dialog--compact={mode === "compact"}
   class:dialog--theater={mode === "theater"}
@@ -85,22 +85,7 @@
   <div {@attach captureFullscreenElement} class="dialog__surface">
     {@render children()}
 
-    <div class="dialog__controls" aria-label={`${label} window controls`}>
-      {#if !fullscreen}
-        {#if mode === "compact"}
-          <button
-            class="dialog__control"
-            type="button"
-            aria-label={`Expand ${label}`}
-            onclick={onExpand}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18v14H3zM6 8h12v8H6z" />
-            </svg>
-          </button>
-        {/if}
-      {/if}
-
+    <div class="dialog__controls" role="group" aria-label={`${label} window controls`}>
       <button
         class="dialog__control"
         type="button"
@@ -113,6 +98,32 @@
           <path d="m6 6 12 12M18 6 6 18" />
         </svg>
       </button>
+
+      {#if !fullscreen}
+        {#if mode === "theater"}
+          <button
+            class="dialog__control"
+            type="button"
+            aria-label={`Compact ${label}`}
+            onclick={onCompact}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h18v14H3zM12 19v-7h9" />
+            </svg>
+          </button>
+        {:else}
+          <button
+            class="dialog__control"
+            type="button"
+            aria-label={`Expand ${label}`}
+            onclick={onExpand}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h18v14H3zM6 8h12v8H6z" />
+            </svg>
+          </button>
+        {/if}
+      {/if}
 
       <button
         class="dialog__control"
@@ -168,7 +179,8 @@
     inset: auto;
     inline-size: 100%;
     min-inline-size: 0;
-    block-size: clamp(12rem, 28dvh, 18rem);
+    block-size: 100%;
+    min-block-size: 0;
   }
 
   .dialog__surface {
@@ -194,6 +206,7 @@
     inset-inline-end: 0.4rem;
     z-index: 2;
     display: flex;
+    flex-direction: column;
     gap: 0.3rem;
   }
 
