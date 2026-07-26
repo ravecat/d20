@@ -68,6 +68,15 @@
 - Use `$github-management` for work involving GitHub issues and Project items.
 - Before making any repository change, ensure it is tracked by a corresponding issue in the [D20 GitHub Project](https://github.com/users/ravecat/projects/5). If no issue exists, create it and add it to the Project before editing.
 
+## Specification Gate
+
+- Before implementing a requested feature or bug fix, search `openspec/changes/` for an active change that covers the requested behavior and corresponds to the tracking issue.
+- If no matching change exists, use `$openspec-propose` to create its `proposal.md`, `design.md`, delta specifications, and `tasks.md` before editing implementation files.
+- If a matching change exists but does not fully cover the request, update its artifacts before implementation.
+- Do not begin implementation until the OpenSpec artifacts describe the requested behavior and contain no unresolved blocking questions.
+- Use `$openspec-apply-change` to implement the ready change.
+- Read-only investigation, explanation, and planning that do not change repository behavior do not require a new OpenSpec change.
+
 ## Architecture Boundaries
 
 - Use `D20.Sessions` as the public runtime boundary for game sessions.
