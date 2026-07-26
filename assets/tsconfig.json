@@ -20,12 +20,7 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "paths": {
-      "~/*": ["./js/*"],
-      "~actions/*": ["./js/actions/*"],
-      "~components/*": ["./js/components/*"],
-      "~pages/*": ["./js/pages/*"],
-      "~stores/*": ["./js/stores/*"],
-      "~types/*": ["./js/types/*"]
+      "~/*": ["./js/*"]
     }
   },
   "include": ["js/**/*.ts", "js/**/*.js", "js/**/*.svelte", "vite.config.mjs"],

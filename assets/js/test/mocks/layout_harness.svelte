@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Layout from "~components/layout.svelte";
+  import { Layout } from "~/shared/components";
 
   type Variant = "catalog" | "default";
 

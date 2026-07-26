@@ -1,8 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import GamePage from "~pages/game.svelte";
-  import type { Attrs, GameMetadata } from "~types/game";
-  import type { SessionDescriptor } from "~types/workspace";
+  import { GamePage } from "~/pages/game";
+  import type { Attrs, GameMetadata, SessionDescriptor } from "~/shared/types";
 
   interface GamePageProps {
     slug: string;
