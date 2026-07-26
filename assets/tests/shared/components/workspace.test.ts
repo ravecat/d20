@@ -2,7 +2,7 @@ import { module as exposeModule } from "@rvct/d20sdk";
 import { flushSync, mount, unmount } from "svelte";
 import { writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import WorkspaceView from "./workspace.svelte";
+import WorkspaceView from "~/shared/components/workspace.svelte";
 import { createWorkspace } from "~/shared/stores";
 import type { WorkspaceChannel, WorkspaceCloseCall, WorkspaceCloseError } from "~/shared/stores";
 import type { Workspace, WorkspaceChannelState, WorkspaceSessionDescriptor } from "~/shared/types";

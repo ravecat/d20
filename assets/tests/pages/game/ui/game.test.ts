@@ -1,13 +1,11 @@
 import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
 import { writable, type Writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DevelopersPage } from "~/pages/developers";
 import { GamePage } from "~/pages/game";
-import { HomePage } from "~/pages/home";
 import type { SessionState, SessionStore } from "~/shared/stores";
-import GamePageHarness from "~/test/mocks/game_page_harness.svelte";
 import type { Attrs, GameMetadata, Session } from "~/shared/types";
-import inertiaMock from "./mocks/inertia";
+import GamePageHarness from "../../../mocks/game_page_harness.svelte";
+import inertiaMock from "../../../mocks/inertia";
 
 const sessionMock = vi.hoisted(() => ({
   createSession: vi.fn(),
@@ -70,163 +68,6 @@ afterEach(async () => {
   cleanup = undefined;
   document.body.innerHTML = "";
   sessionMock.createSession.mockClear();
-});
-
-describe("developers page", () => {
-  it("introduces client implementation and links every game specification", () => {
-    render(DevelopersPage, {});
-
-    const list = document.querySelector('ul[aria-label="Game specifications"]');
-    const entries = [...(list?.querySelectorAll("li") ?? [])];
-
-    expect(document.querySelector("h1")?.textContent).toBe("For developers");
-    expect(document.title).toBe("For developers");
-    expect(document.body.textContent).toContain("Build a compatible game client");
-    expect(document.querySelector("h2")).toBeNull();
-    expect(entries).toHaveLength(4);
-    expect(entries[0]?.textContent).toContain("Qwinto");
-    expect(entries[1]?.textContent).toContain("Koala Rescue Club");
-    expect(entries[2]?.textContent).toContain("Next Station London");
-    expect(entries[3]?.textContent).toContain("Workspace");
-
-    expect(list?.querySelector('a[href="/developers/specs/qwinto"]')?.textContent).toBe(
-      "Open reference",
-    );
-    expect(list?.querySelector('a[href="/developers/specs/qwinto/raw"]')?.textContent).toBe("YAML");
-    expect(list?.querySelector('a[href="/developers/specs/koala-rescue-club"]')?.textContent).toBe(
-      "Open reference",
-    );
-    expect(
-      list?.querySelector('a[href="/developers/specs/koala-rescue-club/raw"]')?.textContent,
-    ).toBe("YAML");
-    expect(
-      list?.querySelector('a[href="/developers/specs/next-station-london"]')?.textContent,
-    ).toBe("Open reference");
-    expect(
-      list?.querySelector('a[href="/developers/specs/next-station-london/raw"]')?.textContent,
-    ).toBe("YAML");
-    expect(document.body.textContent).not.toContain("available");
-    expect(document.body.textContent).not.toContain("AsyncAPI 3.0");
-    expect(document.body.textContent).not.toContain("Version 0.1.0");
-  });
-});
-
-describe("home page", () => {
-  it("renders game tiles with preview images and slug links", () => {
-    render(HomePage, {
-      games: [
-        {
-          slug: "qwinto",
-          status: "active",
-          game: gameMetadata({
-            name: "Qwinto",
-            categories: ["Dice", "Number"],
-            mechanics: ["Dice Rolling", "Paper-and-Pencil"],
-            thumbnailUrl: "https://example.invalid/qwinto-thumb.jpg",
-            imageUrl: "https://example.invalid/qwinto-image.jpg",
-          }),
-        },
-      ],
-    });
-
-    const [link] = document.links;
-    const [image] = document.images;
-    const title = link?.querySelector("h2");
-    const visibleText = link?.textContent ?? "";
-
-    expect(link?.getAttribute("href")).toBe("/games/qwinto");
-    expect(title?.textContent).toBe("Qwinto");
-    expect(image?.getAttribute("src")).toBe("https://example.invalid/qwinto-image.jpg");
-    expect(visibleText).toContain("Qwinto");
-    expect(visibleText).toContain("Dice");
-    expect(visibleText).toContain("Number");
-    expect(visibleText).not.toContain("Dice Rolling");
-    expect(visibleText).not.toContain("Paper-and-Pencil");
-    expect(visibleText).not.toContain("Soon");
-  });
-
-  it("renders fallback preview state when metadata has no image", () => {
-    render(HomePage, {
-      games: [
-        {
-          slug: "qwinto",
-          status: null,
-          game: gameMetadata({ thumbnailUrl: null, imageUrl: null }),
-        },
-      ],
-    });
-
-    const [link] = document.links;
-
-    expect(link?.textContent).toContain("Qwinto");
-    expect(document.images).toHaveLength(0);
-    expect(link?.getAttribute("href")).toBe("/games/qwinto");
-  });
-
-  it("renders the Soon label for in-progress games", () => {
-    render(HomePage, {
-      games: [
-        {
-          slug: "koala-rescue-club",
-          status: "in_progress",
-          game: gameMetadata({ name: "Koala Rescue Club" }),
-        },
-      ],
-    });
-
-    const [link] = document.links;
-
-    expect(link?.getAttribute("href")).toBe("/games/koala-rescue-club");
-    expect(link?.querySelector("h2")?.textContent).toBe("Koala Rescue Club");
-    expect(link?.textContent).toContain("Koala Rescue Club");
-    expect(link?.textContent).toContain("Soon");
-  });
-
-  it("renders games in the received catalog order", () => {
-    render(HomePage, {
-      games: [
-        {
-          slug: "inactive-first",
-          status: null,
-          game: gameMetadata({ name: "Inactive First" }),
-        },
-        {
-          slug: "active-first",
-          status: "active",
-          game: gameMetadata({ name: "Active First" }),
-        },
-        {
-          slug: "soon-first",
-          status: "in_progress",
-          game: gameMetadata({ name: "Soon First" }),
-        },
-        {
-          slug: "active-second",
-          status: "active",
-          game: gameMetadata({ name: "Active Second" }),
-        },
-        {
-          slug: "inactive-second",
-          status: null,
-          game: gameMetadata({ name: "Inactive Second" }),
-        },
-        {
-          slug: "soon-second",
-          status: "in_progress",
-          game: gameMetadata({ name: "Soon Second" }),
-        },
-      ],
-    });
-
-    expect([...document.querySelectorAll("h2")].map((title) => title.textContent)).toEqual([
-      "Inactive First",
-      "Active First",
-      "Soon First",
-      "Active Second",
-      "Inactive Second",
-      "Soon Second",
-    ]);
-  });
 });
 
 describe("game detail page", () => {

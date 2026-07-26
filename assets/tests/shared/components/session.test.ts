@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from "svelte";
 import { writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import Session from "./session.svelte";
+import Session from "~/shared/components/session.svelte";
 import type { SessionState, SessionStore } from "~/shared/stores";
 import type { Session as SessionProjection } from "~/shared/types";
 

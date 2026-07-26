@@ -23,6 +23,13 @@
       "~/*": ["./js/*"]
     }
   },
-  "include": ["js/**/*.ts", "js/**/*.js", "js/**/*.svelte", "vite.config.mjs"],
+  "include": [
+    "js/**/*.ts",
+    "js/**/*.js",
+    "js/**/*.svelte",
+    "tests/**/*.ts",
+    "tests/**/*.svelte",
+    "vite.config.mjs"
+  ],
   "exclude": ["node_modules"]
 }

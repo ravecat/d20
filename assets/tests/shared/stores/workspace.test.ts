@@ -1,11 +1,11 @@
 import { get, writable } from "svelte/store";
 import { describe, expect, it, vi } from "vitest";
-import { createWorkspace } from "./workspace";
+import { createWorkspace } from "~/shared/stores/workspace";
 import type {
   WorkspaceChannel,
   WorkspaceCloseCall,
   WorkspaceCloseError,
-} from "./workspace_channel";
+} from "~/shared/stores/workspace_channel";
 import type { Workspace, WorkspaceChannelState, WorkspaceSessionDescriptor } from "~/shared/types";
 
 describe("Workspace", () => {

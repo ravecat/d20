@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSession } from "./session";
+import { createSession } from "~/shared/stores/session";
 
 const mocks = vi.hoisted(() => ({
   call: vi.fn(),

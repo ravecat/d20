@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import Layout from "./layout.svelte";
-import LayoutHarness from "~/test/mocks/layout_harness.svelte";
+import Layout from "~/shared/components/layout.svelte";
+import LayoutHarness from "../../mocks/layout_harness.svelte";
 
 const workspaceMock = vi.hoisted(() => {
   const workspace = {

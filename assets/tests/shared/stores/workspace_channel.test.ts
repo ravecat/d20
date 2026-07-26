@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceChannel } from "./workspace_channel";
+import { createWorkspaceChannel } from "~/shared/stores/workspace_channel";
 import type { WorkspacePayload } from "~/shared/types";
 
 const mocks = vi.hoisted(() => ({

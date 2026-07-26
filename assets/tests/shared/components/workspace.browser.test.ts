@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
-import WorkspaceView from "./workspace.svelte";
+import WorkspaceView from "~/shared/components/workspace.svelte";
 import { createWorkspace } from "~/shared/stores";
 import type { WorkspaceSessionDescriptor } from "~/shared/types";
 

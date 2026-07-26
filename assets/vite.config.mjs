@@ -60,16 +60,16 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "jsdom",
-          include: ["js/**/*.test.ts"],
-          exclude: ["js/**/*.browser.test.ts"],
-          setupFiles: ["js/test/setup.ts"],
+          include: ["tests/**/*.test.ts"],
+          exclude: ["tests/**/*.browser.test.ts"],
+          setupFiles: ["tests/setup.ts"],
         },
       },
       {
         extends: true,
         test: {
           name: "browser",
-          include: ["js/**/*.browser.test.ts"],
+          include: ["tests/**/*.browser.test.ts"],
           browser: {
             enabled: true,
             headless: true,
