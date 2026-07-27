@@ -19,7 +19,8 @@ The current implementation models the browser state with a full XState machine a
 - Colocate the workspace model, workspace-specific types, and internal window UI in one FSD widget slice.
 - Keep application composition in the App layer and expose only the workspace component to it.
 - Keep page-specific layout presentation metadata in the owning page public API instead of branching on Inertia page names in application bootstrap.
-- Keep compact windows reachable while another window is expanded.
+- Stack the Theater window above every other game window and restore the selectable window grid through Compact.
+- Keep compaction available through an explicit window control without an unreliable parent-window keyboard shortcut.
 - Keep the Workspace AsyncAPI contract available for internal verification without publishing it as developer documentation.
 - Reduce shipped state-management code and machine-specific boilerplate.
 - Preserve focus, compact, close-command, and disposal behavior without duplicating close progress in presentation state.
@@ -30,6 +31,7 @@ The current implementation models the browser state with a full XState machine a
 - Change the workspace channel wire contract or delete its internal AsyncAPI document.
 - Persist browser-local window layout across reloads.
 - Add new window modes or user-visible behavior.
+- Add a cross-document keyboard protocol between game iframes and the workspace shell.
 - Introduce a general application-wide state framework.
 
 ## Decisions
@@ -56,9 +58,11 @@ The public state contains the authoritative session descriptors and the single d
 
 ### Let the workspace component own spatial layout
 
-`workspace.svelte` interprets the global layout while rendering the authoritative session list. It marks the effective expanded wrapper from the layout and session order, and component-scoped CSS arranges that wrapper and the remaining compact wrappers.
+`workspace.svelte` interprets the global layout while rendering the authoritative session list. It marks the effective expanded wrapper from the layout and session order, and component-scoped CSS arranges that wrapper and the remaining compact wrappers. The expanded wrapper has the highest sibling stacking order so the Theater window is above every other game window.
 
-`workspace.svelte` renders each `Dialog`, iframe `Frame`, and transport status overlay directly. `Dialog` receives only the effective expanded boolean needed to render its resize control. It does not position itself or choose the global workspace layout. The dialog remains non-modal so compact sibling windows stay reachable; browser fullscreen remains local to the selected window surface.
+`workspace.svelte` renders each `Dialog`, iframe `Frame`, and transport status overlay directly. `Dialog` receives only the effective expanded boolean needed to render its resize control. It does not position itself or choose the global workspace layout. The dialog remains non-modal; the explicit Compact control exits Theater and restores the selectable grid, while browser fullscreen remains local to the selected window surface.
+
+Compaction remains an explicit window-control action. The workspace does not register a parent-window Escape listener because keyboard events dispatched inside an iframe belong to that embedded document and do not bubble into the shell document. Supporting a truly global shortcut would require an explicit cross-document protocol with every game module, which is outside this change.
 
 ### Let the persistent workspace component own its store
 
@@ -98,7 +102,9 @@ The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`.
 - [Dependency APIs can evolve independently] -> Pin `@xstate/store` to an exact version and cover the public workspace behavior with focused tests and TypeScript checks.
 - [Repeated clicks can send duplicate close commands] -> Keep authoritative close handling and idempotency on the server; the client does not invent a second lifecycle for the command.
 - [Close errors are no longer shown in the workspace window] -> Keep the workspace presentation model limited to authoritative snapshots and layout state.
-- [Removing `showModal()` removes native backdrop and inert behavior] -> Treat Theater as workspace layout rather than a modal task; keep compact sibling windows visible and reachable, and retain explicit compact and fullscreen controls.
+- [Removing `showModal()` removes native backdrop and inert behavior] -> Treat Theater as workspace layout rather than a modal task; stack it above sibling windows and retain explicit compact and fullscreen controls.
+- [The Theater window covers compact siblings] -> Use the explicit Compact control to restore the grid before selecting another window.
+- [Removing the Escape shortcut removes one keyboard path] -> Keep the Compact button keyboard reachable and avoid promising a shortcut that fails whenever the game iframe owns focus.
 - [A future game registry entry could reuse the `workspace` slug] -> Reject the reserved slug before registry resolution and cover both public endpoints with 404 tests.
 
 ## Migration Plan
@@ -112,7 +118,9 @@ The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`.
 7. Inline the pass-through game-window component into the workspace renderer.
 8. Move non-default layout presentation metadata into the owning page public APIs.
 9. Remove Workspace from the public developer catalog and explicitly deny its reference and raw AsyncAPI endpoints while retaining the internal document.
-10. Run frontend formatting, lint, unit tests, browser layout tests, backend plug tests, and type checks.
+10. Remove the parent-window Escape handler and keep compaction on the explicit window control.
+11. Raise the Theater wrapper above every compact sibling and cover the stacking transition in the browser test.
+12. Run frontend formatting, lint, unit tests, browser layout tests, backend plug tests, and type checks.
 
 Rollback restores the previous dependency and workspace local-state implementation. No persisted state or server migration is involved.
 

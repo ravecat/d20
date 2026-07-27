@@ -16,12 +16,26 @@ The client workspace SHALL keep focus and compact layout in browser-local state 
 #### Scenario: Player focuses a visible session
 
 - **WHEN** the player focuses a session present in the authoritative workspace snapshot
-- **THEN** the global layout identifies that session and the workspace component presents it expanded while keeping the other sessions compact and reachable
+- **THEN** the global layout identifies that session and the workspace component presents it expanded above every other game window
 
 #### Scenario: Player compacts the Theater session
 
-- **WHEN** the player compacts the session currently presented in Theater mode
+- **WHEN** the player activates the Compact control for the session currently presented in Theater mode
 - **THEN** every workspace session is presented in Compact mode
+
+### Requirement: Workspace compaction uses an explicit control
+
+The client workspace SHALL expose compaction through the Theater window control and SHALL NOT register a parent-window Escape handler for changing the workspace layout.
+
+#### Scenario: Game iframe owns keyboard focus
+
+- **WHEN** keyboard input is handled inside an embedded game document
+- **THEN** the parent workspace does not depend on that input to compact the Theater window
+
+#### Scenario: Player uses the Compact control
+
+- **WHEN** the player activates the keyboard-reachable Compact control
+- **THEN** the workspace changes to Compact layout
 
 ### Requirement: Workspace exposes one composed read-only store
 
@@ -77,7 +91,12 @@ The client workspace SHALL realize the global layout at the workspace list bound
 #### Scenario: Workspace opens with sessions
 
 - **WHEN** the authoritative snapshot contains one or more sessions and layout is `auto`
-- **THEN** the first session is expanded and the remaining sessions are compact
+- **THEN** the first session is expanded above the remaining compact sessions
+
+#### Scenario: Player selects another session
+
+- **WHEN** the player compacts the Theater window and expands a different session from the restored grid
+- **THEN** the newly expanded Theater window is stacked above every other game window
 
 #### Scenario: Workspace is fully compact
 

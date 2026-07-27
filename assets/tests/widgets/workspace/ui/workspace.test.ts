@@ -124,13 +124,9 @@ describe("Workspace presentation", () => {
       ]),
     );
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    flushSync();
-
     expect(showDialog).toHaveBeenCalledOnce();
     expect(gameFrame()).toBe(iframe);
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
-    expect(windowControls("Qwinto session session-a")).toContain("Expand Qwinto session session-a");
   });
 
   it("renders active windows without a duplicate workspace session panel", () => {

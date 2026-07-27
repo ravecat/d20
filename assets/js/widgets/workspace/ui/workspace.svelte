@@ -56,23 +56,9 @@
       }
     }
   }
-
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key !== "Escape" || event.defaultPrevented || document.fullscreenElement) return;
-
-    const session = $workspace.sessions.find((candidate, index) =>
-      isExpanded($workspace.layout, $workspace.sessions, candidate.id, index),
-    );
-    if (!session) return;
-
-    event.preventDefault();
-    workspace.compact(session.id);
-  }
 </script>
 
 {@render children?.()}
-
-<svelte:window onkeydown={handleKeydown} />
 
 <div class="workspace">
   <section class="workspace__tiles" aria-label="Open game sessions">
@@ -133,7 +119,7 @@
 
   .workspace__window--expanded {
     position: fixed;
-    z-index: 0;
+    z-index: 2;
     inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
     inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
     inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));

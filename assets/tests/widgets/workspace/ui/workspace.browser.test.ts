@@ -39,18 +39,14 @@ afterEach(async () => {
 });
 
 describe("Workspace presentation", () => {
-  it("expands the selected window while keeping compact siblings reachable", async () => {
-    const workspace = renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
+  it("stacks the Theater window above every sibling and restores selection through Compact", async () => {
+    renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
 
     const firstDialog = page.getByRole("dialog", { name: "Qwinto session session-a" });
     const secondDialog = page.getByRole("dialog", { name: "Qwinto session session-b" });
-    const expandSecond = page.getByRole("button", {
-      name: "Expand Qwinto session session-b",
-    });
 
     await expect.element(firstDialog).toBeVisible();
     await expect.element(secondDialog).toBeVisible();
-    await expect.element(expandSecond).toBeInViewport();
 
     const initialFirstBounds = firstDialog.element().getBoundingClientRect();
     const initialSecondBounds = secondDialog.element().getBoundingClientRect();
@@ -59,19 +55,39 @@ describe("Workspace presentation", () => {
     expect(initialFirstBounds.height).toBeCloseTo(window.innerHeight - 16, 0);
     expect(initialSecondBounds.width).toBeLessThan(initialFirstBounds.width);
     expect(initialSecondBounds.height).toBeLessThan(initialFirstBounds.height);
+    expect(
+      firstDialog
+        .element()
+        .contains(
+          document.elementFromPoint(
+            initialSecondBounds.left + initialSecondBounds.width / 2,
+            initialSecondBounds.top + initialSecondBounds.height / 2,
+          ),
+        ),
+    ).toBe(true);
 
-    workspace.focus("session-b");
+    await page.getByRole("button", { name: "Compact Qwinto session session-a" }).click();
     flushSync();
 
-    const focusedFirstBounds = firstDialog.element().getBoundingClientRect();
-    const focusedSecondBounds = secondDialog.element().getBoundingClientRect();
+    await page.getByRole("button", { name: "Expand Qwinto session session-b" }).click();
+    flushSync();
 
-    expect(focusedSecondBounds.width).toBeCloseTo(window.innerWidth - 16, 0);
-    expect(focusedSecondBounds.height).toBeCloseTo(window.innerHeight - 16, 0);
-    expect(focusedFirstBounds.width).toBeLessThan(focusedSecondBounds.width);
-    await expect
-      .element(page.getByRole("button", { name: "Expand Qwinto session session-a" }))
-      .toBeInViewport();
+    const selectedFirstBounds = firstDialog.element().getBoundingClientRect();
+    const selectedSecondBounds = secondDialog.element().getBoundingClientRect();
+
+    expect(selectedSecondBounds.width).toBeCloseTo(window.innerWidth - 16, 0);
+    expect(selectedSecondBounds.height).toBeCloseTo(window.innerHeight - 16, 0);
+    expect(selectedFirstBounds.width).toBeLessThan(selectedSecondBounds.width);
+    expect(
+      secondDialog
+        .element()
+        .contains(
+          document.elementFromPoint(
+            selectedFirstBounds.left + selectedFirstBounds.width / 2,
+            selectedFirstBounds.top + selectedFirstBounds.height / 2,
+          ),
+        ),
+    ).toBe(true);
   });
 
   it("uses a lower-right half-width by quarter-height region on wide viewports", async () => {

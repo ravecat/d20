@@ -19,6 +19,8 @@
 - [x] 1.17 Remove the pass-through `GameWindow` component and move its dialog, frame, status markup, and scoped styles into `workspace.svelte`.
 - [x] 1.18 Keep the default Inertia layout route-agnostic, rename the presentation variant to `narrow`, and export non-default layout metadata from the Home and Developers page public APIs.
 - [x] 1.19 Keep `priv/specs/workspace.yaml` for internal validation while explicitly denying Workspace in `D20Web.Plugs.AsyncApi` and removing it from the Developers catalog.
+- [x] 1.20 Remove the parent-window Escape handler and keep compaction on the explicit Theater window control.
+- [x] 1.21 Stack the Theater wrapper above every other game window and restore selection through the Compact grid.
 
 ## 2. Validation
 
@@ -32,3 +34,5 @@
 - [x] 2.8 Rerun focused Workspace tests, frontend checks, type checks, and strict OpenSpec validation after inlining `GameWindow`.
 - [x] 2.9 Cover page-owned layout metadata and persistent variant changes, then rerun focused frontend checks, type checks, and strict OpenSpec validation.
 - [x] 2.10 Cover public 404 behavior, internal contract availability, and public catalog omission, then run focused backend and frontend validation.
+- [x] 2.11 Remove the obsolete Escape assertion, preserve explicit Compact control coverage, and run focused frontend validation.
+- [x] 2.12 Cover initial and newly selected Theater stacking in the browser layout test.
