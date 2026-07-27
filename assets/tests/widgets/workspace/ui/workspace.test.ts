@@ -189,14 +189,33 @@ describe("Workspace presentation", () => {
     expand.focus();
     expect(document.activeElement).toBe(expand);
   });
+
+  it("releases the session subscription when the workspace unmounts", async () => {
+    const harness = workspaceHarness();
+    renderWorkspace(harness.workspace);
+
+    expect(harness.unsubscribe).not.toHaveBeenCalled();
+
+    await cleanup?.();
+    cleanup = undefined;
+
+    expect(harness.unsubscribe).toHaveBeenCalledOnce();
+  });
 });
 
 function workspaceHarness() {
   const state = writable<WorkspaceChannelState>(channelState("loading", null));
   const close = vi.fn();
+  const unsubscribe = vi.fn();
   const session: WorkspaceSession = {
-    subscribe: state.subscribe,
-    detach: vi.fn(),
+    subscribe(run) {
+      const stop = state.subscribe(run);
+
+      return () => {
+        stop();
+        unsubscribe();
+      };
+    },
     close,
   };
   const workspace = createWorkspace({ session });
@@ -204,6 +223,7 @@ function workspaceHarness() {
   return {
     workspace,
     close,
+    unsubscribe,
     ready(sessions: WorkspaceSessionDescriptor[]) {
       state.set(channelState("ready", { sessions }));
     },

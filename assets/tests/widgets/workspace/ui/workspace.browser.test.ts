@@ -156,7 +156,6 @@ function renderWorkspace(descriptors: WorkspaceSessionDescriptor[]) {
   });
   const session: WorkspaceSession = {
     subscribe: channelState.subscribe,
-    detach() {},
     close() {},
   };
   const workspace = createWorkspace({ session });

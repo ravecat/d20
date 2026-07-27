@@ -41,14 +41,12 @@ interface WorkspaceOptions {
 }
 
 export interface WorkspaceSession extends Readable<WorkspaceChannelState> {
-  detach(): void;
   close(sessionId: string): void;
 }
 
 export interface WorkspaceStore extends Readable<WorkspaceState> {
   compact(sessionId: string): void;
   close(sessionId: string): void;
-  dispose(): void;
   focus(sessionId: string): void;
 }
 
@@ -68,7 +66,6 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
         call("close", { id: sessionId });
       },
     }));
-  let disposed = false;
 
   const store = createStore<
     {
@@ -77,7 +74,6 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
     {
       focus: { sessionId: string };
       compact: null;
-      reset: null;
     }
   >({
     context: {
@@ -91,9 +87,6 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
       compact: (context) => ({
         ...context,
         layout: { mode: "compact" },
-      }),
-      reset: () => ({
-        layout: { mode: "auto" },
       }),
     },
   });
@@ -115,13 +108,11 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
   });
 
   function focus(sessionId: string) {
-    if (disposed || !get(state).sessions.some(({ id }) => id === sessionId)) return;
+    if (!get(state).sessions.some(({ id }) => id === sessionId)) return;
     store.trigger.focus({ sessionId });
   }
 
   function compact(sessionId: string) {
-    if (disposed) return;
-
     const current = get(state);
 
     switch (current.layout.mode) {
@@ -152,23 +143,15 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
   }
 
   function close(sessionId: string) {
-    if (disposed || !get(state).sessions.some(({ id }) => id === sessionId)) return;
+    if (!get(state).sessions.some(({ id }) => id === sessionId)) return;
 
     session.close(sessionId);
-  }
-
-  function dispose() {
-    if (disposed) return;
-    disposed = true;
-    session.detach();
-    store.trigger.reset();
   }
 
   return {
     subscribe: state.subscribe,
     compact,
     close,
-    dispose,
     focus,
   };
 }

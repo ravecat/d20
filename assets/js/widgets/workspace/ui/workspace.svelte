@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, type Snippet } from "svelte";
+  import type { Snippet } from "svelte";
   import Dialog from "./dialog.svelte";
   import Frame from "./frame.svelte";
   import type {
@@ -15,8 +15,6 @@
 
   const { children }: Props = $props();
   const workspace = createWorkspace();
-
-  onDestroy(workspace.dispose);
 
   function gameLabel(slug: string) {
     return slug

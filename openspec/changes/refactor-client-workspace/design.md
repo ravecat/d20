@@ -15,7 +15,7 @@ The current implementation models the browser state with a full XState machine a
 - Express all browser-local mutations as typed events and immutable transitions.
 - Compose the server snapshot and local state into the existing read-only `WorkspaceStore`.
 - Keep global layout in the workspace boundary instead of copying an effective mode onto each session.
-- Keep workspace store construction and disposal inside the persistent workspace component.
+- Keep workspace store construction inside the persistent workspace component and let its subscription own teardown.
 - Colocate the workspace model, workspace-specific types, and internal window UI in one FSD widget slice.
 - Keep application composition in the App layer and expose only the workspace component to it.
 - Keep page-specific layout presentation metadata in the owning page public API instead of branching on Inertia page names in application bootstrap.
@@ -23,7 +23,8 @@ The current implementation models the browser state with a full XState machine a
 - Keep compaction available through an explicit window control without an unreliable parent-window keyboard shortcut.
 - Keep the Workspace AsyncAPI contract available for internal verification without publishing it as developer documentation.
 - Reduce shipped state-management code and machine-specific boilerplate.
-- Preserve focus, compact, close-command, and disposal behavior without duplicating close progress in presentation state.
+- Let Svelte auto-unsubscription define teardown without manual disposal APIs or a second disposed lifecycle state.
+- Preserve focus, compact, close-command, and subscription teardown behavior without duplicating close progress in presentation state.
 
 **Non-Goals:**
 
@@ -66,7 +67,9 @@ Compaction remains an explicit window-control action. The workspace does not reg
 
 ### Let the persistent workspace component own its store
 
-`workspace.svelte` accepts the application `children` snippet, creates the workspace store once during component initialization, renders the children without adding a layout-affecting DOM wrapper, and disposes the store when the component unmounts. The application layout wraps its content with the workspace component and does not create, pass, or dispose a workspace store.
+`workspace.svelte` accepts the application `children` snippet, creates the workspace store once during component initialization, and renders the children without adding a layout-affecting DOM wrapper. The application layout wraps its content with the workspace component and does not create or pass a workspace store.
+
+The component's `$workspace` auto-subscription is the lifecycle owner. On unmount, Svelte unsubscribes from the derived workspace store; the derived store releases its `phoenix-session` dependency; and `phoenix-session` leaves the active channel when its last subscriber disappears. No `onDestroy`, `dispose`, `detach`, or disposed flag is needed at the widget boundary. Closing the browser tab destroys the complete JavaScript context and socket.
 
 The default Inertia layout keeps the workspace component mounted while replaceable page content changes, so the same workspace channel and embedded windows survive client navigation. Store creation remains synchronous because the component immediately consumes the store; deferring construction to `onMount` would add a nullable render state without improving the subscription-owned channel lifecycle.
 
@@ -94,7 +97,7 @@ The explicit rejection precedes game registry lookup so a future registry entry 
 
 ### Adapt subscription lifecycle explicitly
 
-The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`. Component-owned disposal will detach the Phoenix session, reset the layout store, and unsubscribe through normal Svelte ownership.
+The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`. Svelte subscription teardown will unsubscribe that adapter and the Phoenix session dependency. The session library leaves its active channel when its last subscriber disappears, so the component does not need a parallel manual lifecycle.
 
 ## Risks / Trade-offs
 
@@ -113,14 +116,15 @@ The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`.
 2. Replace the machine actor with a compact event store and Svelte subscription adapter.
 3. Remove close progress and error fields from workspace entries and window component props.
 4. Expose sessions and layout directly, then move expanded and compact positioning into the workspace component.
-5. Move workspace store construction and disposal from the application layout into the persistent workspace wrapper.
+5. Move workspace store construction from the application layout into the persistent workspace wrapper and rely on its auto-subscription for teardown.
 6. Move the persistent layout to the App layer and colocate the complete workspace implementation in `widgets/workspace`.
 7. Inline the pass-through game-window component into the workspace renderer.
 8. Move non-default layout presentation metadata into the owning page public APIs.
 9. Remove Workspace from the public developer catalog and explicitly deny its reference and raw AsyncAPI endpoints while retaining the internal document.
 10. Remove the parent-window Escape handler and keep compaction on the explicit window control.
 11. Raise the Theater wrapper above every compact sibling and cover the stacking transition in the browser test.
-12. Run frontend formatting, lint, unit tests, browser layout tests, backend plug tests, and type checks.
+12. Remove the redundant disposed flag, disposal method, explicit detach contract, `onDestroy` hook, and reset transition.
+13. Run frontend formatting, lint, unit tests, browser layout tests, backend plug tests, and type checks.
 
 Rollback restores the previous dependency and workspace local-state implementation. No persisted state or server migration is involved.
 

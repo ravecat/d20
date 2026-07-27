@@ -21,11 +21,10 @@ const workspaceMock = vi.hoisted(() => {
     },
     compact: vi.fn(),
     close: vi.fn(),
-    dispose: vi.fn(),
     focus: vi.fn(),
   };
 
-  return { createWorkspace: vi.fn(() => workspace), dispose: workspace.dispose };
+  return { createWorkspace: vi.fn(() => workspace) };
 });
 
 vi.mock("~/widgets/workspace/model/workspace", () => ({
@@ -39,7 +38,6 @@ afterEach(async () => {
   cleanup = undefined;
   document.body.innerHTML = "";
   workspaceMock.createWorkspace.mockClear();
-  workspaceMock.dispose.mockClear();
 });
 
 describe("Layout", () => {
@@ -80,17 +78,6 @@ describe("Layout", () => {
     expect(workspaceMock.createWorkspace).toHaveBeenCalledOnce();
     expect(document.querySelector("main")).toBe(main);
     expect(document.querySelector("[data-page=game]")).not.toBeNull();
-  });
-
-  it("disposes the workspace channel only when the persistent layout unmounts", async () => {
-    renderLayout();
-
-    expect(workspaceMock.dispose).not.toHaveBeenCalled();
-
-    await cleanup?.();
-    cleanup = undefined;
-
-    expect(workspaceMock.dispose).toHaveBeenCalledOnce();
   });
 });
 

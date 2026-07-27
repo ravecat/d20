@@ -46,18 +46,20 @@ The client workspace SHALL compose authoritative session values and browser-loca
 - **WHEN** either the server snapshot or local presentation state changes
 - **THEN** the subscriber receives a `WorkspaceState` containing the current transport status, authoritative sessions, and global layout
 
-#### Scenario: Consumer disposes the workspace
+#### Scenario: Last consumer unsubscribes from the workspace
 
-- **WHEN** the consumer calls `dispose`
-- **THEN** the workspace detaches its Phoenix session and resets browser-local presentation state
+- **WHEN** Svelte removes the workspace component's final store subscription
+- **THEN** the derived store releases its Phoenix session and local store subscriptions
+- **AND** the Phoenix session leaves its active workspace channel
+- **AND** the workspace model does not retain a separate disposed lifecycle state or expose a manual disposal method
 
 ### Requirement: Client refactor preserves external contracts
 
-The client workspace refactor SHALL preserve the workspace channel topic, join and snapshot payloads, close operation, `WorkspaceStore` methods, and embedded iframe lifecycle. It SHALL NOT expose close progress or errors as workspace presentation state.
+The client workspace refactor SHALL preserve the workspace channel topic, join and snapshot payloads, focus, compact and close operations, and embedded iframe lifecycle. It SHALL NOT expose close progress or errors as workspace presentation state.
 
 #### Scenario: Existing workspace consumer uses the refactored store
 
-- **WHEN** an existing component subscribes, focuses, compacts, closes, or disposes through `WorkspaceStore`
+- **WHEN** an existing component subscribes, focuses, compacts, or closes through `WorkspaceStore`
 - **THEN** the corresponding store or transport operation occurs without creating client-owned close lifecycle state
 
 #### Scenario: Player requests a session close
@@ -115,7 +117,7 @@ The client workspace SHALL realize the global layout at the workspace list bound
 
 ### Requirement: Persistent workspace component owns workspace lifecycle
 
-The client workspace SHALL use a persistent workspace component that renders application children and owns workspace store construction and disposal.
+The client workspace SHALL use a persistent workspace component that renders application children, owns workspace store construction, and relies on its Svelte store subscription for teardown.
 
 #### Scenario: Application layout renders
 
@@ -130,7 +132,8 @@ The client workspace SHALL use a persistent workspace component that renders app
 #### Scenario: Persistent workspace unmounts
 
 - **WHEN** the workspace component unmounts
-- **THEN** it disposes its owned workspace store and detaches the workspace channel
+- **THEN** Svelte removes its workspace store subscription
+- **AND** the subscription chain leaves the workspace channel without an explicit component lifecycle hook
 
 ### Requirement: Workspace implementation has one client ownership boundary
 

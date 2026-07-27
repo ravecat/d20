@@ -10,7 +10,6 @@ import {
 
 const mocks = vi.hoisted(() => ({
   call: vi.fn(),
-  detach: vi.fn(),
   session: vi.fn(),
   subscribe: vi.fn(),
   socket: {},
@@ -26,7 +25,6 @@ vi.mock("~/shared/api", () => ({
 
 beforeEach(() => {
   mocks.call.mockReset();
-  mocks.detach.mockClear();
   mocks.session.mockReset();
   mocks.subscribe.mockReset();
   mocks.subscribe.mockImplementation((listener: (state: WorkspaceChannelState) => void) => {
@@ -36,7 +34,6 @@ beforeEach(() => {
 
   const controller = {
     subscribe: mocks.subscribe,
-    detach: mocks.detach,
     extend(factory: (helpers: { call: typeof mocks.call }) => object) {
       return { ...controller, ...factory({ call: mocks.call }) };
     },
@@ -65,10 +62,8 @@ describe("Workspace", () => {
     expect(config.connect.ok(null, snapshot)).toBe(snapshot);
     expect(config.events.snapshot(null, snapshot)).toBe(snapshot);
     workspace.close("session-a");
-    workspace.dispose();
 
     expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
-    expect(mocks.detach).toHaveBeenCalledOnce();
   });
 
   it("reconciles authoritative workspace state by id without creating game session controllers", () => {
@@ -151,46 +146,18 @@ describe("Workspace", () => {
 
     expect(get(workspace).sessions).toEqual([]);
   });
-
-  it("detaches discovery with the layout", () => {
-    const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
-
-    workspace.dispose();
-
-    expect(discovery.detach).toHaveBeenCalledOnce();
-  });
-
-  it("resets layout and ignores close calls after disposal", () => {
-    const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
-
-    discovery.ready([descriptor("session-a"), descriptor("session-b")]);
-    workspace.focus("session-b");
-    workspace.close("session-b");
-
-    workspace.dispose();
-    workspace.close("session-a");
-
-    expect(get(workspace).sessions.map(({ id }) => id)).toEqual(["session-a", "session-b"]);
-    expect(get(workspace).layout).toEqual({ mode: "auto" });
-    expect(discovery.close).toHaveBeenCalledOnce();
-  });
 });
 
 function discoveryHarness() {
   const state = writable<WorkspaceChannelState>(discoveryState("loading", null));
-  const detach = vi.fn();
   const close = vi.fn();
   const session: WorkspaceSession = {
     subscribe: state.subscribe,
-    detach,
     close,
   };
 
   return {
     session,
-    detach,
     close,
     ready(sessions: WorkspaceSessionDescriptor[]) {
       state.set(discoveryState("ready", { sessions }));
