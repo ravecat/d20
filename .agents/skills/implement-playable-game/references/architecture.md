@@ -45,15 +45,44 @@ Projection and rendering are downstream reads of the latest committed state held
 
 Use these table shapes before implementation. Fill them with language from the supplied specification.
 
+### Authoritative state model
+
+Build this artifact first. Begin with orthogonal state dimensions rather than guessing one flat phase enum:
+
+| State dimension | Finite domain or bounded shape | Authoritative source | What changes it | Derived or committed |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |
+
+Then derive the reachable behaviorally distinct combinations:
+
+| State ID | Dimension values | Authoritative facts | Invariants | Entry sources | Allowed stimuli | Terminal |
+| --- | --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |  |
+
+Classify every material cross-product combination as reachable, unreachable with a rule justification, or unresolved. An unresolved combination is a blocking rule gap, not an implementation detail.
+
+State IDs describe combinations that matter to behavior, legality, persistence, or visibility. They do not need a one-to-one mapping to runtime `Game.phase` atoms. For example, several modeled states may share one phase while differing by participant status or an optional authoritative selection.
+
+Keep four concepts separate:
+
+| Concept | Purpose | May contain derived values |
+| --- | --- | --- |
+| Modeled composite state | Names one reachable combination of all behaviorally relevant state dimensions | Only as annotation, never as state identity or authority |
+| Runtime phase | Provides coarse `Game.dispatch/2` routing and process lifecycle | No |
+| Committed aggregate | Stores minimal authoritative facts needed for future transitions and projections | No |
+| Caller projection | Renders permitted committed facts and rule-derived guidance for one caller | Yes |
+
 ### Transition table
 
-| Current phase | Stimulus | Required predicates | Atomic effects | Next phase | Errors |
+Derive every row from the authoritative state model and reference its stable state identifiers:
+
+| Source state ID | Stimulus | Required predicates | Atomic effects | Resulting state ID | Stable errors |
 | --- | --- | --- | --- | --- | --- |
 |  |  |  |  |  |  |
 
 ### Command table
 
-| Event | Actor class | Payload | Allowed phases | State-changing | Stable errors |
+| Event | Actor class | Payload | Allowed source state IDs | State-changing | Stable errors |
 | --- | --- | --- | --- | --- | --- |
 |  |  |  |  |  |  |
 
@@ -68,6 +97,20 @@ Use these table shapes before implementation. Fill them with language from the s
 | Caller role | Lifecycle state | Visible fields | Hidden fields | Derived fields | Authoritative sources |
 | --- | --- | --- | --- | --- | --- |
 |  |  |  |  |  |  |
+
+### State-model gate
+
+Do not proceed to implementation until all checks pass:
+
+- Every transition source and destination exists in the reachable-state table.
+- Every non-initial reachable state has a modeled entry path.
+- Every non-terminal reachable state has an allowed exit stimulus or an explicit rule-defined waiting condition.
+- Every client and server-owned command appears in the transition and command tables.
+- Every accepted command has one atomic effect and resulting state.
+- Every rejection preserves the source state and has a stable error.
+- Every aggregate field is an authoritative fact required by at least one future transition or projection.
+- Every projected field traces to committed state, immutable rules, or explicit caller and session context.
+- Every material unlisted state combination is proven unreachable rather than silently ignored.
 
 ## Ruleset and Rulesheet Pattern
 
@@ -189,7 +232,7 @@ end
 
 Own shared committed state and define how accepted stimuli transform it.
 
-The aggregate is the minimal sufficient record of authoritative game facts. Together with immutable rules and explicit caller and session context, it must contain enough information to deterministically derive future behavior and every public projection. If a projection depends on a game fact that cannot be reconstructed from those inputs, store that fact in the aggregate. Do not store cached projections, other derived values, process timers, connection state, or transient UI state.
+Implement from the reviewed authoritative state model. The aggregate is the minimal sufficient record of authoritative game facts identified by that model. Together with immutable rules and explicit caller and session context, it must contain enough information to deterministically derive future behavior and every public projection. If a projection depends on a game fact that cannot be reconstructed from those inputs, store that fact in the aggregate. Do not store cached projections, other derived values, process timers, connection state, or transient UI state.
 
 After `init/1`, mutate the aggregate only inside an accepted `dispatch/2` transition. Do not expose alternate mutation functions to Projection, Permission, channels, or a custom Server.
 
@@ -201,7 +244,7 @@ Implement:
 - `finished?/1` for outer session completion
 - explicit aggregate types and terminal state
 
-Use phase-specific clauses to make the transition graph visible. Within a supported phase and event, validate the normalized payload, validate Rules, then apply one complete transition.
+Use phase-specific clauses to make coarse transition routing visible. Map each clause to modeled source and resulting state identifiers. When several modeled states share a phase, distinguish them with explicit state-dependent Rules predicates instead of inventing a phase atom for each combination or leaving the transition implicit. Within a supported phase and event, validate the normalized payload, validate Rules, then apply one complete transition.
 
 ```elixir
 def dispatch(%__MODULE__{phase: :some_phase} = game, %D20.Command{event: "some_event"} = command) do

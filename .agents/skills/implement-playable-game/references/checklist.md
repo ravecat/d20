@@ -8,9 +8,13 @@
 - [ ] Separate immutable configuration, mutable committed facts, and derived values.
 - [ ] List participants, identities, roles, and membership behavior.
 - [ ] Define which participant set or snapshot each progress and completion predicate uses.
-- [ ] Draw all domain phases and transitions.
+- [ ] Identify every orthogonal state dimension, including outer Session lifecycle, inner game phase, participant status, roles, selections or other substates, and process-owned timing states that affect behavior.
+- [ ] Derive every reachable behaviorally distinct state combination and assign it a stable working state identifier.
+- [ ] Classify every material state-dimension combination as reachable, unreachable with a rule justification, or unresolved.
+- [ ] Record authoritative facts, invariants, entry sources, allowed stimuli, and terminal behavior for every reachable state.
+- [ ] Derive all domain phases and transitions from the authoritative state model.
 - [ ] List every client and server-owned event.
-- [ ] Record actor class, payload, phase, predicate, effect, and stable errors for every event.
+- [ ] Record actor class, payload, source state identifiers, predicate, atomic effect, resulting state identifier, and stable errors for every event.
 - [ ] Define action atomicity and when progress becomes committed.
 - [ ] Define completion, outcome, tie, and terminal behavior.
 - [ ] Define caller visibility, private facts, and derived guidance.
@@ -20,6 +24,19 @@
 - [ ] Define randomness ownership, sampling point, persistence, test control, retries, and idempotency.
 - [ ] Build a visibility matrix for every caller role and lifecycle state.
 - [ ] Resolve material ambiguity instead of copying another game.
+
+## Authoritative State Model Gate
+
+- [ ] Build and review the authoritative state model before implementing `Command`, `Rules`, `Game`, `Permission`, or `Projection`.
+- [ ] Distinguish modeled composite states from coarse runtime `Game.phase` atoms.
+- [ ] Distinguish committed authoritative facts from derived permissions, legal options, projections, and client presentation state.
+- [ ] Confirm every transition source and destination references a reachable modeled state.
+- [ ] Confirm every non-initial reachable state has at least one modeled entry path.
+- [ ] Confirm every non-terminal reachable state has an exit stimulus or an explicit rule-defined waiting condition.
+- [ ] Confirm every accepted client or server-owned stimulus has one atomic effect and resulting state.
+- [ ] Confirm every rejected stimulus preserves its source state and returns a stable error.
+- [ ] Confirm semantically related actions with different event, draft, commit, or server paths are explicitly justified.
+- [ ] Keep implementation blocked while any material reachable state, invariant, transition, authoritative fact, or visibility source remains unresolved.
 
 ## Unidirectional Runtime
 
@@ -75,8 +92,9 @@
 - [ ] Validate creation inputs in `changeset/1` before process startup.
 - [ ] Implement `init/1`, `dispatch/2`, and `finished?/1`.
 - [ ] Define typed JSON-encodable committed state.
-- [ ] Store every authoritative game fact required by future transitions and projections, but no cached projection or other derivable value.
-- [ ] Make phase and event routing explicit.
+- [ ] Store every authoritative game fact required by the reviewed state model for future transitions and projections, but no cached projection or other derivable value.
+- [ ] Derive runtime phases and event routing from modeled source and resulting state identifiers.
+- [ ] Use explicit Rules predicates when multiple modeled states share one runtime phase.
 - [ ] Choose and test phase-gate versus payload-error precedence.
 - [ ] Run Command validation and Rules validation before transition code.
 - [ ] Return the old state unchanged for every rejection.
@@ -174,6 +192,7 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 
 | Layer | Minimum behavior |
 | --- | --- |
+| State model | State dimensions, reachable and justified unreachable combinations, invariants, entry and exit coverage, transition traceability |
 | Ruleset | Static invariants, each rulesheet, lookups, references, boundaries |
 | Command | Valid normalization, malformed containers and fields, bounded values, unsupported events |
 | Rules | Every predicate, conflicting failures, actor and phase paths, repeated and stale inputs |
@@ -211,6 +230,9 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 
 ## Completion Gate
 
+- [ ] The authoritative state model was completed before implementation and has no unresolved material combinations or invariants.
+- [ ] Every reachable modeled state has tested entry, allowed behavior, rejection preservation, and exit or terminal coverage.
+- [ ] Every command, transition, aggregate field, predicate, permission, and projected field traces to the authoritative state model.
 - [ ] Every rule has one clear owner.
 - [ ] Predicates and transitions use specification language rather than borrowed mechanics.
 - [ ] No rejected command mutates or publishes state.

@@ -26,7 +26,7 @@ Turn an arbitrary game specification into one server-authoritative D20 game with
 
 ## Workflow
 
-### 1. Build a rule inventory
+### 1. Build a rule inventory and authoritative state model
 
 Translate prose, tables, diagrams, and rulesheets into explicit decisions before writing modules. Capture:
 
@@ -46,12 +46,31 @@ Translate prose, tables, diagrams, and rulesheets into explicit decisions before
 - when a game client is in scope, every visible interaction, projection, informational, disabled, error, and focus state, including its semantic color role and non-color cue
 - randomness ownership, sampling point, persistence, retry behavior, testability, deadlines, timers, and automatic actions
 
-Produce four compact working artifacts in the plan or task notes:
+Before designing modules or finalizing events, derive an authoritative state model from the inventory:
 
-1. A transition table: current phase, stimulus, predicate, next state, effects.
-2. A command table: event, actor class, payload, allowed phases, stable errors.
-3. A predicate catalog: name, inputs, result, owning module, consumers.
-4. A visibility matrix: caller role and lifecycle state mapped to visible, hidden, and derived fields, with the authoritative source of every projected field.
+- Identify orthogonal state dimensions, including the outer Session lifecycle, inner game phase, participant status, roles, selections or other substates, and process-owned timing states when they affect behavior.
+- Derive every reachable behaviorally distinct combination and give it a stable working state identifier. Record material cross-product combinations as reachable, unreachable with a rule justification, or unresolved.
+- For each reachable state, record its authoritative committed facts, invariants, allowed actor or server stimuli, accepted atomic effects, resulting states, stable rejections, and terminal behavior.
+- Distinguish modeled composite states from runtime `Game.phase` values. Several modeled states may share one phase and differ through participant status or another authoritative substate.
+- Distinguish committed authoritative facts from values derived through immutable rules, caller and session context, predicates, permissions, or Projection.
+
+Treat this as a blocking discovery gate. Do not begin `Command`, `Rules`, `Game`, `Permission`, or `Projection` implementation while a reachable state, invariant, transition, authoritative fact, or visibility source is unresolved. Do not silently omit a theoretical state combination: prove it unreachable from the rules or keep it as a blocking gap.
+
+Produce five compact working artifacts in the plan or task notes:
+
+1. An authoritative state model: state dimensions, reachable combinations, state identifiers, committed facts, invariants, allowed stimuli, effects, resulting states, rejections, and terminal behavior.
+2. A transition table derived from the state model: source state identifier, stimulus, predicate, next state identifier, effects, and errors.
+3. A command table derived from the state model: event, actor class, payload, allowed source states, stable errors.
+4. A predicate catalog derived from state invariants and transition guards: name, inputs, result, owning module, consumers.
+5. A visibility matrix derived from state identifiers and authoritative facts: caller role and lifecycle state mapped to visible, hidden, and derived fields, with the authoritative source of every projected field.
+
+Cross-check the artifacts before implementation:
+
+- Every transition source and destination references a reachable modeled state.
+- Every client or server-owned command appears as a modeled stimulus.
+- Every accepted command has one atomic effect and resulting state.
+- Every rejection preserves its modeled source state.
+- Every aggregate field and projected field traces to the state model, immutable rules, or explicit caller and session context.
 
 Ask the user only about gaps that materially alter rules, state, or public contracts. Do not guess missing semantics.
 
@@ -111,7 +130,9 @@ Decide whether phase gating or payload validation has precedence, then encode an
 
 ### 6. Implement the game state machine
 
-`Game` owns only shared committed facts and state transitions. Make the aggregate minimal but sufficient: it must retain every authoritative game fact needed to derive future behavior and every projection, while excluding values that can be derived from those facts, immutable rules, and explicit caller and session context. Implement the `D20.Game` callbacks, creation changeset, typed aggregate, explicit phase and event clauses, terminal state, and outcome calculation.
+Implement only from the reviewed authoritative state model. `Game` owns only shared committed facts and state transitions. Make the aggregate minimal but sufficient: it must retain every authoritative game fact identified by the model and needed to derive future behavior and every projection, while excluding values that can be derived from those facts, immutable rules, and explicit caller and session context. Implement the `D20.Game` callbacks, creation changeset, typed aggregate, explicit phase and event clauses, terminal state, and outcome calculation.
+
+Map each phase and event clause to modeled source and destination states. When multiple modeled states share one runtime phase, use explicit Rules predicates over authoritative substate rather than adding a phase atom for every combination or leaving the distinction implicit.
 
 For every accepted mutation, preserve this sequence:
 
@@ -210,7 +231,7 @@ Do not edit a separate client repository unless the task explicitly includes it.
 
 ### 11. Validate by boundary and end-to-end flow
 
-Test static definitions, payload normalization, predicates, transitions, rejected-state preservation, completion, permissions, complete caller projections, session lifecycle, replies, broadcasts, registry wiring, and contract serving. Verify that supported client workflows receive their permitted rule-derived information without reimplementing authoritative calculations.
+Test static definitions, payload normalization, predicates, every reachable modeled state, every modeled transition, rejected-state preservation, unreachable-state invariants, completion, permissions, complete caller projections, session lifecycle, replies, broadcasts, registry wiring, and contract serving. Verify that supported client workflows receive their permitted rule-derived information without reimplementing authoritative calculations.
 
 For custom servers, test automatic-event identity, scheduling, duplicate prevention, failure behavior, and coexistence with idle expiry.
 
@@ -223,6 +244,7 @@ For an in-scope client, run its native format, lint, type, browser-test, and pro
 Report:
 
 - how the specification was mapped into modules and predicates
+- the authoritative state model and how runtime phases, commands, transitions, aggregate facts, and projections derive from it
 - the state machine and event-path decisions
 - default or custom server choice
 - public contract and integration points changed
