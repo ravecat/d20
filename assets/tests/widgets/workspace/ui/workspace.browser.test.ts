@@ -3,31 +3,26 @@ import { writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 import { Workspace as WorkspaceView } from "~/widgets/workspace";
-import type {
-  WorkspaceChannelState,
-  WorkspaceSession,
-  WorkspaceSessionDescriptor,
-} from "~/widgets/workspace/model/workspace";
+import type { WorkspaceSessionDescriptor } from "~/widgets/workspace/model/workspace";
 
-const workspaceStoreMock = vi.hoisted(() => ({
-  createWorkspace: vi.fn(),
+const transport = vi.hoisted(() => ({
+  call: vi.fn(),
+  session: vi.fn(),
 }));
 
 vi.mock("@rvct/d20sdk", () => ({
   module: vi.fn(() => ({ destroy: vi.fn() })),
 }));
 
-vi.mock("~/widgets/workspace/model/workspace", () => ({
-  createWorkspace: workspaceStoreMock.createWorkspace,
+vi.mock("phoenix-session", () => ({
+  session: transport.session,
 }));
-
-const { createWorkspace } = await vi.importActual<
-  typeof import("~/widgets/workspace/model/workspace")
->("~/widgets/workspace/model/workspace");
 
 let cleanup: (() => Promise<void>) | undefined;
 
 beforeEach(async () => {
+  transport.call.mockReset();
+  transport.session.mockReset();
   await page.viewport(1280, 800);
 });
 
@@ -35,15 +30,14 @@ afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.body.innerHTML = "";
-  workspaceStoreMock.createWorkspace.mockReset();
 });
 
 describe("Workspace presentation", () => {
   it("stacks the Theater window above every sibling and restores selection through Compact", async () => {
     renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
 
-    const firstDialog = page.getByRole("dialog", { name: "Qwinto session session-a" });
-    const secondDialog = page.getByRole("dialog", { name: "Qwinto session session-b" });
+    const firstDialog = page.getByRole("dialog", { name: "Game session session-a" });
+    const secondDialog = page.getByRole("dialog", { name: "Game session session-b" });
 
     await expect.element(firstDialog).toBeVisible();
     await expect.element(secondDialog).toBeVisible();
@@ -66,10 +60,10 @@ describe("Workspace presentation", () => {
         ),
     ).toBe(true);
 
-    await page.getByRole("button", { name: "Compact Qwinto session session-a" }).click();
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
     flushSync();
 
-    await page.getByRole("button", { name: "Expand Qwinto session session-b" }).click();
+    await page.getByRole("button", { name: "Expand Game session session-b" }).click();
     flushSync();
 
     const selectedFirstBounds = firstDialog.element().getBoundingClientRect();
@@ -91,12 +85,12 @@ describe("Workspace presentation", () => {
   });
 
   it("uses a lower-right half-width by quarter-height region on wide viewports", async () => {
-    const workspace = renderWorkspace([descriptor("session-a")]);
-    workspace.compact("session-a");
+    renderWorkspace([descriptor("session-a")]);
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
     flushSync();
 
     const region = page.getByRole("region", { name: "Open game sessions" });
-    const dialog = page.getByRole("dialog", { name: "Qwinto session session-a" });
+    const dialog = page.getByRole("dialog", { name: "Game session session-a" });
 
     await expect.element(region).toBeVisible();
     await expect.element(dialog).toBeVisible();
@@ -115,21 +109,25 @@ describe("Workspace presentation", () => {
 
   it("keeps Compact content and vertical controls reachable without horizontal overflow", async () => {
     await page.viewport(390, 640);
-    const workspace = renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
-    workspace.compact("session-a");
+    renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
     flushSync();
 
     const region = page.getByRole("region", { name: "Open game sessions" });
-    const firstDialog = page.getByRole("dialog", { name: "Qwinto session session-a" });
+    const firstDialog = page.getByRole("dialog", { name: "Game session session-a" });
     const firstFrame = page.getByTitle("Game module").first();
     const controls = page.getByRole("group", {
-      name: "Qwinto session session-a window controls",
+      name: "Game session session-a window controls",
+    });
+    const layoutControl = page.getByRole("button", {
+      name: "Expand Game session session-a",
     });
 
     await expect.element(region).toBeVisible();
     await expect.element(firstDialog).toBeVisible();
     await expect.element(firstFrame).toBeVisible();
     await expect.element(controls).toBeInViewport();
+    await expect.element(layoutControl).toBeInViewport();
 
     const regionBounds = region.element().getBoundingClientRect();
 
@@ -142,24 +140,29 @@ describe("Workspace presentation", () => {
       expect(button.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth);
       await expect.element(page.elementLocator(button)).toBeInViewport();
     }
+
+    expect(layoutControl.element().getBoundingClientRect().right).toBeLessThanOrEqual(
+      window.innerWidth,
+    );
   });
 });
 
 function renderWorkspace(descriptors: WorkspaceSessionDescriptor[]) {
-  const channelState = writable<WorkspaceChannelState>({
+  const channelState = writable({
     value: { sessions: descriptors },
-    status: "ready",
+    status: "ready" as const,
     error: null,
-    processing: { close: false },
-    errors: { close: null },
-    timeouts: { close: false },
+    processing: {},
+    errors: {},
+    timeouts: {},
   });
-  const session: WorkspaceSession = {
+  const controller = {
     subscribe: channelState.subscribe,
-    close() {},
+    extend(factory: (helpers: { call: typeof transport.call }) => object) {
+      return { ...controller, ...factory({ call: transport.call }) };
+    },
   };
-  const workspace = createWorkspace({ session });
-  workspaceStoreMock.createWorkspace.mockReturnValue(workspace);
+  transport.session.mockReturnValue(controller);
   const target = document.createElement("div");
   document.body.append(target);
   const component = mount(WorkspaceView, { target });
@@ -169,8 +172,6 @@ function renderWorkspace(descriptors: WorkspaceSessionDescriptor[]) {
     await unmount(component);
     target.remove();
   };
-
-  return workspace;
 }
 
 function descriptor(id: string): WorkspaceSessionDescriptor {

@@ -16,12 +16,14 @@ The client workspace SHALL keep focus and compact layout in browser-local state 
 #### Scenario: Player focuses a visible session
 
 - **WHEN** the player focuses a session present in the authoritative workspace snapshot
-- **THEN** the global layout identifies that session and the workspace component presents it expanded above every other game window
+- **THEN** the global layout identifies that session through its `id` field
+- **AND** the workspace component presents it expanded above every other game window
 
 #### Scenario: Player compacts the Theater session
 
 - **WHEN** the player activates the Compact control for the session currently presented in Theater mode
-- **THEN** every workspace session is presented in Compact mode
+- **THEN** the workspace invokes its target-free compact operation
+- **AND** every workspace session is presented in Compact mode
 
 ### Requirement: Workspace compaction uses an explicit control
 
@@ -66,6 +68,20 @@ The client workspace refactor SHALL preserve the workspace channel topic, join a
 
 - **WHEN** the player closes a session present in the authoritative workspace snapshot
 - **THEN** the workspace forwards the existing close operation and keeps the session visible until an authoritative snapshot removes it
+
+#### Scenario: Internal controls dispatch session commands
+
+- **WHEN** a workspace control dispatches a focus or close command using its rendered session descriptor
+- **THEN** the workspace forwards the command without rescanning the authoritative session collection
+- **AND** client layout state, local event payloads, methods, and UI helpers use `id` consistently for that session identifier
+- **AND** the session state shape is derived from the `phoenix-session` generic rather than duplicated in a client-owned interface
+
+#### Scenario: Focused tests substitute transport dependencies
+
+- **WHEN** focused model, component, or browser tests require controlled workspace snapshots
+- **THEN** they substitute `phoenix-session` at the test module boundary
+- **AND** `createWorkspace()` exposes no dependency options or test-only session types
+- **AND** component behavior is driven through semantic session controls
 
 ### Requirement: Workspace AsyncAPI remains internal
 
@@ -114,6 +130,32 @@ The client workspace SHALL realize the global layout at the workspace list bound
 
 - **WHEN** the player toggles fullscreen for a game window
 - **THEN** fullscreen remains local to that window and does not change the global workspace layout
+
+#### Scenario: Workspace renders window controls
+
+- **WHEN** the workspace renders a session window
+- **THEN** the workspace owns and positions its Expand or Compact layout control
+- **AND** the dialog receives no global layout state or layout callbacks
+- **AND** the dialog retains its window-local Close and browser fullscreen controls
+
+### Requirement: Workspace connection feedback remains generic
+
+The client workspace SHALL render transport connection feedback inline without deriving game display names from session slugs.
+
+#### Scenario: Workspace is connecting
+
+- **WHEN** the workspace channel status is neither ready, stale, nor failed
+- **THEN** each visible status overlay displays `Connecting to game`
+
+#### Scenario: Workspace is reconnecting
+
+- **WHEN** the workspace channel status is stale
+- **THEN** each visible status overlay displays `Reconnecting to game`
+
+#### Scenario: Workspace connection failed
+
+- **WHEN** the workspace channel status is failed
+- **THEN** each visible status overlay displays `Connection to game failed`
 
 ### Requirement: Persistent workspace component owns workspace lifecycle
 

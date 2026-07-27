@@ -4,14 +4,11 @@
 
   interface Props {
     children: Snippet;
-    expanded: boolean;
     label: string;
-    onCompact: () => void;
     onClose: () => void;
-    onExpand: () => void;
   }
 
-  const { children, expanded, label, onCompact, onClose, onExpand }: Props = $props();
+  const { children, label, onClose }: Props = $props();
 
   let fullscreenElement: HTMLDivElement | undefined;
   let fullscreen = $state(false);
@@ -63,32 +60,6 @@
           <path d="m6 6 12 12M18 6 6 18" />
         </svg>
       </button>
-
-      {#if !fullscreen}
-        {#if expanded}
-          <button
-            class="dialog__control"
-            type="button"
-            aria-label={`Compact ${label}`}
-            onclick={onCompact}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18v14H3zM12 19v-7h9" />
-            </svg>
-          </button>
-        {:else}
-          <button
-            class="dialog__control"
-            type="button"
-            aria-label={`Expand ${label}`}
-            onclick={onExpand}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18v14H3zM6 8h12v8H6z" />
-            </svg>
-          </button>
-        {/if}
-      {/if}
 
       <button
         class="dialog__control"

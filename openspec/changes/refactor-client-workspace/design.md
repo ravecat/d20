@@ -20,11 +20,14 @@ The current implementation models the browser state with a full XState machine a
 - Keep application composition in the App layer and expose only the workspace component to it.
 - Keep page-specific layout presentation metadata in the owning page public API instead of branching on Inertia page names in application bootstrap.
 - Stack the Theater window above every other game window and restore the selectable window grid through Compact.
+- Keep global Expand and Compact controls at the workspace boundary instead of passing layout state into each dialog.
 - Keep compaction available through an explicit window control without an unreliable parent-window keyboard shortcut.
+- Keep workspace connection feedback generic and inline instead of deriving presentation labels from session slugs.
 - Keep the Workspace AsyncAPI contract available for internal verification without publishing it as developer documentation.
 - Reduce shipped state-management code and machine-specific boilerplate.
 - Let Svelte auto-unsubscription define teardown without manual disposal APIs or a second disposed lifecycle state.
 - Preserve focus, compact, close-command, and subscription teardown behavior without duplicating close progress in presentation state.
+- Derive transport state types from `phoenix-session`, keep the production factory free of test seams, and avoid rescanning authoritative sessions for IDs emitted by internal workspace controls.
 
 **Non-Goals:**
 
@@ -51,17 +54,25 @@ Alternatives considered:
 
 `createWorkspace` will create the Phoenix session, event store, reactive composition, and public methods in one scope. The single-use event store will not have a separate client-specific factory because it is an implementation detail of the client workspace rather than an independent boundary.
 
+`createWorkspace()` accepts no dependency options. Focused tests replace the imported `phoenix-session` module and drive component behavior through rendered controls, so production types and parameters represent runtime requirements only.
+
 ### Keep transport and local state separate, then derive the public store
 
 The `phoenix-session` value and local store snapshot remain independent inputs to one Svelte `derived` store. Server events cannot overwrite presentation-only state, and local events cannot mutate authoritative membership descriptors.
 
 The public state contains the authoritative session descriptors and the single discriminated layout value. It does not create presentation-specific entry objects, duplicate transport status per session, or store a second focused session identifier.
 
+The session contract derives its subscribed state from the generic `phoenix-session` return type instead of restating `value`, `status`, `error`, processing, error, and timeout fields locally. The derived state type remains internal to the production model; tests infer their transport fixtures independently from the same library generic.
+
 ### Let the workspace component own spatial layout
 
 `workspace.svelte` interprets the global layout while rendering the authoritative session list. It marks the effective expanded wrapper from the layout and session order, and component-scoped CSS arranges that wrapper and the remaining compact wrappers. The expanded wrapper has the highest sibling stacking order so the Theater window is above every other game window.
 
-`workspace.svelte` renders each `Dialog`, iframe `Frame`, and transport status overlay directly. `Dialog` receives only the effective expanded boolean needed to render its resize control. It does not position itself or choose the global workspace layout. The dialog remains non-modal; the explicit Compact control exits Theater and restores the selectable grid, while browser fullscreen remains local to the selected window surface.
+`workspace.svelte` renders each `Dialog`, iframe `Frame`, transport status overlay, and global layout control directly. It computes whether each wrapper is effectively expanded and positions the corresponding Expand or Compact button as a sibling overlay above the dialog. The target-free `compact()` operation changes the single global layout, while `focus(id)` identifies the requested session. The focused layout and local event payload also use `id`, matching the authoritative session descriptor and close command payload without a redundant client-only alias.
+
+`Dialog` receives no expanded state and exposes no global layout callbacks. It remains responsible for its window-local Close and browser fullscreen controls. The dialog remains non-modal; the workspace-owned Compact control exits Theater and restores the selectable grid, while browser fullscreen remains local to the selected window surface.
+
+The transport status overlay renders `Connecting to game`, `Reconnecting to game`, or `Connection to game failed` directly from the workspace channel status. It does not derive a display name from the session slug. The dialog keeps a separate unique accessible name for its controls.
 
 Compaction remains an explicit window-control action. The workspace does not register a parent-window Escape listener because keyboard events dispatched inside an iframe belong to that embedded document and do not bubble into the shell document. Supporting a truly global shortcut would require an explicit cross-document protocol with every game module, which is outside this change.
 
@@ -89,6 +100,8 @@ Inertia merges the page-owned props into the default layout while keeping the la
 
 The public `close` method forwards directly to `session.close`. Close progress, errors, and timeouts are not copied into workspace presentation state; the next authoritative snapshot determines whether the window remains visible.
 
+The widget is the only production consumer of the workspace model and emits focus and close IDs from the current rendered session descriptors. The public command methods therefore forward those IDs without rescanning the composed state. If an event becomes stale between rendering and dispatch, the existing focused-session fallback handles local layout and the authoritative server handles close semantics.
+
 ### Keep the Workspace AsyncAPI contract internal
 
 The Workspace contract remains under `priv/specs/workspace.yaml` for repository-level validation and maintenance. It is not part of the public game integration surface, so the Developers page does not list it and the AsyncAPI plug explicitly rejects the reserved `workspace` slug for both reference and raw responses.
@@ -109,6 +122,7 @@ The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`.
 - [The Theater window covers compact siblings] -> Use the explicit Compact control to restore the grid before selecting another window.
 - [Removing the Escape shortcut removes one keyboard path] -> Keep the Compact button keyboard reachable and avoid promising a shortcut that fails whenever the game iframe owns focus.
 - [A future game registry entry could reuse the `workspace` slug] -> Reject the reserved slug before registry resolution and cover both public endpoints with 404 tests.
+- [A rendered command can become stale before dispatch] -> Let the existing focus fallback and authoritative close handling absorb the rare stale ID instead of duplicating membership checks in every command.
 
 ## Migration Plan
 
@@ -124,7 +138,12 @@ The generic `@xstate/store` subscription will be wrapped in a Svelte `readable`.
 10. Remove the parent-window Escape handler and keep compaction on the explicit window control.
 11. Raise the Theater wrapper above every compact sibling and cover the stacking transition in the browser test.
 12. Remove the redundant disposed flag, disposal method, explicit detach contract, `onDestroy` hook, and reset transition.
-13. Run frontend formatting, lint, unit tests, browser layout tests, backend plug tests, and type checks.
+13. Replace slug-derived workspace labels with generic inline connection status feedback.
+14. Move Expand and Compact controls into the workspace renderer, remove layout props from `Dialog`, and make `compact()` target-free.
+15. Derive the session state type from `phoenix-session` and remove redundant focus and close membership scans.
+16. Remove session injection options and test-only session type exports, then mock `phoenix-session` at the test module boundary.
+17. Standardize client workspace session identifier fields and parameters on `id`.
+18. Run frontend formatting, lint, unit tests, browser layout tests, backend plug tests, and type checks.
 
 Rollback restores the previous dependency and workspace local-state implementation. No persisted state or server migration is involved.
 

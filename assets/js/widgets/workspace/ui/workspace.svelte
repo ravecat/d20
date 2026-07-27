@@ -2,11 +2,7 @@
   import type { Snippet } from "svelte";
   import Dialog from "./dialog.svelte";
   import Frame from "./frame.svelte";
-  import type {
-    WorkspaceChannelStatus,
-    WorkspaceLayout,
-    WorkspaceSessionDescriptor,
-  } from "../model/workspace";
+  import type { WorkspaceLayout, WorkspaceSessionDescriptor } from "../model/workspace";
   import { createWorkspace } from "../model/workspace";
 
   interface Props {
@@ -14,37 +10,21 @@
   }
 
   const { children }: Props = $props();
+
   const workspace = createWorkspace();
-
-  function gameLabel(slug: string) {
-    return slug
-      .split("-")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-  }
-
-  function sessionLabel(session: WorkspaceSessionDescriptor) {
-    return `${gameLabel(session.slug)} session ${session.id}`;
-  }
-
-  function statusMessage(slug: string, status: WorkspaceChannelStatus) {
-    if (status === "stale") return `Reconnecting to ${gameLabel(slug)}`;
-    if (status === "failed") return `Connection to ${gameLabel(slug)} failed`;
-    return `Connecting to ${gameLabel(slug)}`;
-  }
 
   function isExpanded(
     layout: WorkspaceLayout,
     sessions: WorkspaceSessionDescriptor[],
-    sessionId: string,
+    id: string,
     index: number,
   ) {
     switch (layout.mode) {
       case "auto":
         return index === 0;
       case "focused":
-        return sessions.some(({ id }) => id === layout.sessionId)
-          ? sessionId === layout.sessionId
+        return sessions.some((session) => session.id === layout.id)
+          ? id === layout.id
           : index === 0;
       case "compact":
         return false;
@@ -61,25 +41,43 @@
 <div class="workspace">
   <section class="workspace__tiles" aria-label="Open game sessions">
     {#each $workspace.sessions as session, index (session.id)}
-      {@const label = sessionLabel(session)}
       {@const expanded = isExpanded($workspace.layout, $workspace.sessions, session.id, index)}
       <div class="workspace__window" class:workspace__window--expanded={expanded}>
-        <Dialog
-          {expanded}
-          {label}
-          onCompact={() => workspace.compact(session.id)}
-          onExpand={() => workspace.focus(session.id)}
-          onClose={() => workspace.close(session.id)}
-        >
+        <Dialog label={`Game session ${session.id}`} onClose={() => workspace.close(session.id)}>
           <Frame module={session.module} connection={session.connection} />
 
           {#if $workspace.status !== "ready"}
             <div class="workspace__status" role="status">
               <span class="workspace__spinner" aria-hidden="true"></span>
-              <strong>{statusMessage(session.slug, $workspace.status)}</strong>
+              <strong>
+                {#if $workspace.status === "stale"}
+                  Reconnecting to game
+                {:else if $workspace.status === "failed"}
+                  Connection to game failed
+                {:else}
+                  Connecting to game
+                {/if}
+              </strong>
             </div>
           {/if}
         </Dialog>
+
+        <button
+          class="workspace__layout-control"
+          type="button"
+          aria-label={`${expanded ? "Compact" : "Expand"} Game session ${session.id}`}
+          onclick={() => (expanded ? workspace.compact() : workspace.focus(session.id))}
+        >
+          {#if expanded}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h18v14H3zM12 19v-7h9" />
+            </svg>
+          {:else}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h18v14H3zM6 8h12v8H6z" />
+            </svg>
+          {/if}
+        </button>
       </div>
     {/each}
   </section>
@@ -122,6 +120,43 @@
     inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
     inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
     inset-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
+  }
+
+  .workspace__layout-control {
+    position: absolute;
+    z-index: 1001;
+    inset-block-start: 5rem;
+    inset-inline-end: 0.4rem;
+    box-sizing: border-box;
+    display: grid;
+    inline-size: 2rem;
+    block-size: 2rem;
+    place-items: center;
+    border: 1px solid rgb(255 255 255 / 0.32);
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 0.76);
+    padding: 0.4rem;
+    color: white;
+    cursor: pointer;
+  }
+
+  .workspace__layout-control:hover {
+    background: rgb(0 0 0 / 0.92);
+  }
+
+  .workspace__layout-control:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+  }
+
+  .workspace__layout-control svg {
+    inline-size: 100%;
+    block-size: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.75;
   }
 
   .workspace__status {

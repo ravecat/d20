@@ -22,6 +22,11 @@
 - [x] 1.20 Remove the parent-window Escape handler and keep compaction on the explicit Theater window control.
 - [x] 1.21 Stack the Theater wrapper above every other game window and restore selection through the Compact grid.
 - [x] 1.22 Remove the redundant disposed flag, disposal method, explicit detach contract, `onDestroy` hook, and now-unused reset transition, relying on the Svelte subscription chain for teardown.
+- [x] 1.23 Remove slug-derived workspace label helpers and render generic connection status messages inline.
+- [x] 1.24 Move Expand and Compact controls into the workspace renderer, remove global layout props from `Dialog`, and make `compact()` target-free.
+- [x] 1.25 Derive the injected session state from the `phoenix-session` generic and remove redundant focus and close membership checks.
+- [x] 1.26 Remove session injection options and test-only session type exports, then substitute `phoenix-session` in focused tests.
+- [x] 1.27 Standardize client workspace session identifier fields and parameters on `id`.
 
 ## 2. Validation
 
@@ -38,3 +43,8 @@
 - [x] 2.11 Remove the obsolete Escape assertion, preserve explicit Compact control coverage, and run focused frontend validation.
 - [x] 2.12 Cover initial and newly selected Theater stacking in the browser layout test.
 - [x] 2.13 Cover automatic teardown through the workspace subscription chain and rerun frontend type, formatting, lint, and strict OpenSpec validation.
+- [x] 2.14 Cover generic workspace connection status messages and rerun focused frontend, type, formatting, lint, and strict OpenSpec validation.
+- [x] 2.15 Cover workspace-owned layout controls and rerun focused model, component, browser, type, lint, formatting, and strict OpenSpec validation.
+- [x] 2.16 Cover direct focus and close forwarding and rerun focused model, type, lint, formatting, and strict OpenSpec validation.
+- [x] 2.17 Rerun focused model, component, browser, type, lint, formatting, and strict OpenSpec validation after removing production test seams.
+- [x] 2.18 Rerun focused model, component, browser, type, lint, formatting, and strict OpenSpec validation after the identifier rename.

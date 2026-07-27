@@ -3,9 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWorkspace,
   type Workspace,
-  type WorkspaceChannelState,
-  type WorkspaceSession,
   type WorkspaceSessionDescriptor,
+  type WorkspaceState,
 } from "~/widgets/workspace/model/workspace";
 
 const mocks = vi.hoisted(() => ({
@@ -68,97 +67,100 @@ describe("Workspace", () => {
 
   it("reconciles authoritative workspace state by id without creating game session controllers", () => {
     const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
 
     discovery.ready([descriptor("session-a", "qwinto"), descriptor("session-b", "qwinto")]);
 
-    expect(get(workspace).sessions.map(({ id, slug }) => ({ id, slug }))).toEqual([
+    expect(get(discovery.workspace).sessions.map(({ id, slug }) => ({ id, slug }))).toEqual([
       { id: "session-a", slug: "qwinto" },
       { id: "session-b", slug: "qwinto" },
     ]);
-    expect(get(workspace).layout).toEqual({ mode: "auto" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "auto" });
 
-    workspace.compact("session-a");
+    discovery.workspace.compact();
     discovery.ready([
       descriptor("session-b", "qwinto", "fresh-token"),
       descriptor("session-c", "koala-rescue-club"),
     ]);
 
-    expect(get(workspace).sessions.map(({ id }) => id)).toEqual(["session-b", "session-c"]);
-    expect(get(workspace).layout).toEqual({ mode: "compact" });
-    expect(session(workspace, "session-b").connection.token).toBe("fresh-token");
+    expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual([
+      "session-b",
+      "session-c",
+    ]);
+    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
+    expect(session(discovery.workspace, "session-b").connection.token).toBe("fresh-token");
   });
 
-  it("changes layout only for visible workspace sessions", () => {
+  it("forwards focus events without rescanning session membership", () => {
     const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
 
     discovery.ready([descriptor("session-a"), descriptor("session-b")]);
-    workspace.compact("session-a");
-    workspace.focus("session-b");
-    workspace.focus("missing-session");
-    workspace.compact("session-a");
+    discovery.workspace.focus("session-b");
+    discovery.workspace.focus("missing-session");
 
-    expect(get(workspace).layout).toEqual({ mode: "focused", sessionId: "session-b" });
+    expect(get(discovery.workspace).layout).toEqual({
+      mode: "focused",
+      id: "missing-session",
+    });
+
+    discovery.workspace.compact();
+
+    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
   });
 
   it("retains requested focus while allowing the visible fallback to compact", () => {
     const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
 
     discovery.ready([descriptor("session-a"), descriptor("session-b")]);
-    workspace.focus("session-b");
+    discovery.workspace.focus("session-b");
     discovery.ready([descriptor("session-a"), descriptor("session-c")]);
 
-    expect(get(workspace).layout).toEqual({ mode: "focused", sessionId: "session-b" });
+    expect(get(discovery.workspace).layout).toEqual({
+      mode: "focused",
+      id: "session-b",
+    });
 
-    workspace.compact("session-a");
+    discovery.workspace.compact();
 
-    expect(get(workspace).layout).toEqual({ mode: "compact" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
   });
 
   it("keeps windows stale during a transport outage and applies the reconnected workspace", () => {
     const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
 
     discovery.ready([descriptor("session-a")]);
     discovery.stale();
 
-    expect(get(workspace).sessions.map(({ id }) => id)).toEqual(["session-a"]);
-    expect(get(workspace).status).toBe("stale");
+    expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual(["session-a"]);
+    expect(get(discovery.workspace).status).toBe("stale");
 
     discovery.ready([]);
 
-    expect(get(workspace).sessions).toEqual([]);
+    expect(get(discovery.workspace).sessions).toEqual([]);
   });
 
   it("sends close through the workspace session and waits for workspace state before removing the window", () => {
     const discovery = discoveryHarness();
-    const workspace = createWorkspace({ session: discovery.session });
 
     discovery.ready([descriptor("session-a")]);
-    workspace.close("session-a");
+    discovery.workspace.close("session-a");
+    discovery.workspace.close("missing-session");
 
-    expect(discovery.close).toHaveBeenCalledWith("session-a");
-    expect(get(workspace).sessions.map(({ id }) => id)).toEqual(["session-a"]);
+    expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
+    expect(mocks.call).toHaveBeenCalledWith("close", { id: "missing-session" });
+    expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual(["session-a"]);
 
     discovery.ready([]);
 
-    expect(get(workspace).sessions).toEqual([]);
+    expect(get(discovery.workspace).sessions).toEqual([]);
   });
 });
 
 function discoveryHarness() {
-  const state = writable<WorkspaceChannelState>(discoveryState("loading", null));
-  const close = vi.fn();
-  const session: WorkspaceSession = {
-    subscribe: state.subscribe,
-    close,
-  };
+  const state = writable(discoveryState("loading", null));
+  mocks.subscribe.mockImplementation(state.subscribe);
 
   return {
-    session,
-    close,
+    workspace: createWorkspace(),
     ready(sessions: WorkspaceSessionDescriptor[]) {
       state.set(discoveryState("ready", { sessions }));
     },
@@ -168,19 +170,18 @@ function discoveryHarness() {
   };
 }
 
-function discoveryState(
-  status: WorkspaceChannelState["status"],
-  value: Workspace | null,
-): WorkspaceChannelState {
+function discoveryState(status: WorkspaceState["status"], value: Workspace | null) {
   return {
     value,
     status,
     error: null,
-    processing: { close: false },
-    errors: { close: null },
-    timeouts: { close: false },
+    processing: {},
+    errors: {},
+    timeouts: {},
   };
 }
+
+type WorkspaceChannelState = ReturnType<typeof discoveryState>;
 
 function descriptor(
   id: string,
@@ -224,8 +225,8 @@ function workspaceSnapshot(token: string): Workspace {
   };
 }
 
-function session(workspace: ReturnType<typeof createWorkspace>, sessionId: string) {
-  const found = get(workspace).sessions.find((candidate) => candidate.id === sessionId);
-  if (!found) throw new Error(`Expected workspace session ${sessionId}.`);
+function session(workspace: ReturnType<typeof createWorkspace>, id: string) {
+  const found = get(workspace).sessions.find((session) => session.id === id);
+  if (!found) throw new Error(`Expected workspace session ${id}.`);
   return found;
 }

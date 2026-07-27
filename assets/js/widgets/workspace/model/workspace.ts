@@ -1,12 +1,11 @@
 import { createStore } from "@xstate/store";
 import { session as createSession } from "phoenix-session";
-import { derived, get, readable, type Readable } from "svelte/store";
+import { derived, readable, type Readable } from "svelte/store";
 import { socket, type ModuleConnection, type ModuleEntry } from "~/shared/api";
 
-export type WorkspaceChannelStatus = "failed" | "loading" | "ready" | "stale";
 export type WorkspaceLayout =
   | { mode: "auto" }
-  | { mode: "focused"; sessionId: string }
+  | { mode: "focused"; id: string }
   | { mode: "compact" };
 
 export interface WorkspaceSessionDescriptor {
@@ -20,59 +19,44 @@ export interface Workspace {
   sessions?: WorkspaceSessionDescriptor[];
 }
 
-export interface WorkspaceChannelState {
-  value: Workspace | null;
-  status: WorkspaceChannelStatus;
-  error: unknown;
-  processing: { close: boolean };
-  errors: { close: { reason?: string } | null };
-  timeouts: { close: boolean };
-}
+type PhoenixWorkspaceSession = ReturnType<typeof createSession<Workspace>>;
+
+type PhoenixWorkspaceState = Parameters<Parameters<PhoenixWorkspaceSession["subscribe"]>[0]>[0];
 
 export interface WorkspaceState {
-  error: unknown;
+  error: PhoenixWorkspaceState["error"];
   layout: WorkspaceLayout;
   sessions: WorkspaceSessionDescriptor[];
-  status: WorkspaceChannelStatus;
-}
-
-interface WorkspaceOptions {
-  session?: WorkspaceSession;
-}
-
-export interface WorkspaceSession extends Readable<WorkspaceChannelState> {
-  close(sessionId: string): void;
+  status: PhoenixWorkspaceState["status"];
 }
 
 export interface WorkspaceStore extends Readable<WorkspaceState> {
-  compact(sessionId: string): void;
-  close(sessionId: string): void;
-  focus(sessionId: string): void;
+  compact(): void;
+  close(id: string): void;
+  focus(id: string): void;
 }
 
-export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore {
-  const session =
-    options.session ??
-    createSession<Workspace>(socket, {
-      topic: "workspace",
-      connect: {
-        ok: (_value, workspace: Workspace) => workspace,
-      },
-      events: {
-        snapshot: (_value, workspace: Workspace) => workspace,
-      },
-    }).extend(({ call }) => ({
-      close(sessionId: string) {
-        call("close", { id: sessionId });
-      },
-    }));
+export function createWorkspace(): WorkspaceStore {
+  const session = createSession<Workspace>(socket, {
+    topic: "workspace",
+    connect: {
+      ok: (_value, workspace: Workspace) => workspace,
+    },
+    events: {
+      snapshot: (_value, workspace: Workspace) => workspace,
+    },
+  }).extend(({ call }) => ({
+    close(id: string) {
+      call("close", { id });
+    },
+  }));
 
   const store = createStore<
     {
       layout: WorkspaceLayout;
     },
     {
-      focus: { sessionId: string };
+      focus: { id: string };
       compact: null;
     }
   >({
@@ -82,7 +66,7 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
     on: {
       focus: (context, event) => ({
         ...context,
-        layout: { mode: "focused", sessionId: event.sessionId },
+        layout: { mode: "focused", id: event.id },
       }),
       compact: (context) => ({
         ...context,
@@ -107,45 +91,16 @@ export function createWorkspace(options: WorkspaceOptions = {}): WorkspaceStore 
     };
   });
 
-  function focus(sessionId: string) {
-    if (!get(state).sessions.some(({ id }) => id === sessionId)) return;
-    store.trigger.focus({ sessionId });
+  function focus(id: string) {
+    store.trigger.focus({ id });
   }
 
-  function compact(sessionId: string) {
-    const current = get(state);
-
-    switch (current.layout.mode) {
-      case "auto":
-        if (current.sessions[0]?.id !== sessionId) return;
-        break;
-      case "focused": {
-        const requestedSessionId = current.layout.sessionId;
-
-        if (
-          current.sessions.some(({ id }) => id === requestedSessionId)
-            ? requestedSessionId !== sessionId
-            : current.sessions[0]?.id !== sessionId
-        ) {
-          return;
-        }
-        break;
-      }
-      case "compact":
-        return;
-      default: {
-        const exhaustive: never = current.layout;
-        return exhaustive;
-      }
-    }
-
+  function compact() {
     store.trigger.compact();
   }
 
-  function close(sessionId: string) {
-    if (!get(state).sessions.some(({ id }) => id === sessionId)) return;
-
-    session.close(sessionId);
+  function close(id: string) {
+    session.close(id);
   }
 
   return {
