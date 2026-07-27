@@ -47,11 +47,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = "dharug" |> started_game() |> force_submit_turn(30, 2, 1)
 
       assert {:ok, %Game{phase: :finished, scores: %{"p1" => score}}} =
-               dispatch(game, "circle_tree", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cell" => cell("a", 0, 0)
-               })
+               submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
 
       assert score.rank in [
                :junior_club_member,
@@ -114,7 +110,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p2"].status == :pending
 
       assert {:ok, %Game{phase: :submit} = game} =
-               dispatch(game, "circle_tree", "p1", submit_tree(value, "a", 0, 0))
+               submit_mark(game, "p1", :tree, value, [cell("a", 0, 0)])
 
       assert game.players["p1"].status == :submitted
       assert game.players["p1"].sheet.trees == [%{area: :a, row: 0, column: 0}]
@@ -127,7 +123,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p1"].turns == [value]
 
       assert {:ok, %Game{phase: :roll, turn: 2, roll: nil} = game} =
-               dispatch(game, "circle_tree", "p2", submit_tree(value, "a", 0, 0))
+               submit_mark(game, "p2", :tree, value, [cell("a", 0, 0)])
 
       assert game.players["p1"].status == :ready
       assert game.players["p2"].status == :ready
@@ -173,25 +169,20 @@ defmodule D20.KoalaRescueClub.GameTest do
     test "stores canonical selection and submits it atomically" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:error, :invalid_phase} =
-               dispatch(game, "plant_trees", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cells" => [cell("a", 0, 0), cell("a", 0, 1)]
-               })
+      for event <- ~w(plant_trees rehome_koalas circle_tree circle_koala) do
+        assert {:error, :unknown_command} = dispatch(game, event, "p1")
+      end
 
       assert {:ok, game} =
                dispatch(game, "select", "p1", %{
-                 "action" => "plant_trees",
+                 "mark" => "tree",
                  "die_value" => 1,
-                 "volunteers_used" => 0,
                  "target_cell" => cell("a", 0, 0)
                })
 
       assert game.players["p1"].selection == %{
-               action: "plant_trees",
+               mark: :tree,
                value: 1,
-               volunteers: 0,
                cells: [%{area: :a, row: 0, column: 0}]
              }
 
@@ -215,7 +206,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:error, :missing_turn_selection} =
                dispatch(game, "select", "p1", %{"target_cell" => cell("a", 0, 0)})
 
-      game = select_shape(game, "p1", "plant_trees", 1, 0, [cell("a", 0, 0)])
+      game = select_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
       original = game.players["p1"].selection
 
       assert {:ok, same_game} =
@@ -230,21 +221,19 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, game} = dispatch(game, "deselect", "p1", %{"target_cell" => cell("a", 0, 0)})
 
-      assert game.players["p1"].selection.cells == []
+      assert game.players["p1"].selection == nil
 
-      assert {:ok, game} = dispatch(game, "deselect", "p1", %{"target_cell" => cell("a", 0, 0)})
-
-      assert game.players["p1"].selection.cells == []
+      assert {:error, :missing_turn_selection} =
+               dispatch(game, "deselect", "p1", %{"target_cell" => cell("a", 0, 0)})
 
       assert {:ok, game} =
                dispatch(game, "select", "p1", %{
-                 "action" => "plant_trees",
+                 "mark" => "tree",
                  "die_value" => 2,
-                 "volunteers_used" => 1,
                  "target_cell" => cell("a", 1, 0)
                })
 
-      assert %{value: 2, volunteers: 1, cells: [%{row: 1, column: 0}]} =
+      assert %{mark: :tree, value: 2, cells: [%{row: 1, column: 0}]} =
                game.players["p1"].selection
 
       assert {:ok, game} = dispatch(game, "reset", "p1")
@@ -255,9 +244,8 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
       selection = %{
-        action: "rehome_koalas",
+        mark: :koala,
         value: 1,
-        volunteers: 0,
         cells: [%{area: :a, row: 0, column: 0}, %{area: :a, row: 0, column: 1}]
       }
 
@@ -278,9 +266,9 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
 
     test "rejects incomplete submission and delays volunteer spending until commit" do
-      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
+      game = "dharug" |> started_game() |> force_submit_turn(1, 1, 2)
 
-      game = select_shape(game, "p1", "plant_trees", 2, 1, [cell("a", 0, 0)])
+      game = select_mark(game, "p1", :tree, 3, [cell("a", 0, 0), cell("a", 0, 1)])
       selection = game.players["p1"].selection
 
       assert {:error, :incomplete_turn_selection} =
@@ -290,7 +278,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert game.players["p1"].sheet.volunteers == available_volunteers()
       assert game.players["p1"].selection == selection
 
-      assert {:ok, game} = dispatch(game, "select", "p1", %{"target_cell" => cell("a", 0, 1)})
+      assert {:ok, game} = dispatch(game, "select", "p1", %{"target_cell" => cell("a", 0, 2)})
 
       assert {:ok, game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
@@ -313,14 +301,14 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, %Game{phase: :submit} = game} =
                game
-               |> select_shape("p1", "plant_trees", 1, 0, [cell("a", 0, 0), cell("a", 0, 1)])
+               |> select_mark("p1", :tree, 1, [cell("a", 0, 0), cell("a", 0, 1)])
                |> dispatch("submit", "p1", %{"bonus_actions" => []})
 
       assert game.players["p1"].status == :submitted
       assert game.players["p2"].status == :pending
 
       assert {:ok, %Game{phase: :roll, turn: 2} = game} =
-               dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p2", :tree, 1, [cell("a", 0, 0)])
 
       assert game.players["p1"].selection == nil
       assert game.players["p2"].selection == nil
@@ -329,13 +317,17 @@ defmodule D20.KoalaRescueClub.GameTest do
     test "rejects inaccessible areas and insufficient volunteer adjustments" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:error, :inaccessible_area} =
-               dispatch(game, "circle_tree", "p1", submit_tree(1, "b", 0, 0))
+      assert {:error, :invalid_target} =
+               dispatch(game, "select", "p1", %{
+                 "mark" => "tree",
+                 "die_value" => 1,
+                 "target_cell" => cell("b", 0, 0)
+               })
 
       assert {:error, :insufficient_volunteers} =
-               dispatch(game, "circle_tree", "p1", %{
+               dispatch(game, "select", "p1", %{
+                 "mark" => "tree",
                  "die_value" => 4,
-                 "volunteers_used" => 3,
                  "target_cell" => cell("a", 0, 0)
                })
     end
@@ -343,12 +335,7 @@ defmodule D20.KoalaRescueClub.GameTest do
     test "marks available volunteers as used when adjusting die value" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} =
-               dispatch(game, "circle_tree", "p1", %{
-                 "die_value" => 2,
-                 "volunteers_used" => 1,
-                 "target_cell" => cell("a", 0, 0)
-               })
+      assert {:ok, game} = submit_mark(game, "p1", :tree, 2, [cell("a", 0, 0)])
 
       assert game.players["p1"].sheet.volunteers == [
                :used,
@@ -363,11 +350,10 @@ defmodule D20.KoalaRescueClub.GameTest do
     test "rejects bonus actions that are not unlocked" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
+      game = select_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
+
       assert {:error, :bonus_not_unlocked} =
-               dispatch(game, "circle_tree", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cell" => cell("a", 0, 0),
+               dispatch(game, "submit", "p1", %{
                  "bonus_actions" => [
                    %{
                      "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
@@ -391,7 +377,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(1, 1, 1)
 
-      game = select_shape(game, "p1", "rehome_koalas", 1, 0, [cell("a", 0, 2), cell("a", 0, 3)])
+      game = select_mark(game, "p1", :koala, 1, [cell("a", 0, 2), cell("a", 0, 3)])
 
       selection = game.players["p1"].selection
 
@@ -432,7 +418,7 @@ defmodule D20.KoalaRescueClub.GameTest do
     test "keeps single-cell tree and koala fallbacks atomic" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+      assert {:ok, game} = submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
       assert game.players["p1"].selection == nil
       assert [%{area: :a, row: 0, column: 0}] = game.players["p1"].sheet.trees
 
@@ -444,12 +430,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         ])
         |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} =
-               dispatch(game, "circle_koala", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cell" => cell("a", 0, 0)
-               })
+      assert {:ok, game} = submit_mark(game, "p1", :koala, 1, [cell("a", 0, 0)])
 
       assert game.players["p1"].selection == nil
       assert [%{area: :a, row: 0, column: 0}] = game.players["p1"].sheet.koalas
@@ -469,13 +450,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} =
-               dispatch(game, "circle_koala", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cell" => cell("a", 0, 3),
-                 "bonus_actions" => []
-               })
+      assert {:ok, game} = submit_mark(game, "p1", :koala, 1, [cell("a", 0, 3)])
 
       assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
       assert game.players["p1"].sheet.skybridges == []
@@ -483,11 +458,10 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       game = force_submit_turn(game, 2, 1, 1)
 
+      game = select_mark(game, "p1", :tree, 1, [cell("a", 1, 0)])
+
       assert {:error, :bonus_already_resolved} =
-               dispatch(game, "circle_tree", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cell" => cell("a", 1, 0),
+               dispatch(game, "submit", "p1", %{
                  "bonus_actions" => [
                    %{
                      "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
@@ -511,9 +485,6 @@ defmodule D20.KoalaRescueClub.GameTest do
         |> force_submit_turn(1, 1, 1)
 
       earlier_bonus = %{
-        "die_value" => 1,
-        "volunteers_used" => 0,
-        "target_cell" => cell("a", 1, 0),
         "bonus_actions" => [
           %{
             "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
@@ -522,11 +493,13 @@ defmodule D20.KoalaRescueClub.GameTest do
         ]
       }
 
-      assert {:error, :invalid_bonus} = dispatch(game, "circle_tree", "p1", earlier_bonus)
+      game = select_mark(game, "p1", :tree, 1, [cell("a", 1, 0)])
+
+      assert {:error, :invalid_bonus} = dispatch(game, "submit", "p1", earlier_bonus)
       refute %{area: :a, row: 1, column: 0} in game.players["p1"].sheet.trees
       assert game.players["p1"].sheet.bonuses == []
 
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
+      assert {:ok, game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
       assert %{area: :a, axis: :row, index: 0} in game.players["p1"].sheet.bonuses
       assert game.players["p1"].sheet.skybridges == []
@@ -546,11 +519,10 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(1, 1, 1)
 
+      game = select_mark(game, "p1", :koala, 1, [cell("a", 0, 3)])
+
       assert {:ok, game} =
-               dispatch(game, "circle_koala", "p1", %{
-                 "die_value" => 1,
-                 "volunteers_used" => 0,
-                 "target_cell" => cell("a", 0, 3),
+               dispatch(game, "submit", "p1", %{
                  "bonus_actions" => [
                    %{
                      "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
@@ -579,9 +551,10 @@ defmodule D20.KoalaRescueClub.GameTest do
           row_0 ++ Enum.take(row_1, 2)
         )
         |> force_submit_turn(1, 1, 1)
-        |> select_shape("p1", "rehome_koalas", 1, 0, Enum.drop(row_1, 2))
+        |> select_mark("p1", :koala, 1, Enum.drop(row_1, 2))
 
-      assert %{complete: true, bonus_options: bonus_options} = Rules.selection_details(game, "p1")
+      assert %{submit_ready: true, resolution: :shape, bonus_options: bonus_options} =
+               Rules.selection_details(game, "p1")
 
       assert Enum.map(bonus_options, & &1.ref) == [%{area: :a, axis: :row, index: 1}]
     end
@@ -599,7 +572,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+      assert {:ok, game} = submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
 
       assert %{tree_lover: :large} = game.players["p1"].badges
     end
@@ -618,7 +591,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         |> force_submit_turn(16, 2, 1)
 
       assert {:ok, %Game{mode: :solo} = game} =
-               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
 
       assert %{tree_lover: :small} = game.players["p1"].badges
     end
@@ -645,10 +618,10 @@ defmodule D20.KoalaRescueClub.GameTest do
         |> force_submit_turn(1, 1, 1)
 
       assert {:ok, %Game{phase: :submit} = game} =
-               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
 
       assert {:ok, %Game{phase: :roll} = game} =
-               dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p2", :tree, 1, [cell("a", 0, 0)])
 
       assert %{tree_lover: :large} = game.players["p1"].badges
       assert %{tree_lover: :large} = game.players["p2"].badges
@@ -672,11 +645,11 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(1, 1, 1)
 
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
-      assert {:ok, game} = dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
+      assert {:ok, game} = submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
+      assert {:ok, game} = submit_mark(game, "p2", :tree, 1, [cell("a", 0, 0)])
 
       assert {:ok, %Game{phase: :roll} = game} =
-               dispatch(game, "circle_tree", "p3", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p3", :tree, 1, [cell("a", 0, 0)])
 
       assert %{tree_lover: :large} = game.players["p1"].badges
 
@@ -692,11 +665,11 @@ defmodule D20.KoalaRescueClub.GameTest do
         )
         |> force_submit_turn(2, 1, 1)
 
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 1))
-      assert {:ok, game} = dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 1))
+      assert {:ok, game} = submit_mark(game, "p1", :tree, 1, [cell("a", 0, 1)])
+      assert {:ok, game} = submit_mark(game, "p2", :tree, 1, [cell("a", 0, 1)])
 
       assert {:ok, %Game{phase: :roll} = game} =
-               dispatch(game, "circle_tree", "p3", submit_tree(1, "a", 0, 1))
+               submit_mark(game, "p3", :tree, 1, [cell("a", 0, 1)])
 
       assert %{tree_lover: :small} = game.players["p2"].badges
       assert %{tree_lover: :small} = game.players["p3"].badges
@@ -707,7 +680,7 @@ defmodule D20.KoalaRescueClub.GameTest do
     test "stores only accepted adjusted values in order" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 6)
 
-      game = select_shape(game, "p1", "plant_trees", 1, 1, [cell("a", 0, 0), cell("a", 0, 1)])
+      game = select_mark(game, "p1", :tree, 1, [cell("a", 0, 0), cell("a", 0, 1)])
 
       assert {:ok, game} = dispatch(game, "submit", "p1", %{"bonus_actions" => []})
 
@@ -715,7 +688,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       game = force_submit_turn(game, 2, 1, 1)
 
-      assert {:ok, game} = dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 1, 0))
+      assert {:ok, game} = submit_mark(game, "p1", :tree, 1, [cell("a", 1, 0)])
 
       assert [1, 1] = game.players["p1"].turns
     end
@@ -751,7 +724,7 @@ defmodule D20.KoalaRescueClub.GameTest do
         |> force_submit_turn(15, 1, 1)
 
       assert {:ok, %Game{phase: :roll, turn: 16} = game} =
-               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
 
       assert [%{trees: 1, koalas: 1, hospitals: 2, total: 4}] = game.players["p1"].rounds
     end
@@ -768,7 +741,7 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok,
               %Game{phase: :finished, scores: %{"p1" => %{total: 9, rank: :junior_club_member}}}} =
-               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
     end
 
     test "does not assign solo ranks to multiplayer scores" do
@@ -780,14 +753,14 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = force_submit_turn(game, 30, 2, 1)
 
       assert {:ok, %Game{phase: :submit} = game} =
-               dispatch(game, "circle_tree", "p1", submit_tree(1, "a", 0, 0))
+               submit_mark(game, "p1", :tree, 1, [cell("a", 0, 0)])
 
       assert {:ok,
               %Game{
                 phase: :finished,
                 mode: :multiplayer,
                 scores: %{"p1" => %{rank: nil}, "p2" => %{rank: nil}}
-              }} = dispatch(game, "circle_tree", "p2", submit_tree(1, "a", 0, 0))
+              }} = submit_mark(game, "p2", :tree, 1, [cell("a", 0, 0)])
     end
   end
 
@@ -812,12 +785,11 @@ defmodule D20.KoalaRescueClub.GameTest do
     }
   end
 
-  defp select_shape(game, actor_id, action, value, volunteers, [first_cell | cells]) do
+  defp select_mark(game, actor_id, mark, value, [first_cell | cells]) do
     {:ok, game} =
       dispatch(game, "select", actor_id, %{
-        "action" => action,
+        "mark" => Atom.to_string(mark),
         "die_value" => value,
-        "volunteers_used" => volunteers,
         "target_cell" => first_cell
       })
 
@@ -827,12 +799,13 @@ defmodule D20.KoalaRescueClub.GameTest do
     end)
   end
 
-  defp available_volunteers do
-    [:available, :locked, :locked, :locked, :locked, :locked]
+  defp submit_mark(game, actor_id, mark, value, cells, bonus_actions \\ []) do
+    game = select_mark(game, actor_id, mark, value, cells)
+    dispatch(game, "submit", actor_id, %{"bonus_actions" => bonus_actions})
   end
 
-  defp submit_tree(value, area, row, column) do
-    %{"die_value" => value, "volunteers_used" => 0, "target_cell" => cell(area, row, column)}
+  defp available_volunteers do
+    [:available, :locked, :locked, :locked, :locked, :locked]
   end
 
   defp cell(area, row, column) do

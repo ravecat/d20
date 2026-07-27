@@ -98,15 +98,12 @@ defmodule D20.KoalaRescueClub.ServerTest do
     player_sheet = rolled_session.game.players["owner"].sheet
 
     [first_cell | remaining_cells] =
-      rulesheet
-      |> Rules.legal_shape_placements(player_sheet, "plant_trees", value)
-      |> List.first()
+      rulesheet |> Rules.legal_shape_placements(player_sheet, :tree, value) |> List.first()
 
     assert {:ok, %Session{game: %Game{phase: :submit}} = first_selection} =
              Sessions.dispatch(scope(session.id), "select", %{
-               "action" => "plant_trees",
+               "mark" => "tree",
                "die_value" => value,
-               "volunteers_used" => 0,
                "target_cell" => first_cell
              })
 
@@ -124,17 +121,20 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     assert_receive {:session, ^owner_submitted}
 
-    payload = %{
-      "die_value" => value,
-      "volunteers_used" => 0,
-      "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
-    }
-
     assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _slug}} =
              Sessions.get(session.id)
 
+    assert {:ok, %Session{game: %Game{phase: :submit, turn: 1}} = player_2_selection} =
+             Sessions.dispatch(scope(session.id, "player-2"), "select", %{
+               "mark" => "tree",
+               "die_value" => value,
+               "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+             })
+
+    assert_receive {:session, ^player_2_selection}
+
     assert {:ok, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}} =
-             Sessions.dispatch(scope(session.id, "player-2"), "circle_tree", payload)
+             Sessions.dispatch(scope(session.id, "player-2"), "submit", %{"bonus_actions" => []})
 
     assert_receive {:session, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}}
   end

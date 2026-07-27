@@ -21,6 +21,16 @@ defmodule D20.KoalaRescueClub.RulesetTest do
   end
 
   describe "die shapes and volunteers" do
+    test "exposes the bounded primary mark domain" do
+      assert Ruleset.marks() == [:tree, :koala]
+    end
+
+    test "keeps every supported die shape larger than a single-cell fallback" do
+      assert Enum.all?(1..6, fn value ->
+               match?({:ok, size} when size >= 2, Ruleset.shape_size(value))
+             end)
+    end
+
     test "exposes canonical shape offsets" do
       assert {:ok, [%{row: 0, column: 0}, %{row: 0, column: 1}]} = Ruleset.shape(1)
 

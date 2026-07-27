@@ -18,6 +18,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @round_end_turns [15, 30]
   @die_value_range 1..6
   @volunteer 6
+  @marks [:tree, :koala]
 
   @shapes %{
     1 => [{0, 0}, {1, 0}],
@@ -34,6 +35,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @type round :: 1..2
   @type turn :: 1..30
   @type die_value :: 1..6
+  @type mark :: :tree | :koala
   @type area :: atom()
   @type badge :: atom()
   @type cell :: %{
@@ -91,6 +93,10 @@ defmodule D20.KoalaRescueClub.Ruleset do
   end
 
   def volunteers_needed(_from, _to), do: {:error, :invalid_die_value}
+
+  @doc "Returns the supported primary mark domain."
+  @spec marks() :: [mark()]
+  def marks, do: @marks
 
   @doc "Returns the maximum number of volunteer circles on the sheet."
   @spec volunteer() :: pos_integer()

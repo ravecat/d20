@@ -13,19 +13,20 @@ defmodule D20.KoalaRescueClub.Projection do
   @type options :: %{
           optional(String.t()) => %{
             required(:volunteer_cost) => non_neg_integer(),
-            required(:actions) => %{
-              optional(String.t()) => %{required(:available_cells) => [Ruleset.cell()]}
+            required(:marks) => %{
+              optional(Ruleset.mark()) => %{required(:available_cells) => [Ruleset.cell()]}
             }
           }
         }
   @type selection :: %{
-          required(:action) => String.t(),
+          required(:mark) => Ruleset.mark(),
           required(:die_value) => Ruleset.die_value(),
           required(:volunteers_used) => non_neg_integer(),
           required(:required_cells) => pos_integer(),
           required(:selected_cells) => [Ruleset.cell()],
           required(:available_cells) => [Ruleset.cell()],
-          required(:complete) => boolean(),
+          required(:submit_ready) => boolean(),
+          required(:resolution) => :single | :shape | nil,
           required(:bonus_options) => [Ruleset.bonus_entry()]
         }
   @type area :: %{
@@ -112,13 +113,14 @@ defmodule D20.KoalaRescueClub.Projection do
 
       details ->
         %{
-          action: details.action,
+          mark: details.mark,
           die_value: details.value,
           volunteers_used: details.volunteers,
           required_cells: details.required_cells,
           selected_cells: details.cells,
           available_cells: details.available_cells,
-          complete: details.complete,
+          submit_ready: details.submit_ready,
+          resolution: details.resolution,
           bonus_options: details.bonus_options
         }
     end

@@ -23,14 +23,11 @@ defmodule D20.KoalaRescueClub.CommandTest do
       assert {:ok, ^command} = KoalaCommand.validate(command)
     end
 
-    test "normalizes turn action payload" do
+    test "normalizes ordered bonus actions for submit" do
       assert {:ok,
               %Command{
-                event: "circle_tree",
+                event: "submit",
                 attrs: %{
-                  die_value: 1,
-                  volunteers_used: 0,
-                  target_cell: %{area: :a, row: 0, column: 0},
                   bonus_actions: [
                     %{bonus: %{area: :a, axis: :row, index: 0}, action: %{kind: :volunteer}},
                     %{
@@ -41,12 +38,9 @@ defmodule D20.KoalaRescueClub.CommandTest do
                 }
               }} =
                KoalaCommand.validate(%Command{
-                 event: "circle_tree",
+                 event: "submit",
                  actor_id: "p1",
                  attrs: %{
-                   "die_value" => 1,
-                   "volunteers_used" => 0,
-                   "target_cell" => %{"area" => "a", "row" => 0, "column" => 0},
                    "bonus_actions" => [
                      %{
                        "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},
@@ -65,20 +59,14 @@ defmodule D20.KoalaRescueClub.CommandTest do
       assert {:ok,
               %Command{
                 event: "select",
-                attrs: %{
-                  action: "plant_trees",
-                  die_value: 4,
-                  volunteers_used: 1,
-                  target_cell: %{area: :a, row: 1, column: 2}
-                }
+                attrs: %{mark: :tree, die_value: 4, target_cell: %{area: :a, row: 1, column: 2}}
               }} =
                KoalaCommand.validate(%Command{
                  event: "select",
                  actor_id: "p1",
                  attrs: %{
-                   "action" => "plant_trees",
+                   "mark" => "tree",
                    "die_value" => 4,
-                   "volunteers_used" => 1,
                    "target_cell" => %{"area" => "a", "row" => 1, "column" => 2}
                  }
                })
@@ -137,10 +125,24 @@ defmodule D20.KoalaRescueClub.CommandTest do
                  event: "select",
                  actor_id: "p1",
                  attrs: %{
-                   "action" => "plant_trees",
+                   "mark" => "tree",
                    "target_cell" => %{"area" => "a", "row" => 1, "column" => 2}
                  }
                })
+
+      assert {:error, %Ecto.Changeset{errors: errors}} =
+               KoalaCommand.validate(%Command{
+                 event: "select",
+                 actor_id: "p1",
+                 attrs: %{
+                   "mark" => "tree",
+                   "die_value" => 4,
+                   "volunteers_used" => 1,
+                   "target_cell" => %{"area" => "a", "row" => 1, "column" => 2}
+                 }
+               })
+
+      assert {:volunteers_used, {"is not accepted", []}} in errors
 
       assert {:error, %Ecto.Changeset{}} =
                KoalaCommand.validate(%Command{
@@ -164,34 +166,22 @@ defmodule D20.KoalaRescueClub.CommandTest do
                })
     end
 
-    test "rejects obsolete whole-shape commands" do
-      assert {:error, :unknown_command} =
-               KoalaCommand.validate(%Command{
-                 event: "plant_trees",
-                 actor_id: "p1",
-                 attrs: %{
-                   "die_value" => 1,
-                   "volunteers_used" => 0,
-                   "target_cells" => [
-                     %{"area" => "a", "row" => 0, "column" => 0},
-                     %{"area" => "a", "row" => 0, "column" => 1}
-                   ]
-                 }
-               })
+    test "rejects every obsolete primary command" do
+      for event <- ~w(plant_trees rehome_koalas circle_tree circle_koala) do
+        assert {:error, :unknown_command} =
+                 KoalaCommand.validate(%Command{event: event, actor_id: "p1", attrs: %{}})
+      end
     end
 
-    test "rejects unknown commands and malformed turn payloads" do
+    test "rejects unknown commands and malformed bonus payloads" do
       assert {:error, :unknown_command} =
                KoalaCommand.validate(%Command{event: "missing", actor_id: "p1"})
 
-      assert {:error, %Ecto.Changeset{action: :turn_action} = changeset} =
+      assert {:error, %Ecto.Changeset{action: :turn_selection} = changeset} =
                KoalaCommand.validate(%Command{
-                 event: "circle_tree",
+                 event: "submit",
                  actor_id: "p1",
                  attrs: %{
-                   "die_value" => 1,
-                   "volunteers_used" => 0,
-                   "target_cell" => %{"area" => "a", "row" => 0, "column" => 0},
                    "bonus_actions" => [
                      %{
                        "bonus" => %{"area" => "a", "axis" => "row", "index" => 0},

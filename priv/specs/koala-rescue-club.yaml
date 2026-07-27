@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.7.0
+  version: 0.8.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -97,10 +97,6 @@ channels:
         $ref: "#/components/messages/reset"
       submit:
         $ref: "#/components/messages/submit"
-      circleTree:
-        $ref: "#/components/messages/circleTree"
-      circleKoala:
-        $ref: "#/components/messages/circleKoala"
       commandReply:
         $ref: "#/components/messages/commandReply"
     bindings:
@@ -176,10 +172,11 @@ operations:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Add one cell to the caller's pending shape selection
+    summary: Start, replace, or continue the caller's pending primary selection
     description: |
-      A pending player sends `select` with full context for the first cell or
-      only a target cell to continue a stored compatible selection.
+      A pending player sends `select` with a mark, adjusted die value, and
+      target cell to start or replace the selection. Later calls send only a
+      target cell to continue the stored compatible shape prefix.
     messages:
       - $ref: "#/channels/gameSession/messages/select"
     reply:
@@ -191,7 +188,7 @@ operations:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Remove one cell from the caller's pending shape selection
+    summary: Remove one cell from the caller's pending primary selection
     messages:
       - $ref: "#/channels/gameSession/messages/deselect"
     reply:
@@ -203,7 +200,7 @@ operations:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Clear the caller's pending shape selection
+    summary: Clear the caller's pending primary selection
     messages:
       - $ref: "#/channels/gameSession/messages/reset"
     reply:
@@ -215,43 +212,13 @@ operations:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Commit the stored complete shape selection and its bonuses
+    summary: Commit the stored fallback or complete shape and its bonuses
     description: |
       The client sends ordered bonus decisions. The server revalidates and
-      atomically commits the caller's stored complete selection.
+      atomically commits the caller's submit-ready selection as either a
+      one-cell fallback or a complete adjusted die shape.
     messages:
       - $ref: "#/channels/gameSession/messages/submit"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
-  circleTree:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Circle one tree cell
-    description: |
-      A pending player sends `circle_tree` after the automatic roll to circle a
-      single valid tree cell and optionally resolve unlocked bonuses.
-    messages:
-      - $ref: "#/channels/gameSession/messages/circleTree"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
-  circleKoala:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Circle one koala cell
-    description: |
-      A pending player sends `circle_koala` after the automatic roll to circle a
-      single valid koala cell containing a tree and optionally resolve unlocked
-      bonuses.
-    messages:
-      - $ref: "#/channels/gameSession/messages/circleKoala"
     reply:
       channel:
         $ref: "#/channels/gameSession"
@@ -363,7 +330,7 @@ components:
     select:
       name: select
       title: Select Turn Cell
-      summary: Add one legal cell to the caller's stored shape selection
+      summary: Start, replace, or continue the caller's stored primary selection
       contentType: application/json
       payload:
         $ref: "#/components/schemas/selectPayload"
@@ -384,24 +351,10 @@ components:
     submit:
       name: submit
       title: Submit Turn
-      summary: Commit a complete shape selection and ordered bonus decisions
+      summary: Commit a submit-ready primary selection and ordered bonus decisions
       contentType: application/json
       payload:
         $ref: "#/components/schemas/submitTurnSelectionPayload"
-    circleTree:
-      name: circle_tree
-      title: Circle Tree
-      summary: Circle a tree in one cell
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/singleCellTurnPayload"
-    circleKoala:
-      name: circle_koala
-      title: Circle Koala
-      summary: Circle a koala in one cell
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/singleCellTurnPayload"
     commandReply:
       name: phx_reply
       title: Command Reply
@@ -517,8 +470,6 @@ components:
         - missing_roll
         - invalid_die_value
         - insufficient_volunteers
-        - invalid_action
-        - mixed_action
         - invalid_shape
         - no_legal_placement
         - missing_turn_selection
@@ -927,7 +878,7 @@ components:
     turnOptions:
       description: >
         Empty when the caller cannot submit. Otherwise contains every adjusted
-        die value, including unaffordable values whose actions object is empty.
+        die value, including unaffordable values whose marks object is empty.
       oneOf:
         - type: object
           maxProperties: 0
@@ -957,29 +908,25 @@ components:
       type: object
       required:
         - volunteer_cost
-        - actions
+        - marks
       properties:
         volunteer_cost:
           type: integer
           minimum: 0
           maximum: 3
-        actions:
-          $ref: "#/components/schemas/turnActions"
+        marks:
+          $ref: "#/components/schemas/turnMarks"
       additionalProperties: false
-    turnActions:
+    turnMarks:
       type: object
-      description: Available primary actions keyed by command action name.
+      description: Available primary mark choices keyed by mark name.
       properties:
-        plant_trees:
-          $ref: "#/components/schemas/turnActionOption"
-        rehome_koalas:
-          $ref: "#/components/schemas/turnActionOption"
-        circle_tree:
-          $ref: "#/components/schemas/turnActionOption"
-        circle_koala:
-          $ref: "#/components/schemas/turnActionOption"
+        tree:
+          $ref: "#/components/schemas/turnMarkOption"
+        koala:
+          $ref: "#/components/schemas/turnMarkOption"
       additionalProperties: false
-    turnActionOption:
+    turnMarkOption:
       type: object
       required:
         - available_cells
@@ -994,20 +941,21 @@ components:
     turnSelection:
       type: object
       required:
-        - action
+        - mark
         - die_value
         - volunteers_used
         - required_cells
         - selected_cells
         - available_cells
-        - complete
+        - submit_ready
+        - resolution
         - bonus_options
       properties:
-        action:
+        mark:
           type: string
           enum:
-            - plant_trees
-            - rehome_koalas
+            - tree
+            - koala
         die_value:
           type: integer
           minimum: 1
@@ -1022,6 +970,7 @@ components:
           maximum: 4
         selected_cells:
           type: array
+          minItems: 1
           maxItems: 4
           uniqueItems: true
           items:
@@ -1031,8 +980,19 @@ components:
           uniqueItems: true
           items:
             $ref: "#/components/schemas/cellRef"
-        complete:
+        submit_ready:
           type: boolean
+          description: >
+            True when the current selection may be submitted. A one-cell
+            selection may still expose available_cells while this is true.
+        resolution:
+          description: Derived primary resolution, or null for an incomplete shape prefix.
+          oneOf:
+            - type: string
+              enum:
+                - single
+                - shape
+            - type: "null"
         bonus_options:
           type: array
           items:
@@ -1053,24 +1013,19 @@ components:
       oneOf:
         - type: object
           required:
-            - action
+            - mark
             - die_value
-            - volunteers_used
             - target_cell
           properties:
-            action:
+            mark:
               type: string
               enum:
-                - plant_trees
-                - rehome_koalas
+                - tree
+                - koala
             die_value:
               type: integer
               minimum: 1
               maximum: 6
-            volunteers_used:
-              type: integer
-              minimum: 0
-              maximum: 3
             target_cell:
               $ref: "#/components/schemas/cellRef"
           additionalProperties: false
@@ -1088,31 +1043,6 @@ components:
       required:
         - bonus_actions
       properties:
-        bonus_actions:
-          type: array
-          description: >-
-            Ordered actions for bonuses opened during this turn. Bonuses opened during
-            this turn but omitted from the array are forfeited when the turn commits.
-          items:
-            $ref: "#/components/schemas/bonusAction"
-      additionalProperties: false
-    singleCellTurnPayload:
-      type: object
-      required:
-        - die_value
-        - volunteers_used
-        - target_cell
-      properties:
-        die_value:
-          type: integer
-          minimum: 1
-          maximum: 6
-        volunteers_used:
-          type: integer
-          minimum: 0
-          maximum: 3
-        target_cell:
-          $ref: "#/components/schemas/cellRef"
         bonus_actions:
           type: array
           description: >-

@@ -58,9 +58,8 @@ defmodule D20.KoalaRescueClub.Game do
           required(:total) => integer()
         }
   @type selection :: %{
-          required(:action) => String.t(),
+          required(:mark) => Ruleset.mark(),
           required(:value) => Ruleset.die_value(),
-          required(:volunteers) => non_neg_integer(),
           required(:cells) => [Ruleset.cell()]
         }
   @type player :: %{
@@ -133,8 +132,7 @@ defmodule D20.KoalaRescueClub.Game do
     end
   end
 
-  def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{event: event} = command)
-      when event in ["select", "deselect", "reset", "submit", "circle_tree", "circle_koala"] do
+  def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, apply_command(game, command)}
@@ -183,7 +181,7 @@ defmodule D20.KoalaRescueClub.Game do
          %__MODULE__{phase: :submit} = game,
          %D20.Command{event: event, actor_id: actor_id} = command
        )
-       when event in ["submit", "circle_tree", "circle_koala"] do
+       when event == "submit" do
     value = turn_value(game, command)
     {:ok, player} = Rules.resolve_turn(game, command)
     player = record_turn(player, value)
@@ -241,11 +239,9 @@ defmodule D20.KoalaRescueClub.Game do
   defp game_mode(players) when map_size(players) == 1, do: :solo
   defp game_mode(players) when map_size(players) > 1, do: :multiplayer
 
-  defp turn_value(game, %D20.Command{event: "submit", actor_id: actor_id}) do
+  defp turn_value(game, %D20.Command{actor_id: actor_id}) do
     game.players[actor_id].selection.value
   end
-
-  defp turn_value(_game, %D20.Command{attrs: %{die_value: value}}), do: value
 
   defp record_turn(player, value) do
     Map.put(player, :turns, Map.get(player, :turns, []) ++ [value])

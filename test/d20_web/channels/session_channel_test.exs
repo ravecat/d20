@@ -276,15 +276,12 @@ defmodule D20Web.SessionChannelTest do
       player_sheet = rolled_session.game.players[actor.id].sheet
 
       [first_cell | remaining_cells] =
-        rulesheet
-        |> Rules.legal_shape_placements(player_sheet, "plant_trees", value)
-        |> List.first()
+        rulesheet |> Rules.legal_shape_placements(player_sheet, :tree, value) |> List.first()
 
       ref =
         push(socket, "select", %{
-          "action" => "plant_trees",
+          "mark" => "tree",
           "die_value" => value,
-          "volunteers_used" => 0,
           "target_cell" => first_cell
         })
 
@@ -294,11 +291,12 @@ defmodule D20Web.SessionChannelTest do
 
       assert %{
                selection: %{
-                 action: "plant_trees",
+                 mark: :tree,
                  die_value: ^value,
                  selected_cells: [^first_cell],
                  available_cells: available_cells,
-                 complete: false
+                 submit_ready: true,
+                 resolution: :single
                }
              } = projection
 
@@ -306,25 +304,24 @@ defmodule D20Web.SessionChannelTest do
 
       assert {:ok, {%Session{game: game}, "koala-rescue-club"}} = D20.Sessions.get(session_id)
 
-      assert game.players[actor.id].selection == %{
-               action: "plant_trees",
-               value: value,
-               volunteers: 0,
-               cells: [first_cell]
-             }
+      assert game.players[actor.id].selection == %{mark: :tree, value: value, cells: [first_cell]}
 
       assert {:ok,
               %{
                 selection: %{
-                  action: "plant_trees",
+                  mark: :tree,
                   die_value: ^value,
-                  selected_cells: [^first_cell]
+                  selected_cells: [^first_cell],
+                  submit_ready: true,
+                  resolution: :single
                 }
               }, _reconnected_socket} = join_session_channel(session_id, actor)
 
-      legacy_submit_ref = push(socket, "submit_turn_selection", %{"bonus_actions" => []})
-      assert_reply legacy_submit_ref, :error, %{reason: "invalid_phase"}
-      refute_push "projection", _payload, 100
+      for event <- ~w(plant_trees rehome_koalas circle_tree circle_koala) do
+        legacy_ref = push(socket, event, %{})
+        assert_reply legacy_ref, :error, %{reason: "unknown_command"}
+        refute_push "projection", _payload, 100
+      end
 
       invalid_ref =
         push(socket, "select", %{"target_cell" => %{"area" => "b", "row" => 0, "column" => 0}})
@@ -339,9 +336,8 @@ defmodule D20Web.SessionChannelTest do
 
       select_ref =
         push(socket, "select", %{
-          "action" => "plant_trees",
+          "mark" => "tree",
           "die_value" => value,
-          "volunteers_used" => 0,
           "target_cell" => first_cell
         })
 

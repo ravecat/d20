@@ -317,16 +317,23 @@ defmodule D20.Sessions.SessionTest do
 
       value = session.game.roll.value
 
+      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :submit}} = session} =
+               Session.dispatch(
+                 session,
+                 KoalaGame,
+                 command("select", "p1", %{
+                   "mark" => "tree",
+                   "die_value" => value,
+                   "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+                 })
+               )
+
       assert {:ok,
               %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, mode: :solo, turn: 2}}} =
                Session.dispatch(
                  session,
                  KoalaGame,
-                 command("circle_tree", "p1", %{
-                   "die_value" => value,
-                   "volunteers_used" => 0,
-                   "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
-                 })
+                 command("submit", "p1", %{"bonus_actions" => []})
                )
     end
 

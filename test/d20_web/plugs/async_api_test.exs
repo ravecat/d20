@@ -45,6 +45,20 @@ defmodule D20Web.Plugs.AsyncApiTest do
     end
   end
 
+  test "serves the unified Koala primary selection contract" do
+    contract = build_conn() |> get("/developers/specs/koala-rescue-club/raw") |> response(200)
+
+    assert contract =~ "version: 0.8.0"
+    assert contract =~ "turnMarks:"
+    assert contract =~ "submit_ready:"
+    assert contract =~ "resolution:"
+    assert contract =~ "mark:"
+    refute contract =~ "plant_trees"
+    refute contract =~ "rehome_koalas"
+    refute contract =~ "circle_tree"
+    refute contract =~ "circle_koala"
+  end
+
   test "returns not found for an unknown game slug" do
     for path <- ["/developers/specs/unknown-game", "/developers/specs/unknown-game/raw"] do
       assert response(get(build_conn(), path), 404) == "Not found"

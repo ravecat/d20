@@ -175,15 +175,14 @@ defmodule D20Web.ProjectionTest do
 
       rolled_option = turn_options[Integer.to_string(projection.game.roll.value)]
       assert rolled_option.volunteer_cost == 0
-      assert rolled_option.actions["plant_trees"].available_cells != []
-      assert rolled_option.actions["circle_tree"].available_cells != []
-      refute Map.has_key?(rolled_option.actions, "rehome_koalas")
-      refute Map.has_key?(rolled_option.actions, "circle_koala")
+      assert rolled_option.marks.tree.available_cells != []
+      refute Map.has_key?(rolled_option.marks, :koala)
+      refute Map.has_key?(rolled_option, :actions)
       refute Map.has_key?(rolled_option, :die_value)
       refute Map.has_key?(rolled_option, :required_cells)
 
       opposite_value = rem(projection.game.roll.value + 2, 6) + 1
-      assert %{volunteer_cost: 3, actions: %{}} = turn_options[Integer.to_string(opposite_value)]
+      assert %{volunteer_cost: 3, marks: %{}} = turn_options[Integer.to_string(opposite_value)]
 
       a_area = projection.game.players["owner"].sheet.areas.a
 
@@ -248,11 +247,19 @@ defmodule D20Web.ProjectionTest do
       owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
       spectator_scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
 
-      assert %{game: %{players: %{"owner" => _owner, "p2" => _player_2}} = owner_game} =
-               Projection.render(owner_scope, session)
+      assert %{
+               options: %{},
+               selection: nil,
+               permissions: %{can_submit_turn: false},
+               game: %{players: %{"owner" => _owner, "p2" => _player_2}} = owner_game
+             } = Projection.render(owner_scope, session)
 
-      assert %{game: %{players: %{"owner" => _owner, "p2" => _player_2}} = spectator_game} =
-               Projection.render(spectator_scope, session)
+      assert %{
+               options: %{},
+               selection: nil,
+               permissions: %{can_submit_turn: false},
+               game: %{players: %{"owner" => _owner, "p2" => _player_2}} = spectator_game
+             } = Projection.render(spectator_scope, session)
 
       refute Map.has_key?(owner_game, :order)
       refute Map.has_key?(spectator_game, :order)
@@ -317,9 +324,8 @@ defmodule D20Web.ProjectionTest do
 
       assert {:ok, game} =
                dispatch_koala(game, "select", "owner", %{
-                 "action" => "plant_trees",
+                 "mark" => "tree",
                  "die_value" => value,
-                 "volunteers_used" => 0,
                  "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
                })
 
@@ -333,18 +339,21 @@ defmodule D20Web.ProjectionTest do
 
       owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
       other_scope = Scope.for_actor(%Actor{id: "p2", type: :anonymous})
+      spectator_scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
 
       owner_projection = Projection.render(owner_scope, session)
       other_projection = Projection.render(other_scope, session)
+      spectator_projection = Projection.render(spectator_scope, session)
 
       assert %{
-               action: "plant_trees",
+               mark: :tree,
                die_value: ^value,
                volunteers_used: 0,
                required_cells: required_cells,
                selected_cells: [%{area: :a, row: 0, column: 0}],
                available_cells: available_cells,
-               complete: false,
+               submit_ready: true,
+               resolution: :single,
                bonus_options: []
              } = owner_projection.selection
 
@@ -354,13 +363,92 @@ defmodule D20Web.ProjectionTest do
       refute Map.has_key?(owner_projection, :turn)
       refute Map.has_key?(other_projection, :turn)
       assert other_projection.selection == nil
+      assert spectator_projection.selection == nil
+      assert spectator_projection.options == %{}
+      refute spectator_projection.permissions.can_submit_turn
       refute Map.has_key?(owner_projection.game.players["owner"], :selection)
       refute Map.has_key?(other_projection.game.players["owner"], :selection)
+      assert Projection.render(owner_scope, session).selection == owner_projection.selection
 
       assert %{tree: false, koala: false} =
                other_projection.game.players["owner"].sheet.areas.a.rows
                |> Enum.at(0)
                |> Enum.at(0)
+    end
+
+    test "renders single-final, partial, and submitted Koala draft states" do
+      {:ok, base_game} = D20.Game.init(KoalaGame, %{"sheet" => "dharug"})
+      {:ok, base_game} = dispatch_koala(base_game, "join", "owner")
+      {:ok, base_game} = dispatch_koala(base_game, "start", "owner")
+      {:ok, base_game} = dispatch_koala(base_game, "roll", nil)
+
+      scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
+      target = %{area: :a, row: 0, column: 0}
+      rulesheet = D20.KoalaRescueClub.Ruleset.sheet!(:dharug)
+      occupied = rulesheet |> D20.KoalaRescueClub.Ruleset.area_cells(:a) |> List.delete(target)
+
+      single_game =
+        base_game
+        |> Map.put(:roll, %{value: 1})
+        |> put_in(
+          [Access.key!(:players), "owner", Access.key!(:sheet), Access.key!(:trees)],
+          occupied
+        )
+
+      assert {:ok, single_game} =
+               dispatch_koala(single_game, "select", "owner", %{
+                 "mark" => "tree",
+                 "die_value" => 1,
+                 "target_cell" => target
+               })
+
+      single_session = %Session{
+        id: "session-1",
+        phase: :in_progress,
+        owner_id: "owner",
+        members: %{},
+        game: single_game
+      }
+
+      assert %{
+               selection: %{submit_ready: true, resolution: :single, available_cells: []},
+               permissions: %{can_submit_turn: true}
+             } = Projection.render(scope, single_session)
+
+      assert {:ok, submitted_game} =
+               dispatch_koala(single_game, "submit", "owner", %{"bonus_actions" => []})
+
+      submitted_session = %{single_session | game: submitted_game}
+
+      assert %{
+               options: %{},
+               selection: nil,
+               permissions: %{can_submit_turn: false},
+               game: %{phase: :roll, players: %{"owner" => %{status: :ready}}}
+             } = Projection.render(scope, submitted_session)
+
+      partial_game = %{base_game | roll: %{value: 3}}
+
+      assert {:ok, partial_game} =
+               dispatch_koala(partial_game, "select", "owner", %{
+                 "mark" => "tree",
+                 "die_value" => 3,
+                 "target_cell" => %{area: :a, row: 0, column: 0}
+               })
+
+      assert {:ok, partial_game} =
+               dispatch_koala(partial_game, "select", "owner", %{
+                 "target_cell" => %{area: :a, row: 0, column: 1}
+               })
+
+      partial_session = %{single_session | game: partial_game}
+
+      assert %{
+               submit_ready: false,
+               resolution: nil,
+               available_cells: [_cell | _rest],
+               bonus_options: []
+             } = Projection.render(scope, partial_session).selection
     end
 
     test "derives bonus options from a complete stored shape without committing the sheet" do
@@ -382,9 +470,8 @@ defmodule D20Web.ProjectionTest do
 
       assert {:ok, game} =
                dispatch_koala(game, "select", "owner", %{
-                 "action" => "rehome_koalas",
+                 "mark" => "koala",
                  "die_value" => 1,
-                 "volunteers_used" => 0,
                  "target_cell" => %{"area" => "a", "row" => 0, "column" => 2}
                })
 
@@ -404,7 +491,8 @@ defmodule D20Web.ProjectionTest do
       scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
 
       assert %{
-               complete: true,
+               submit_ready: true,
+               resolution: :shape,
                available_cells: [],
                bonus_options: [
                  %{ref: %{area: :a, axis: :row, index: 0}, bonus: %{kind: :skybridge, to: :b}}

@@ -5,12 +5,12 @@ defmodule D20.KoalaRescueClub.Command do
 
   import Ecto.Changeset
 
+  alias D20.KoalaRescueClub.Ruleset
   alias Ecto.Changeset
 
   @areas ~w(a b c d e f g)a
   @bonus_axes ~w(row column)a
   @hospital_ids ~w(hospital_1_left hospital_1_right hospital_2 hospital_3 hospital_4)a
-  @shape_actions ~w(plant_trees rehome_koalas)
 
   @type reason :: Changeset.t() | :unknown_command
 
@@ -22,16 +22,20 @@ defmodule D20.KoalaRescueClub.Command do
   def validate(%D20.Command{event: "start"} = command), do: {:ok, command}
 
   def validate(%D20.Command{event: "select", attrs: attrs} = command) do
-    types = %{action: :string, die_value: :integer, volunteers_used: :integer, target_cell: :map}
+    types = %{
+      mark: Ecto.ParameterizedType.init(Ecto.Enum, values: Ruleset.marks()),
+      die_value: :integer,
+      target_cell: :map
+    }
 
     changeset =
       {%{}, types}
       |> cast(attrs || %{}, Map.keys(types))
       |> validate_required([:target_cell])
       |> validate_selection_context()
-      |> validate_inclusion(:action, @shape_actions)
       |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
-      |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
+      |> reject_selection_field(attrs, :action)
+      |> reject_selection_field(attrs, :volunteers_used)
 
     case apply_action(changeset, :turn_selection) do
       {:ok, %{target_cell: cell} = attrs} ->
@@ -92,37 +96,10 @@ defmodule D20.KoalaRescueClub.Command do
     end
   end
 
-  def validate(%D20.Command{event: event, attrs: attrs} = command)
-      when event in ["circle_tree", "circle_koala"] do
-    changeset =
-      {%{},
-       %{
-         die_value: :integer,
-         volunteers_used: :integer,
-         target_cell: :map,
-         bonus_actions: {:array, :map}
-       }}
-      |> cast(attrs, [:die_value, :volunteers_used, :target_cell, :bonus_actions])
-      |> validate_required([:die_value, :volunteers_used, :target_cell])
-      |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
-      |> validate_number(:volunteers_used, greater_than_or_equal_to: 0)
-
-    case apply_action(changeset, :turn_action) do
-      {:ok, attrs} ->
-        case normalize_turn_command(command, attrs) do
-          {:ok, command} -> {:ok, command}
-          :error -> changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_action)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
-  end
-
   def validate(%D20.Command{}), do: {:error, :unknown_command}
 
   defp validate_selection_context(changeset) do
-    fields = [:action, :die_value, :volunteers_used]
+    fields = [:mark, :die_value]
 
     if Enum.any?(fields, &field_present?(changeset, &1)) do
       validate_required(changeset, fields)
@@ -134,6 +111,16 @@ defmodule D20.KoalaRescueClub.Command do
   defp field_present?(changeset, field) do
     not is_nil(get_field(changeset, field))
   end
+
+  defp reject_selection_field(changeset, attrs, field) when is_map(attrs) do
+    if Map.has_key?(attrs, field) or Map.has_key?(attrs, Atom.to_string(field)) do
+      add_error(changeset, field, "is not accepted")
+    else
+      changeset
+    end
+  end
+
+  defp reject_selection_field(changeset, _attrs, _field), do: changeset
 
   defp require_bonus_actions(changeset, attrs) when is_map(attrs) do
     if Map.has_key?(attrs, :bonus_actions) or Map.has_key?(attrs, "bonus_actions") do
@@ -149,31 +136,6 @@ defmodule D20.KoalaRescueClub.Command do
 
   defp invalid_selection(changeset) do
     changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
-  end
-
-  defp normalize_turn_command(command, attrs) do
-    with {:ok, target_cells} <- normalize_target_cells(attrs),
-         {:ok, bonus_actions} <- normalize_bonus_actions(Map.get(attrs, :bonus_actions, [])) do
-      {:ok,
-       %{
-         command
-         | attrs:
-             Map.merge(
-               %{
-                 die_value: attrs.die_value,
-                 volunteers_used: attrs.volunteers_used,
-                 bonus_actions: bonus_actions
-               },
-               target_cells
-             )
-       }}
-    end
-  end
-
-  defp normalize_target_cells(%{target_cell: cell}) do
-    with {:ok, cell} <- normalize_cell(cell) do
-      {:ok, %{target_cell: cell}}
-    end
   end
 
   defp normalize_cell(attrs) when is_map(attrs) do
