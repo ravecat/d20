@@ -1,33 +1,20 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { Attachment } from "svelte/attachments";
-  import type { WorkspaceMode } from "~/shared/types";
 
   interface Props {
     children: Snippet;
-    closing: boolean;
+    expanded: boolean;
     label: string;
-    mode: WorkspaceMode;
     onCompact: () => void;
     onClose: () => void;
     onExpand: () => void;
   }
 
-  const { children, closing, label, mode, onCompact, onClose, onExpand }: Props = $props();
+  const { children, expanded, label, onCompact, onClose, onExpand }: Props = $props();
 
   let fullscreenElement: HTMLDivElement | undefined;
   let fullscreen = $state(false);
-
-  function handleCancel(event: Event) {
-    event.preventDefault();
-
-    if (!fullscreen && mode === "theater") onCompact();
-  }
-
-  function handleClose(event: Event) {
-    const dialog = event.currentTarget;
-    if (dialog instanceof HTMLDialogElement && !dialog.open && mode === "theater") onCompact();
-  }
 
   function synchronizeFullscreen() {
     fullscreen = document.fullscreenElement === fullscreenElement;
@@ -47,19 +34,13 @@
     }
   }
 
-  function show(currentMode: WorkspaceMode): Attachment<HTMLDialogElement> {
-    return (dialog) => {
-      if (currentMode === "theater") {
-        dialog.showModal();
-      } else {
-        dialog.show();
-      }
+  const show: Attachment<HTMLDialogElement> = (dialog) => {
+    dialog.show();
 
-      return () => {
-        if (dialog.open) dialog.close();
-      };
+    return () => {
+      if (dialog.open) dialog.close();
     };
-  }
+  };
 
   const captureFullscreenElement: Attachment<HTMLDivElement> = (element) => {
     fullscreenElement = element;
@@ -72,35 +53,19 @@
 
 <svelte:document onfullscreenchange={synchronizeFullscreen} />
 
-<dialog
-  {@attach show(mode)}
-  class="dialog"
-  class:dialog--compact={mode === "compact"}
-  class:dialog--theater={mode === "theater"}
-  aria-label={label}
-  closedby={mode === "theater" ? "any" : undefined}
-  oncancel={handleCancel}
-  onclose={handleClose}
->
+<dialog {@attach show} class="dialog" aria-label={label}>
   <div {@attach captureFullscreenElement} class="dialog__surface">
     {@render children()}
 
     <div class="dialog__controls" role="group" aria-label={`${label} window controls`}>
-      <button
-        class="dialog__control"
-        type="button"
-        aria-label={`Close ${label}`}
-        aria-busy={closing}
-        disabled={closing}
-        onclick={onClose}
-      >
+      <button class="dialog__control" type="button" aria-label={`Close ${label}`} onclick={onClose}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m6 6 12 12M18 6 6 18" />
         </svg>
       </button>
 
       {#if !fullscreen}
-        {#if mode === "theater"}
+        {#if expanded}
           <button
             class="dialog__control"
             type="button"
@@ -147,8 +112,14 @@
 
 <style>
   .dialog {
+    position: relative;
     z-index: 1000;
+    inset: auto;
     box-sizing: border-box;
+    inline-size: 100%;
+    min-inline-size: 0;
+    block-size: 100%;
+    min-block-size: 0;
     max-inline-size: none;
     max-block-size: none;
     margin: 0;
@@ -157,30 +128,6 @@
     background: transparent;
     padding: 0;
     color: inherit;
-  }
-
-  .dialog::backdrop {
-    background: rgb(10 12 14 / 0.54);
-    backdrop-filter: blur(2px);
-  }
-
-  .dialog--theater {
-    position: fixed;
-    inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
-    inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
-    inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
-    inset-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
-    inline-size: auto;
-    block-size: auto;
-  }
-
-  .dialog--compact {
-    position: relative;
-    inset: auto;
-    inline-size: 100%;
-    min-inline-size: 0;
-    block-size: 100%;
-    min-block-size: 0;
   }
 
   .dialog__surface {
@@ -246,11 +193,5 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.75;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dialog::backdrop {
-      backdrop-filter: none;
-    }
   }
 </style>

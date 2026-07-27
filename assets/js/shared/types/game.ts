@@ -39,6 +39,12 @@ export interface AttrConfig {
 
 export type Attrs = Record<string, AttrConfig>;
 
+export interface SessionDescriptor {
+  id: string;
+  slug: string;
+  topic: string;
+}
+
 export interface SessionMember {
   status: "online" | "offline";
   online_at?: number;

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Layout } from "~/shared/components";
+  import Layout from "~/app/layout.svelte";
 
-  type Variant = "catalog" | "default";
+  type Variant = "default" | "narrow";
 
   let variant = $state<Variant>("default");
   let pageName = $state("initial");

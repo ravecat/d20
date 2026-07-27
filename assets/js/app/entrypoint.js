@@ -27,7 +27,7 @@ import { LiveSocket } from "phoenix_live_view";
 import { hooks as colocatedHooks } from "phoenix-colocated/d20";
 import { mount } from "svelte";
 import topbar from "topbar";
-import { Layout } from "~/shared/components";
+import Layout from "./layout.svelte";
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
@@ -58,12 +58,7 @@ if (inertiaRoot) {
 
   createInertiaApp({
     title: (title) => (title ? `${title} · D20` : "D20"),
-    layout: (name) => ({
-      component: Layout,
-      props: {
-        variant: name === "home" || name === "developers" ? "catalog" : "default",
-      },
-    }),
+    layout: () => Layout,
     progress: {
       delay: 250,
       color: "#29d",

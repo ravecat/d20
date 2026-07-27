@@ -1,25 +1,34 @@
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import Layout from "~/shared/components/layout.svelte";
-import LayoutHarness from "../../mocks/layout_harness.svelte";
+import Layout from "~/app/layout.svelte";
+import { layout as developersLayout } from "~/pages/developers";
+import * as gamePage from "~/pages/game";
+import { layout as homeLayout } from "~/pages/home";
+import LayoutHarness from "../mocks/layout_harness.svelte";
 
 const workspaceMock = vi.hoisted(() => {
   const workspace = {
-    subscribe(listener: (state: { entries: []; status: "ready"; error: null }) => void) {
-      listener({ entries: [], status: "ready", error: null });
+    subscribe(
+      listener: (state: {
+        sessions: [];
+        layout: { mode: "auto" };
+        status: "ready";
+        error: null;
+      }) => void,
+    ) {
+      listener({ sessions: [], layout: { mode: "auto" }, status: "ready", error: null });
       return () => undefined;
     },
     compact: vi.fn(),
     close: vi.fn(),
     dispose: vi.fn(),
     focus: vi.fn(),
-    reconcile: vi.fn(),
   };
 
   return { createWorkspace: vi.fn(() => workspace), dispose: workspace.dispose };
 });
 
-vi.mock("~/shared/stores", () => ({
+vi.mock("~/widgets/workspace/model/workspace", () => ({
   createWorkspace: workspaceMock.createWorkspace,
 }));
 
@@ -34,6 +43,12 @@ afterEach(async () => {
 });
 
 describe("Layout", () => {
+  it("gets non-default presentation metadata from page public APIs", () => {
+    expect(homeLayout).toEqual({ variant: "narrow" });
+    expect(developersLayout).toEqual({ variant: "narrow" });
+    expect(gamePage).not.toHaveProperty("layout");
+  });
+
   it("marks page content as an Inertia scroll region and links developers", () => {
     renderLayout();
 
@@ -51,13 +66,13 @@ describe("Layout", () => {
     const main = document.querySelector("main");
     const header = document.querySelector("header");
 
-    component.navigate("catalog", "catalog");
+    component.navigate("home", "narrow");
     flushSync();
 
     expect(workspaceMock.createWorkspace).toHaveBeenCalledOnce();
     expect(document.querySelector("main")).toBe(main);
     expect(document.querySelector("header")).toBe(header);
-    expect(header?.classList.contains("header--catalog")).toBe(true);
+    expect(header?.classList.contains("header--narrow")).toBe(true);
 
     component.navigate("game", "default");
     flushSync();

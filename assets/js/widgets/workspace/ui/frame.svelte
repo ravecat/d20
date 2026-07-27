@@ -17,7 +17,7 @@
 
       const bridge = expose({
         remoteWindow: iframe.contentWindow,
-        allowedOrigins: module.allowedOrigins,
+        allowedOrigins: module.allowed_origins,
         bootstrap: {
           endpoint: connection.endpoint,
           topic: connection.topic,
@@ -34,7 +34,7 @@
   {@attach connectFrame}
   class="frame"
   title="Game module"
-  src={module.embedUrl}
+  src={module.embed_url}
   loading="lazy"
   sandbox={module.sandbox.join(" ")}
 ></iframe>

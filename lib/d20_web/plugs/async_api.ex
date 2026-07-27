@@ -71,7 +71,7 @@ defmodule D20Web.Plugs.AsyncApi do
     Application.app_dir(:d20, "priv/specs/#{slug}.yaml")
   end
 
-  defp specification("workspace"), do: {:ok, "workspace"}
+  defp specification("workspace"), do: {:error, :specification_not_found}
 
   defp specification(slug) do
     case Registry.fetch(slug) do

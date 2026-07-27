@@ -1,7 +1,7 @@
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
 
-  type Variant = "default" | "catalog";
+  type Variant = "default" | "narrow";
 
   type Props = {
     variant?: Variant;
@@ -13,7 +13,7 @@
 <footer
   class={{
     footer: true,
-    "footer--catalog": variant === "catalog",
+    "footer--narrow": variant === "narrow",
   }}
 >
   <div class="footer__inner">
@@ -39,7 +39,7 @@
     justify-content: flex-end;
   }
 
-  .footer--catalog .footer__inner {
+  .footer--narrow .footer__inner {
     max-inline-size: 46.25rem;
   }
 

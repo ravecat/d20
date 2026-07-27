@@ -5,18 +5,7 @@ export type {
   GameMetadata,
   GameStatus,
   Session,
+  SessionDescriptor,
   SessionMember,
   SessionPermissions,
 } from "./game";
-export type {
-  SessionDescriptor,
-  Workspace,
-  WorkspaceChannelState,
-  WorkspaceChannelStatus,
-  WorkspaceEntry,
-  WorkspaceMode,
-  WorkspacePayload,
-  WorkspaceSessionDescriptor,
-  WorkspaceSessionIdentity,
-  WorkspaceState,
-} from "./workspace";

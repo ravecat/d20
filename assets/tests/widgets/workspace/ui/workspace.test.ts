@@ -2,19 +2,31 @@ import { module as exposeModule } from "@rvct/d20sdk";
 import { flushSync, mount, unmount } from "svelte";
 import { writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import WorkspaceView from "~/shared/components/workspace.svelte";
-import { createWorkspace } from "~/shared/stores";
-import type { WorkspaceChannel, WorkspaceCloseCall, WorkspaceCloseError } from "~/shared/stores";
-import type { Workspace, WorkspaceChannelState, WorkspaceSessionDescriptor } from "~/shared/types";
+import { Workspace as WorkspaceView } from "~/widgets/workspace";
+import type {
+  Workspace,
+  WorkspaceChannelState,
+  WorkspaceSession,
+  WorkspaceSessionDescriptor,
+} from "~/widgets/workspace/model/workspace";
+
+const workspaceStoreMock = vi.hoisted(() => ({
+  createWorkspace: vi.fn(),
+}));
 
 vi.mock("@rvct/d20sdk", () => ({
   module: vi.fn(() => ({ destroy: vi.fn() })),
 }));
 
+vi.mock("~/widgets/workspace/model/workspace", () => ({
+  createWorkspace: workspaceStoreMock.createWorkspace,
+}));
+
+const { createWorkspace } = await vi.importActual<
+  typeof import("~/widgets/workspace/model/workspace")
+>("~/widgets/workspace/model/workspace");
+
 const showDialog = vi.fn(function (this: HTMLDialogElement) {
-  this.open = true;
-});
-const showModalDialog = vi.fn(function (this: HTMLDialogElement) {
   this.open = true;
 });
 const closeDialog = vi.fn(function (this: HTMLDialogElement) {
@@ -36,7 +48,6 @@ const exitFullscreen = vi.fn(async function (this: Document) {
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
     show: { configurable: true, value: showDialog },
-    showModal: { configurable: true, value: showModalDialog },
     close: { configurable: true, value: closeDialog },
   });
   Object.defineProperty(Element.prototype, "requestFullscreen", {
@@ -55,24 +66,23 @@ afterEach(async () => {
   document.body.innerHTML = "";
   fullscreenElement = null;
   showDialog.mockClear();
-  showModalDialog.mockClear();
   closeDialog.mockClear();
   requestFullscreen.mockClear();
   exitFullscreen.mockClear();
   vi.mocked(exposeModule).mockClear();
+  workspaceStoreMock.createWorkspace.mockReset();
 });
 
 describe("Workspace presentation", () => {
-  it("keeps one iframe and bridge while switching Theater, Compact, and fullscreen", async () => {
+  it("keeps one iframe and bridge while switching expanded, compact, and fullscreen", async () => {
     const harness = workspaceHarness();
     renderWorkspace(harness.workspace);
     harness.ready([descriptor("session-a")]);
     flushSync();
 
     const iframe = gameFrame();
-    const dialog = gameDialog("Qwinto session session-a");
 
-    expect(showModalDialog).toHaveBeenCalledOnce();
+    expect(showDialog).toHaveBeenCalledOnce();
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
     expect(windowControls("Qwinto session session-a")).toEqual([
       "Close Qwinto session session-a",
@@ -95,7 +105,7 @@ describe("Workspace presentation", () => {
     button("Expand Qwinto session session-a").click();
     flushSync();
 
-    expect(showModalDialog).toHaveBeenCalledTimes(2);
+    expect(showDialog).toHaveBeenCalledOnce();
     expect(gameFrame()).toBe(iframe);
 
     button("Enter Qwinto session session-a fullscreen").click();
@@ -114,12 +124,13 @@ describe("Workspace presentation", () => {
       ]),
     );
 
-    dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     flushSync();
 
-    expect(showDialog).toHaveBeenCalledTimes(2);
+    expect(showDialog).toHaveBeenCalledOnce();
     expect(gameFrame()).toBe(iframe);
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
+    expect(windowControls("Qwinto session session-a")).toContain("Expand Qwinto session session-a");
   });
 
   it("renders active windows without a duplicate workspace session panel", () => {
@@ -142,20 +153,18 @@ describe("Workspace presentation", () => {
     expect(document.querySelectorAll("dialog")).toHaveLength(2);
   });
 
-  it("keeps a failed close retryable without removing the window", () => {
+  it("expands the first remaining session when requested focus disappears", () => {
     const harness = workspaceHarness();
     renderWorkspace(harness.workspace);
-    harness.ready([descriptor("session-a")]);
+    harness.ready([descriptor("session-a"), descriptor("session-b")]);
+    harness.workspace.focus("session-b");
+    harness.ready([descriptor("session-a"), descriptor("session-c")]);
     flushSync();
 
-    button("Close Qwinto session session-a").click();
-    harness.latestClose().reply("error", { reason: "Could not close" });
-    flushSync();
-
-    expect(document.body.textContent).toContain("Could not close");
-    button("Try again").click();
-    expect(harness.close).toHaveBeenCalledTimes(2);
-    expect(document.querySelectorAll("dialog")).toHaveLength(1);
+    expect(windowControls("Qwinto session session-a")).toContain(
+      "Compact Qwinto session session-a",
+    );
+    expect(windowControls("Qwinto session session-c")).toContain("Expand Qwinto session session-c");
   });
 
   it("isolates stale transport state while every compact window remains reachable", () => {
@@ -172,7 +181,13 @@ describe("Workspace presentation", () => {
 
     expect(document.body.textContent).toContain("Reconnecting to Koala Rescue Club");
     expect(document.querySelectorAll('iframe[title="Game module"]')).toHaveLength(3);
-    expect(document.querySelectorAll("dialog.dialog--compact")).toHaveLength(2);
+    expect(windowControls("Qwinto session session-a")).toContain("Expand Qwinto session session-a");
+    expect(windowControls("Koala Rescue Club session session-b")).toContain(
+      "Expand Koala Rescue Club session session-b",
+    );
+    expect(windowControls("Qwinto session session-c")).toContain(
+      "Compact Qwinto session session-c",
+    );
 
     const expand = button("Expand Qwinto session session-a");
     expand.focus();
@@ -182,27 +197,17 @@ describe("Workspace presentation", () => {
 
 function workspaceHarness() {
   const state = writable<WorkspaceChannelState>(channelState("loading", null));
-  const requests: CloseRequest[] = [];
-  const close = vi.fn((_sessionId: string) => {
-    const request = new CloseRequest();
-    requests.push(request);
-    return request;
-  });
-  const discovery: WorkspaceChannel = {
+  const close = vi.fn();
+  const session: WorkspaceSession = {
     subscribe: state.subscribe,
-    dispose: vi.fn(),
+    detach: vi.fn(),
     close,
   };
-  const workspace = createWorkspace({ discovery });
+  const workspace = createWorkspace({ session });
 
   return {
     workspace,
     close,
-    latestClose() {
-      const request = requests.at(-1);
-      if (!request) throw new Error("Expected a close request.");
-      return request;
-    },
     ready(sessions: WorkspaceSessionDescriptor[]) {
       state.set(channelState("ready", { sessions }));
     },
@@ -210,36 +215,6 @@ function workspaceHarness() {
       state.update((current) => ({ ...current, status: "stale" }));
     },
   };
-}
-
-class CloseRequest implements WorkspaceCloseCall {
-  private callbacks: {
-    ok?: () => unknown;
-    error?: (error: WorkspaceCloseError) => unknown;
-    timeout?: () => unknown;
-  } = {};
-
-  receive(status: "ok", callback: () => unknown): WorkspaceCloseCall;
-  receive(status: "error", callback: (error: WorkspaceCloseError) => unknown): WorkspaceCloseCall;
-  receive(status: "timeout", callback: () => unknown): WorkspaceCloseCall;
-  receive(
-    status: "ok" | "error" | "timeout",
-    callback: (() => unknown) | ((error: WorkspaceCloseError) => unknown),
-  ) {
-    Object.assign(this.callbacks, { [status]: callback });
-    return this;
-  }
-
-  reply(status: "ok" | "timeout"): void;
-  reply(status: "error", error: WorkspaceCloseError): void;
-  reply(status: "ok" | "error" | "timeout", error: WorkspaceCloseError = {}) {
-    if (status === "error") {
-      this.callbacks.error?.(error);
-      return;
-    }
-
-    this.callbacks[status]?.();
-  }
 }
 
 function channelState(
@@ -261,8 +236,8 @@ function descriptor(id: string, slug = "qwinto"): WorkspaceSessionDescriptor {
     id,
     slug,
     module: {
-      embedUrl: `https://module.example.test/${id}`,
-      allowedOrigins: ["https://module.example.test"],
+      embed_url: `https://module.example.test/${id}`,
+      allowed_origins: ["https://module.example.test"],
       sandbox: ["allow-scripts"],
     },
     connection: {
@@ -274,14 +249,14 @@ function descriptor(id: string, slug = "qwinto"): WorkspaceSessionDescriptor {
 }
 
 function renderWorkspace(workspace: ReturnType<typeof createWorkspace>) {
+  workspaceStoreMock.createWorkspace.mockReturnValue(workspace);
   const target = document.createElement("div");
   document.body.append(target);
-  const component = mount(WorkspaceView, { target, props: { workspace } });
+  const component = mount(WorkspaceView, { target });
   flushSync();
 
   cleanup = async () => {
     await unmount(component);
-    workspace.dispose();
     target.remove();
   };
 }
@@ -290,14 +265,6 @@ function gameFrame() {
   const iframe = document.querySelector('iframe[title="Game module"]');
   if (!(iframe instanceof HTMLIFrameElement)) throw new Error("Expected a game module frame.");
   return iframe;
-}
-
-function gameDialog(name: string) {
-  const dialog = [...document.getElementsByTagName("dialog")].find(
-    (candidate) => candidate.getAttribute("aria-label") === name,
-  );
-  if (!dialog) throw new Error(`Expected dialog named ${name}.`);
-  return dialog;
 }
 
 function windowControlGroup(name: string) {

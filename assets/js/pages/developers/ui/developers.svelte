@@ -21,11 +21,6 @@
       referenceUrl: "/developers/specs/next-station-london",
       rawUrl: "/developers/specs/next-station-london/raw",
     },
-    {
-      game: "Workspace",
-      referenceUrl: "/developers/specs/workspace",
-      rawUrl: "/developers/specs/workspace/raw",
-    },
   ];
 </script>
 

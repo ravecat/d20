@@ -1,7 +1,7 @@
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
 
-  type Variant = "default" | "catalog";
+  type Variant = "default" | "narrow";
 
   type Props = {
     compact?: boolean;
@@ -15,8 +15,8 @@
 <header
   class={{
     header: true,
-    "header--catalog": variant === "catalog",
     "header--compact": compact,
+    "header--narrow": variant === "narrow",
     "header--overlay": overlay,
   }}
 >
@@ -57,7 +57,7 @@
     transition: padding-block 180ms ease;
   }
 
-  .header--catalog .header__inner {
+  .header--narrow .header__inner {
     max-inline-size: 46.25rem;
   }
 

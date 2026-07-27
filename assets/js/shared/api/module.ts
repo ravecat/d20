@@ -5,7 +5,7 @@ export interface ModuleConnection {
 }
 
 export interface ModuleEntry {
-  embedUrl: string;
-  allowedOrigins: string[];
+  embed_url: string;
+  allowed_origins: string[];
   sandbox: string[];
 }
