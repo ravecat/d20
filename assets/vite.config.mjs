@@ -26,6 +26,7 @@ export default defineConfig({
     include: isVitest
       ? ["svelte"]
       : ["@inertiajs/svelte", "phoenix", "phoenix_html", "phoenix_live_view", "svelte"],
+    exclude: isVitest ? ["@inertiajs/svelte"] : [],
   },
   build: {
     target: browserTargets,

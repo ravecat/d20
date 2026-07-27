@@ -4,18 +4,16 @@
   type Variant = "default" | "narrow";
 
   type Props = {
-    compact?: boolean;
     overlay?: boolean;
     variant?: Variant;
   };
 
-  const { compact = false, overlay = false, variant = "default" }: Props = $props();
+  const { overlay = false, variant = "default" }: Props = $props();
 </script>
 
 <header
   class={{
     header: true,
-    "header--compact": compact,
     "header--narrow": variant === "narrow",
     "header--overlay": overlay,
   }}
@@ -54,15 +52,10 @@
     padding: 1rem 1.5rem;
     align-items: center;
     gap: 1.5rem;
-    transition: padding-block 180ms ease;
   }
 
   .header--narrow .header__inner {
     max-inline-size: 46.25rem;
-  }
-
-  .header--compact .header__inner {
-    padding-block: 0.5rem;
   }
 
   .brand {
@@ -71,9 +64,7 @@
     gap: 0.5625rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    transition:
-      color 160ms ease,
-      gap 180ms ease;
+    transition: color 160ms ease;
   }
 
   .brand__mark {
@@ -82,32 +73,12 @@
     block-size: 3rem;
     flex: none;
     background: url("/images/d20.svg") center / contain no-repeat;
-    transition:
-      inline-size 180ms ease,
-      block-size 180ms ease;
   }
 
   .brand__label {
     font-size: 0.875rem;
     font-weight: 600;
     line-height: 1;
-    transition:
-      font-size 180ms ease,
-      letter-spacing 180ms ease;
-  }
-
-  .header--compact .brand {
-    gap: 0.4rem;
-  }
-
-  .header--compact .brand__mark {
-    inline-size: 1.742rem;
-    block-size: 2rem;
-  }
-
-  .header--compact .brand__label {
-    font-size: 0.75rem;
-    letter-spacing: 0.12em;
   }
 
   .header--overlay .brand {
@@ -139,19 +110,75 @@
       inline-size: 2.177rem;
       block-size: 2.5rem;
     }
+  }
 
-    .header--compact .brand__mark {
+  @media (prefers-reduced-motion: reduce) {
+    .brand {
+      transition: none;
+    }
+  }
+
+  @supports (
+    (animation-timeline: scroll()) and (animation-range: 0% 100%) and
+      (scroll-timeline: --app-shell-scroll block) and (timeline-scope: --app-shell-scroll)
+  ) {
+    .header__inner {
+      animation: compact-header-inner auto linear both;
+      animation-timeline: --app-shell-scroll;
+      animation-range: 0px 24px;
+    }
+
+    .brand {
+      animation: compact-header-brand auto linear both;
+      animation-timeline: --app-shell-scroll;
+      animation-range: 0px 24px;
+    }
+
+    .brand__mark {
+      animation: compact-header-mark auto linear both;
+      animation-timeline: --app-shell-scroll;
+      animation-range: 0px 24px;
+    }
+
+    .brand__label {
+      animation: compact-header-label auto linear both;
+      animation-timeline: --app-shell-scroll;
+      animation-range: 0px 24px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .header__inner,
+      .brand,
+      .brand__mark,
+      .brand__label {
+        animation: none;
+      }
+    }
+  }
+
+  @keyframes compact-header-inner {
+    to {
+      padding-block: 0.5rem;
+    }
+  }
+
+  @keyframes compact-header-brand {
+    to {
+      gap: 0.4rem;
+    }
+  }
+
+  @keyframes compact-header-mark {
+    to {
       inline-size: 1.742rem;
       block-size: 2rem;
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .header__inner,
-    .brand,
-    .brand__mark,
-    .brand__label {
-      transition: none;
+  @keyframes compact-header-label {
+    to {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
     }
   }
 </style>

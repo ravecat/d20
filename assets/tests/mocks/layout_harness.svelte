@@ -13,5 +13,11 @@
 </script>
 
 <Layout {variant}>
-  <p data-page={pageName}>{pageName}</p>
+  <p class="page" data-page={pageName}>{pageName}</p>
 </Layout>
+
+<style>
+  .page {
+    min-block-size: 200dvh;
+  }
+</style>

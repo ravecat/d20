@@ -11,18 +11,12 @@
   };
 
   const { children, variant = "default" }: Props = $props();
-  let compactHeader = $state(false);
-
-  function handleScroll(event: UIEvent) {
-    const scrollRegion = event.currentTarget as HTMLElement;
-    compactHeader = scrollRegion.scrollTop > 24;
-  }
 </script>
 
 <div class="layout">
   <Workspace>
-    <Header {variant} compact={compactHeader} />
-    <main class="layout__content" scroll-region tabindex="-1" onscroll={handleScroll}>
+    <Header {variant} />
+    <main class="layout__content" scroll-region tabindex="-1">
       {@render children?.()}
     </main>
     <Footer {variant} />
@@ -48,5 +42,18 @@
   .layout__content:focus-visible {
     outline: 2px solid color-mix(in oklab, var(--color-base-content) 40%, transparent);
     outline-offset: -2px;
+  }
+
+  @supports (
+    (animation-timeline: scroll()) and (animation-range: 0% 100%) and
+      (scroll-timeline: --app-shell-scroll block) and (timeline-scope: --app-shell-scroll)
+  ) {
+    .layout {
+      timeline-scope: --app-shell-scroll;
+    }
+
+    .layout__content {
+      scroll-timeline: --app-shell-scroll block;
+    }
   }
 </style>

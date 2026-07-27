@@ -40,3 +40,12 @@
 ## 8. Final Validation
 
 - [ ] 8.1 Run strict OpenSpec, backend, and frontend validation, then verify the compact rows and reference renderer at desktop and narrow widths.
+
+## 9. CSS Scroll Timeline
+
+- [x] 9.1 Replace the app-shell compact-header rune, scroll handler, and prop with a feature-gated named CSS scroll timeline and expanded reduced-motion fallback.
+- [x] 9.2 Add focused Chromium browser coverage for the scroll-linked header dimensions without duplicating the existing app-shell unit assertions.
+
+## 10. CSS Timeline Validation
+
+- [x] 10.1 Run focused browser coverage, frontend formatting, linting, type checks, the production asset build, and strict OpenSpec validation.

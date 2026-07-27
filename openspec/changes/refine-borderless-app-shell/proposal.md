@@ -7,7 +7,7 @@ The Inertia game shell now keeps content between a persistent header and footer,
 - Formalize the bounded, scrollable game app shell as an explicit capability.
 - Keep the header, footer, and brand free of visible surrounding borders or edge shadows in normal, compact, pointer, and keyboard states.
 - Preserve a visible keyboard-focus indicator for the home brand without drawing a rectangle around the mark or label.
-- Keep the sticky header, persistent footer, internal Inertia scroll region, and compact-on-scroll behavior unchanged.
+- Keep the sticky header, persistent footer, and internal Inertia scroll region while moving the decorative compact-on-scroll behavior from Svelte state to a named CSS scroll timeline with an expanded fallback.
 - Replace D20 size custom properties with explicit component size declarations while retaining color custom properties.
 - Replace the footer source link with an internal `for developers` link to `/developers`.
 - Add a developer page that introduces client implementation and derives a compact reference/YAML list from registered games with matching static specifications.

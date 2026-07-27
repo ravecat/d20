@@ -1,6 +1,6 @@
 ## Context
 
-The Svelte Inertia shell already uses a three-row `header / main / footer` grid, keeps only the middle region scrollable, and compacts the D20 brand after the content scrolls beyond 24 pixels. The current compact header adds a bottom border and shadow, the footer adds a top border, and the brand link uses a rectangular focus outline. The D20 component also reads its dimensions from CSS custom properties supplied by the header wrapper.
+The Svelte Inertia shell already uses a three-row `header / main / footer` grid, keeps only the middle region scrollable, and compacts the D20 brand after the content scrolls beyond 24 pixels. The compact state is currently derived by a Svelte scroll handler and propagated to the header as a boolean prop even though it controls presentation only. The current compact header adds a bottom border and shadow, the footer adds a top border, and the brand link uses a rectangular focus outline. The D20 component also reads its dimensions from CSS custom properties supplied by the header wrapper.
 
 The refinement must preserve the shell geometry, Inertia scroll restoration, responsive brand dimensions, and keyboard accessibility while making the surrounding chrome visually seamless.
 
@@ -13,6 +13,7 @@ The footer currently links to the GitHub source repository. The product directio
 - Remove visible edge borders and shadows from the header and footer in every scroll state.
 - Remove the rectangular outline around the D20 brand while keeping keyboard focus unmistakable.
 - Keep the existing default, narrow-screen, and compact brand dimensions.
+- Make the internal content scroll position drive compact presentation without Svelte component state.
 - Make D20 dimensions explicit in the D20 component instead of passing them through CSS custom properties.
 - Make `/developers` a clear internal destination from every game-shell footer.
 - Present a polished index for the existing Qwinto and Koala Rescue Club AsyncAPI contracts.
@@ -24,6 +25,7 @@ The footer currently links to the GitHub source repository. The product directio
 
 - Redesign page cards, game-detail panels, or nested scroll regions.
 - Change the compact threshold or Inertia scroll contract.
+- Add a runtime scroll-timeline polyfill or retain a JavaScript fallback for the decorative compact state.
 - Remove color custom properties from the D20 artwork.
 - Parse AsyncAPI metadata at runtime or expose files whose slugs are not registered games.
 - Add multi-version specification URLs or move `info.version` into the filename.
@@ -77,6 +79,14 @@ Specification filenames will use the registry slug verbatim, including hyphens. 
 
 Bundling the React renderer into the Svelte application was rejected because these reference pages are independent documents and doing so would add React-specific application dependencies. The raw YAML remains useful if the CDN renderer is unavailable.
 
+### 8. Drive compact presentation with a named CSS scroll timeline
+
+The layout will expose a named block-axis scroll timeline from its existing Inertia content scroller and extend that timeline's scope to the shared layout ancestor. The header will bind component-scoped keyframes to the named timeline and interpolate its padding, brand gap, mark dimensions, and label dimensions over the first 24 pixels of content scrolling. This keeps the existing scroll container and compact endpoint dimensions while removing the `compactHeader` rune, scroll event handler, and `compact` prop.
+
+The timeline declarations and animations will be gated by feature detection for `animation-timeline`, `animation-range`, `scroll-timeline`, and `timeline-scope`. The expanded header remains the base style, so browsers without complete named scroll-timeline support retain a usable static header. Reduced-motion users also retain the expanded state instead of receiving continuous scroll-linked resizing.
+
+Keeping the JavaScript handler as a fallback was rejected because it would preserve the presentation state and component coupling this change removes. Adding `scroll-timeline-polyfill` was rejected because the cosmetic enhancement does not justify a runtime CSS parser and its compatibility risks.
+
 ## Risks / Trade-offs
 
 - [The sticky chrome may blend into similarly colored content] -> This is the requested seamless treatment; the fixed grid position still communicates the shell boundary spatially.
@@ -85,6 +95,8 @@ Bundling the React renderer into the Svelte application was rejected because the
 - [The AsyncAPI reference renderer depends on unpkg at page load] -> Pin the renderer version and keep the raw YAML endpoint first-party beside every rendered reference.
 - [Filesystem checks happen when the developer page is requested] -> Check only the bounded registry entries and regular slug-matching files; do not parse document contents or call external metadata providers.
 - [A dynamic file-serving route could expose unintended files] -> Resolve the slug through the registry before deriving the static application-relative path, and return not found for unknown or missing specifications.
+- [Firefox and Safari before 26 do not apply the compact enhancement] -> Keep the expanded header as the complete functional fallback and gate every timeline declaration with feature detection.
+- [Animating layout dimensions can require layout work during the first 24 pixels of scrolling] -> Limit the range to the small persistent header and avoid a JavaScript scroll callback that would add component updates to the same path.
 
 ## Migration Plan
 

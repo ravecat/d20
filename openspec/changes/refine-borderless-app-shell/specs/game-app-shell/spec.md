@@ -10,16 +10,26 @@ The Inertia game application SHALL render one header, one main content region, a
 - **AND** the main region is registered as an Inertia scroll region
 
 ### Requirement: The sticky brand compacts with content scrolling
-The shell SHALL keep the header at the top of the viewport and SHALL compact both the D20 mark and its visible label after the main content scroll position exceeds 24 pixels.
+The shell SHALL keep the header at the top of the viewport. In browsers with complete named scroll-driven animation support, the shell SHALL use the main content scroll timeline to compact both the D20 mark and its visible label over the first 24 pixels without JavaScript scroll state. In browsers without complete support and for users who prefer reduced motion, the shell SHALL retain the expanded header as a functional fallback.
 
-#### Scenario: User scrolls down through game content
-- **WHEN** the main content scroll position becomes greater than 24 pixels
+#### Scenario: Supporting browser scrolls down through game content
+- **WHEN** the main content scroll position progresses from zero to 24 pixels in a browser with complete named scroll-driven animation support
 - **THEN** the header remains at the top of the viewport
-- **AND** the D20 mark and visible label use their compact dimensions
+- **AND** the header presentation progresses from its default dimensions to its compact dimensions
+- **AND** no JavaScript scroll state or handler is required
 
 #### Scenario: User returns to the top
 - **WHEN** the main content scroll position returns to zero
 - **THEN** the D20 mark and visible label return to their default dimensions
+
+#### Scenario: Browser lacks complete scroll timeline support
+- **WHEN** the application runs in a browser without complete support for named scroll timelines and animation ranges
+- **THEN** the header remains expanded
+- **AND** navigation and main content scrolling remain usable
+
+#### Scenario: User prefers reduced motion
+- **WHEN** the user requests reduced motion
+- **THEN** the header remains expanded instead of resizing continuously with scrolling
 
 ### Requirement: Shell chrome is borderless
 The header and footer SHALL render without visible surrounding borders, divider lines, or edge shadows in both default and compact states.
