@@ -22,7 +22,6 @@ defmodule D20.KoalaRescueClub.Rules do
           | :insufficient_volunteers
           | :invalid_shape
           | :no_legal_placement
-          | :missing_turn_selection
           | :incomplete_turn_selection
           | :invalid_target
           | :invalid_area
@@ -61,8 +60,7 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  def validate(game, %D20.Command{event: event} = command)
-      when event in ["select", "deselect", "reset", "submit"] do
+  def validate(game, %D20.Command{event: "submit"} = command) do
     with :ok <- require_actor(command) do
       case resolve_turn(game, command) do
         {:ok, _player} -> :ok
@@ -101,12 +99,12 @@ defmodule D20.KoalaRescueClub.Rules do
           required(:volunteer_cost) => non_neg_integer(),
           required(:marks) => %{optional(Ruleset.mark()) => turn_mark_option()}
         }
-  @type selection_details :: %{
+  @type draft_details :: %{
           required(:mark) => Ruleset.mark(),
-          required(:value) => Ruleset.die_value(),
-          required(:volunteers) => non_neg_integer(),
+          required(:die_value) => Ruleset.die_value(),
+          required(:volunteers_used) => non_neg_integer(),
           required(:required_cells) => pos_integer(),
-          required(:cells) => [Ruleset.cell()],
+          required(:selected_cells) => [Ruleset.cell()],
           required(:available_cells) => [Ruleset.cell()],
           required(:submit_ready) => boolean(),
           required(:resolution) => :single | :shape | nil,
@@ -139,57 +137,25 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  @doc "Returns the caller's stored selection with its current rule-derived details."
-  @spec selection_details(Game.t(), Game.player_id()) :: selection_details() | nil
-  def selection_details(%Game{} = game, player_id) do
-    with true <- submit_allowed?(game, player_id),
-         {:ok, %{selection: selection} = player} when not is_nil(selection) <-
-           Game.fetch_player(game, player_id),
-         {:ok, volunteers} <- Ruleset.volunteers_needed(game.roll.value, selection.value),
-         {:ok, details} <- analyze_selection(Ruleset.sheet!(game.sheet), player.sheet, selection) do
-      Map.put(details, :volunteers, volunteers)
-    else
-      _reason -> nil
+  @doc "Evaluates a complete caller-owned primary draft against committed game state."
+  @spec draft_details(Game.t(), D20.Command.t()) :: {:ok, draft_details()} | {:error, reason()}
+  def draft_details(%Game{} = game, %D20.Command{actor_id: actor_id, attrs: attrs} = command) do
+    with :ok <- require_actor(command),
+         {:ok, _player, _rulesheet, _selection, details} <-
+           evaluate_candidate(game, actor_id, attrs) do
+      {:ok, details}
     end
   end
 
   @spec resolve_turn(Game.t(), D20.Command.t()) ::
           {:ok, Game.player()} | {:error, reason()}
-  def resolve_turn(%Game{} = game, %D20.Command{event: "select", actor_id: actor_id, attrs: attrs}) do
-    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
-         {:ok, selection} <- selection_for_select(game, player, rulesheet, attrs),
-         {:ok, selection} <- select_cell(rulesheet, player.sheet, selection, attrs.target_cell) do
-      {:ok, %{player | selection: selection}}
-    end
-  end
-
-  def resolve_turn(%Game{} = game, %D20.Command{
-        event: "deselect",
-        actor_id: actor_id,
-        attrs: attrs
-      }) do
-    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
-         {:ok, selection} <- require_selection(player),
-         {:ok, selection} <- deselect_cell(rulesheet, player.sheet, selection, attrs.target_cell) do
-      {:ok, %{player | selection: selection}}
-    end
-  end
-
-  def resolve_turn(%Game{} = game, %D20.Command{event: "reset", actor_id: actor_id}) do
-    with {:ok, player, _rulesheet} <- pending_player(game, actor_id) do
-      {:ok, %{player | selection: nil}}
-    end
-  end
-
   def resolve_turn(%Game{} = game, %D20.Command{event: "submit", actor_id: actor_id, attrs: attrs}) do
-    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
-         {:ok, selection} <- require_selection(player),
-         {:ok, details} <- analyze_selection(rulesheet, player.sheet, selection),
+    with {:ok, player, rulesheet, selection, details} <- evaluate_candidate(game, actor_id, attrs),
          :ok <- require_submit_ready(details),
          {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, selection.value),
          {:ok, sheet} <- apply_primary_resolution(rulesheet, sheet, selection, details.resolution),
          {:ok, sheet} <- apply_bonus_actions(rulesheet, player.sheet, sheet, attrs.bonus_actions) do
-      {:ok, %{player | sheet: sheet, status: :submitted, selection: nil}}
+      {:ok, %{player | sheet: sheet, status: :submitted}}
     end
   end
 
@@ -243,44 +209,13 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp require_selection(%{selection: nil}), do: {:error, :missing_turn_selection}
-  defp require_selection(%{selection: selection}), do: {:ok, selection}
-
-  defp selection_for_select(game, player, _rulesheet, %{mark: mark, die_value: value}) do
-    with {:ok, _cost} <- available_volunteer_cost(player.sheet, game.roll.value, value) do
-      {:ok, %{mark: mark, value: value, cells: []}}
-    end
-  end
-
-  defp selection_for_select(_game, player, _rulesheet, _attrs), do: require_selection(player)
-
-  defp select_cell(rulesheet, sheet, selection, cell) do
-    if cell in selection.cells do
-      {:ok, selection}
-    else
-      selection = %{selection | cells: selection.cells ++ [cell]}
-
-      case analyze_selection(rulesheet, sheet, selection) do
-        {:ok, _details} -> {:ok, selection}
-        {:error, _reason} -> {:error, :invalid_target}
-      end
-    end
-  end
-
-  defp deselect_cell(rulesheet, sheet, selection, cell) do
-    cond do
-      cell not in selection.cells ->
-        {:ok, selection}
-
-      length(selection.cells) == 1 ->
-        {:ok, nil}
-
-      true ->
-        selection = %{selection | cells: List.delete(selection.cells, cell)}
-
-        with {:ok, _details} <- analyze_selection(rulesheet, sheet, selection) do
-          {:ok, selection}
-        end
+  defp evaluate_candidate(game, actor_id, attrs) do
+    with {:ok, player, rulesheet} <- pending_player(game, actor_id),
+         {:ok, volunteers_used} <-
+           available_volunteer_cost(player.sheet, game.roll.value, attrs.die_value),
+         selection = %{mark: attrs.mark, value: attrs.die_value, cells: attrs.selected_cells},
+         {:ok, details} <- analyze_selection(rulesheet, player.sheet, selection) do
+      {:ok, player, rulesheet, selection, Map.put(details, :volunteers_used, volunteers_used)}
     end
   end
 
@@ -304,9 +239,9 @@ defmodule D20.KoalaRescueClub.Rules do
 
       details = %{
         mark: selection.mark,
-        value: selection.value,
+        die_value: selection.value,
         required_cells: required_cells,
-        cells: selection.cells,
+        selected_cells: selection.cells,
         available_cells: available_cells,
         submit_ready: submit_ready,
         resolution: resolution
@@ -695,11 +630,11 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp apply_bonus_effect(%Sheet{hospitals: hospitals}, player_sheet, _bonus, %{
+  defp apply_bonus_effect(%Sheet{} = rulesheet, player_sheet, _bonus, %{
          kind: :hospital,
          hospital_id: hospital_id
        }) do
-    with {:ok, hospital} <- Map.fetch(hospitals, hospital_id),
+    with {:ok, hospital_id, hospital} <- Ruleset.fetch_hospital(rulesheet, hospital_id),
          filled <- Map.get(player_sheet.hospitals, hospital_id, 0),
          true <- filled < hospital.size do
       {:ok, put_in(player_sheet.hospitals[hospital_id], filled + 1)}

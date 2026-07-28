@@ -97,44 +97,38 @@ defmodule D20.KoalaRescueClub.ServerTest do
     rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
     player_sheet = rolled_session.game.players["owner"].sheet
 
-    [first_cell | remaining_cells] =
-      rulesheet |> Rules.legal_shape_placements(player_sheet, :tree, value) |> List.first()
+    cells = rulesheet |> Rules.legal_shape_placements(player_sheet, :tree, value) |> List.first()
 
-    assert {:ok, %Session{game: %Game{phase: :submit}} = first_selection} =
-             Sessions.dispatch(scope(session.id), "select", %{
+    assert {:ok, %{submit_ready: true, resolution: :shape, selected_cells: ^cells}} =
+             Sessions.preview(scope(session.id), "draft", %{
                "mark" => "tree",
                "die_value" => value,
-               "target_cell" => first_cell
+               "selected_cells" => cells
              })
 
-    assert_receive {:session, ^first_selection}
-
-    Enum.each(remaining_cells, fn cell ->
-      assert {:ok, %Session{game: %Game{phase: :submit}} = selection} =
-               Sessions.dispatch(scope(session.id), "select", %{"target_cell" => cell})
-
-      assert_receive {:session, ^selection}
-    end)
+    refute_receive {:session, %Session{}}, 100
+    assert {:ok, {^rolled_session, "koala-rescue-club"}} = Sessions.get(session.id)
 
     assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
-             Sessions.dispatch(scope(session.id), "submit", %{"bonus_actions" => []})
+             Sessions.dispatch(scope(session.id), "submit", %{
+               "mark" => "tree",
+               "die_value" => value,
+               "selected_cells" => cells,
+               "bonus_actions" => []
+             })
 
     assert_receive {:session, ^owner_submitted}
 
     assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _slug}} =
              Sessions.get(session.id)
 
-    assert {:ok, %Session{game: %Game{phase: :submit, turn: 1}} = player_2_selection} =
-             Sessions.dispatch(scope(session.id, "player-2"), "select", %{
+    assert {:ok, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}} =
+             Sessions.dispatch(scope(session.id, "player-2"), "submit", %{
                "mark" => "tree",
                "die_value" => value,
-               "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+               "selected_cells" => [%{"area" => "a", "row" => 0, "column" => 0}],
+               "bonus_actions" => []
              })
-
-    assert_receive {:session, ^player_2_selection}
-
-    assert {:ok, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}} =
-             Sessions.dispatch(scope(session.id, "player-2"), "submit", %{"bonus_actions" => []})
 
     assert_receive {:session, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}}
   end

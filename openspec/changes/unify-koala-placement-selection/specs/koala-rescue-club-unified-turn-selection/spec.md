@@ -1,278 +1,189 @@
 ## ADDED Requirements
 
-### Requirement: Turn options expose mark choices instead of primary actions
+### Requirement: Normal projection exposes initial mark choices
 
-For every adjusted die value reachable with the pending player's available volunteers, the system SHALL project `tree` and `koala` mark choices with their legal initial cells. The projection MUST NOT expose `plant_trees`, `rehome_koalas`, `circle_tree`, or `circle_koala` as primary action identifiers.
+For every adjusted die value reachable with the pending player's volunteers, the system SHALL project `tree` and `koala` mark choices with legal initial cells. The normal session projection MUST NOT contain an uncommitted primary selection.
 
-#### Scenario: Tree targets are available
+#### Scenario: Pending player receives initial choices
 
-- **WHEN** a pending player can legally mark at least one tree cell for a reachable adjusted die value
-- **THEN** that option contains `marks.tree.available_cells`
-- **AND** every projected cell is a legal one-cell tree fallback
-- **AND** every legal full-tree-shape starting cell is included
-
-#### Scenario: Koala targets are available
-
-- **WHEN** a pending player can legally mark at least one koala cell for a reachable adjusted die value
-- **THEN** that option contains `marks.koala.available_cells`
-- **AND** every projected cell contains a tree without a koala in an accessible area
-- **AND** every legal full-koala-shape starting cell is included
-
-#### Scenario: A mark has no legal target
-
-- **WHEN** a pending player has no legal initial target for one mark at a reachable adjusted die value
-- **THEN** that mark is absent from the option
-- **AND** the other mark remains available when it has a legal target
+- **WHEN** a pending player receives a submit-phase projection
+- **THEN** each reachable die option contains only marks with legal initial cells
+- **AND** the client can start a draft without deriving placement legality
 
 #### Scenario: Caller cannot act
 
-- **WHEN** the caller is not the pending player, has already submitted, lacks a roll, or the game is outside the submit phase
+- **WHEN** the caller is not pending or the game is outside the submit phase
 - **THEN** caller-specific turn options are empty
 
-### Requirement: A pending player builds one authoritative mark selection
+#### Scenario: Normal projection is rendered
 
-The system SHALL store at most one private primary selection per pending player. The canonical selection MUST contain only the selected mark, adjusted die value, and ordered unique cells. The system SHALL derive volunteer cost and all other guidance from current authoritative state and immutable rules.
+- **WHEN** any caller receives a session projection
+- **THEN** the projection does not contain `selection`
 
-#### Scenario: First cell starts a selection
+### Requirement: Draft evaluates a complete candidate without mutation
 
-- **WHEN** a pending player sends `select` with a valid `mark`, reachable `die_value`, and legal `target_cell`
-- **THEN** the server stores a one-cell selection for that player
-- **AND** the command does not change the committed sheet, volunteer slots, bonus resolutions, turn history, or player status
+The system SHALL accept a synchronous `draft` request from a pending player with `mark`, `die_value`, and non-empty ordered unique `selected_cells`. It SHALL validate the complete candidate against the latest committed game and return caller-specific derived guidance without changing or publishing the session.
 
-#### Scenario: Full context replaces an existing selection
+#### Scenario: One-cell draft is evaluated
 
-- **WHEN** a pending player with an existing selection sends `select` with a valid full context and target
-- **THEN** the server atomically replaces the old selection with the new one-cell selection
-- **AND** no part of the old selection remains authoritative
+- **WHEN** a pending player requests a legal one-cell draft
+- **THEN** the reply echoes normalized mark, die value, and selected cells
+- **AND** contains legal `available_cells`, `required_cells`, derived `volunteers_used`, `submit_ready`, `resolution`, and `bonus_options`
+- **AND** the game state is byte-for-byte unchanged
+- **AND** no session projection is broadcast
 
-#### Scenario: Target-only select continues a selection
+#### Scenario: Partial shape draft is evaluated
 
-- **WHEN** a pending player sends `select` with only `target_cell`
-- **THEN** the server uses the stored mark and adjusted die value
-- **AND** accepts the cell only when the resulting multi-cell set remains a subset of at least one legal full-shape placement
+- **WHEN** selected cells are a legal multi-cell prefix smaller than the adjusted die shape
+- **THEN** the reply has `submit_ready: false`
+- **AND** `resolution` is absent
+- **AND** available cells contain only legal continuations
 
-#### Scenario: Target-only select has no context
+#### Scenario: Complete shape draft is evaluated
 
-- **WHEN** a pending player without a selection sends target-only `select`
-- **THEN** the command is rejected with `missing_turn_selection`
-- **AND** the game state is unchanged
+- **WHEN** selected cells exactly match a legal adjusted die shape
+- **THEN** the reply has `submit_ready: true`
+- **AND** `resolution` is `shape`
+- **AND** bonus options are derived from the complete primary result
 
-#### Scenario: Existing cell is selected again
+#### Scenario: Draft is invalid or stale
 
-- **WHEN** a pending player selects a cell already present in the current selection
-- **THEN** the command is idempotently accepted
-- **AND** the selection and committed state remain unchanged
+- **WHEN** the caller, die value, cells, placement, or current player status makes a draft illegal
+- **THEN** the request returns the applicable stable error
+- **AND** the complete game and session state remain unchanged
+- **AND** no session projection is broadcast
 
-#### Scenario: Invalid continuation is selected
+#### Scenario: Another caller observes the session
 
-- **WHEN** a pending player selects a second or later cell that cannot continue any legal full-shape placement
-- **THEN** the command is rejected with `invalid_target`
-- **AND** the prior selection remains unchanged
+- **WHEN** one player receives a successful draft reply
+- **THEN** no other player or spectator receives that candidate or reply
 
-#### Scenario: Volunteer count is derived
+### Requirement: Candidate classification supports fallback and shape completion
 
-- **WHEN** a selection is started for an adjusted die value
-- **THEN** the server derives the required volunteer count from the shared roll and adjusted value
-- **AND** `select` does not accept `volunteers_used` as authoritative input
-- **AND** the canonical selection does not store the derived count
+The system SHALL classify a legal candidate from its selected cell count and adjusted die shape. Every supported die shape MUST contain at least two cells.
 
-### Requirement: Selection classification supports fallback and shape completion
+#### Scenario: One cell is a fallback and can be extended
 
-The system SHALL classify a valid selection from its cell count and the adjusted die shape size. Every supported die shape MUST contain at least two cells so one selected cell is unambiguously a fallback.
+- **WHEN** a legal one-cell candidate belongs to at least one legal full placement
+- **THEN** it is submit-ready with resolution `single`
+- **AND** its available cells contain every legal continuation
 
-#### Scenario: One selected cell can be submitted and extended
+#### Scenario: One cell has no continuation
 
-- **WHEN** a valid one-cell selection belongs to at least one legal full-shape placement
-- **THEN** the selection is submit-ready with resolution `single`
-- **AND** its available cells contain every legal continuation from compatible full-shape placements
-- **AND** the player may either submit the fallback or continue selecting
+- **WHEN** a legal one-cell candidate belongs to no legal full placement
+- **THEN** it remains submit-ready with resolution `single`
+- **AND** available cells are empty
 
-#### Scenario: One selected cell cannot be extended
+#### Scenario: Candidate exceeds shape size
 
-- **WHEN** a valid one-cell selection belongs to no legal full-shape placement
-- **THEN** the selection is submit-ready with resolution `single`
-- **AND** its available cells are empty
+- **WHEN** selected cells exceed the adjusted shape size
+- **THEN** draft and submit reject the candidate
 
-#### Scenario: Multi-cell selection is incomplete
+#### Scenario: Duplicate cells are supplied
 
-- **WHEN** the selected cell count is greater than one and less than the adjusted die shape size
-- **THEN** the selection is not submit-ready
-- **AND** resolution is absent
-- **AND** available cells contain only legal full-shape continuations
+- **WHEN** a draft or submit repeats the same cell
+- **THEN** structural validation rejects the payload instead of silently changing candidate cardinality
 
-#### Scenario: Full shape is complete
+### Requirement: Submit carries and commits the complete draft
 
-- **WHEN** the selected cells exactly match one legal transformed placement of the adjusted die shape
-- **THEN** the selection is submit-ready with resolution `shape`
-- **AND** no additional primary cells are available
+The system SHALL use `submit` as the only public primary placement mutation. The payload MUST contain `mark`, `die_value`, `selected_cells`, and ordered `bonus_actions`. The system MUST revalidate the complete candidate and apply volunteers, the primary result, bonuses, omitted-bonus forfeiture, history, and player status atomically.
 
-#### Scenario: Selection exceeds the shape size
+#### Scenario: One-cell tree or koala is submitted
 
-- **WHEN** a select command would produce more cells than the adjusted die shape size
-- **THEN** the command is rejected
-- **AND** the prior selection remains unchanged
+- **WHEN** a pending player submits a legal one-cell candidate
+- **THEN** exactly that tree or koala result is committed
+- **AND** volunteer cost, bonuses, history, and player submission are committed in the same transition
 
-### Requirement: Deselect and reset edit only the authoritative selection
+#### Scenario: Full tree or koala shape is submitted
 
-The system SHALL let the pending player remove selected cells individually with `deselect` and clear the complete selection with `reset`. Neither edit SHALL mutate committed turn facts.
-
-#### Scenario: Selected cell is removed
-
-- **WHEN** a pending player deselects a cell in the current selection
-- **THEN** the server removes that cell
-- **AND** reclassifies the remaining cells and legal continuations
-
-#### Scenario: Last cell is removed
-
-- **WHEN** a pending player deselects the only selected cell
-- **THEN** the server normalizes the selection to `nil`
-- **AND** the player returns to an empty pending draft
-
-#### Scenario: Unselected cell is deselected
-
-- **WHEN** a pending player deselects a valid cell absent from the current selection
-- **THEN** the command is idempotently accepted
-- **AND** the selection remains unchanged
-
-#### Scenario: Selection is reset
-
-- **WHEN** a pending player sends `reset` with an empty payload
-- **THEN** the complete selection is cleared
-- **AND** the committed sheet, volunteers, bonuses, history, and player status remain unchanged
-
-### Requirement: Submit atomically resolves either selected placement form
-
-The system SHALL use `submit` as the only public command that commits a player-selected primary placement. It MUST revalidate the current selection and apply volunteer spending, the derived primary result, ordered bonus actions, omitted-bonus forfeiture, turn history, selection clearing, and player submission atomically.
-
-#### Scenario: One tree cell is submitted
-
-- **WHEN** a pending player submits a valid one-cell `tree` selection
-- **THEN** the server marks exactly that tree cell
-- **AND** applies the derived volunteer cost and valid ordered bonuses
-- **AND** clears the selection and marks the player submitted
-
-#### Scenario: One koala cell is submitted
-
-- **WHEN** a pending player submits a valid one-cell `koala` selection
-- **THEN** the server marks exactly that koala on an existing tree
-- **AND** applies the derived volunteer cost and valid ordered bonuses
-- **AND** clears the selection and marks the player submitted
-
-#### Scenario: Full tree shape is submitted
-
-- **WHEN** a pending player submits a valid shape-ready `tree` selection
-- **THEN** the server marks every selected tree cell in one complete adjusted die shape
-- **AND** commits the remaining turn effects atomically
-
-#### Scenario: Full koala shape is submitted
-
-- **WHEN** a pending player submits a valid shape-ready `koala` selection
-- **THEN** the server marks every selected koala cell in one complete adjusted die shape
-- **AND** commits the remaining turn effects atomically
+- **WHEN** a pending player submits a legal complete-shape candidate
+- **THEN** every selected mark is committed atomically with the remaining turn effects
 
 #### Scenario: Partial shape is submitted
 
-- **WHEN** a pending player submits a multi-cell selection smaller than the adjusted die shape
+- **WHEN** a pending player submits a multi-cell legal prefix that is not a complete shape
 - **THEN** the command is rejected with `incomplete_turn_selection`
-- **AND** the committed state and authoritative selection remain unchanged
+- **AND** the complete source aggregate remains unchanged
 
-#### Scenario: Selection is missing
+#### Scenario: Preview became stale
 
-- **WHEN** a pending player submits without an authoritative selection
-- **THEN** the command is rejected with `missing_turn_selection`
-- **AND** the game state remains unchanged
+- **WHEN** a previously previewed candidate is no longer legal at submit time
+- **THEN** submit rejects it using current committed state
+- **AND** no primary, volunteer, bonus, history, or status change is committed
 
-#### Scenario: Primary or bonus validation fails
+#### Scenario: Bonus validation fails
 
-- **WHEN** the current selection or any ordered bonus action is no longer legal at submission
-- **THEN** the entire command is rejected with the applicable stable reason
-- **AND** no primary mark, volunteer, bonus, history, status, or selection change is committed
+- **WHEN** any ordered bonus action is illegal
+- **THEN** the whole submit is rejected
+- **AND** no partial primary or bonus effect is committed
 
-### Requirement: Direct primary action commands are unsupported
+### Requirement: Structural failures identify draft or submit
 
-The public Koala Rescue Club command contract SHALL contain no `plant_trees`, `rehome_koalas`, `circle_tree`, or `circle_koala` event. Primary placement intent MUST enter through `select`, primary cell removal through `deselect`, and accepted placement through `submit`.
+Command normalization SHALL tag malformed payloads with the concrete attempted action.
 
-#### Scenario: Legacy one-cell tree command is sent
+#### Scenario: Draft payload is malformed
 
-- **WHEN** a client sends `circle_tree`
-- **THEN** the command is rejected as unsupported
-- **AND** the game state is unchanged
+- **WHEN** draft candidate casting or normalization fails
+- **THEN** the returned changeset action is `draft`
 
-#### Scenario: Legacy one-cell koala command is sent
+#### Scenario: Submit payload is malformed
 
-- **WHEN** a client sends `circle_koala`
-- **THEN** the command is rejected as unsupported
-- **AND** the game state is unchanged
+- **WHEN** submit candidate or bonus normalization fails
+- **THEN** the returned changeset action is `submit`
 
-#### Scenario: Legacy full-shape command is sent
+### Requirement: Staged and direct primary commands are unsupported
 
-- **WHEN** a client sends `plant_trees` or `rehome_koalas`
-- **THEN** the command is rejected as unsupported
-- **AND** the game state is unchanged
+The public contract SHALL NOT contain `select`, `deselect`, `reset`, `plant_trees`, `rehome_koalas`, `circle_tree`, or `circle_koala`.
 
-### Requirement: Caller projection exposes a private resumable selection
+#### Scenario: Removed staged edit is sent
 
-The system SHALL expose the authoritative selection only to its pending player. The selection projection SHALL contain the stored mark, adjusted die value, selected cells, and derived volunteer cost, shape size, legal continuations, submission readiness, resolution form, and bonus options needed to render and resume the workflow.
+- **WHEN** a client sends `select`, `deselect`, or `reset`
+- **THEN** the event is rejected as unsupported
+- **AND** game state is unchanged
 
-#### Scenario: Acting player receives a one-cell selection
+#### Scenario: Removed direct action is sent
 
-- **WHEN** the acting player has a one-cell authoritative selection
-- **THEN** their projection contains that selected cell and mark
-- **AND** exposes `submit_ready: true`, `resolution: single`, derived `volunteers_used`, compatible continuations, and current bonus options
+- **WHEN** a client sends any removed direct primary action
+- **THEN** the event is rejected as unsupported
+- **AND** game state is unchanged
 
-#### Scenario: Acting player receives a partial shape
+### Requirement: Selected sheet ruleset owns hospital identifiers
 
-- **WHEN** the acting player has a multi-cell incomplete selection
-- **THEN** their projection contains every selected cell and legal continuation
-- **AND** exposes `submit_ready: false`, no resolution, and no primary bonus options
+The system SHALL validate a hospital identifier structurally as a non-empty string and SHALL resolve it only against the pending player's selected rulesheet without creating atoms from transport input.
 
-#### Scenario: Acting player receives a complete shape
+#### Scenario: Hospital belongs to selected sheet
 
-- **WHEN** the acting player has a complete legal shape selection
-- **THEN** their projection exposes `submit_ready: true`, `resolution: shape`, no additional primary cells, and bonuses unlocked by that candidate
+- **WHEN** submit contains an unlocked hospital bonus with an identifier defined by that sheet
+- **THEN** the existing ruleset key is resolved safely and the bonus is applied
 
-#### Scenario: Acting player reconnects
+#### Scenario: Hospital belongs only to another sheet
 
-- **WHEN** the pending player reconnects during the live session
-- **THEN** the same authoritative primary selection and derived guidance are rendered from current game state
-- **AND** the client does not reconstruct primary cells from local history
+- **WHEN** the string is structurally valid but absent from the selected sheet
+- **THEN** submit is rejected with `invalid_hospital`
+- **AND** the aggregate remains unchanged
 
-#### Scenario: Another caller receives the session
+### Requirement: Separate client uses local draft with server guidance
 
-- **WHEN** another player or spectator receives a caller-specific projection
-- **THEN** the acting player's selection is absent
-- **AND** only committed sheet facts and permitted public status remain visible
+The coordinated Koala client SHALL own only ephemeral candidate facts and bonus ordering. It SHALL request authoritative preview after each primary edit, use only returned legal continuations, and send the full candidate on submit.
 
-### Requirement: Separate client consumes the unified server selection
+#### Scenario: Player edits primary cells
 
-The separately delivered Koala Rescue Club client SHALL treat projected primary selection as authoritative for both one-cell and full-shape placement. It MUST send every primary target edit through the staged commands and MUST NOT retain a client-owned primary selection or direct single-cell command path.
+- **WHEN** the player selects or deselects a target
+- **THEN** the client updates its local candidate and requests `draft` with the complete current candidate
+- **AND** it does not compute legal continuations from board structure
 
-#### Scenario: Player selects a first primary cell
+#### Scenario: Draft request fails
 
-- **WHEN** the player activates a projected tree or koala target with no matching authoritative selection
-- **THEN** the client sends full-context `select`
-- **AND** renders the selected primary only after reconciling the server projection
+- **WHEN** draft is rejected or times out
+- **THEN** the client returns to the last accepted preview
 
-#### Scenario: Player edits the primary selection
+#### Scenario: Player reconnects
 
-- **WHEN** the player activates a projected continuation or selected primary cell
-- **THEN** the client sends `select` or `deselect` respectively
-- **AND** reconciles the resulting selected and available cells from the next projection
+- **WHEN** the channel reconnects or a new session snapshot is established
+- **THEN** the client clears unsubmitted primary and bonus draft state
+- **AND** starts from normal projected initial options
 
-#### Scenario: Player confirms either placement form
+#### Scenario: Player confirms
 
-- **WHEN** the projected selection is submit-ready and the player confirms
-- **THEN** the client sends `submit` with the ordered local bonus actions
-- **AND** never sends `circle_tree` or `circle_koala`
-
-#### Scenario: Command fails or times out
-
-- **WHEN** a selection edit or submit fails without changing the turn
-- **THEN** the client reconciles from the last authoritative selection
-- **AND** preserves only valid client-local presentation and ordered bonus state permitted by that selection
-
-#### Scenario: Client contract is migrated
-
-- **WHEN** the unified backend contract is adopted
-- **THEN** client public types, SDK command methods, centralized store transitions, turn reducer, controls, both map widgets, fixtures, and browser tests agree with the mark-based selection
-- **AND** embedded and standalone startup boundaries remain unchanged
+- **WHEN** the current preview is submit-ready and bonuses are valid
+- **THEN** the client sends complete mark, die value, selected cells, and ordered bonus actions through `submit`

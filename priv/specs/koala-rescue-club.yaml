@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.8.0
+  version: 0.9.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -62,8 +62,10 @@ channels:
       Stateful channel for one game session. A successful channel join returns
       the initial session projection and then tracks transport presence, which
       adds or refreshes the caller as a session member. Accepted
-      game commands receive an empty success response and publish the resulting
-      caller-specific projection when session state changes.
+      state-changing game commands receive an empty success response and publish
+      the resulting caller-specific projection. A `draft` request instead
+      returns caller-specific placement guidance without changing or publishing
+      the session.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -89,12 +91,10 @@ channels:
         $ref: "#/components/messages/leaveGame"
       startSession:
         $ref: "#/components/messages/startSession"
-      select:
-        $ref: "#/components/messages/select"
-      deselect:
-        $ref: "#/components/messages/deselect"
-      reset:
-        $ref: "#/components/messages/reset"
+      draft:
+        $ref: "#/components/messages/draft"
+      draftReply:
+        $ref: "#/components/messages/draftReply"
       submit:
         $ref: "#/components/messages/submit"
       commandReply:
@@ -168,54 +168,31 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  select:
+  draft:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Start, replace, or continue the caller's pending primary selection
+    summary: Evaluate the caller's complete local primary draft
     description: |
-      A pending player sends `select` with a mark, adjusted die value, and
-      target cell to start or replace the selection. Later calls send only a
-      target cell to continue the stored compatible shape prefix.
+      A pending player sends the complete local mark, adjusted die value, and
+      ordered selected cells. The server evaluates the candidate against current
+      committed state and returns legal continuations and submit guidance without
+      storing the candidate or publishing a session projection.
     messages:
-      - $ref: "#/channels/gameSession/messages/select"
+      - $ref: "#/channels/gameSession/messages/draft"
     reply:
       channel:
         $ref: "#/channels/gameSession"
       messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
-  deselect:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Remove one cell from the caller's pending primary selection
-    messages:
-      - $ref: "#/channels/gameSession/messages/deselect"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
-  reset:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Clear the caller's pending primary selection
-    messages:
-      - $ref: "#/channels/gameSession/messages/reset"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
+        - $ref: "#/channels/gameSession/messages/draftReply"
   submit:
     action: send
     channel:
       $ref: "#/channels/gameSession"
-    summary: Commit the stored fallback or complete shape and its bonuses
+    summary: Commit the complete fallback or shape candidate and its bonuses
     description: |
-      The client sends ordered bonus decisions. The server revalidates and
-      atomically commits the caller's submit-ready selection as either a
+      The client sends the complete primary candidate and ordered bonus
+      decisions. The server revalidates and atomically commits it as either a
       one-cell fallback or a complete adjusted die shape.
     messages:
       - $ref: "#/channels/gameSession/messages/submit"
@@ -327,31 +304,26 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/emptyPayload"
-    select:
-      name: select
-      title: Select Turn Cell
-      summary: Start, replace, or continue the caller's stored primary selection
+    draft:
+      name: draft
+      title: Preview Turn Draft
+      summary: Evaluate a complete local primary candidate without mutation
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/selectPayload"
-    deselect:
-      name: deselect
-      title: Deselect Turn Cell
-      summary: Remove one cell from the caller's stored shape selection
+        $ref: "#/components/schemas/draftPayload"
+    draftReply:
+      name: phx_reply
+      title: Draft Reply
+      summary: Derived guidance or a stable error for one draft request
+      tags:
+        - name: channel-protocol
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/deselectPayload"
-    reset:
-      name: reset
-      title: Reset Turn Selection
-      summary: Clear the caller's stored shape selection
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/emptyPayload"
+        $ref: "#/components/schemas/draftReply"
     submit:
       name: submit
       title: Submit Turn
-      summary: Commit a submit-ready primary selection and ordered bonus decisions
+      summary: Commit a complete submit-ready candidate and ordered bonus decisions
       contentType: application/json
       payload:
         $ref: "#/components/schemas/submitTurnSelectionPayload"
@@ -434,6 +406,28 @@ components:
             response:
               $ref: "#/components/schemas/commandError"
           additionalProperties: false
+    draftReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              $ref: "#/components/schemas/draftPreview"
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/commandError"
+          additionalProperties: false
     joinError:
       type: object
       required:
@@ -472,7 +466,6 @@ components:
         - insufficient_volunteers
         - invalid_shape
         - no_legal_placement
-        - missing_turn_selection
         - incomplete_turn_selection
         - invalid_target
         - invalid_area
@@ -499,7 +492,6 @@ components:
         - game
         - permissions
         - options
-        - selection
       properties:
         id:
           type: string
@@ -526,11 +518,6 @@ components:
           $ref: "#/components/schemas/permissions"
         options:
           $ref: "#/components/schemas/turnOptions"
-        selection:
-          description: Caller-owned unfinished selection, or null when none is actionable.
-          oneOf:
-            - $ref: "#/components/schemas/turnSelection"
-            - type: "null"
       additionalProperties: false
     permissions:
       type: object
@@ -713,18 +700,12 @@ components:
               - used
         hospitals:
           type: object
-          properties:
-            hospital_1_left:
-              $ref: "#/components/schemas/hospital"
-            hospital_1_right:
-              $ref: "#/components/schemas/hospital"
-            hospital_2:
-              $ref: "#/components/schemas/hospital"
-            hospital_3:
-              $ref: "#/components/schemas/hospital"
-            hospital_4:
-              $ref: "#/components/schemas/hospital"
-          additionalProperties: false
+          description: Hospitals keyed by selected sheet ruleset id.
+          propertyNames:
+            type: string
+            minLength: 1
+          additionalProperties:
+            $ref: "#/components/schemas/hospital"
         skybridges:
           type: array
           items:
@@ -938,7 +919,7 @@ components:
           items:
             $ref: "#/components/schemas/cellRef"
       additionalProperties: false
-    turnSelection:
+    draftPreview:
       type: object
       required:
         - mark
@@ -1009,40 +990,54 @@ components:
         bonus:
           $ref: "#/components/schemas/bonusDetails"
       additionalProperties: false
-    selectPayload:
-      oneOf:
-        - type: object
-          required:
-            - mark
-            - die_value
-            - target_cell
-          properties:
-            mark:
-              type: string
-              enum:
-                - tree
-                - koala
-            die_value:
-              type: integer
-              minimum: 1
-              maximum: 6
-            target_cell:
-              $ref: "#/components/schemas/cellRef"
-          additionalProperties: false
-        - $ref: "#/components/schemas/deselectPayload"
-    deselectPayload:
+    draftPayload:
       type: object
       required:
-        - target_cell
+        - mark
+        - die_value
+        - selected_cells
       properties:
-        target_cell:
-          $ref: "#/components/schemas/cellRef"
+        mark:
+          type: string
+          enum:
+            - tree
+            - koala
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        selected_cells:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/cellRef"
       additionalProperties: false
     submitTurnSelectionPayload:
       type: object
       required:
+        - mark
+        - die_value
+        - selected_cells
         - bonus_actions
       properties:
+        mark:
+          type: string
+          enum:
+            - tree
+            - koala
+        die_value:
+          type: integer
+          minimum: 1
+          maximum: 6
+        selected_cells:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/cellRef"
         bonus_actions:
           type: array
           description: >-
@@ -1154,12 +1149,7 @@ components:
           const: hospital
         hospital_id:
           type: string
-          enum:
-            - hospital_1_left
-            - hospital_1_right
-            - hospital_2
-            - hospital_3
-            - hospital_4
+          minLength: 1
       additionalProperties: false
     skybridgeBonusAction:
       type: object

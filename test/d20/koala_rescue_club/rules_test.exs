@@ -29,47 +29,31 @@ defmodule D20.KoalaRescueClub.RulesTest do
       game = submit_game(1)
       target = cell(:a, 0, 0)
 
-      assert {:ok, game} =
-               dispatch(game, "select", "p1", %{
-                 "mark" => "tree",
-                 "die_value" => 1,
-                 "target_cell" => target
-               })
-
-      assert %{
-               mark: :tree,
-               value: 1,
-               volunteers: 0,
-               cells: [^target],
-               required_cells: 2,
-               available_cells: available_cells,
-               submit_ready: true,
-               resolution: :single,
-               bonus_options: []
-             } = details = Rules.selection_details(game, "p1")
+      assert {:ok,
+              %{
+                mark: :tree,
+                die_value: 1,
+                volunteers_used: 0,
+                selected_cells: [^target],
+                required_cells: 2,
+                available_cells: available_cells,
+                submit_ready: true,
+                resolution: :single,
+                bonus_options: []
+              }} = preview(game, "p1", :tree, 1, [target])
 
       assert available_cells != []
-      refute Map.has_key?(details, :die_value)
-      refute Map.has_key?(details, :volunteers_used)
-      refute Map.has_key?(details, :selected_cells)
     end
 
-    test "classifies an isolated one-cell fallback as submit-ready without continuations" do
+    test "classifies an isolated one-cell fallback without continuations" do
       game = submit_game(1)
       rulesheet = Ruleset.sheet!(:dharug)
       target = cell(:a, 0, 0)
       occupied = rulesheet |> Ruleset.area_cells(:a) |> List.delete(target)
       game = put_in(game.players["p1"].sheet.trees, occupied)
 
-      assert {:ok, game} =
-               dispatch(game, "select", "p1", %{
-                 "mark" => "tree",
-                 "die_value" => 1,
-                 "target_cell" => target
-               })
-
-      assert %{submit_ready: true, resolution: :single, available_cells: []} =
-               Rules.selection_details(game, "p1")
+      assert {:ok, %{submit_ready: true, resolution: :single, available_cells: []}} =
+               preview(game, "p1", :tree, 1, [target])
     end
 
     test "classifies shape prefixes and complete shapes" do
@@ -78,68 +62,41 @@ defmodule D20.KoalaRescueClub.RulesTest do
       second = cell(:a, 0, 1)
       third = cell(:a, 0, 2)
 
-      assert {:ok, game} =
-               dispatch(game, "select", "p1", %{
-                 "mark" => "tree",
-                 "die_value" => 3,
-                 "target_cell" => first
-               })
-
-      assert {:ok, game} = dispatch(game, "select", "p1", %{"target_cell" => second})
-
-      assert %{submit_ready: false, resolution: nil, available_cells: available_cells} =
-               Rules.selection_details(game, "p1")
+      assert {:ok, %{submit_ready: false, resolution: nil, available_cells: available_cells}} =
+               preview(game, "p1", :tree, 3, [first, second])
 
       assert third in available_cells
 
-      assert {:ok, game} = dispatch(game, "select", "p1", %{"target_cell" => third})
-
-      assert %{submit_ready: true, resolution: :shape, available_cells: []} =
-               Rules.selection_details(game, "p1")
+      assert {:ok, %{submit_ready: true, resolution: :shape, available_cells: []}} =
+               preview(game, "p1", :tree, 3, [first, second, third])
     end
 
-    test "rejects invalid continuations and preserves the canonical selection" do
+    test "rejects an invalid continuation and keeps the aggregate unchanged" do
       game = submit_game(1)
-      first = cell(:a, 0, 0)
 
-      assert {:ok, game} =
-               dispatch(game, "select", "p1", %{
-                 "mark" => "tree",
-                 "die_value" => 1,
-                 "target_cell" => first
-               })
+      assert {:error, :no_legal_placement} =
+               preview(game, "p1", :tree, 1, [cell(:a, 0, 0), cell(:b, 0, 0)])
 
-      selection = game.players["p1"].selection
-
-      assert {:error, :invalid_target} =
-               dispatch(game, "select", "p1", %{"target_cell" => cell(:b, 0, 0)})
-
-      assert game.players["p1"].selection == selection
+      refute Map.has_key?(game.players["p1"], :selection)
+      assert game.players["p1"].sheet.trees == []
     end
 
-    test "derives volunteer cost without storing or spending it during selection" do
+    test "derives volunteer cost without storing or spending it" do
       game = submit_game(1)
 
-      assert {:ok, game} =
-               dispatch(game, "select", "p1", %{
-                 "mark" => "tree",
-                 "die_value" => 2,
-                 "target_cell" => cell(:a, 0, 0)
-               })
+      assert {:ok, %{volunteers_used: 1}} = preview(game, "p1", :tree, 2, [cell(:a, 0, 0)])
 
-      assert game.players["p1"].selection == %{mark: :tree, value: 2, cells: [cell(:a, 0, 0)]}
-
-      assert %{volunteers: 1} = Rules.selection_details(game, "p1")
       assert game.players["p1"].sheet.volunteers == available_volunteers()
+      refute Map.has_key?(game.players["p1"], :selection)
     end
 
-    test "returns no private selection outside the actionable caller context" do
+    test "rejects preview outside the actionable caller context" do
       {:ok, game} = D20.Game.init(Game)
       {:ok, game} = dispatch(game, "join", "p1")
 
       assert Rules.turn_options(game, "p1") == %{}
-      assert Rules.selection_details(game, "p1") == nil
-      assert Rules.selection_details(game, "missing") == nil
+      assert {:error, :invalid_phase} = preview(game, "p1", :tree, 1, [cell(:a, 0, 0)])
+      assert {:error, :invalid_phase} = preview(game, "missing", :tree, 1, [cell(:a, 0, 0)])
     end
   end
 
@@ -152,15 +109,20 @@ defmodule D20.KoalaRescueClub.RulesTest do
       game
       | phase: :submit,
         roll: %{value: value},
-        players:
-          Map.new(game.players, fn {id, player} ->
-            {id, %{player | status: :pending, selection: nil}}
-          end)
+        players: Map.new(game.players, fn {id, player} -> {id, %{player | status: :pending}} end)
     }
   end
 
   defp available_volunteers do
     [:available, :locked, :locked, :locked, :locked, :locked]
+  end
+
+  defp preview(game, actor_id, mark, value, cells) do
+    Rules.draft_details(game, %Command{
+      event: "draft",
+      actor_id: actor_id,
+      attrs: %{mark: mark, die_value: value, selected_cells: cells}
+    })
   end
 
   defp cell(area, row, column), do: %{area: area, row: row, column: column}

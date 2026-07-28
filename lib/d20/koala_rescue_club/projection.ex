@@ -18,17 +18,6 @@ defmodule D20.KoalaRescueClub.Projection do
             }
           }
         }
-  @type selection :: %{
-          required(:mark) => Ruleset.mark(),
-          required(:die_value) => Ruleset.die_value(),
-          required(:volunteers_used) => non_neg_integer(),
-          required(:required_cells) => pos_integer(),
-          required(:selected_cells) => [Ruleset.cell()],
-          required(:available_cells) => [Ruleset.cell()],
-          required(:submit_ready) => boolean(),
-          required(:resolution) => :single | :shape | nil,
-          required(:bonus_options) => [Ruleset.bonus_entry()]
-        }
   @type area :: %{
           required(:accessible) => boolean(),
           required(:rows) => [
@@ -61,7 +50,7 @@ defmodule D20.KoalaRescueClub.Projection do
             optional(Game.player_id()) => %{
               required(:status) => Game.player_status(),
               required(:sheet) => sheet(),
-              required(:badges) => %{optional(Ruleset.badge()) => Game.badge_award()},
+              required(:badges) => %{optional(Ruleset.badge()) => Game.award()},
               required(:rounds) => [Game.round()],
               required(:turns) => [Ruleset.die_value()]
             }
@@ -77,7 +66,6 @@ defmodule D20.KoalaRescueClub.Projection do
           required(:self) => Session.player_id(),
           required(:permissions) => Permission.t(),
           required(:options) => options(),
-          required(:selection) => selection() | nil,
           required(:game) => game()
         }
 
@@ -95,7 +83,6 @@ defmodule D20.KoalaRescueClub.Projection do
       self: actor_id,
       permissions: permissions,
       options: render_options(game, actor_id),
-      selection: render_selection(game, actor_id),
       game: render_game(rulesheet, game)
     }
   end
@@ -104,26 +91,6 @@ defmodule D20.KoalaRescueClub.Projection do
     game
     |> Rules.turn_options(actor_id)
     |> Map.new(fn {value, option} -> {Integer.to_string(value), option} end)
-  end
-
-  defp render_selection(game, actor_id) do
-    case Rules.selection_details(game, actor_id) do
-      nil ->
-        nil
-
-      details ->
-        %{
-          mark: details.mark,
-          die_value: details.value,
-          volunteers_used: details.volunteers,
-          required_cells: details.required_cells,
-          selected_cells: details.cells,
-          available_cells: details.available_cells,
-          submit_ready: details.submit_ready,
-          resolution: details.resolution,
-          bonus_options: details.bonus_options
-        }
-    end
   end
 
   defp render_game(rulesheet, %Game{} = game) do

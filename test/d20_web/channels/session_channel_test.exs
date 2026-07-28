@@ -260,113 +260,101 @@ defmodule D20Web.SessionChannelTest do
       assert_reply ref, :error, %{reason: "invalid_phase"}
     end
 
-    test "should dispatch Koala selection commands and push regular projections" do
+    test "should reply to Koala drafts without broadcasting and submit the complete candidate" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       actor_id = actor.id
       {session_id, rolled_session} = create_koala_submit_session(actor.id)
 
-      assert {:ok, %{options: options, selection: nil}, socket} =
+      assert {:ok, %{options: options} = joined_projection, socket} =
                join_session_channel(session_id, actor)
 
       assert options != %{}
+      refute Map.has_key?(joined_projection, :selection)
       assert_push "projection", _presence_projection
 
       value = rolled_session.game.roll.value
       rulesheet = Ruleset.sheet!(rolled_session.game.sheet)
       player_sheet = rolled_session.game.players[actor.id].sheet
 
-      [first_cell | remaining_cells] =
+      [first_cell | _remaining_cells] =
+        cells =
         rulesheet |> Rules.legal_shape_placements(player_sheet, :tree, value) |> List.first()
 
       ref =
-        push(socket, "select", %{
+        push(socket, "draft", %{
           "mark" => "tree",
           "die_value" => value,
-          "target_cell" => first_cell
+          "selected_cells" => [first_cell]
         })
 
-      assert_reply ref, :ok
-
-      assert_push "projection", projection
-
-      assert %{
-               selection: %{
-                 mark: :tree,
-                 die_value: ^value,
-                 selected_cells: [^first_cell],
-                 available_cells: available_cells,
-                 submit_ready: true,
-                 resolution: :single
-               }
-             } = projection
+      assert_reply ref, :ok, %{
+        mark: :tree,
+        die_value: ^value,
+        selected_cells: [^first_cell],
+        available_cells: available_cells,
+        submit_ready: true,
+        resolution: :single
+      }
 
       assert available_cells != []
+      refute_push "projection", _payload, 100
 
-      assert {:ok, {%Session{game: game}, "koala-rescue-club"}} = D20.Sessions.get(session_id)
+      assert {:ok, {%Session{game: unchanged_game}, "koala-rescue-club"}} =
+               D20.Sessions.get(session_id)
 
-      assert game.players[actor.id].selection == %{mark: :tree, value: value, cells: [first_cell]}
+      assert unchanged_game == rolled_session.game
+      refute Map.has_key?(rolled_session.game.players[actor.id], :selection)
 
-      assert {:ok,
-              %{
-                selection: %{
-                  mark: :tree,
-                  die_value: ^value,
-                  selected_cells: [^first_cell],
-                  submit_ready: true,
-                  resolution: :single
-                }
-              }, _reconnected_socket} = join_session_channel(session_id, actor)
-
-      for event <- ~w(plant_trees rehome_koalas circle_tree circle_koala) do
+      for event <- ~w(select deselect reset plant_trees rehome_koalas circle_tree circle_koala) do
         legacy_ref = push(socket, event, %{})
         assert_reply legacy_ref, :error, %{reason: "unknown_command"}
         refute_push "projection", _payload, 100
       end
 
       invalid_ref =
-        push(socket, "select", %{"target_cell" => %{"area" => "b", "row" => 0, "column" => 0}})
+        push(socket, "draft", %{
+          "mark" => "tree",
+          "die_value" => value,
+          "selected_cells" => [%{"area" => "b", "row" => 0, "column" => 0}]
+        })
 
       assert_reply invalid_ref, :error, %{reason: "invalid_target"}
       refute_push "projection", _payload, 100
 
-      reset_ref = push(socket, "reset", %{})
-      assert_reply reset_ref, :ok
-      assert_push "projection", %{selection: nil}
-      assert_push "projection", %{selection: nil}
+      draft_ref =
+        push(socket, "draft", %{"mark" => "tree", "die_value" => value, "selected_cells" => cells})
 
-      select_ref =
-        push(socket, "select", %{
+      assert_reply draft_ref, :ok, %{
+        selected_cells: ^cells,
+        submit_ready: true,
+        resolution: :shape
+      }
+
+      refute_push "projection", _payload, 100
+
+      submit_ref =
+        push(socket, "submit", %{
           "mark" => "tree",
           "die_value" => value,
-          "target_cell" => first_cell
+          "selected_cells" => cells,
+          "bonus_actions" => []
         })
 
-      assert_reply select_ref, :ok
-      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
-      assert_push "projection", %{selection: %{selected_cells: [^first_cell]}}
-
-      Enum.each(remaining_cells, fn cell ->
-        select_ref = push(socket, "select", %{"target_cell" => cell})
-        assert_reply select_ref, :ok
-        assert_push "projection", %{selection: %{selected_cells: selected_cells}}
-        assert_push "projection", %{selection: %{selected_cells: ^selected_cells}}
-        assert cell in selected_cells
-      end)
-
-      submit_ref = push(socket, "submit", %{"bonus_actions" => []})
       assert_reply submit_ref, :ok
 
-      assert_push "projection", %{
-        options: %{},
-        selection: nil,
-        game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
-      }
+      assert_push "projection", projection
 
-      assert_push "projection", %{
-        options: %{},
-        selection: nil,
-        game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
-      }
+      assert %{
+               options: %{},
+               game: %{phase: :roll, turn: 2, players: %{^actor_id => %{status: :ready}}}
+             } = projection
+
+      refute Map.has_key?(projection, :selection)
+
+      assert {:ok, reconnected_projection, _reconnected_socket} =
+               join_session_channel(session_id, actor)
+
+      refute Map.has_key?(reconnected_projection, :selection)
     end
 
     test "should run Next Station London through automatic preparation and explicit projections" do

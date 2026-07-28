@@ -28,6 +28,8 @@ defmodule D20.Game.Server do
   @callback get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
   @callback dispatch(:gen_statem.server_ref(), Command.t()) ::
               {:ok, Session.t()} | {:error, Session.reason()}
+  @callback preview(:gen_statem.server_ref(), Command.t()) ::
+              {:ok, map()} | {:error, Session.reason()}
 
   defmacro __using__([]) do
     quote do
@@ -59,6 +61,13 @@ defmodule D20.Game.Server do
         D20.Game.Server.dispatch(server, command)
       end
 
+      @impl D20.Game.Server
+      @spec preview(:gen_statem.server_ref(), D20.Command.t()) ::
+              {:ok, map()} | {:error, D20.Sessions.Session.reason()}
+      def preview(server, %D20.Command{} = command) do
+        D20.Game.Server.preview(server, command)
+      end
+
       @impl :gen_statem
       def callback_mode, do: :handle_event_function
 
@@ -66,6 +75,7 @@ defmodule D20.Game.Server do
                      start_link: 1,
                      get: 1,
                      dispatch: 2,
+                     preview: 2,
                      callback_mode: 0
     end
   end
@@ -126,6 +136,12 @@ defmodule D20.Game.Server do
     :gen_statem.call(server, {:dispatch, command})
   end
 
+  @spec preview(:gen_statem.server_ref(), Command.t()) ::
+          {:ok, map()} | {:error, Session.reason()}
+  def preview(server, %Command{} = command) do
+    :gen_statem.call(server, {:preview, command})
+  end
+
   @impl :gen_statem
   def callback_mode, do: :handle_event_function
 
@@ -168,6 +184,17 @@ defmodule D20.Game.Server do
       {:error, reason} ->
         {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle_action()]}
     end
+  end
+
+  def handle_event(
+        {:call, from},
+        {:preview, %Command{} = command},
+        _state,
+        {_slug, engine, session}
+      ) do
+    reply = Session.preview(session, engine, command)
+
+    {:keep_state_and_data, [{:reply, from, reply}, idle_action()]}
   end
 
   def handle_event({:call, from}, {:remove_member, actor_id}, _state, {slug, engine, session}) do

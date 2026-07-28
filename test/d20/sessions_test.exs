@@ -28,6 +28,11 @@ defmodule D20.SessionsTest do
     end
 
     @impl D20.Game
+    def preview(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs}) do
+      {:ok, %{actor_id: actor_id, attrs: attrs, event_count: length(state.events)}}
+    end
+
+    @impl D20.Game
     def finished?(state) do
       Enum.any?(state.events, fn {event, _actor_id, _attrs} -> event == "finish" end)
     end
@@ -117,7 +122,7 @@ defmodule D20.SessionsTest do
   describe "game server contract" do
     test "keeps game-specific hooks out of the default and generated servers" do
       assert Enum.sort(Server.behaviour_info(:callbacks)) ==
-               Enum.sort(start_link: 1, get: 1, dispatch: 2)
+               Enum.sort(start_link: 1, get: 1, dispatch: 2, preview: 2)
 
       refute function_exported?(Server, :handle_event, 5)
       refute function_exported?(Server, :transition, 5)
@@ -378,6 +383,29 @@ defmodule D20.SessionsTest do
       refute_receive {:session, %Session{}}, 50
       assert {:ok, {%Session{members: ^members}, "test-game"}} = Sessions.get(ref)
       refute online == offline
+    end
+  end
+
+  describe "preview/3" do
+    setup do
+      start_test_session(TestGame, "p1")
+    end
+
+    test "serializes a caller-scoped read without storing or publishing", %{ref: ref, pid: pid} do
+      assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
+      assert {:ok, {before, "test-game"}} = Sessions.get(ref)
+      assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
+
+      assert {:ok, %{actor_id: "p2", attrs: %{candidate: 1}, event_count: 1}} =
+               Sessions.preview(scope(ref, "p2"), "inspect", %{candidate: 1})
+
+      refute_receive {:session, %Session{}}, 50
+      assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
+      assert {:in_progress, {"test-game", TestGame, ^before}} = :sys.get_state(pid)
+    end
+
+    test "requires session and actor context" do
+      assert {:error, :forbidden} = Sessions.preview(%Scope{}, "inspect", %{})
     end
   end
 

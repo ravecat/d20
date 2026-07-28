@@ -10,7 +10,6 @@ defmodule D20.KoalaRescueClub.Command do
 
   @areas ~w(a b c d e f g)a
   @bonus_axes ~w(row column)a
-  @hospital_ids ~w(hospital_1_left hospital_1_right hospital_2 hospital_3 hospital_4)a
 
   @type reason :: Changeset.t() | :unknown_command
 
@@ -21,106 +20,87 @@ defmodule D20.KoalaRescueClub.Command do
 
   def validate(%D20.Command{event: "start"} = command), do: {:ok, command}
 
-  def validate(%D20.Command{event: "select", attrs: attrs} = command) do
-    types = %{
-      mark: Ecto.ParameterizedType.init(Ecto.Enum, values: Ruleset.marks()),
-      die_value: :integer,
-      target_cell: :map
-    }
-
-    changeset =
-      {%{}, types}
-      |> cast(attrs || %{}, Map.keys(types))
-      |> validate_required([:target_cell])
-      |> validate_selection_context()
-      |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
-      |> reject_selection_field(attrs, :action)
-      |> reject_selection_field(attrs, :volunteers_used)
-
-    case apply_action(changeset, :turn_selection) do
-      {:ok, %{target_cell: cell} = attrs} ->
-        case normalize_cell(cell) do
-          {:ok, cell} -> {:ok, %{command | attrs: Map.put(attrs, :target_cell, cell)}}
-          :error -> invalid_selection(changeset)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
+  def validate(%D20.Command{event: "draft"} = command) do
+    validate_candidate(command, :draft, false)
   end
 
-  def validate(%D20.Command{event: "deselect", attrs: attrs} = command) do
-    changeset =
-      {%{}, %{target_cell: :map}}
-      |> cast(attrs || %{}, [:target_cell])
-      |> validate_required([:target_cell])
-
-    case apply_action(changeset, :turn_selection) do
-      {:ok, %{target_cell: cell}} ->
-        case normalize_cell(cell) do
-          {:ok, cell} -> {:ok, %{command | attrs: %{target_cell: cell}}}
-          :error -> invalid_selection(changeset)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
-  end
-
-  def validate(%D20.Command{event: "reset", attrs: attrs} = command)
-      when attrs == %{} or is_nil(attrs),
-      do: {:ok, %{command | attrs: %{}}}
-
-  def validate(%D20.Command{event: "reset"} = command) do
-    {%{}, %{event: :string, attrs: :map}}
-    |> cast(Map.from_struct(command), [:event, :attrs])
-    |> add_error(:attrs, "must be empty")
-    |> apply_action(:turn_selection)
-  end
-
-  def validate(%D20.Command{event: "submit", attrs: attrs} = command) do
-    changeset =
-      {%{}, %{bonus_actions: {:array, :map}}}
-      |> cast(attrs || %{}, [:bonus_actions])
-      |> require_bonus_actions(attrs)
-
-    case apply_action(changeset, :turn_selection) do
-      {:ok, attrs} ->
-        case normalize_bonus_actions(Map.get(attrs, :bonus_actions, [])) do
-          {:ok, bonus_actions} -> {:ok, %{command | attrs: %{bonus_actions: bonus_actions}}}
-          :error -> invalid_selection(changeset)
-        end
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
+  def validate(%D20.Command{event: "submit"} = command) do
+    validate_candidate(command, :submit, true)
   end
 
   def validate(%D20.Command{}), do: {:error, :unknown_command}
 
-  defp validate_selection_context(changeset) do
-    fields = [:mark, :die_value]
+  defp validate_candidate(%D20.Command{attrs: attrs} = command, action, include_bonuses?) do
+    types = %{
+      mark: Ecto.ParameterizedType.init(Ecto.Enum, values: Ruleset.marks()),
+      die_value: :integer,
+      selected_cells: {:array, :map},
+      bonus_actions: {:array, :map}
+    }
 
-    if Enum.any?(fields, &field_present?(changeset, &1)) do
-      validate_required(changeset, fields)
+    fields = if include_bonuses?, do: Map.keys(types), else: [:mark, :die_value, :selected_cells]
+    required = if include_bonuses?, do: fields, else: [:mark, :die_value, :selected_cells]
+
+    changeset =
+      {%{}, types}
+      |> cast(attrs || %{}, fields)
+      |> validate_required(required)
+      |> validate_number(:die_value, greater_than_or_equal_to: 1, less_than_or_equal_to: 6)
+      |> validate_length(:selected_cells, min: 1)
+      |> then(fn changeset ->
+        if include_bonuses?, do: require_bonus_actions(changeset, attrs), else: changeset
+      end)
+
+    with {:ok, normalized} <- apply_action(changeset, action),
+         {:ok, selected_cells} <- normalize_cells(normalized.selected_cells),
+         {:ok, bonus_actions} <- normalize_candidate_bonus_actions(normalized, include_bonuses?) do
+      attrs =
+        normalized
+        |> Map.take([:mark, :die_value])
+        |> Map.put(:selected_cells, selected_cells)
+        |> maybe_put_bonus_actions(bonus_actions, include_bonuses?)
+
+      {:ok, %{command | attrs: attrs}}
     else
-      changeset
+      {:error, %Changeset{} = changeset} -> {:error, changeset}
+      :error -> invalid_payload(changeset, action)
     end
   end
 
-  defp field_present?(changeset, field) do
-    not is_nil(get_field(changeset, field))
-  end
-
-  defp reject_selection_field(changeset, attrs, field) when is_map(attrs) do
-    if Map.has_key?(attrs, field) or Map.has_key?(attrs, Atom.to_string(field)) do
-      add_error(changeset, field, "is not accepted")
+  defp normalize_cells(cells) when is_list(cells) do
+    with {:ok, cells} <- normalize_cell_list(cells),
+         true <- Enum.uniq(cells) == cells do
+      {:ok, cells}
     else
-      changeset
+      _reason -> :error
     end
   end
 
-  defp reject_selection_field(changeset, _attrs, _field), do: changeset
+  defp normalize_cells(_cells), do: :error
+
+  defp normalize_cell_list(cells) do
+    Enum.reduce_while(cells, {:ok, []}, fn cell, {:ok, cells} ->
+      case normalize_cell(cell) do
+        {:ok, cell} -> {:cont, {:ok, [cell | cells]}}
+        :error -> {:halt, :error}
+      end
+    end)
+    |> case do
+      {:ok, cells} -> {:ok, Enum.reverse(cells)}
+      :error -> :error
+    end
+  end
+
+  defp normalize_candidate_bonus_actions(_attrs, false), do: {:ok, []}
+
+  defp normalize_candidate_bonus_actions(attrs, true) do
+    normalize_bonus_actions(Map.get(attrs, :bonus_actions, []))
+  end
+
+  defp maybe_put_bonus_actions(attrs, _bonus_actions, false), do: attrs
+
+  defp maybe_put_bonus_actions(attrs, bonus_actions, true),
+    do: Map.put(attrs, :bonus_actions, bonus_actions)
 
   defp require_bonus_actions(changeset, attrs) when is_map(attrs) do
     if Map.has_key?(attrs, :bonus_actions) or Map.has_key?(attrs, "bonus_actions") do
@@ -134,8 +114,8 @@ defmodule D20.KoalaRescueClub.Command do
     add_error(changeset, :bonus_actions, "can't be blank")
   end
 
-  defp invalid_selection(changeset) do
-    changeset |> add_error(:attrs, "is invalid") |> apply_action(:turn_selection)
+  defp invalid_payload(changeset, action) do
+    changeset |> add_error(:attrs, "is invalid") |> apply_action(action)
   end
 
   defp normalize_cell(attrs) when is_map(attrs) do
@@ -189,7 +169,7 @@ defmodule D20.KoalaRescueClub.Command do
   defp normalize_bonus_action_kind("volunteer", _attrs), do: {:ok, %{kind: :volunteer}}
 
   defp normalize_bonus_action_kind("hospital", attrs) do
-    with {:ok, hospital_id} <- fetch_hospital_id(attrs, :hospital_id) do
+    with {:ok, hospital_id} <- fetch_string(attrs, :hospital_id) do
       {:ok, %{kind: :hospital, hospital_id: hospital_id}}
     end
   end
@@ -241,20 +221,6 @@ defmodule D20.KoalaRescueClub.Command do
 
   defp normalize_axis(axis) do
     Enum.find_value(@bonus_axes, :error, fn id -> if Atom.to_string(id) == axis, do: {:ok, id} end)
-  end
-
-  defp fetch_hospital_id(attrs, key) do
-    case fetch_value(attrs, key) do
-      hospital_id when is_atom(hospital_id) and hospital_id in @hospital_ids -> {:ok, hospital_id}
-      hospital_id when is_binary(hospital_id) -> normalize_hospital_id(hospital_id)
-      _value -> :error
-    end
-  end
-
-  defp normalize_hospital_id(hospital_id) do
-    Enum.find_value(@hospital_ids, :error, fn id ->
-      if Atom.to_string(id) == hospital_id, do: {:ok, id}
-    end)
   end
 
   defp fetch_non_neg_integer(attrs, key) do

@@ -203,6 +203,21 @@ defmodule D20.KoalaRescueClub.RulesetTest do
     test "returns areas marked accessible on the player sheet" do
       assert Ruleset.accessible_areas(%{areas: %{a: true, b: true, c: false}}) == [:a, :b]
     end
+
+    test "resolves hospital ids only from the selected sheet" do
+      dharug = Ruleset.sheet!(:dharug)
+      yugambeh = Ruleset.sheet!(:yugambeh)
+
+      assert {:ok, :hospital_2, %{size: 3, score: 2}} =
+               Ruleset.fetch_hospital(dharug, "hospital_2")
+
+      assert :error = Ruleset.fetch_hospital(dharug, "hospital_4")
+
+      assert {:ok, :hospital_4, %{size: 4, score: 4, penalty: -3}} =
+               Ruleset.fetch_hospital(yugambeh, "hospital_4")
+
+      assert :error = Ruleset.fetch_hospital(yugambeh, "unknown_hospital")
+    end
   end
 
   describe "scoring helpers" do

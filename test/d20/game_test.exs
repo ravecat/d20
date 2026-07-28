@@ -72,6 +72,11 @@ defmodule D20.GameTest do
     assert D20.Game.server(CustomServerGame) == CustomServer
   end
 
+  test "provides an unsupported default preview callback" do
+    assert {:error, :unknown_command} =
+             TestGame.preview(%{phase: :setup}, %D20.Command{event: "draft"})
+  end
+
   test "returns an empty attrs changeset for engines without creation fields" do
     assert %Ecto.Changeset{valid?: true, types: %{}} = D20.Game.changeset(TestGame)
   end

@@ -38,6 +38,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @type mark :: :tree | :koala
   @type area :: atom()
   @type badge :: atom()
+  @type hospital_id :: atom()
   @type cell :: %{
           required(:area) => area(),
           required(:row) => non_neg_integer(),
@@ -109,6 +110,16 @@ defmodule D20.KoalaRescueClub.Ruleset do
   @doc "Returns a supported sheet definition or raises when the sheet is unknown."
   @spec sheet!(id()) :: Sheet.t()
   def sheet!(sheet), do: @sheet_modules |> Map.fetch!(sheet) |> Sheet.from_module()
+
+  @doc "Resolves an opaque hospital identifier against one sheet without creating atoms."
+  @spec fetch_hospital(Sheet.t(), term()) :: {:ok, hospital_id(), map()} | :error
+  def fetch_hospital(%Sheet{hospitals: hospitals}, hospital_id) when is_binary(hospital_id) do
+    Enum.find_value(hospitals, :error, fn {id, hospital} ->
+      if Atom.to_string(id) == hospital_id, do: {:ok, id, hospital}
+    end)
+  end
+
+  def fetch_hospital(%Sheet{}, _hospital_id), do: :error
 
   @doc "Returns all cells for one area."
   @spec area_cells(Sheet.t(), area()) :: [cell()]

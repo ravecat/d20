@@ -36,7 +36,7 @@ defmodule D20.KoalaRescueClub.Game do
   @type player_id :: D20.Actors.Actor.id()
   @type volunteer :: :available | :locked | :used
   @type player_status :: :ready | :pending | :submitted
-  @type badge_award :: :large | :small
+  @type award :: :large | :small
   @type skybridge :: %{required(:from) => Ruleset.area(), required(:to) => Ruleset.area()}
   @type sheet :: %{
           required(:trees) => [Ruleset.cell()],
@@ -57,16 +57,10 @@ defmodule D20.KoalaRescueClub.Game do
           required(:hospitals) => integer(),
           required(:total) => integer()
         }
-  @type selection :: %{
-          required(:mark) => Ruleset.mark(),
-          required(:value) => Ruleset.die_value(),
-          required(:cells) => [Ruleset.cell()]
-        }
   @type player :: %{
           required(:status) => player_status(),
           required(:sheet) => sheet(),
-          required(:selection) => selection() | nil,
-          required(:badges) => %{optional(Ruleset.badge()) => badge_award()},
+          required(:badges) => %{optional(Ruleset.badge()) => award()},
           required(:rounds) => [round()],
           required(:turns) => [Ruleset.die_value()]
         }
@@ -134,13 +128,25 @@ defmodule D20.KoalaRescueClub.Game do
 
   def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{} = command) do
     with {:ok, command} <- Command.validate(command),
-         :ok <- Rules.validate(game, command) do
-      {:ok, apply_command(game, command)}
+         {:ok, player} <- Rules.resolve_turn(game, command) do
+      {:ok, apply_submit(game, command, player)}
     end
   end
 
   def dispatch(%__MODULE__{phase: :finished}, %D20.Command{}), do: {:error, :finished}
   def dispatch(%__MODULE__{}, %D20.Command{}), do: {:error, :invalid_phase}
+
+  @impl D20.Game
+  @spec preview(t(), D20.Command.t()) ::
+          {:ok, Rules.draft_details()}
+          | {:error, Ecto.Changeset.t() | Rules.reason() | Command.reason() | reason()}
+  def preview(%__MODULE__{} = game, %D20.Command{event: "draft"} = command) do
+    with {:ok, command} <- Command.validate(command) do
+      Rules.draft_details(game, command)
+    end
+  end
+
+  def preview(%__MODULE__{}, %D20.Command{}), do: {:error, :unknown_command}
 
   @impl D20.Game
   @spec finished?(t()) :: boolean()
@@ -160,41 +166,28 @@ defmodule D20.KoalaRescueClub.Game do
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
     players =
       Map.new(game.players, fn {player_id, player} ->
-        {player_id,
-         Map.merge(player, %{status: :ready, selection: nil, rounds: [], badges: %{}, turns: []})}
+        {player_id, Map.merge(player, %{status: :ready, rounds: [], badges: %{}, turns: []})}
       end)
 
     %{game | phase: :roll, mode: game_mode(game.players), round: 1, turn: 1, players: players}
-  end
-
-  defp apply_command(
-         %__MODULE__{phase: :submit} = game,
-         %D20.Command{event: event, actor_id: actor_id} = command
-       )
-       when event in ["select", "deselect", "reset"] do
-    {:ok, player} = Rules.resolve_turn(game, command)
-
-    put_in(game.players[actor_id], player)
-  end
-
-  defp apply_command(
-         %__MODULE__{phase: :submit} = game,
-         %D20.Command{event: event, actor_id: actor_id} = command
-       )
-       when event == "submit" do
-    value = turn_value(game, command)
-    {:ok, player} = Rules.resolve_turn(game, command)
-    player = record_turn(player, value)
-
-    game
-    |> put_in([Access.key!(:players), actor_id], player)
-    |> maybe_resolve_turn()
   end
 
   defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"}) do
     %{d6: [value]} = Dice.roll!(d6: 1)
 
     set_player_statuses(%{game | phase: :submit, roll: %{value: value}}, :pending)
+  end
+
+  defp apply_submit(
+         %__MODULE__{phase: :submit} = game,
+         %D20.Command{event: "submit", actor_id: actor_id, attrs: %{die_value: value}},
+         player
+       ) do
+    player = record_turn(player, value)
+
+    game
+    |> put_in([Access.key!(:players), actor_id], player)
+    |> maybe_resolve_turn()
   end
 
   defp join_player(game, player_id) do
@@ -220,7 +213,7 @@ defmodule D20.KoalaRescueClub.Game do
         bonuses: []
       }
 
-      player = %{status: :ready, sheet: sheet, selection: nil, rounds: [], badges: %{}, turns: []}
+      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
 
       %{game | players: Map.put(game.players, player_id, player)}
     end
@@ -238,10 +231,6 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp game_mode(players) when map_size(players) == 1, do: :solo
   defp game_mode(players) when map_size(players) > 1, do: :multiplayer
-
-  defp turn_value(game, %D20.Command{actor_id: actor_id}) do
-    game.players[actor_id].selection.value
-  end
 
   defp record_turn(player, value) do
     Map.put(player, :turns, Map.get(player, :turns, []) ++ [value])
@@ -429,9 +418,7 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp set_player_statuses(game, status) when status in @player_statuses do
     players =
-      Map.new(game.players, fn {player_id, player} ->
-        {player_id, %{player | status: status, selection: nil}}
-      end)
+      Map.new(game.players, fn {player_id, player} -> {player_id, %{player | status: status}} end)
 
     %{game | players: players}
   end

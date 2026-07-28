@@ -78,6 +78,16 @@ defmodule D20.Sessions do
 
   def dispatch(%Scope{}, _event, _attrs), do: {:error, :forbidden}
 
+  @spec preview(Scope.t(), Session.event(), term()) :: {:ok, map()} | {:error, reason()}
+  def preview(%Scope{session: %{id: id}, actor: %{id: actor_id}}, event, attrs)
+      when is_binary(id) and is_binary(actor_id) do
+    command = %Command{event: event, actor_id: actor_id, attrs: attrs}
+
+    call(id, {:preview, command})
+  end
+
+  def preview(%Scope{}, _event, _attrs), do: {:error, :forbidden}
+
   @spec remove_member(Scope.t()) :: {:ok, Session.t()} | {:error, reason()}
   def remove_member(%Scope{session: %{id: id}, actor: %{id: actor_id}})
       when is_binary(id) and is_binary(actor_id) do

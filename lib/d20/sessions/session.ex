@@ -90,6 +90,19 @@ defmodule D20.Sessions.Session do
 
   def dispatch(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
 
+  @spec preview(t(), D20.Game.engine(), Command.t()) :: {:ok, map()} | {:error, reason()}
+  def preview(
+        %__MODULE__{phase: :in_progress, game: game},
+        engine,
+        %Command{actor_id: actor_id} = command
+      ) do
+    with :ok <- require_identity(actor_id) do
+      engine.preview(game, command)
+    end
+  end
+
+  def preview(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
+
   @spec online(t(), player_id(), map()) :: {:ok, t()} | {:error, :invalid_identity}
   def online(%__MODULE__{} = session, actor_id, attrs) when is_map(attrs) do
     with :ok <- require_identity(actor_id) do

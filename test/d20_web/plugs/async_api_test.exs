@@ -45,18 +45,44 @@ defmodule D20Web.Plugs.AsyncApiTest do
     end
   end
 
-  test "serves the unified Koala primary selection contract" do
+  test "serves the stateless Koala draft contract" do
     contract = build_conn() |> get("/developers/specs/koala-rescue-club/raw") |> response(200)
 
-    assert contract =~ "version: 0.8.0"
+    assert contract =~ "version: 0.9.0"
     assert contract =~ "turnMarks:"
+    assert contract =~ "draftPayload:"
+    assert contract =~ "draftPreview:"
+    assert contract =~ "draftReply:"
     assert contract =~ "submit_ready:"
     assert contract =~ "resolution:"
     assert contract =~ "mark:"
+
+    [_, hospital_action_schema] = String.split(contract, "    hospitalBonusAction:", parts: 2)
+
+    [hospital_action_schema, _] =
+      String.split(hospital_action_schema, "    skybridgeBonusAction:", parts: 2)
+
+    assert hospital_action_schema =~ "hospital_id:"
+    assert hospital_action_schema =~ "minLength: 1"
+    refute hospital_action_schema =~ "enum:"
+
+    [_, player_sheet_schema] = String.split(contract, "    playerSheet:", parts: 2)
+    [player_sheet_schema, _] = String.split(player_sheet_schema, "    hospital:", parts: 2)
+
+    assert player_sheet_schema =~ "description: Hospitals keyed by selected sheet ruleset id."
+    assert player_sheet_schema =~ "propertyNames:"
+    assert player_sheet_schema =~ "$ref: \"#/components/schemas/hospital\""
+    refute player_sheet_schema =~ "hospital_1_left:"
+    refute player_sheet_schema =~ "hospital_4:"
+
     refute contract =~ "plant_trees"
     refute contract =~ "rehome_koalas"
     refute contract =~ "circle_tree"
     refute contract =~ "circle_koala"
+    refute contract =~ "name: select"
+    refute contract =~ "name: deselect"
+    refute contract =~ "name: reset"
+    refute contract =~ "turnSelection:"
   end
 
   test "returns not found for an unknown game slug" do

@@ -29,13 +29,17 @@ defmodule D20.Game do
       @impl D20.Game
       def server, do: unquote(server)
 
-      defoverridable server: 0
+      @impl D20.Game
+      def preview(_state, %D20.Command{}), do: {:error, :unknown_command}
+
+      defoverridable server: 0, preview: 2
     end
   end
 
   @callback changeset(map()) :: Ecto.Changeset.t()
   @callback init(attrs()) :: {:ok, term()} | {:error, term()}
   @callback dispatch(term(), D20.Command.t()) :: {:ok, term()} | {:error, term()}
+  @callback preview(term(), D20.Command.t()) :: {:ok, map()} | {:error, term()}
   @callback finished?(term()) :: boolean()
   @callback server() :: module()
 

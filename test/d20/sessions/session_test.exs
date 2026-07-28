@@ -39,6 +39,11 @@ defmodule D20.Sessions.SessionTest do
     def dispatch(_state, %Command{}), do: {:error, :invalid_command}
 
     @impl D20.Game
+    def preview(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs}) do
+      {:ok, %{actor_id: actor_id, attrs: attrs, event_count: length(state.players)}}
+    end
+
+    @impl D20.Game
     def finished?(%{finished?: true}), do: true
     def finished?(_state), do: false
   end
@@ -270,6 +275,24 @@ defmodule D20.Sessions.SessionTest do
   end
 
   describe "game events" do
+    test "previews only in progress with a valid actor and does not change the session" do
+      {:ok, waiting} = Session.new(TestGame, "p1")
+
+      assert {:error, :invalid_phase} =
+               Session.preview(waiting, TestGame, command("inspect", "p1", %{}))
+
+      {:ok, session} = Session.dispatch(waiting, TestGame, command("join", "p1"))
+      {:ok, session} = Session.dispatch(session, TestGame, command("start", "p1"))
+
+      assert {:ok, %{actor_id: "p1", attrs: %{value: 1}, event_count: 1}} =
+               Session.preview(session, TestGame, command("inspect", "p1", %{value: 1}))
+
+      assert {:error, :invalid_identity} =
+               Session.preview(session, TestGame, command("inspect", "", %{}))
+
+      assert session.game.players == ["p1"]
+    end
+
     test "starts Koala Rescue Club from game players after a pre-start leave" do
       {:ok, session} = Session.new(KoalaGame, "p1", %{"sheet" => "dharug"})
       {:ok, session} = Session.dispatch(session, KoalaGame, command("join", "p1"))
@@ -317,23 +340,30 @@ defmodule D20.Sessions.SessionTest do
 
       value = session.game.roll.value
 
-      assert {:ok, %Session{phase: :in_progress, game: %KoalaGame{phase: :submit}} = session} =
-               Session.dispatch(
+      assert {:ok, preview} =
+               Session.preview(
                  session,
                  KoalaGame,
-                 command("select", "p1", %{
+                 command("draft", "p1", %{
                    "mark" => "tree",
                    "die_value" => value,
-                   "target_cell" => %{"area" => "a", "row" => 0, "column" => 0}
+                   "selected_cells" => [%{"area" => "a", "row" => 0, "column" => 0}]
                  })
                )
+
+      assert %{submit_ready: true, resolution: :single} = preview
 
       assert {:ok,
               %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, mode: :solo, turn: 2}}} =
                Session.dispatch(
                  session,
                  KoalaGame,
-                 command("submit", "p1", %{"bonus_actions" => []})
+                 command("submit", "p1", %{
+                   "mark" => "tree",
+                   "die_value" => value,
+                   "selected_cells" => [%{"area" => "a", "row" => 0, "column" => 0}],
+                   "bonus_actions" => []
+                 })
                )
     end
 

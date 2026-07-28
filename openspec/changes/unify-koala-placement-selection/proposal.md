@@ -1,23 +1,26 @@
 ## Why
 
-Koala Rescue Club currently has two mutation paths for the same turn decision: full-shape placements use a private server-owned selection followed by `submit`, while one-cell fallbacks remain client-owned previews committed through `circle_tree` or `circle_koala`. This split complicates reconnect behavior, duplicates client orchestration, and leaves semantically related actions with different atomicity boundaries.
+Koala Rescue Club currently stores an uncommitted primary selection in the authoritative game aggregate and broadcasts a new caller-specific projection for every cell click. The selection exists only to drive one player's interface. Keeping it in the aggregate adds transient mutations and reconnect semantics to shared state without adding an authoritative game fact.
+
+The server must still own placement legality. The client therefore needs a stateless preview request that evaluates its complete local draft against the latest committed game, while `submit` remains the only command that commits the turn.
 
 ## What Changes
 
-- Use one private server-owned selection for tree and koala marks, whether the player eventually submits one cell or a complete die shape.
-- Derive the submitted primary effect from the selected mark and cell count: one cell resolves as the legal fallback, while exactly the adjusted die shape size resolves as the full placement.
-- Keep selection edits separate from committed sheet mutations, volunteer spending, bonus resolution, and player submission.
-- Make `select`, `deselect`, and `submit` the canonical turn workflow, while retaining `reset` only as an optional bulk-clear convenience.
-- Remove redundant client-supplied and aggregate-stored volunteer counts from the selection context; derive the cost from the shared roll and adjusted die value.
-- **BREAKING** Remove `circle_tree` and `circle_koala` as public command events.
-- **BREAKING** Replace public primary action identifiers with `tree` and `koala` mark choices in turn options, selection payloads, and caller projections.
-- Update the Koala Rescue Club AsyncAPI contract and coordinate the separately delivered client migration so it sends every primary cell edit through the staged selection path and confirms every completed draft through `submit`.
+- Add a synchronous `draft` request carrying the complete primary candidate: `mark`, `die_value`, and `selected_cells`.
+- Return caller-specific derived guidance from `draft`: selected and available cells, required cells, volunteer cost, submit readiness, resolution, and bonus options.
+- Keep `draft` outside the aggregate mutation path: it does not store state, publish a session projection, or change any committed fact.
+- Make `submit` carry the same complete primary candidate plus ordered `bonus_actions`, revalidate all inputs against current state, and commit the turn atomically.
+- Remove primary `selection` from the game aggregate and normal session projection.
+- **BREAKING** Remove `select`, `deselect`, and `reset` from the public protocol together with the already removed direct placement events.
+- Keep mark-keyed initial options in the normal caller projection so the client can start a local draft without reproducing game rules.
+- Add a reusable synchronous game preview boundary to D20 sessions and game servers.
+- Update the separate Koala Rescue Club client to own its ephemeral primary draft, consume server preview replies, and clear the draft after reconnect.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `koala-rescue-club-unified-turn-selection`: Defines the authoritative selection states, mark-based command and projection contract, one-cell and full-shape submission rules, caller visibility, and separate-client coordination.
+- `koala-rescue-club-unified-turn-selection`: Defines local draft ownership, stateless authoritative preview, complete atomic submit, state-machine boundaries, visibility, and coordinated client behavior.
 
 ### Modified Capabilities
 
@@ -25,8 +28,10 @@ None.
 
 ## Impact
 
-- Affects `D20.KoalaRescueClub.Command`, `Rules`, `Game`, `Projection`, the Koala AsyncAPI document, and focused command, rules, aggregate, projection, channel, and server tests.
-- Breaks clients that dispatch `circle_tree` or `circle_koala`, send `action` or `volunteers_used` when starting a selection, or consume action-keyed turn options.
-- Requires a coordinated update in the separate `ravecat/koala-rescue-club` client, especially its public types, SDK command port, centralized client store, turn draft reducer, controls, map targets, fixtures, and browser tests.
-- Active in-memory sessions are not compatible across the contract deployment and must be restarted. No database migration is required.
+- Affects shared `D20.Game`, `D20.Sessions`, `D20.Sessions.Session`, `D20.Game.Server`, and `D20Web.SessionChannel` preview boundaries.
+- Affects `D20.KoalaRescueClub.Command`, `Rules`, `Game`, `Projection`, the Koala AsyncAPI document, and focused tests.
+- Breaks clients that send `select`, `deselect`, `reset`, or expect `selection` in normal projections.
+- Requires a coordinated change in `ravecat/koala-rescue-club` types, root state machine actor, pure turn draft reducer, fixtures, and browser tests.
+- Active in-memory sessions are incompatible across deployment and must be restarted. No database migration is required.
 - Tracked by [ravecat/d20#84](https://github.com/ravecat/d20/issues/84).
+- The sheet-specific hospital identifier correction remains tracked by [ravecat/d20#86](https://github.com/ravecat/d20/issues/86).

@@ -1,289 +1,234 @@
 ## Context
 
-Koala Rescue Club currently treats full-shape and one-cell primary placements as different protocols. `plant_trees` and `rehome_koalas` are selection action identifiers used by `select`, `deselect`, `reset`, and `submit`; `circle_tree` and `circle_koala` are direct commands that carry the complete turn payload. The separate Svelte client consequently keeps one-cell primary cells and their preview locally while reconciling full-shape cells from the caller-specific server selection.
+The current protocol treats each primary cell edit as a game command. `select`, `deselect`, and `reset` mutate a private selection stored in `Game.players`, then publish a complete session projection. `submit` reads that stored selection and commits the turn.
 
-The reviewed rules describe one decision with two dimensions: the player marks trees or koalas, and the accepted placement contains either one fallback cell or the complete adjusted die shape. Every supported die shape contains at least two cells, so the server can derive the placement form from the selected cell count without storing a separate action or placement mode.
-
-D20 remains authoritative for the private primary selection, legal continuations, volunteer cost, final validation, committed sheet, bonuses, submission status, and turn advancement. The separate client may keep an ephemeral ordered bonus preview, but it must not own primary selected cells.
+The selection is not a committed game outcome. It is an ephemeral interaction draft used by one client. Placement legality, volunteer cost, completion, and bonus availability remain authoritative server rules, so moving the draft to the client must not move those calculations.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Model every tree or koala primary placement through one private server-owned selection.
-- Make `select`, `deselect`, and `submit` the canonical edit and commit path.
-- Derive one-cell fallback versus full-shape placement from the selected cell count.
-- Remove the four legacy primary action identifiers from public command and projection fields.
-- Store only authoritative selection facts and derive volunteer cost, completion, resolution form, legal continuations, and bonus options.
-- Preserve caller privacy, reconnect recovery, atomic final resolution, simultaneous player turns, and existing rule outcomes.
-- Define the complete state, transition, command, predicate, and visibility model before implementation.
-- Identify the exact migration boundary for the separately delivered Koala Rescue Club client.
+- Keep the game aggregate limited to committed authoritative facts.
+- Let a client evaluate a complete primary draft against current server state without mutation or broadcast.
+- Return enough caller-specific guidance that the client never computes placement legality.
+- Revalidate and commit the complete turn atomically through `submit`.
+- Remove all staged cell-edit commands and the normal projected selection.
+- Define state, transition, command, predicate, and visibility models before runtime edits.
 
 **Non-Goals:**
 
-- Change shape geometry, legal tree or koala targets, volunteer rules, bonus rules, scoring, badges, automatic rolls, player membership, or game completion.
-- Persist sessions or selections beyond the existing in-memory process lifetime.
-- Stage ordered bonus choices as separate server commands.
-- Remove `reset`; it remains an optional bulk-clear command outside the canonical cell-by-cell path.
-- Redesign the separate client's map artwork, target calibration, panning, standalone mode, or general state-store architecture.
+- Change shape geometry, placement rules, volunteer rules, bonuses, scoring, badges, rolls, membership, or completion.
+- Persist an unsubmitted draft across reconnect or process restart.
+- Store ordered bonus choices on the server before submit.
+- Turn normal projection rendering into a request handler.
+- Change calibrated client artwork or target geometry.
 
 ## Decisions
 
-### Store a mark-based canonical selection
+### The client owns the ephemeral primary draft
 
-The pending player's authoritative selection becomes:
-
-```elixir
-%{
-  mark: :tree | :koala,
-  value: 1..6,
-  cells: [cell]
-}
-```
-
-`Ruleset` owns the bounded `mark` domain. `Game` stores only the chosen mark, adjusted die value, and ordered unique cells. The volunteer count is derived from the shared roll and adjusted value through `Ruleset.volunteers_needed/2`; it remains projected as guidance but is not accepted from the client or stored in the selection.
-
-The first `select` for a context carries `mark`, `die_value`, and `target_cell`. Later `select` calls carry only `target_cell`. A full-context `select` atomically starts or replaces the current selection. A target-only `select` requires an existing selection.
-
-Keeping all four action strings inside the selection was rejected because it preserves a transport distinction that the selected mark and cell count already determine. Storing `volunteers_used` was rejected because it is reproducible from authoritative state and immutable rules.
-
-### Derive the placement form from cardinality
-
-For a selection with adjusted shape size `required_cells`:
-
-- one selected cell is a submit-ready `single` fallback;
-- two through `required_cells - 1` cells are an incomplete shape prefix;
-- exactly `required_cells` cells are a submit-ready `shape`;
-- more than `required_cells` cells are rejected.
-
-A one-cell selection may be both submit-ready and extendable. Its `available_cells` contains only cells that continue at least one legal full-shape placement containing the selected cell. A legal one-cell target that belongs to no legal full shape remains submit-ready with no continuations.
-
-The minimum shape size of two is a static invariant covered by `Ruleset` tests. Adding an explicit `single | shape` mode was rejected because it would store redundant intent and make the player choose before the selected facts require that distinction.
-
-### Project mark choices and derived selection guidance
-
-Each reachable adjusted die option changes from:
-
-```text
-actions.plant_trees
-actions.rehome_koalas
-actions.circle_tree
-actions.circle_koala
-```
-
-to:
-
-```text
-marks.tree
-marks.koala
-```
-
-Each mark option exposes legal initial cells. Because every legal full-shape cell is also a legal one-cell target for the same mark, the initial set can use the legal fallback targets. After the first selection the server projects only compatible shape continuations.
-
-The caller-specific selection exposes:
+The client's root state machine stores:
 
 ```text
 mark
 die_value
-volunteers_used
-required_cells
 selected_cells
-available_cells
-submit_ready
-resolution: single | shape | null
-bonus_options
+last accepted draft preview
+ordered bonus preview
 ```
 
-`volunteers_used`, `required_cells`, `available_cells`, `submit_ready`, `resolution`, and `bonus_options` are derived read-model fields. `available_cells` may be non-empty while `submit_ready` is true for an extendable one-cell selection. Bonus options are present only for the currently submit-ready primary result.
+This state exists only for the current connection and pending turn. Changing mark or die value clears selected cells and preview. Reconnect, a new turn, or loss of pending status clears the draft. The client may update selected cells optimistically for responsiveness, but it cannot declare a candidate legal.
 
-Retaining action-keyed options was rejected because it would force the client to preserve the obsolete four-way model even after command unification.
+Keeping the draft in `Game` was rejected because every click became an authoritative mutation even though no shared game fact changed.
 
-### Commit every primary result through submit
+### `draft` is a synchronous stateless preview request
 
-`submit` revalidates the complete selection against the current committed sheet and shared roll, derives the volunteer cost and primary resolution, applies the primary marks, applies the ordered `bonus_actions`, resolves omitted bonuses, records the adjusted die value, clears the selection, and marks the player submitted in one atomic transition.
+The request payload is always complete:
 
-An invalid or intermediate selection returns a stable error and leaves both the committed sheet and selection unchanged. Selection edits never spend volunteers, change the sheet, resolve bonuses, record turn history, or change player status.
+```json
+{
+  "mark": "tree",
+  "die_value": 4,
+  "selected_cells": [{"area": "a", "row": 0, "column": 1}]
+}
+```
 
-`circle_tree` and `circle_koala` are removed from `Command`, `Game`, `Rules`, and AsyncAPI as command events. Supporting both old and new mutation paths was rejected because it would preserve competing commit boundaries and make client migration errors silent.
+The success reply is a caller-specific read model:
 
-### Keep reset as a bulk edit, not a commit path
+```json
+{
+  "mark": "tree",
+  "die_value": 4,
+  "selected_cells": [{"area": "a", "row": 0, "column": 1}],
+  "available_cells": [{"area": "a", "row": 0, "column": 2}],
+  "required_cells": 3,
+  "volunteers_used": 0,
+  "submit_ready": true,
+  "resolution": "single",
+  "bonus_options": []
+}
+```
 
-`deselect` removes one selected cell. Removing the last cell clears the selection entirely. `reset` clears the selection in one command and remains useful for the existing Reset control and multi-cell drafts. Neither command affects committed facts.
+Actual arrays and values are derived by Rules. `draft` validates structure through `Command`, validates caller and current-state legality through `Rules`, and returns a value without changing `Session` or `Game`. It produces no session publication.
 
-Removing `reset` was rejected because reproducing a bulk clear with sequential network calls would introduce avoidable broadcasts and partial intermediate drafts. Its presence does not change the canonical `select -> deselect -> submit` ownership or commit boundary.
-
-### Reconcile the separate client only from server primary selection
-
-The separate `ravecat/koala-rescue-club` client currently has an implemented but uncommitted `centralize-client-state-machine` change. Its current state model deliberately stores one-cell primary selection locally and switches final calls between `submit`, `circle_tree`, and `circle_koala`.
-
-The coordinated client migration must:
-
-- replace public `PrimaryAction` and action-keyed option types with `tree | koala` mark types and mark-keyed options;
-- remove `SingleTurnPayload`, `circleTree`, and `circleKoala` from the SDK command port and processing/error maps;
-- send every primary target activation through `select` or `deselect`;
-- reconcile one-cell and shape cells from the authoritative `selection`;
-- remove `selectedSingleAction`, local primary `selectedCells`, `selectSinglePrimary`, and the final command switch;
-- make Confirm always call `submit`;
-- retain only local ordered bonus preview and other presentation state;
-- replace the three-way Plant, Rehome, and combined-single control with mark choices while preserving native semantics, map target accessibility, both sheet calibrations, and retry behavior;
-- update server-shaped fixtures and focused store and component browser tests.
-
-The D20 repository does not edit the separate client. Its implementation requires a linked client issue and repo-local OpenSpec change before source edits.
-
-### Preserve one-way runtime flow
-
-Every accepted interaction continues through:
+The shared read path is:
 
 ```text
-client stimulus
--> SessionChannel
--> Sessions.dispatch
--> Game.dispatch
+SessionChannel draft
+-> Sessions.preview
+-> Game.Server current Session
+-> Session.preview
+-> Game.preview
 -> Command and Rules
--> committed aggregate
--> caller-specific Projection
--> client reconciliation and render
+-> caller-only reply
 ```
 
-Projection never constructs commands or changes the aggregate. The custom game server continues to own only automatic roll scheduling.
+Adding draft data to the normal projection was rejected because projection cannot receive a client candidate and must stay a pure render of committed state. Sending `draft` through normal mutation dispatch was rejected because accepted dispatches publish state and require an aggregate transition.
+
+### `submit` carries and commits the complete candidate
+
+`submit` carries `mark`, `die_value`, `selected_cells`, and ordered `bonus_actions`. The server validates the complete payload, resolves the primary candidate once against the current aggregate, validates and applies bonuses, spends volunteers, records the die value, and changes player status in one transition.
+
+No intermediate candidate is committed. Any structural, stale, primary, or bonus error preserves the complete source aggregate and publishes nothing.
+
+This makes retry and stale-client behavior explicit: a preview is guidance, while submit is always revalidated authority.
+
+### Normal projection contains only committed facts and initial guidance
+
+The pending player's normal projection retains mark-keyed `options` for each reachable adjusted die value. These options include legal initial cells and are derived from current committed state. The projection does not contain `selection`.
+
+The draft reply contains candidate-specific guidance and is returned only to the requesting caller. Other players and spectators never receive it.
+
+### Removed command vocabulary
+
+The public primary workflow contains:
+
+- `draft` as a non-mutating request.
+- `submit` as the only primary state-changing command.
+
+`select`, `deselect`, `reset`, `plant_trees`, `rehome_koalas`, `circle_tree`, and `circle_koala` are unsupported. Selection and deselection are local edits, not domain commands.
+
+### Ruleset ownership remains static
+
+`Ruleset` owns marks, die shapes, board references, and sheet-specific hospital identifiers. `Command` validates hospital identifiers as non-empty strings. Rules resolve them against the current player's selected sheet without creating transport-controlled atoms.
 
 ## Authoritative State Model
 
 ### State dimensions
 
-| Dimension | Domain | Authoritative source | Changes through | Stored or derived |
+| Dimension | Finite domain or bounded shape | Authoritative source | What changes it | Classification |
 | --- | --- | --- | --- | --- |
-| Outer session phase | `waiting_for_players`, `in_progress`, `finished` | `D20.Sessions.Session` | join, leave, start, game completion | Stored |
-| Game phase | `setup`, `ready`, `roll`, `submit`, `finished` | `Game.phase` | join, leave, start, automatic roll, all-player submission | Stored |
-| Player status | `ready`, `pending`, `submitted` | `Game.players[id].status` | start, roll, accepted submit, next turn | Stored |
-| Shared roll | `nil` or `1..6` | `Game.roll` | automatic roll, next turn | Stored |
-| Primary selection | `nil` or `{mark, value, cells}` | Pending player record | select, deselect, reset, accepted submit, next turn | Stored |
-| Selection class | empty, single extendable, single final, shape partial, shape ready | `Rules` | Derived from selection, rulesheet, and committed sheet | Derived |
-| Volunteer cost | non-negative integer | `Ruleset.volunteers_needed/2` | Shared roll or adjusted value changes | Derived |
-| Legal continuations and bonus options | bounded collections | `Rules` | Selection or committed sheet changes | Derived |
-| Ordered bonus preview | zero or more bonus actions | Separate client | local bonus interaction until submit | Client-only |
+| Outer session phase | `waiting_for_players`, `in_progress`, `finished` | `Session.phase` | session lifecycle | Committed |
+| Game phase | `setup`, `ready`, `roll`, `submit`, `finished` | `Game.phase` | accepted game transitions | Committed |
+| Players | bounded id-keyed records | `Game.players` | join and setup leave | Committed |
+| Player status | `ready`, `pending`, `submitted` | player record | start, roll, submit, next turn | Committed |
+| Player sheet and volunteers | rulesheet state | player record | accepted submit | Committed |
+| Shared roll | `nil` or `1..6` | `Game.roll` | automatic roll and next turn | Committed |
+| Turn history and scores | bounded values | game and player records | accepted submit and completion | Committed |
+| Initial mark options | bounded map | Rules from game, actor, ruleset | never stored | Derived projection |
+| Primary draft and preview | bounded candidate and reply | requesting client | local edits and draft replies | Client-only |
+
+There is no primary selection dimension in the aggregate.
 
 ### Reachable composite states
 
-| State ID | Dimension values and authoritative facts | Invariants | Entry sources | Allowed stimuli | Terminal |
+| State ID | Dimension values | Authoritative facts and invariants | Entry sources | Allowed stimuli | Terminal |
 | --- | --- | --- | --- | --- | --- |
-| `G_SETUP` | Waiting session, game `setup`, no active roll | Player count is below the start range | Creation, last setup player leaves | join, left | No |
-| `G_READY` | Waiting session, game `ready`, joined players ready | Player count is startable, selections are nil | join or left refresh | join, left, owner start | No |
-| `G_ROLL` | In-progress session, game `roll`, players ready, roll nil | Selection is nil for every player | start or completed non-final turn | actorless roll, in-progress join or left no-op | No |
-| `G_SUBMIT` | In-progress session, game `submit`, roll present | At least one player is pending; every player is in one participant substate below | automatic roll or another player's accepted submit | pending-player selection commands, in-progress join or left no-op | No |
-| `G_FINISHED` | Finished session and game, scores present | Every player submitted the final turn; selections are nil | Last final-turn submit | none accepted | Yes |
-| `P_EMPTY` | Pending player, selection nil | No private primary cells exist | roll, reset, last-cell deselect | full-context select | No |
-| `P_SINGLE_EXTENDABLE` | Pending player, one selected cell, at least one legal shape continuation | `submit_ready = true`, `resolution = single` | valid first select or deselect from a larger draft | select continuation, deselect, reset, submit, context replacement | No |
-| `P_SINGLE_FINAL` | Pending player, one selected cell, no legal shape continuation | `submit_ready = true`, `resolution = single` | valid first select | deselect, reset, submit, context replacement | No |
-| `P_SHAPE_PARTIAL` | Pending player, selected count from two through shape size minus one | All cells are a subset of at least one legal full placement; `submit_ready = false` | valid continuation or deselect | select continuation, deselect, reset, context replacement | No |
-| `P_SHAPE_READY` | Pending player, selected count equals shape size | Cells equal one legal full placement; `submit_ready = true`, `resolution = shape` | valid continuation | deselect, reset, submit, context replacement | No |
-| `P_SUBMITTED` | Submitted player, selection nil | Committed sheet includes exactly one accepted primary result and its bonuses for the turn | accepted submit | in-progress join or left no-op | No |
+| `G_SETUP` | Waiting session, game `setup` | roster below startable range, roll nil | creation or setup leave | join, left | No |
+| `G_READY` | Waiting session, game `ready` | startable roster, roll nil, players ready | setup join or left | join, left, owner start | No |
+| `G_ROLL` | In-progress session, game `roll` | players ready, roll nil | start or completed non-final turn | actorless roll, in-progress presence no-op | No |
+| `G_SUBMIT_PENDING` | In-progress session, game `submit` | roll present and at least one pending player | automatic roll or another submit | pending caller draft or submit, presence no-op | No |
+| `G_SUBMIT_MIXED` | In-progress session, game `submit` | roll present, pending and submitted players coexist | non-final player's submit | remaining caller draft or submit, presence no-op | No |
+| `G_FINISHED` | Finished session, game `finished` | final scores committed, no pending player | last final-turn submit | reads only | Yes |
 
-`G_SUBMIT` composes one participant substate per frozen game player. The all-submitted combination is not externally stored: the last accepted submit synchronously advances to `G_ROLL` or `G_FINISHED`.
+The all-submitted combination is not externally stored. The last accepted submit synchronously advances to `G_ROLL` or `G_FINISHED`.
 
 ### Unreachable combinations
 
 | Combination | Justification |
 | --- | --- |
-| Waiting session with game `roll`, `submit`, or `finished` | Outer start and completion transitions update the nested game lifecycle atomically |
-| In-progress session with game `setup` or `ready` | Owner start moves the game to `roll` before the in-progress state is published |
-| Submitted player with a non-nil selection | Accepted submit clears the selection in the same transition |
-| Ready player with a non-nil selection | Start, next-turn setup, and status resets clear selections |
-| Selection with zero cells | Last-cell deselect and reset normalize it to nil |
-| Selection with more cells than the adjusted shape size | Selection analysis rejects the triggering select |
-| Multi-cell selection not contained in a legal full shape | Every accepted continuation preserves the compatible-placement invariant |
-| One-cell shape resolution | Every supported shape has at least two cells, so one cell always classifies as fallback |
-| Finished game with pending or submitted-turn selection | Final resolution clears selections and publishes terminal scores atomically |
+| Waiting session with game `roll`, `submit`, or `finished` | outer start and game start are committed together |
+| In-progress session with game `setup` or `ready` | start moves the game to `roll` before publication |
+| Game `submit` with roll nil | only the automatic roll enters submit |
+| Pending player outside game `submit` | start and next-turn reset use ready, roll uses pending |
+| Authoritative player selection or draft | the aggregate type has no such field |
+| Finished game with pending players | last submit completes synchronously |
 
 ## Transition Table
 
-| Source state ID | Stimulus | Required predicates | Atomic effects | Resulting state ID | Stable errors |
+| Source state ID | Stimulus | Required predicates | Atomic effects | Result state ID | Stable errors |
 | --- | --- | --- | --- | --- | --- |
-| `G_SETUP`, `G_READY` | join | Valid actor and player count | Add idempotent player and refresh phase | `G_SETUP` or `G_READY` | `invalid_identity`, `invalid_player_count` |
-| `G_SETUP`, `G_READY` | left | Existing or absent actor id | Remove player and refresh phase | `G_SETUP` or `G_READY` | None |
-| `G_READY` | start | Session owner, valid actor, startable roster | Freeze mode, set turn 1, clear selections | `G_ROLL` | `invalid_identity`, `invalid_player_count`, `invalid_phase` |
-| `G_ROLL` | actorless roll | Missing actor, missing existing roll | Sample and store one roll, set players pending | `G_SUBMIT` with every player `P_EMPTY` | `invalid_identity`, `roll_already_exists`, `invalid_phase` |
-| `P_EMPTY` | full-context select | Pending actor, reachable die value, legal mark target | Store canonical one-cell selection | `P_SINGLE_EXTENDABLE` or `P_SINGLE_FINAL` | `missing_roll`, `invalid_die_value`, `insufficient_volunteers`, `invalid_target` |
-| Any pending selection state | full-context select | Valid replacement context and target | Replace prior selection atomically | `P_SINGLE_EXTENDABLE` or `P_SINGLE_FINAL` | Same as first select |
-| `P_SINGLE_EXTENDABLE`, `P_SHAPE_PARTIAL` | target-only select | Target continues at least one compatible legal shape | Append one unique cell | `P_SHAPE_PARTIAL` or `P_SHAPE_READY` | `missing_turn_selection`, `invalid_target` |
-| Any pending selection state | select existing cell | Cell is already selected | Preserve the selection | Same source | None |
-| Any pending selection state | deselect selected cell | Existing selection | Remove cell; normalize zero cells to nil | `P_EMPTY`, `P_SINGLE_EXTENDABLE`, `P_SINGLE_FINAL`, or `P_SHAPE_PARTIAL` | `missing_turn_selection` |
-| Any pending selection state | deselect absent cell | Existing selection | Preserve the selection | Same source | None |
-| Any pending state | reset | Pending actor | Clear selection only | `P_EMPTY` | Identity, phase, or player-status errors |
-| `P_SINGLE_EXTENDABLE`, `P_SINGLE_FINAL` | submit | Revalidated legal fallback and valid ordered bonuses | Derive cost, mark one cell, apply bonuses, record value, clear selection, mark submitted | `P_SUBMITTED`, `G_ROLL`, or `G_FINISHED` | Current target, volunteer, bonus, or stale-state error |
-| `P_SHAPE_READY` | submit | Revalidated legal full shape and valid ordered bonuses | Derive cost, mark full shape, apply bonuses, record value, clear selection, mark submitted | `P_SUBMITTED`, `G_ROLL`, or `G_FINISHED` | Current shape, volunteer, bonus, or stale-state error |
-| `P_EMPTY`, `P_SHAPE_PARTIAL` | submit | Selection is missing or not submit-ready | No effect | Same source | `missing_turn_selection`, `incomplete_turn_selection` |
-| Any state | `circle_tree` or `circle_koala` | None | No effect | Same source | Unsupported command |
-| `G_FINISHED` | any command | None | No effect | `G_FINISHED` | `finished` |
+| `G_SETUP`, `G_READY` | join | valid actor and player count | add idempotent player, refresh setup phase | `G_SETUP` or `G_READY` | `invalid_identity`, `invalid_player_count` |
+| `G_SETUP`, `G_READY` | left | setup membership rules | remove player, refresh setup phase | `G_SETUP` or `G_READY` | none |
+| `G_READY` | start | owner at Session layer, startable roster, valid sheets | initialize turn facts | `G_ROLL` | `invalid_phase`, `not_ready` |
+| `G_ROLL` | actorless roll | system actor, valid generated die | commit roll, mark players pending | `G_SUBMIT_PENDING` | `invalid_actor`, `invalid_roll` |
+| `G_SUBMIT_PENDING`, `G_SUBMIT_MIXED` | draft request | caller is pending, complete candidate is structurally and legally valid | return derived reply only, no atomic effect | same source state | command or rule reason |
+| `G_SUBMIT_PENDING`, `G_SUBMIT_MIXED` | submit | caller is pending, complete candidate and bonuses legal | atomically apply full turn and mark caller submitted | `G_SUBMIT_MIXED`, `G_ROLL`, or `G_FINISHED` | command or rule reason |
+| Any state | rejected stimulus | first applicable predicate fails | none | same source state | stable reason |
 
-Every rejected transition preserves the complete source aggregate and produces no session publication.
+## Command and Request Table
 
-## Command Table
-
-| Event | Actor class | Payload | Allowed source states | State-changing | Stable errors |
+| Event | Actor class | Payload | Allowed source state IDs | State-changing | Stable errors |
 | --- | --- | --- | --- | --- | --- |
-| `join` | Authenticated actor | Empty | `G_SETUP`, `G_READY` | Yes | Identity and player-count errors |
-| `left` | Authenticated actor | Empty | `G_SETUP`, `G_READY`; no-op during play | Sometimes | Phase-independent no-op during play |
-| `start` | Authenticated owner | Empty | `G_READY` | Yes | Identity, readiness, and outer authorization errors |
-| `roll` | Actorless server | Empty | `G_ROLL` | Yes | Identity, phase, duplicate-roll errors |
-| `select` | Pending player | First or replacement: `{mark, die_value, target_cell}`; continuation: `{target_cell}` | `P_EMPTY` or any pending selection state | Yes when selection changes | Malformed payload, invalid mark, missing context, die, volunteer, target, phase, or status errors |
-| `deselect` | Pending player | `{target_cell}` | Any pending selection state | Yes when selected cell exists | Malformed payload, missing selection, target, phase, or status errors |
-| `reset` | Pending player | Empty | Any pending state | Yes when selection exists | Non-empty payload, phase, or status errors |
-| `submit` | Pending player | `{bonus_actions}` | `P_SINGLE_EXTENDABLE`, `P_SINGLE_FINAL`, `P_SHAPE_READY` | Yes | Malformed bonus payload, missing or incomplete selection, stale primary, volunteer, or bonus errors |
+| join | authenticated member | empty | `G_SETUP`, `G_READY` | Yes | identity and roster errors |
+| left | Presence actor id | empty | all non-terminal states | setup only | none |
+| start | authenticated owner | rulesheet selections | `G_READY` | Yes | structural, owner, readiness errors |
+| roll | actorless server | generated die value | `G_ROLL` | Yes | actor and die errors |
+| draft | authenticated pending player | `mark`, `die_value`, non-empty unique `selected_cells` | `G_SUBMIT_PENDING`, `G_SUBMIT_MIXED` | No | structural, membership, status, target, shape, die errors |
+| submit | authenticated pending player | complete draft plus ordered `bonus_actions` | `G_SUBMIT_PENDING`, `G_SUBMIT_MIXED` | Yes | structural, membership, status, stale candidate, primary and bonus errors |
 
-`plant_trees`, `rehome_koalas`, `circle_tree`, and `circle_koala` are not command events in the resulting protocol.
+`select`, `deselect`, `reset`, `plant_trees`, `rehome_koalas`, `circle_tree`, and `circle_koala` do not exist in the resulting protocol.
 
 ## Predicate Catalog
 
-| Predicate | Inputs | Result | Owner | Consumers | Failure precedence |
+| Predicate | Inputs | Return shape | Owner | Consumers | Failure precedence |
 | --- | --- | --- | --- | --- | --- |
-| `submit_allowed?` | Game, actor id | Boolean | `Rules` | Permission, Projection | Phase, player, status, roll |
-| `pending_player` | Game, actor id | Player and rulesheet or error | `Rules` | All selection transitions | Phase, roll, membership, status |
-| `volunteer_cost` | Shared roll, adjusted value | Cost or die error | `Ruleset` | Rules, Projection | Die domain before availability |
-| `legal_initial_targets` | Rulesheet, sheet, mark | Cells | `Rules` | Turn options, first select validation | Accessible area and mark occupancy |
-| `compatible_shape_placements` | Rulesheet, sheet, mark, value, selected cells | Placements | `Rules` | Select, deselect, selection projection | Static shape, area, mark occupancy |
-| `classify_selection` | Selection, compatible placements, shape size | Single, partial, shape, or error | `Rules` | Submit validation, Projection | Cardinality before bonus derivation |
-| `legal_continuations` | Selection and compatible placements | Cells | `Rules` | Projection, next select validation | Only compatible unique cells |
-| `selection_bonus_options` | Original sheet and submit-ready classified result | Bonus entries | `Rules` | Projection | Primary candidate must be valid first |
-| `resolve_primary_candidate` | Rulesheet, committed sheet, classified selection | Candidate sheet or error | `Rules` | Submit | Mark target, shape, area, occupancy |
-| `apply_bonus_actions` | Rulesheet, original sheet, candidate sheet, ordered actions | Candidate sheet or error | `Rules` | Submit | Primary succeeds before any bonus |
-| `turn_complete?` | Frozen players map | Boolean | `Rules` | Game | All player statuses submitted |
+| `pending_player` | game, actor id | player and rulesheet or reason | Rules | draft, submit, permission, options | phase, roll, membership, status |
+| `volunteer_cost` | roll, adjusted value | integer or reason | Ruleset | draft, submit, options | die domain before availability |
+| `legal_initial_targets` | rulesheet, sheet, mark, value | cells | Rules | projection options, candidate evaluation | area and occupancy rules |
+| `compatible_shape_placements` | rulesheet, sheet, mark, value, cells | placements | Rules | candidate evaluation | cell validity before geometry |
+| `classify_candidate` | cells, shape size, compatible placements | `single`, `partial`, `shape`, or reason | Rules | draft and submit | cardinality before bonus derivation |
+| `draft_details` | game, actor id, candidate | reply or reason | Rules | Game preview and submit preparation | pending player, die, cells, placement |
+| `apply_bonus_actions` | candidate player, ordered actions | player or reason | Rules | submit preparation | unlock order and target legality |
+| `turn_complete?` | game players | boolean | Rules | Game | after accepted submit only |
 
 ## Visibility Matrix
 
-| Caller role and lifecycle | Visible selection | Visible choices and guidance | Hidden facts | Authoritative sources |
-| --- | --- | --- | --- | --- |
-| Waiting owner | None | Start permission and existing setup projection | Any future turn draft | Session, Game, Permission |
-| Waiting participant or non-owner | None | Setup state without owner action | Any future turn draft | Session, Game, Permission |
-| Pending player viewing self | Own full selection projection, or nil | Mark-keyed options, derived cost, legal continuations, submit readiness, resolution, bonus options, permission | Every other player's selection | Game selection, Ruleset, Rules, caller context |
-| Pending player viewing another player | None | Public committed sheet and status only | Own draft in the other-player view and all other private drafts | Game, caller context |
-| Submitted player | None | Waiting status and public committed sheets | Pending players' selections | Game, caller context |
-| Spectator or non-member | None | Permitted public session and committed game fields | Every private selection and caller-only legal choices | Session, Game, caller context |
-| Finished caller | None | Final committed sheets, scores, ranks, badges, rounds, and results | Historical drafts and forfeited local bonus preview | Game terminal state |
+| Caller role | Lifecycle state | Visible fields | Hidden fields | Derived fields | Sources |
+| --- | --- | --- | --- | --- | --- |
+| Owner or member | waiting | public session, roster, permissions, own setup form when allowed | internal aggregate | start guidance | Session, Permission, Ruleset |
+| Pending player | submit normal projection | public session, committed sheets, roll, statuses, own options | draft, other private interaction state, internal representation | permissions, initial legal cells, scores | Game, Rules, Ruleset, caller |
+| Pending player | successful draft reply | only own complete candidate guidance | all other players' candidates and internal aggregate | available cells, required cells, cost, readiness, resolution, bonus options | current Game, Rules, Ruleset, caller request |
+| Submitted player | submit | public committed state and empty own options | pending player's draft replies | permissions and scores | Game, Rules, caller |
+| Spectator or non-member | any | permitted public committed state | all draft replies and private setup inputs | read permissions and scores | Session, Game, Permission |
+| Any caller | finished | final committed sheets, scores, results, permissions | all drafts | outcomes | Game, Rules |
 
-Every projected field is reproducible from current committed game state, immutable rules, and caller and session context. The separate client's local bonus preview is not projected and is never treated as authoritative.
+Every normal projected field traces to committed state, immutable rules, or caller/session context. Every draft reply additionally traces to the explicit request candidate and is never retained by Projection.
+
+## Client Reconciliation
+
+The client machine keys a request by mark, die value, ordered cells, and turn epoch. It accepts a preview reply only for the current key and epoch. A failed preview rolls local cells back to the last accepted preview. Explicit drafting and submitting machine states disable competing player events while a command is pending.
+
+On reconnect the client receives no server draft. It resets local primary and bonus state and starts again from normal projected options. On successful submit, the next normal projection changes status or turn and clears local draft state.
 
 ## Risks / Trade-offs
 
-- [A one-cell selection is both complete and extendable] -> Replace the old overloaded `complete` semantics with explicit `submit_ready` and `resolution`, and test that continuations remain available.
-- [A future ruleset adds a one-cell die shape] -> Make the minimum shape size of two an explicit static invariant and fail ruleset validation or tests before the classification becomes ambiguous.
-- [Removing action-keyed options breaks the separate client broadly] -> Treat backend, AsyncAPI, client types, command port, state reducer, controls, fixtures, and browser tests as one coordinated contract release.
-- [The client has overlapping uncommitted state-machine work] -> Base the client migration on its current working state, preserve those user changes, and create a separate tracked client change before editing.
-- [Old and new deployments cannot interoperate] -> Deploy backend and client together, restart active in-memory sessions, and roll both artifacts back together if validation fails.
-- [Primary selection survives reconnect but local bonus ordering does not] -> Keep this existing boundary explicit; reconnect restores the submit-ready primary and legal bonus options, while the player rebuilds any unsubmitted bonus ordering.
-- [Reset keeps a fourth editing command] -> Document it only as an optional bulk-clear convenience and ensure it has no separate commit semantics.
+- A reconnect loses unsubmitted work. This is intentional because the draft is presentation state.
+- A preview can become stale before submit. Full submit revalidation preserves authority and atomicity.
+- A shared preview callback expands the D20 engine contract. A default unsupported implementation preserves existing engines.
+- A malformed or failed draft has no broadcast to carry errors. The direct channel reply carries the same stable error formatting as dispatch.
+- Backend and old client are incompatible. Both artifacts must be released and rolled back together.
 
 ## Migration Plan
 
-1. Add focused Ruleset, Rules, and aggregate tests for the mark domain, minimum shape size, one-cell readiness with continuations, partial shapes, full shapes, replacement, deselection, reset, and atomic submission.
-2. Change the canonical selection, command payloads, Rules predicates, aggregate transitions, and caller projection together.
-3. Remove direct single-cell command routing and update command, server, session, channel, and projection tests.
-4. Update `priv/specs/koala-rescue-club.yaml` to the mark-based options and selection schema and remove direct `circle_*` messages.
-5. Create and execute a linked repo-local issue and OpenSpec change in `ravecat/koala-rescue-club`, preserving the current centralized client-state work while migrating the affected files identified above.
-6. Run focused backend and client checks, full backend tests, client browser tests, client production build, strict OpenSpec validation, and cross-boundary contract assertions.
-7. Deploy the coordinated backend and client versions and restart active Koala Rescue Club sessions.
+1. Add and test the shared synchronous preview boundary with a default unsupported engine implementation.
+2. Replace Koala staged commands and aggregate selection with `draft` preview and full `submit`.
+3. Remove `selection` from normal projection and update AsyncAPI.
+4. Move primary draft ownership into the separate client and consume draft replies.
+5. Run focused and full checks in both repositories, then validate real UI states.
+6. Deploy both artifacts together and restart active Koala sessions.
 
-Rollback restores the previous backend contract and separate client version together, then restarts active sessions. No persisted data or database schema requires rollback.
+Rollback restores the prior backend and client artifacts together. No persisted data migration is required.
 
 ## Open Questions
 
