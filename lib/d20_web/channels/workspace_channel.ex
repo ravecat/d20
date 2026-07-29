@@ -17,10 +17,10 @@ defmodule D20Web.WorkspaceChannel do
       when is_binary(actor_id) do
     :ok = Workspace.subscribe(actor_id)
 
-    {snapshot, runtimes} = Workspace.snapshot(socket)
-    socket = sync_monitors(socket, runtimes)
+    {sessions, runtime_pids} = Workspace.sessions(socket)
+    socket = sync_monitors(socket, runtime_pids)
 
-    {:ok, snapshot, socket}
+    {:ok, %{sessions: sessions}, socket}
   end
 
   def join(@channel_topic, _payload, _socket), do: {:error, %{reason: "forbidden"}}
@@ -64,16 +64,15 @@ defmodule D20Web.WorkspaceChannel do
   end
 
   defp refresh(socket) do
-    {snapshot, runtimes} = Workspace.snapshot(socket)
-    socket = sync_monitors(socket, runtimes)
-    push(socket, "snapshot", snapshot)
+    {sessions, runtime_pids} = Workspace.sessions(socket)
+    socket = sync_monitors(socket, runtime_pids)
+    push(socket, "snapshot", %{sessions: sessions})
     socket
   end
 
-  defp sync_monitors(socket, runtimes) do
+  defp sync_monitors(socket, runtime_pids) do
     current = Map.get(socket.assigns, :monitors, %{})
     current_pids = Map.keys(current) |> MapSet.new()
-    runtime_pids = Map.keys(runtimes) |> MapSet.new()
 
     current
     |> Map.take(MapSet.to_list(MapSet.difference(current_pids, runtime_pids)))

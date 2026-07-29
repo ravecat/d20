@@ -59,6 +59,16 @@ defmodule D20Web.WorkspaceChannelTest do
     assert {:ok, %{sessions: []}, _socket} = join_workspace(actor)
   end
 
+  test "returns session descriptors with runtime pids for monitor reconciliation" do
+    actor = actor()
+    session = create_session("qwinto", actor.id)
+
+    assert {:ok, %{sessions: [%{id: session_id}]}, socket} = join_workspace(actor)
+    assert {[%{id: ^session_id}], runtime_pids} = Workspace.sessions(socket)
+    assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session.id})
+    assert runtime_pids == MapSet.new([pid])
+  end
+
   test "returns every current-member in-progress session with actor-bound module data" do
     actor = actor()
     first = create_session("qwinto", actor.id)
@@ -71,6 +81,7 @@ defmodule D20Web.WorkspaceChannelTest do
 
     assert Enum.map(sessions, & &1.id) |> Enum.sort() == Enum.sort([first.id, second.id])
     assert Enum.map(sessions, & &1.slug) == ["qwinto", "qwinto"]
+    assert Enum.map(sessions, & &1.phase) == [:in_progress, :in_progress]
     refute Enum.any?(sessions, &(&1.id == waiting.id))
 
     for descriptor <- sessions do
@@ -100,7 +111,7 @@ defmodule D20Web.WorkspaceChannelTest do
     assert {:ok, %Session{phase: :in_progress}} =
              Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "start", %{})
 
-    assert_push "snapshot", %{sessions: [%{id: session_id}]}
+    assert_push "snapshot", %{sessions: [%{id: session_id, phase: :in_progress}]}
     assert session_id == session.id
 
     assert {:ok, %Session{members: members}} =
@@ -117,13 +128,15 @@ defmodule D20Web.WorkspaceChannelTest do
     actor = actor()
     session = create_lifecycle_session(actor.id)
 
-    assert {:ok, %{sessions: [%{id: session_id}]}, _socket} = join_workspace(actor)
+    assert {:ok, %{sessions: [%{id: session_id, phase: :in_progress}]}, _socket} =
+             join_workspace(actor)
+
     assert session_id == session.id
 
     assert {:ok, %Session{phase: :finished}} =
              Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "finish", %{})
 
-    assert_push "snapshot", %{sessions: [%{id: ^session_id}]}
+    assert_push "snapshot", %{sessions: [%{id: ^session_id, phase: :finished}]}
   end
 
   test "returns a current-member finished session on a new workspace join" do
@@ -133,7 +146,9 @@ defmodule D20Web.WorkspaceChannelTest do
     assert {:ok, %Session{phase: :finished}} =
              Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "finish", %{})
 
-    assert {:ok, %{sessions: [%{id: session_id}]}, _socket} = join_workspace(actor)
+    assert {:ok, %{sessions: [%{id: session_id, phase: :finished}]}, _socket} =
+             join_workspace(actor)
+
     assert session_id == session.id
   end
 
@@ -172,7 +187,7 @@ defmodule D20Web.WorkspaceChannelTest do
 
     send(pid, :finish)
 
-    assert_push "snapshot", %{sessions: [%{id: ^session_id}]}
+    assert_push "snapshot", %{sessions: [%{id: ^session_id, phase: :finished}]}
   end
 
   test "treats duplicate invalidations as idempotent complete replacements" do

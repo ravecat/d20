@@ -8,9 +8,12 @@ export type WorkspaceLayout =
   | { mode: "focused"; id: string }
   | { mode: "compact" };
 
+export type WorkspaceSessionPhase = "in_progress" | "finished";
+
 export interface WorkspaceSessionDescriptor {
   id: string;
   slug: string;
+  phase: WorkspaceSessionPhase;
   module: ModuleEntry;
   connection: ModuleConnection;
 }
@@ -61,7 +64,7 @@ export function createWorkspace(): WorkspaceStore {
     }
   >({
     context: {
-      layout: { mode: "auto" },
+      layout: { mode: "compact" },
     },
     on: {
       focus: (context, event) => ({

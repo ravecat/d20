@@ -2,7 +2,6 @@
   import type { Snippet } from "svelte";
   import Dialog from "./dialog.svelte";
   import Frame from "./frame.svelte";
-  import type { WorkspaceLayout, WorkspaceSessionDescriptor } from "../model/workspace";
   import { createWorkspace } from "../model/workspace";
 
   interface Props {
@@ -13,71 +12,141 @@
 
   const workspace = createWorkspace();
 
-  function isExpanded(
-    layout: WorkspaceLayout,
-    sessions: WorkspaceSessionDescriptor[],
-    id: string,
-    index: number,
-  ) {
+  const expandedId = $derived.by(() => {
+    const { layout, sessions } = $workspace;
+
     switch (layout.mode) {
       case "auto":
-        return index === 0;
+        return sessions[0]?.id;
       case "focused":
-        return sessions.some((session) => session.id === layout.id)
-          ? id === layout.id
-          : index === 0;
+        return sessions.some((session) => session.id === layout.id) ? layout.id : sessions[0]?.id;
       case "compact":
-        return false;
+        return undefined;
       default: {
         const exhaustive: never = layout;
         return exhaustive;
       }
     }
-  }
+  });
 </script>
 
 {@render children?.()}
 
 <div class="workspace">
   <section class="workspace__tiles" aria-label="Open game sessions">
-    {#each $workspace.sessions as session, index (session.id)}
-      {@const expanded = isExpanded($workspace.layout, $workspace.sessions, session.id, index)}
-      <div class="workspace__window" class:workspace__window--expanded={expanded}>
-        <Dialog label={`Game session ${session.id}`} onClose={() => workspace.close(session.id)}>
-          <Frame module={session.module} connection={session.connection} />
+    {#each $workspace.sessions as session (session.id)}
+      {@const expanded = session.id === expandedId}
+      <div
+        class="workspace__window"
+        class:workspace__window--expanded={expanded}
+        class:workspace__window--compact={!expanded}
+      >
+        <Dialog label={`Game session ${session.id}`}>
+          {#snippet children({ fullscreen, toggle })}
+            {@const visible = expanded || fullscreen}
 
-          {#if $workspace.status !== "ready"}
-            <div class="workspace__status" role="status">
-              <span class="workspace__spinner" aria-hidden="true"></span>
-              <strong>
-                {#if $workspace.status === "stale"}
-                  Reconnecting to game
-                {:else if $workspace.status === "failed"}
-                  Connection to game failed
-                {:else}
-                  Connecting to game
-                {/if}
-              </strong>
+            <div class="workspace__game" class:workspace__game--compact={!visible} inert={!visible}>
+              <Frame module={session.module} connection={session.connection} />
             </div>
-          {/if}
-        </Dialog>
 
-        <button
-          class="workspace__layout-control"
-          type="button"
-          aria-label={`${expanded ? "Compact" : "Expand"} Game session ${session.id}`}
-          onclick={() => (expanded ? workspace.compact() : workspace.focus(session.id))}
-        >
-          {#if expanded}
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18v14H3zM12 19v-7h9" />
-            </svg>
-          {:else}
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18v14H3zM6 8h12v8H6z" />
-            </svg>
-          {/if}
-        </button>
+            <div class="workspace__chrome" class:workspace__chrome--compact={!visible}>
+              {#if !visible}
+                <div
+                  class="workspace__compact-summary"
+                  data-phase={session.phase}
+                  data-transport-status={$workspace.status}
+                >
+                  <span class="workspace__compact-status">
+                    <span class="workspace__status-dot" aria-hidden="true"></span>
+                    <strong>
+                      {#if $workspace.status === "failed"}
+                        Failed
+                      {:else if $workspace.status !== "ready"}
+                        Reconnecting
+                      {:else if session.phase === "finished"}
+                        Finished
+                      {:else}
+                        Live
+                      {/if}
+                    </strong>
+                  </span>
+                  <span class="workspace__session-label">
+                    <span class="workspace__session-label-text">Session {session.id}</span>
+                  </span>
+                </div>
+              {:else if $workspace.status !== "ready"}
+                <div class="workspace__status" role="status">
+                  <span class="workspace__spinner" aria-hidden="true"></span>
+                  <strong>
+                    {#if $workspace.status === "stale"}
+                      Reconnecting to game
+                    {:else if $workspace.status === "failed"}
+                      Connection to game failed
+                    {:else}
+                      Connecting to game
+                    {/if}
+                  </strong>
+                </div>
+              {/if}
+
+              <div
+                class="workspace__window-controls"
+                class:workspace__window-controls--compact={!visible}
+                role="group"
+                aria-label={`Game session ${session.id} window controls`}
+              >
+                <button
+                  class="workspace__window-control workspace__window-control--close"
+                  type="button"
+                  aria-label={`Close Game session ${session.id}`}
+                  onclick={() => workspace.close(session.id)}
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m1 1 14 14M15 1 1 15" />
+                  </svg>
+                </button>
+
+                <button
+                  class="workspace__window-control workspace__window-control--fullscreen"
+                  type="button"
+                  aria-label={fullscreen
+                    ? `Exit Game session ${session.id} fullscreen`
+                    : `Enter Game session ${session.id} fullscreen`}
+                  onclick={toggle}
+                >
+                  {#if fullscreen}
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M1 6h5V1M15 6h-5V1M1 10h5v5M15 10h-5v5" />
+                    </svg>
+                  {:else}
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M6 1H1v5M10 1h5v5M6 15H1v-5M10 15h5v-5" />
+                    </svg>
+                  {/if}
+                </button>
+
+                {#if !fullscreen}
+                  <button
+                    class="workspace__window-control workspace__window-control--layout"
+                    type="button"
+                    aria-label={`${expanded ? "Compact" : "Expand"} Game session ${session.id}`}
+                    onclick={() => (expanded ? workspace.compact() : workspace.focus(session.id))}
+                  >
+                    {#if expanded}
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M1 15h14" />
+                      </svg>
+                    {:else}
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <rect x="1" y="1" width="14" height="14" />
+                      </svg>
+                    {/if}
+                  </button>
+                {/if}
+              </div>
+            </div>
+          {/snippet}
+        </Dialog>
       </div>
     {/each}
   </section>
@@ -95,11 +164,11 @@
     inset-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
     inset-block-end: max(0.75rem, env(safe-area-inset-bottom, 0px));
     display: grid;
-    inline-size: 50vw;
-    block-size: max(25dvh, 8rem);
-    grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
-    grid-auto-rows: minmax(8rem, 1fr);
-    gap: 0.75rem;
+    inline-size: min(32rem, calc(100dvi - 1.5rem));
+    max-block-size: calc(100dvb - 1.5rem);
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 4rem;
+    gap: 0.375rem;
     overflow: auto;
     pointer-events: none;
     scrollbar-width: thin;
@@ -113,6 +182,12 @@
     pointer-events: auto;
   }
 
+  .workspace__window--compact {
+    --dialog-surface-shadow: none;
+
+    block-size: 4rem;
+  }
+
   .workspace__window--expanded {
     position: fixed;
     z-index: 2;
@@ -122,41 +197,197 @@
     inset-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
   }
 
-  .workspace__layout-control {
+  .workspace__game {
     position: absolute;
-    z-index: 1001;
-    inset-block-start: 5rem;
+    inset: 0;
+  }
+
+  .workspace__game--compact {
+    display: none;
+    pointer-events: none;
+  }
+
+  @supports (content-visibility: hidden) {
+    .workspace__game--compact {
+      display: block;
+      content-visibility: hidden;
+    }
+  }
+
+  .workspace__chrome {
+    display: contents;
+  }
+
+  .workspace__chrome--compact {
+    box-sizing: border-box;
+    display: flex;
+    block-size: 100%;
+    min-inline-size: 0;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .workspace__compact-summary {
+    display: flex;
+    flex: 1;
+    min-inline-size: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .workspace__compact-status {
+    box-sizing: border-box;
+    display: inline-flex;
+    block-size: 1.5rem;
+    flex: none;
+    align-items: center;
+    gap: 0.3rem;
+    border: 1px solid color-mix(in oklab, var(--color-base-content) 32%, transparent);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .workspace__status-dot {
+    inline-size: 0.45rem;
+    block-size: 0.45rem;
+    flex: none;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--color-base-content) 48%, transparent);
+  }
+
+  :where(.workspace__compact-summary[data-transport-status="ready"][data-phase="in_progress"])
+    .workspace__status-dot {
+    background: var(--color-success);
+    animation: workspace-status-pulse 1.2s ease-in-out infinite;
+  }
+
+  .workspace__compact-summary:not([data-transport-status="ready"]):not(
+      [data-transport-status="failed"]
+    )
+    .workspace__compact-status {
+    color: var(--color-warning);
+  }
+
+  :where(
+      .workspace__compact-summary:not([data-transport-status="ready"]):not(
+          [data-transport-status="failed"]
+        )
+    )
+    .workspace__status-dot {
+    background: var(--color-warning);
+    animation: workspace-status-pulse 0.8s ease-in-out infinite;
+  }
+
+  :where(.workspace__compact-summary[data-transport-status="failed"]) .workspace__status-dot {
+    background: var(--color-error);
+  }
+
+  .workspace__session-label {
+    container-type: inline-size;
+    flex: 1;
+    min-inline-size: 0;
+    overflow: hidden;
+    color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+    white-space: nowrap;
+  }
+
+  @supports (overflow: clip) {
+    .workspace__session-label {
+      overflow: clip;
+    }
+  }
+
+  .workspace__session-label-text {
+    display: block;
+    inline-size: max-content;
+    animation: workspace-session-pan 5.8333s ease-in-out infinite alternate;
+  }
+
+  .workspace__session-label:hover .workspace__session-label-text {
+    animation-play-state: paused;
+  }
+
+  .workspace__window-controls {
+    position: absolute;
+    inset-block-start: 0.4rem;
     inset-inline-end: 0.4rem;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .workspace__window-controls--compact {
+    position: static;
+    flex: none;
+    flex-direction: row;
+    translate: none;
+  }
+
+  .workspace__window-control--close {
+    order: 1;
+  }
+
+  .workspace__window-control--layout {
+    order: 2;
+  }
+
+  .workspace__window-control--fullscreen {
+    order: 3;
+  }
+
+  .workspace__window-controls--compact .workspace__window-control--layout {
+    order: 1;
+  }
+
+  .workspace__window-controls--compact .workspace__window-control--fullscreen {
+    order: 2;
+  }
+
+  .workspace__window-controls--compact .workspace__window-control--close {
+    order: 3;
+  }
+
+  .workspace__window-control {
     box-sizing: border-box;
     display: grid;
-    inline-size: 2rem;
-    block-size: 2rem;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
     place-items: center;
     border: 1px solid rgb(255 255 255 / 0.32);
     border-radius: var(--radius-sm);
     background: rgb(0 0 0 / 0.76);
-    padding: 0.4rem;
+    padding: 0.25rem;
     color: white;
     cursor: pointer;
   }
 
-  .workspace__layout-control:hover {
+  .workspace__window-control:hover:not(:disabled) {
     background: rgb(0 0 0 / 0.92);
   }
 
-  .workspace__layout-control:focus-visible {
+  .workspace__window-control:focus-visible {
     outline: 2px solid white;
     outline-offset: 2px;
   }
 
-  .workspace__layout-control svg {
-    inline-size: 100%;
-    block-size: 100%;
+  .workspace__window-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .workspace__window-control svg {
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-width: 1.75;
+    stroke-width: 1.5;
   }
 
   .workspace__status {
@@ -189,16 +420,35 @@
     }
   }
 
+  @keyframes workspace-status-pulse {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @keyframes workspace-session-pan {
+    0%,
+    12% {
+      translate: 0;
+    }
+
+    88%,
+    100% {
+      translate: min(0px, calc(100cqi - 100%));
+    }
+  }
+
   @media (max-width: 48rem) {
     .workspace__tiles {
       inset-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
       inline-size: auto;
-      grid-template-columns: minmax(0, 1fr);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .workspace__spinner {
+    .workspace__spinner,
+    .workspace__status-dot,
+    .workspace__session-label-text {
       animation: none;
     }
   }

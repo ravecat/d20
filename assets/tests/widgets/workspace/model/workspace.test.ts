@@ -65,18 +65,19 @@ describe("Workspace", () => {
     expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
   });
 
-  it("reconciles authoritative workspace state by id without creating game session controllers", () => {
+  it("keeps initial and replacement workspace snapshots compact", () => {
     const discovery = discoveryHarness();
 
     discovery.ready([descriptor("session-a", "qwinto"), descriptor("session-b", "qwinto")]);
 
-    expect(get(discovery.workspace).sessions.map(({ id, slug }) => ({ id, slug }))).toEqual([
-      { id: "session-a", slug: "qwinto" },
-      { id: "session-b", slug: "qwinto" },
+    expect(
+      get(discovery.workspace).sessions.map(({ id, slug, phase }) => ({ id, slug, phase })),
+    ).toEqual([
+      { id: "session-a", slug: "qwinto", phase: "in_progress" },
+      { id: "session-b", slug: "qwinto", phase: "in_progress" },
     ]);
-    expect(get(discovery.workspace).layout).toEqual({ mode: "auto" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
 
-    discovery.workspace.compact();
     discovery.ready([
       descriptor("session-b", "qwinto", "fresh-token"),
       descriptor("session-c", "koala-rescue-club"),
@@ -191,6 +192,7 @@ function descriptor(
   return {
     id,
     slug,
+    phase: "in_progress",
     module: {
       embed_url: `https://module.example.test/${id}`,
       allowed_origins: ["https://module.example.test"],
@@ -210,6 +212,7 @@ function workspaceSnapshot(token: string): Workspace {
       {
         id: "session-a",
         slug: "qwinto",
+        phase: "in_progress",
         module: {
           embed_url: "https://qwinto.example.test/",
           allowed_origins: ["https://qwinto.example.test"],

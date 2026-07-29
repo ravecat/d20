@@ -71,7 +71,7 @@ afterEach(async () => {
 });
 
 describe("Workspace presentation", () => {
-  it("keeps one iframe and bridge while switching expanded, compact, and fullscreen", async () => {
+  it("keeps one iframe and bridge while switching Compact, Theater, and fullscreen", async () => {
     const harness = workspaceHarness();
     renderWorkspace();
     harness.ready([descriptor("session-a")]);
@@ -84,46 +84,73 @@ describe("Workspace presentation", () => {
     expect(windowControls("Game session session-a")).toEqual([
       "Close Game session session-a",
       "Enter Game session session-a fullscreen",
+      "Expand Game session session-a",
     ]);
-    expect(findButton("Compact Game session session-a")).toBeDefined();
-
-    button("Compact Game session session-a").click();
-    flushSync();
-
-    expect(showDialog).toHaveBeenCalledOnce();
-    expect(gameFrame()).toBe(iframe);
-    expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
-    expect(windowControls("Game session session-a")).toEqual([
-      "Close Game session session-a",
-      "Enter Game session session-a fullscreen",
-    ]);
-    expect(findButton("Expand Game session session-a")).toBeDefined();
-
-    button("Expand Game session session-a").click();
-    flushSync();
-
-    expect(showDialog).toHaveBeenCalledOnce();
-    expect(gameFrame()).toBe(iframe);
+    expect(iframe.parentElement?.inert).toBe(true);
 
     button("Enter Game session session-a fullscreen").click();
     await vi.waitFor(() => expect(requestFullscreen).toHaveBeenCalledOnce());
+
+    expect(gameFrame()).toBe(iframe);
+    expect(iframe.parentElement?.inert).toBe(false);
+    expect(findCompactSummary("session-a")).toBeUndefined();
     expect(windowControls("Game session session-a")).toEqual([
       "Close Game session session-a",
       "Exit Game session session-a fullscreen",
     ]);
+
     button("Exit Game session session-a fullscreen").click();
     await vi.waitFor(() => expect(exitFullscreen).toHaveBeenCalledOnce());
     await vi.waitFor(() =>
       expect(windowControls("Game session session-a")).toEqual([
         "Close Game session session-a",
         "Enter Game session session-a fullscreen",
+        "Expand Game session session-a",
       ]),
     );
-    expect(findButton("Compact Game session session-a")).toBeDefined();
+
+    expect(gameFrame()).toBe(iframe);
+    expect(iframe.parentElement?.inert).toBe(true);
+    expect(findCompactSummary("session-a")).toBeDefined();
+
+    button("Expand Game session session-a").click();
+    flushSync();
+
+    expect(showDialog).toHaveBeenCalledOnce();
+    expect(gameFrame()).toBe(iframe);
+    expect(iframe.parentElement?.inert).toBe(false);
+    expect(windowControls("Game session session-a")).toEqual([
+      "Close Game session session-a",
+      "Enter Game session session-a fullscreen",
+      "Compact Game session session-a",
+    ]);
+
+    button("Enter Game session session-a fullscreen").click();
+    await vi.waitFor(() => expect(requestFullscreen).toHaveBeenCalledTimes(2));
+    expect(windowControls("Game session session-a")).toEqual([
+      "Close Game session session-a",
+      "Exit Game session session-a fullscreen",
+    ]);
+    button("Exit Game session session-a fullscreen").click();
+    await vi.waitFor(() => expect(exitFullscreen).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(windowControls("Game session session-a")).toEqual([
+        "Close Game session session-a",
+        "Enter Game session session-a fullscreen",
+        "Compact Game session session-a",
+      ]),
+    );
 
     expect(showDialog).toHaveBeenCalledOnce();
     expect(gameFrame()).toBe(iframe);
     expect(vi.mocked(exposeModule)).toHaveBeenCalledOnce();
+
+    button("Compact Game session session-a").click();
+    flushSync();
+
+    expect(gameFrame()).toBe(iframe);
+    expect(iframe.parentElement?.inert).toBe(true);
+    expect(findCompactSummary("session-a")).toBeDefined();
   });
 
   it("renders active windows without a duplicate workspace session panel", () => {
@@ -150,8 +177,6 @@ describe("Workspace presentation", () => {
     harness.ready([descriptor("session-a"), descriptor("session-b")]);
     flushSync();
 
-    button("Compact Game session session-a").click();
-    flushSync();
     button("Expand Game session session-b").click();
     flushSync();
 
@@ -171,6 +196,9 @@ describe("Workspace presentation", () => {
       descriptor("session-c"),
     ];
     harness.loading(sessions);
+    flushSync();
+
+    button("Expand Game session session-a").click();
     flushSync();
 
     expect(document.body.textContent).toContain("Connecting to game");
@@ -199,6 +227,55 @@ describe("Workspace presentation", () => {
     const expand = button("Expand Game session session-a");
     expand.focus();
     expect(document.activeElement).toBe(expand);
+  });
+
+  it("maps authoritative phase and shared transport state to compact statuses", () => {
+    const harness = workspaceHarness();
+    renderWorkspace();
+    harness.ready([descriptor("session-a"), descriptor("session-b", "qwinto", "finished")]);
+    flushSync();
+
+    expect(compactSummary("session-a").textContent).toContain("Live");
+    expect(compactSummary("session-b").textContent).toContain("Finished");
+
+    harness.stale();
+    flushSync();
+
+    expect(compactSummary("session-a").textContent).toContain("Reconnecting");
+    expect(compactSummary("session-b").textContent).toContain("Reconnecting");
+    expect(document.body.textContent).not.toContain("Live");
+    expect(document.body.textContent).not.toContain("Finished");
+
+    harness.failed();
+    flushSync();
+
+    expect(compactSummary("session-a").textContent).toContain("Failed");
+    expect(compactSummary("session-b").textContent).toContain("Failed");
+  });
+
+  it("starts a remounted workspace in Compact independently of the previous selection", async () => {
+    const firstHarness = workspaceHarness();
+    renderWorkspace();
+    firstHarness.ready([descriptor("session-a")]);
+    flushSync();
+
+    expect(findButton("Expand Game session session-a")).toBeDefined();
+
+    button("Expand Game session session-a").click();
+    flushSync();
+
+    expect(findButton("Compact Game session session-a")).toBeDefined();
+
+    await cleanup?.();
+    cleanup = undefined;
+
+    const secondHarness = workspaceHarness();
+    renderWorkspace();
+    secondHarness.ready([descriptor("session-a")]);
+    flushSync();
+
+    expect(findButton("Expand Game session session-a")).toBeDefined();
+    expect(findButton("Compact Game session session-a")).toBeUndefined();
   });
 
   it("releases the session subscription when the workspace unmounts", async () => {
@@ -263,10 +340,15 @@ function channelState(status: WorkspaceState["status"], value: Workspace | null)
 
 type WorkspaceChannelState = ReturnType<typeof channelState>;
 
-function descriptor(id: string, slug = "qwinto"): WorkspaceSessionDescriptor {
+function descriptor(
+  id: string,
+  slug = "qwinto",
+  phase: WorkspaceSessionDescriptor["phase"] = "in_progress",
+): WorkspaceSessionDescriptor {
   return {
     id,
     slug,
+    phase,
     module: {
       embed_url: `https://module.example.test/${id}`,
       allowed_origins: ["https://module.example.test"],
@@ -296,6 +378,20 @@ function gameFrame() {
   const iframe = document.querySelector('iframe[title="Game module"]');
   if (!(iframe instanceof HTMLIFrameElement)) throw new Error("Expected a game module frame.");
   return iframe;
+}
+
+function compactSummary(id: string) {
+  const summary = findCompactSummary(id);
+  if (!summary) throw new Error(`Expected compact summary for ${id}.`);
+  return summary;
+}
+
+function findCompactSummary(id: string) {
+  const dialog = [...document.getElementsByTagName("dialog")].find(
+    (candidate) => candidate.getAttribute("aria-label") === `Game session ${id}`,
+  );
+  const summary = dialog?.querySelector(".workspace__compact-summary");
+  return summary instanceof HTMLElement ? summary : undefined;
 }
 
 function windowControlGroup(name: string) {
