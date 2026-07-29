@@ -83,8 +83,9 @@
     overflow: auto;
     border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, transparent);
     border-radius: var(--radius-sm);
-    background: var(--color-base-100);
+    background: var(--dialog-surface-background, var(--color-base-100));
     box-shadow: var(--dialog-surface-shadow, 0 1.5rem 4rem rgb(0 0 0 / 0.34));
+    color: var(--dialog-surface-color, inherit);
   }
 
   .dialog__surface:fullscreen {

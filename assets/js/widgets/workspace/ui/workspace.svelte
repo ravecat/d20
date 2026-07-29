@@ -51,29 +51,35 @@
 
             <div class="workspace__chrome" class:workspace__chrome--compact={!visible}>
               {#if !visible}
-                <div
-                  class="workspace__compact-summary"
+                <button
+                  class="workspace__compact-restore"
+                  type="button"
+                  aria-label={`Expand Game session ${session.id}`}
+                  aria-describedby={`workspace-status-${session.id} workspace-session-${session.id}`}
+                  onclick={() => workspace.focus(session.id)}
+                ></button>
+                <span
+                  class="workspace__compact-status"
+                  id={`workspace-status-${session.id}`}
                   data-phase={session.phase}
                   data-transport-status={$workspace.status}
                 >
-                  <span class="workspace__compact-status">
-                    <span class="workspace__status-dot" aria-hidden="true"></span>
-                    <strong>
-                      {#if $workspace.status === "failed"}
-                        Failed
-                      {:else if $workspace.status !== "ready"}
-                        Reconnecting
-                      {:else if session.phase === "finished"}
-                        Finished
-                      {:else}
-                        Live
-                      {/if}
-                    </strong>
-                  </span>
-                  <span class="workspace__session-label">
-                    <span class="workspace__session-label-text">Session {session.id}</span>
-                  </span>
-                </div>
+                  <span class="workspace__status-dot" aria-hidden="true"></span>
+                  <strong>
+                    {#if $workspace.status === "failed"}
+                      Failed
+                    {:else if $workspace.status !== "ready"}
+                      Reconnecting
+                    {:else if session.phase === "finished"}
+                      Finished
+                    {:else}
+                      Live
+                    {/if}
+                  </strong>
+                </span>
+                <span class="workspace__session-label" id={`workspace-session-${session.id}`}>
+                  <span class="workspace__session-label-text">Session {session.id}</span>
+                </span>
               {:else if $workspace.status !== "ready"}
                 <div class="workspace__status" role="status">
                   <span class="workspace__spinner" aria-hidden="true"></span>
@@ -125,22 +131,16 @@
                   {/if}
                 </button>
 
-                {#if !fullscreen}
+                {#if expanded && !fullscreen}
                   <button
                     class="workspace__window-control workspace__window-control--layout"
                     type="button"
-                    aria-label={`${expanded ? "Compact" : "Expand"} Game session ${session.id}`}
-                    onclick={() => (expanded ? workspace.compact() : workspace.focus(session.id))}
+                    aria-label={`Compact Game session ${session.id}`}
+                    onclick={() => workspace.compact()}
                   >
-                    {#if expanded}
-                      <svg viewBox="0 0 16 16" aria-hidden="true">
-                        <path d="M1 15h14" />
-                      </svg>
-                    {:else}
-                      <svg viewBox="0 0 16 16" aria-hidden="true">
-                        <rect x="1" y="1" width="14" height="14" />
-                      </svg>
-                    {/if}
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M1 15h14" />
+                    </svg>
                   </button>
                 {/if}
               </div>
@@ -167,7 +167,7 @@
     inline-size: min(32rem, calc(100dvi - 1.5rem));
     max-block-size: calc(100dvb - 1.5rem);
     grid-template-columns: minmax(0, 1fr);
-    grid-auto-rows: 4rem;
+    grid-auto-rows: auto;
     gap: 0.375rem;
     overflow: auto;
     pointer-events: none;
@@ -183,9 +183,9 @@
   }
 
   .workspace__window--compact {
+    --dialog-surface-background: var(--color-base-content);
+    --dialog-surface-color: var(--color-base-100);
     --dialog-surface-shadow: none;
-
-    block-size: 4rem;
   }
 
   .workspace__window--expanded {
@@ -220,34 +220,54 @@
 
   .workspace__chrome--compact {
     box-sizing: border-box;
+    position: relative;
     display: flex;
-    block-size: 100%;
+    block-size: auto;
     min-inline-size: 0;
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem;
   }
 
-  .workspace__compact-summary {
-    display: flex;
-    flex: 1;
-    min-inline-size: 0;
-    align-items: center;
-    gap: 0.5rem;
+  .workspace__compact-restore {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border: 0;
+    background: transparent;
+    appearance: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .workspace__compact-restore:focus-visible {
+    outline: none;
+  }
+
+  .workspace__chrome--compact:has(> .workspace__compact-restore:focus-visible) {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
   }
 
   .workspace__compact-status {
     box-sizing: border-box;
+    position: relative;
+    z-index: 1;
     display: inline-flex;
-    block-size: 1.5rem;
+    min-inline-size: 5.25rem;
+    block-size: 1.875rem;
     flex: none;
     align-items: center;
+    justify-content: center;
     gap: 0.3rem;
-    border: 1px solid color-mix(in oklab, var(--color-base-content) 32%, transparent);
+    border: 1px solid color-mix(in oklab, currentColor 32%, transparent);
     border-radius: var(--radius-sm);
+    background: white;
     padding: 0.25rem 0.4rem;
+    color: var(--color-base-content);
     font-size: 0.75rem;
     line-height: 1;
+    pointer-events: none;
     text-transform: uppercase;
   }
 
@@ -259,21 +279,14 @@
     background: color-mix(in oklab, var(--color-base-content) 48%, transparent);
   }
 
-  :where(.workspace__compact-summary[data-transport-status="ready"][data-phase="in_progress"])
+  :where(.workspace__compact-status[data-transport-status="ready"][data-phase="in_progress"])
     .workspace__status-dot {
     background: var(--color-success);
     animation: workspace-status-pulse 1.2s ease-in-out infinite;
   }
 
-  .workspace__compact-summary:not([data-transport-status="ready"]):not(
-      [data-transport-status="failed"]
-    )
-    .workspace__compact-status {
-    color: var(--color-warning);
-  }
-
   :where(
-      .workspace__compact-summary:not([data-transport-status="ready"]):not(
+      .workspace__compact-status:not([data-transport-status="ready"]):not(
           [data-transport-status="failed"]
         )
     )
@@ -282,16 +295,19 @@
     animation: workspace-status-pulse 0.8s ease-in-out infinite;
   }
 
-  :where(.workspace__compact-summary[data-transport-status="failed"]) .workspace__status-dot {
+  :where(.workspace__compact-status[data-transport-status="failed"]) .workspace__status-dot {
     background: var(--color-error);
   }
 
   .workspace__session-label {
+    position: relative;
+    z-index: 1;
     container-type: inline-size;
     flex: 1;
     min-inline-size: 0;
     overflow: hidden;
-    color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+    color: white;
+    pointer-events: none;
     white-space: nowrap;
   }
 
@@ -307,7 +323,7 @@
     animation: workspace-session-pan 5.8333s ease-in-out infinite alternate;
   }
 
-  .workspace__session-label:hover .workspace__session-label-text {
+  .workspace__compact-restore:hover ~ .workspace__session-label .workspace__session-label-text {
     animation-play-state: paused;
   }
 
@@ -340,10 +356,6 @@
     order: 3;
   }
 
-  .workspace__window-controls--compact .workspace__window-control--layout {
-    order: 1;
-  }
-
   .workspace__window-controls--compact .workspace__window-control--fullscreen {
     order: 2;
   }
@@ -355,8 +367,8 @@
   .workspace__window-control {
     box-sizing: border-box;
     display: grid;
-    inline-size: 1.5rem;
-    block-size: 1.5rem;
+    inline-size: 1.875rem;
+    block-size: 1.875rem;
     place-items: center;
     border: 1px solid rgb(255 255 255 / 0.32);
     border-radius: var(--radius-sm);
@@ -370,6 +382,16 @@
     background: rgb(0 0 0 / 0.92);
   }
 
+  .workspace__window-controls--compact .workspace__window-control {
+    border-color: color-mix(in oklab, var(--color-base-content) 32%, transparent);
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  .workspace__window-controls--compact .workspace__window-control:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--color-base-100) 88%, var(--color-base-content));
+  }
+
   .workspace__window-control:focus-visible {
     outline: 2px solid white;
     outline-offset: 2px;
@@ -381,8 +403,8 @@
   }
 
   .workspace__window-control svg {
-    inline-size: 0.75rem;
-    block-size: 0.75rem;
+    inline-size: 0.9375rem;
+    block-size: 0.9375rem;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;

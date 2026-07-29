@@ -84,7 +84,6 @@ describe("Workspace presentation", () => {
     expect(windowControls("Game session session-a")).toEqual([
       "Close Game session session-a",
       "Enter Game session session-a fullscreen",
-      "Expand Game session session-a",
     ]);
     expect(iframe.parentElement?.inert).toBe(true);
 
@@ -93,7 +92,7 @@ describe("Workspace presentation", () => {
 
     expect(gameFrame()).toBe(iframe);
     expect(iframe.parentElement?.inert).toBe(false);
-    expect(findCompactSummary("session-a")).toBeUndefined();
+    expect(findCompactRestore("session-a")).toBeUndefined();
     expect(windowControls("Game session session-a")).toEqual([
       "Close Game session session-a",
       "Exit Game session session-a fullscreen",
@@ -105,13 +104,12 @@ describe("Workspace presentation", () => {
       expect(windowControls("Game session session-a")).toEqual([
         "Close Game session session-a",
         "Enter Game session session-a fullscreen",
-        "Expand Game session session-a",
       ]),
     );
 
     expect(gameFrame()).toBe(iframe);
     expect(iframe.parentElement?.inert).toBe(true);
-    expect(findCompactSummary("session-a")).toBeDefined();
+    expect(findCompactRestore("session-a")).toBeInstanceOf(HTMLButtonElement);
 
     button("Expand Game session session-a").click();
     flushSync();
@@ -150,7 +148,7 @@ describe("Workspace presentation", () => {
 
     expect(gameFrame()).toBe(iframe);
     expect(iframe.parentElement?.inert).toBe(true);
-    expect(findCompactSummary("session-a")).toBeDefined();
+    expect(findCompactRestore("session-a")).toBeDefined();
   });
 
   it("renders active windows without a duplicate workspace session panel", () => {
@@ -169,6 +167,7 @@ describe("Workspace presentation", () => {
 
     expect(transport.call).toHaveBeenCalledWith("close", { id: "session-a" });
     expect(document.querySelectorAll("dialog")).toHaveLength(2);
+    expect(findButton("Compact Game session session-a")).toBeUndefined();
   });
 
   it("expands the first remaining session when requested focus disappears", () => {
@@ -235,22 +234,22 @@ describe("Workspace presentation", () => {
     harness.ready([descriptor("session-a"), descriptor("session-b", "qwinto", "finished")]);
     flushSync();
 
-    expect(compactSummary("session-a").textContent).toContain("Live");
-    expect(compactSummary("session-b").textContent).toContain("Finished");
+    expect(compactStatus("session-a").textContent).toContain("Live");
+    expect(compactStatus("session-b").textContent).toContain("Finished");
 
     harness.stale();
     flushSync();
 
-    expect(compactSummary("session-a").textContent).toContain("Reconnecting");
-    expect(compactSummary("session-b").textContent).toContain("Reconnecting");
+    expect(compactStatus("session-a").textContent).toContain("Reconnecting");
+    expect(compactStatus("session-b").textContent).toContain("Reconnecting");
     expect(document.body.textContent).not.toContain("Live");
     expect(document.body.textContent).not.toContain("Finished");
 
     harness.failed();
     flushSync();
 
-    expect(compactSummary("session-a").textContent).toContain("Failed");
-    expect(compactSummary("session-b").textContent).toContain("Failed");
+    expect(compactStatus("session-a").textContent).toContain("Failed");
+    expect(compactStatus("session-b").textContent).toContain("Failed");
   });
 
   it("starts a remounted workspace in Compact independently of the previous selection", async () => {
@@ -380,18 +379,22 @@ function gameFrame() {
   return iframe;
 }
 
-function compactSummary(id: string) {
-  const summary = findCompactSummary(id);
-  if (!summary) throw new Error(`Expected compact summary for ${id}.`);
-  return summary;
+function compactStatus(id: string) {
+  const dialog = findDialog(id);
+  const status = dialog?.querySelector(".workspace__compact-status");
+  if (!(status instanceof HTMLElement)) throw new Error(`Expected compact status for ${id}.`);
+  return status;
 }
 
-function findCompactSummary(id: string) {
-  const dialog = [...document.getElementsByTagName("dialog")].find(
+function findCompactRestore(id: string) {
+  const restore = findDialog(id)?.querySelector(".workspace__compact-restore");
+  return restore instanceof HTMLButtonElement ? restore : undefined;
+}
+
+function findDialog(id: string) {
+  return [...document.getElementsByTagName("dialog")].find(
     (candidate) => candidate.getAttribute("aria-label") === `Game session ${id}`,
   );
-  const summary = dialog?.querySelector(".workspace__compact-summary");
-  return summary instanceof HTMLElement ? summary : undefined;
 }
 
 function windowControlGroup(name: string) {

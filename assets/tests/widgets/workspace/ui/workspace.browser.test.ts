@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from "svelte";
 import { writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { Workspace as WorkspaceView } from "~/widgets/workspace";
 import type {
   WorkspaceSessionDescriptor,
@@ -26,7 +26,8 @@ let cleanup: (() => Promise<void>) | undefined;
 beforeEach(async () => {
   transport.call.mockReset();
   transport.session.mockReset();
-  document.documentElement.style.setProperty("--color-base-content", "rgb(255 255 255)");
+  document.documentElement.style.setProperty("--color-base-content", "rgb(20 30 40)");
+  document.documentElement.style.setProperty("--color-base-100", "rgb(250 250 250)");
   document.documentElement.style.setProperty("--color-success", "rgb(0 200 80)");
   document.documentElement.style.setProperty("--color-warning", "rgb(255 193 7)");
   document.documentElement.style.setProperty("--color-error", "rgb(220 38 38)");
@@ -37,6 +38,7 @@ afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.documentElement.style.removeProperty("--color-base-content");
+  document.documentElement.style.removeProperty("--color-base-100");
   document.documentElement.style.removeProperty("--color-success");
   document.documentElement.style.removeProperty("--color-warning");
   document.documentElement.style.removeProperty("--color-error");
@@ -44,6 +46,95 @@ afterEach(async () => {
 });
 
 describe("Workspace presentation", () => {
+  it("keeps Compact restoration and Theater controls keyboard reachable in source order", async () => {
+    renderWorkspace([descriptor("session-a")]);
+
+    const controls = page.getByRole("group", {
+      name: "Game session session-a window controls",
+    });
+    const close = page.getByRole("button", { name: "Close Game session session-a" });
+    const enterFullscreen = page.getByRole("button", {
+      name: "Enter Game session session-a fullscreen",
+    });
+    const restore = page.getByRole("button", { name: "Expand Game session session-a" });
+
+    expect(restore.element().tagName).toBe("BUTTON");
+    expect(
+      controls
+        .getByRole("button")
+        .elements()
+        .every((button) => button.tagName === "BUTTON"),
+    ).toBe(true);
+
+    restore.element().focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(close.element());
+
+    await userEvent.tab();
+    expect(document.activeElement).toBe(enterFullscreen.element());
+
+    restore.element().focus();
+    const compactChrome = restore.element().parentElement;
+    if (!(compactChrome instanceof HTMLElement)) {
+      throw new Error("Expected the Compact chrome.");
+    }
+    expect(getComputedStyle(restore.element()).outlineStyle).toBe("none");
+    expect(getComputedStyle(compactChrome).outlineStyle).not.toBe("none");
+
+    await userEvent.keyboard("{Enter}");
+    flushSync();
+
+    const compact = page.getByRole("button", { name: "Compact Game session session-a" });
+    expect(
+      controls
+        .getByRole("button")
+        .elements()
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Close Game session session-a",
+      "Enter Game session session-a fullscreen",
+      "Compact Game session session-a",
+    ]);
+
+    close.element().focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(enterFullscreen.element());
+
+    await userEvent.tab();
+    expect(document.activeElement).toBe(compact.element());
+
+    await userEvent.keyboard(" ");
+    flushSync();
+
+    const restored = page.getByRole("button", { name: "Expand Game session session-a" });
+    restored.element().focus();
+    await userEvent.keyboard(" ");
+    flushSync();
+
+    await expect
+      .element(page.getByRole("button", { name: "Compact Game session session-a" }))
+      .toBeVisible();
+
+    await page.getByRole("button", { name: "Enter Game session session-a fullscreen" }).click();
+    const exitFullscreen = page.getByRole("button", {
+      name: "Exit Game session session-a fullscreen",
+    });
+    await expect.element(exitFullscreen).toBeVisible();
+
+    for (const fullscreenControl of controls.getByRole("button").elements()) {
+      const icon = fullscreenControl.querySelector("svg");
+      if (!(icon instanceof SVGSVGElement)) {
+        throw new Error("Expected a fullscreen window-control icon.");
+      }
+      expect(fullscreenControl.getBoundingClientRect().width).toBeCloseTo(1.875 * 16, 0);
+      expect(fullscreenControl.getBoundingClientRect().height).toBeCloseTo(1.875 * 16, 0);
+      expect(icon.getBoundingClientRect().width).toBeCloseTo(0.9375 * 16, 0);
+      expect(icon.getBoundingClientRect().height).toBeCloseTo(0.9375 * 16, 0);
+    }
+
+    await exitFullscreen.click();
+  });
+
   it("starts Compact, stacks the Theater window above siblings, and restores selection", async () => {
     renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
 
@@ -56,12 +147,12 @@ describe("Workspace presentation", () => {
     await expect.element(firstDialog).toBeVisible();
     await expect.element(secondDialog).toBeVisible();
 
-    const firstControlButtons = firstControls.getByRole("button").elements();
-    expect(firstControlButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
-      "Close Game session session-a",
-      "Enter Game session session-a fullscreen",
-      "Expand Game session session-a",
-    ]);
+    expect(
+      firstControls
+        .getByRole("button")
+        .elements()
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Close Game session session-a", "Enter Game session session-a fullscreen"]);
 
     const initialFirstBounds = firstDialog.element().getBoundingClientRect();
     const initialSecondBounds = secondDialog.element().getBoundingClientRect();
@@ -71,42 +162,49 @@ describe("Workspace presentation", () => {
       throw new Error("Expected dialog surfaces.");
     }
 
-    expect(initialFirstBounds.height).toBeCloseTo(4 * 16, 0);
-    expect(initialSecondBounds.height).toBeCloseTo(4 * 16, 0);
+    expect(initialFirstBounds.height).toBeCloseTo(3 * 16, 0);
+    expect(initialSecondBounds.height).toBeCloseTo(3 * 16, 0);
     expect(initialFirstBounds.width).toBeCloseTo(initialSecondBounds.width, 0);
+    expect(getComputedStyle(firstSurface).backgroundColor).toBe("rgb(20, 30, 40)");
+    expect(getComputedStyle(firstSurface).color).toBe("rgb(250, 250, 250)");
     expect(getComputedStyle(firstSurface).boxShadow).toBe("none");
     expect(getComputedStyle(secondSurface).boxShadow).toBe("none");
 
     await page.getByRole("button", { name: "Expand Game session session-a" }).click();
     flushSync();
 
-    expect(firstControlButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+    const theaterControlButtons = firstControls.getByRole("button").elements();
+    expect(theaterControlButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "Close Game session session-a",
       "Enter Game session session-a fullscreen",
       "Compact Game session session-a",
     ]);
 
     const visualControlOrder = [
-      firstControlButtons[0],
-      firstControlButtons[2],
-      firstControlButtons[1],
+      theaterControlButtons[0],
+      theaterControlButtons[2],
+      theaterControlButtons[1],
     ];
     const firstControlBounds = visualControlOrder.map((button) => button?.getBoundingClientRect());
     expect(firstControlBounds[0]?.top).toBeLessThan(firstControlBounds[1]?.top ?? 0);
     expect(firstControlBounds[1]?.top).toBeLessThan(firstControlBounds[2]?.top ?? 0);
     expect(getComputedStyle(firstControls.element()).position).toBe("absolute");
 
-    const iconBounds = firstControlButtons.map((button) => {
+    const iconBounds = theaterControlButtons.map((button) => {
       const icon = button.querySelector("svg");
       if (!(icon instanceof SVGSVGElement)) throw new Error("Expected a window-control icon.");
       return icon.getBoundingClientRect();
     });
     for (const bounds of iconBounds) {
-      expect(bounds.width).toBeCloseTo(0.75 * 16, 0);
-      expect(bounds.height).toBeCloseTo(0.75 * 16, 0);
+      expect(bounds.width).toBeCloseTo(0.9375 * 16, 0);
+      expect(bounds.height).toBeCloseTo(0.9375 * 16, 0);
+    }
+    for (const button of theaterControlButtons) {
+      expect(button.getBoundingClientRect().width).toBeCloseTo(1.875 * 16, 0);
+      expect(button.getBoundingClientRect().height).toBeCloseTo(1.875 * 16, 0);
     }
 
-    const compactGlyph = firstControlButtons[2]?.querySelector("path");
+    const compactGlyph = theaterControlButtons[2]?.querySelector("path");
     if (!(compactGlyph instanceof SVGGraphicsElement)) {
       throw new Error("Expected the Compact lower-line glyph.");
     }
@@ -118,6 +216,8 @@ describe("Workspace presentation", () => {
 
     expect(expandedFirstBounds.width).toBeCloseTo(window.innerWidth - 16, 0);
     expect(expandedFirstBounds.height).toBeCloseTo(window.innerHeight - 16, 0);
+    expect(getComputedStyle(firstSurface).backgroundColor).toBe("rgb(250, 250, 250)");
+    expect(getComputedStyle(firstSurface).color).toBe("rgb(0, 0, 0)");
     expect(getComputedStyle(firstSurface).boxShadow).not.toBe("none");
     expect(getComputedStyle(secondSurface).boxShadow).toBe("none");
     expect(compactSecondBounds.width).toBeLessThan(expandedFirstBounds.width);
@@ -136,17 +236,14 @@ describe("Workspace presentation", () => {
     await page.getByRole("button", { name: "Compact Game session session-a" }).click();
     flushSync();
 
-    const expandGlyph = page
-      .getByRole("button", { name: "Expand Game session session-a" })
-      .element()
-      .querySelector("rect");
-    if (!(expandGlyph instanceof SVGGraphicsElement)) {
-      throw new Error("Expected the Expand outline-square glyph.");
-    }
-    expect(expandGlyph.getBBox().width).toBeCloseTo(14, 0);
-    expect(expandGlyph.getBBox().height).toBeCloseTo(14, 0);
-    expect(getComputedStyle(expandGlyph).fill).toBe("none");
-    expect(getComputedStyle(expandGlyph).stroke).not.toBe("none");
+    const restoreSurface = page.getByRole("button", { name: "Expand Game session session-a" });
+    expect(restoreSurface.element().querySelector("svg")).toBeNull();
+    expect(
+      firstControls
+        .getByRole("button")
+        .elements()
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Close Game session session-a", "Enter Game session session-a fullscreen"]);
 
     await page.getByRole("button", { name: "Expand Game session session-b" }).click();
     flushSync();
@@ -169,20 +266,37 @@ describe("Workspace presentation", () => {
     ).toBe(true);
   });
 
-  it("uses a centered 4rem lower-right status bar", async () => {
+  it("uses a content-sized lower-right status bar with equal padding", async () => {
     renderWorkspace([descriptor("session-a")]);
 
     const region = page.getByRole("region", { name: "Open game sessions" });
     const dialog = page.getByRole("dialog", { name: "Game session session-a" });
+    const restore = page.getByRole("button", { name: "Expand Game session session-a" });
+    const badge = page
+      .getByText("Live", { exact: true })
+      .element()
+      .closest(".workspace__compact-status");
+    const chrome = restore.element().parentElement;
+    if (!(badge instanceof HTMLElement) || !(chrome instanceof HTMLElement)) {
+      throw new Error("Expected Compact chrome and status badge.");
+    }
 
     await expect.element(region).toBeVisible();
     await expect.element(dialog).toBeVisible();
 
     const regionBounds = region.element().getBoundingClientRect();
     const dialogBounds = dialog.element().getBoundingClientRect();
+    const badgeBounds = badge.getBoundingClientRect();
+    const chromeStyle = getComputedStyle(chrome);
 
     expect(regionBounds.width).toBeCloseTo(32 * 16, 0);
-    expect(regionBounds.height).toBeCloseTo(4 * 16, 0);
+    expect(getComputedStyle(region.element()).gridAutoRows).toBe("auto");
+    expect(chromeStyle.paddingBlockStart).toBe("8px");
+    expect(chromeStyle.paddingBlockEnd).toBe("8px");
+    expect(chromeStyle.paddingInlineStart).toBe("8px");
+    expect(chromeStyle.paddingInlineEnd).toBe("8px");
+    expect(chrome.clientHeight).toBeCloseTo(badgeBounds.height + 2 * 8, 0);
+    expect(regionBounds.height).toBeCloseTo(chrome.clientHeight + 2, 0);
     expect(window.innerWidth - regionBounds.right).toBeCloseTo(12, 0);
     expect(window.innerHeight - regionBounds.bottom).toBeCloseTo(12, 0);
     expect(regionBounds.left).toBeGreaterThan(0);
@@ -205,7 +319,7 @@ describe("Workspace presentation", () => {
       .first()
       .element()
       .closest(".workspace__compact-status");
-    const layoutControl = page.getByRole("button", {
+    const restoreSurface = page.getByRole("button", {
       name: "Expand Game session session-a",
     });
     if (!(liveBadge instanceof HTMLElement)) {
@@ -216,30 +330,26 @@ describe("Workspace presentation", () => {
     await expect.element(firstDialog).toBeVisible();
     await expect.element(firstFrame).not.toBeVisible();
     await expect.element(controls).toBeInViewport();
-    await expect.element(layoutControl).toBeInViewport();
+    await expect.element(restoreSurface).toBeInViewport();
     expect(firstFrame.element().parentElement?.inert).toBe(true);
     expect(
       controls
         .getByRole("button")
         .elements()
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Close Game session session-a",
-      "Enter Game session session-a fullscreen",
-      "Expand Game session session-a",
-    ]);
+    ).toEqual(["Close Game session session-a", "Enter Game session session-a fullscreen"]);
 
     const regionBounds = region.element().getBoundingClientRect();
-    const controlBounds = controls
-      .getByRole("button")
-      .elements()
-      .map((button) => button.getBoundingClientRect());
+    const controlButtons = controls.getByRole("button").elements();
+    const controlBounds = controlButtons.map((button) => button.getBoundingClientRect());
     const dialogBounds = firstDialog.element().getBoundingClientRect();
     const badgeBounds = liveBadge.getBoundingClientRect();
+    const compactChrome = restoreSurface.element().parentElement;
     const sessionLabel = firstDialog.element().querySelector(".workspace__session-label");
-    if (!(sessionLabel instanceof HTMLElement)) {
-      throw new Error("Expected the compact session label.");
+    if (!(compactChrome instanceof HTMLElement) || !(sessionLabel instanceof HTMLElement)) {
+      throw new Error("Expected the Compact chrome and session label.");
     }
+    const chromeStyle = getComputedStyle(compactChrome);
     const sessionLabelBounds = sessionLabel.getBoundingClientRect();
     const controlsBounds = controls.element().getBoundingClientRect();
 
@@ -248,9 +358,42 @@ describe("Workspace presentation", () => {
     expect(regionBounds.bottom).toBeCloseTo(window.innerHeight - 12, 0);
     expect(regionBounds.height).toBeLessThanOrEqual(window.innerHeight - 24);
     expect(getComputedStyle(region.element()).rowGap).toBe("6px");
-    expect(dialogBounds.height).toBeCloseTo(4 * 16, 0);
-    expect(controlBounds[0]?.height).toBeCloseTo(1.5 * 16, 0);
-    expect(badgeBounds.height).toBeCloseTo(1.5 * 16, 0);
+    expect(dialogBounds.height).toBeCloseTo(3 * 16, 0);
+    expect(chromeStyle.paddingBlockStart).toBe("8px");
+    expect(chromeStyle.paddingBlockEnd).toBe("8px");
+    expect(chromeStyle.paddingInlineStart).toBe("8px");
+    expect(chromeStyle.paddingInlineEnd).toBe("8px");
+    expect(restoreSurface.element().getBoundingClientRect().height).toBeCloseTo(
+      compactChrome.clientHeight,
+      0,
+    );
+    expect(restoreSurface.element().children).toHaveLength(0);
+    expect(liveBadge.parentElement).toBe(compactChrome);
+    expect(sessionLabel.parentElement).toBe(compactChrome);
+    expect(controls.element().parentElement).toBe(compactChrome);
+    expect(
+      document.elementFromPoint(
+        sessionLabelBounds.left + sessionLabelBounds.width / 2,
+        sessionLabelBounds.top + sessionLabelBounds.height / 2,
+      ),
+    ).toBe(restoreSurface.element());
+    expect(controlBounds[0]?.height).toBeCloseTo(1.875 * 16, 0);
+    expect(badgeBounds.height).toBeCloseTo(1.875 * 16, 0);
+    expect(badgeBounds.width).toBeCloseTo(5.25 * 16, 0);
+    expect(getComputedStyle(liveBadge).minInlineSize).toBe("84px");
+    expect(getComputedStyle(liveBadge).justifyContent).toBe("center");
+    expect(getComputedStyle(liveBadge).backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(getComputedStyle(liveBadge).color).toBe("rgb(20, 30, 40)");
+    expect(getComputedStyle(sessionLabel).color).toBe("rgb(255, 255, 255)");
+    for (const button of controlButtons) {
+      const icon = button.querySelector("svg");
+      if (!(icon instanceof SVGSVGElement)) throw new Error("Expected a Compact control icon.");
+      expect(button.getBoundingClientRect().width).toBeCloseTo(1.875 * 16, 0);
+      expect(getComputedStyle(button).backgroundColor).toBe("rgb(250, 250, 250)");
+      expect(getComputedStyle(button).color).toBe("rgb(20, 30, 40)");
+      expect(icon.getBoundingClientRect().width).toBeCloseTo(0.9375 * 16, 0);
+      expect(icon.getBoundingClientRect().height).toBeCloseTo(0.9375 * 16, 0);
+    }
     expect(getComputedStyle(liveBadge).textTransform).toBe("uppercase");
     expect(getComputedStyle(controls.element()).position).toBe("static");
     expect(sessionLabelBounds.left - badgeBounds.right).toBeCloseTo(0.5 * 16, 0);
@@ -264,7 +407,6 @@ describe("Workspace presentation", () => {
       0,
     );
     expect(controlBounds[0]?.top).toBeCloseTo(controlBounds[1]?.top ?? 0, 0);
-    expect(controlBounds[2]?.left).toBeLessThan(controlBounds[1]?.left ?? 0);
     expect(controlBounds[1]?.left).toBeLessThan(controlBounds[0]?.left ?? 0);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
 
@@ -279,13 +421,9 @@ describe("Workspace presentation", () => {
 
     for (const group of controlGroups) {
       const buttons = [...group.getElementsByTagName("button")];
-      expect(buttons).toHaveLength(3);
+      expect(buttons).toHaveLength(2);
       expect(buttons[0]?.getBoundingClientRect().top).toBeCloseTo(
         buttons[1]?.getBoundingClientRect().top ?? 0,
-        0,
-      );
-      expect(buttons[1]?.getBoundingClientRect().top).toBeCloseTo(
-        buttons[2]?.getBoundingClientRect().top ?? 0,
         0,
       );
 
@@ -382,7 +520,7 @@ describe("Workspace presentation", () => {
     if (!(reconnectingBadge instanceof HTMLElement) || !(reconnectingDot instanceof HTMLElement)) {
       throw new Error("Expected the Reconnecting status indicator.");
     }
-    expect(getComputedStyle(reconnectingBadge).color).not.toBe(liveColor);
+    expect(getComputedStyle(reconnectingBadge).color).toBe(liveColor);
     expect(getComputedStyle(reconnectingDot).backgroundColor).toBe("rgb(255, 193, 7)");
     expect(getComputedStyle(reconnectingDot).animationName).not.toBe("none");
     expect(getComputedStyle(reconnectingDot).animationDuration).toBe("0.8s");

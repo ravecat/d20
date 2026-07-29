@@ -11,13 +11,13 @@ The implementation must preserve the current SDK bridge and iframe node across A
 **Goals:**
 
 - Publish authoritative `in_progress` and `finished` phase values in workspace session descriptors.
-- Start every mounted workspace in Compact and expand a session only after an explicit player action.
-- Present compact sessions as centered 4rem status bars with 1.5rem badges and controls.
+- Start every mounted workspace in Compact and expand a session only after the player activates its Compact restore surface.
+- Present compact sessions as centered content-sized status bars with 1.875rem badges and window controls.
 - Give the shared transport state precedence over session phase when deriving Live, Finished, Reconnecting, and Failed labels.
-- Present each status as an outlined text badge with supplemental state color and restrained motion.
+- Present each status as a white text badge with theme-content text, supplemental state color, and restrained motion.
 - Reveal overflowing session identifiers with measured bidirectional motion that respects reduced-motion preferences.
 - Keep compact iframe nodes and SDK bridges mounted while removing the game surface from visual rendering, pointer interaction, keyboard navigation, and the accessibility tree.
-- Keep multiple compact bars and their Expand, fullscreen, and Close controls reachable within the viewport.
+- Keep multiple compact bars, their restore surfaces, and their fullscreen and Close controls reachable within the viewport.
 - Let browser fullscreen reveal the mounted game directly from Compact and restore Compact after exit.
 - Preserve existing Theater and browser-fullscreen behavior.
 
@@ -53,13 +53,19 @@ The implementation must preserve the current SDK bridge and iframe node across A
 
    Alternative considered: conditionally render `Frame`. That would destroy the SDK bridge and reload the embedded game whenever layout changes. Moving the iframe between separate compact and expanded containers would also create avoidable DOM-lifecycle risk.
 
-4. Compact presentation will be an in-flow 4rem status row inside the existing dialog surface.
+4. Compact presentation will be an in-flow content-sized status row inside the existing dialog surface.
 
-   A compact chrome wrapper contains the 1.5rem outlined status badge, a clipped session-identifier lane, and the existing named control group in one flex row. The controls participate in Compact flow, so the flexible identifier lane naturally occupies the space between the badge and controls with equal gaps and no reserved end padding. The same controls remain absolutely positioned over Theater and fullscreen. They use one inline DOM sequence: Close, fullscreen, and Layout, with Layout omitted in fullscreen. CSS changes the group direction and visual order so Compact renders Expand, Enter fullscreen, Close from left to right while Theater renders Close, Compact, Enter fullscreen from top to bottom. Expand uses an unfilled outline square and Compact uses a lower horizontal line. Every control SVG uses the same `0.75rem` square and normalized view-box geometry so Fullscreen and Close have matching visual bounds. The row aligns the badge, identifier, and 1.5rem controls on its block-axis center.
+   A Compact chrome wrapper contains the 1.875rem outlined status badge, clipped session-identifier lane, and named control group as direct flex children. A separate empty native restore button is a sibling overlay spanning the row behind those visible children, so activating the non-control surface restores that session to Theater without drawing a button box around the status and identifier. The Compact control group contains only Close and fullscreen in source order, with CSS presenting fullscreen before Close at the logical end above the restore layer. This avoids nested interactive content, and fullscreen or Close activation cannot bubble into restoration. Compact chrome uses 0.5rem padding on both axes, and the grid row and window derive their block size from that chrome instead of imposing a fixed height.
+
+   Theater and fullscreen keep their absolutely positioned controls. Theater uses one inline DOM sequence of Close, fullscreen, and Layout, with CSS presenting Close, Compact, and Enter fullscreen from top to bottom; fullscreen omits Layout. Compact, Theater, and fullscreen share `1.875rem` controls and `0.9375rem` SVGs from the base window-control rules, so changing presentation mode does not resize the actions. The Compact row aligns the badge, identifier, and controls on its block-axis center.
+
+   Compact windows invert the dialog surface through component custom properties: the theme content color becomes the surface background. Session identifiers use pure white. Status badges use a pure-white background and theme-content text, with a 5.25rem minimum inline size that makes the default Live badge approximately 50% wider while still allowing longer labels to grow. Compact controls invert against the surface, using the theme base color as their background and the theme content color for their icons. Theater and fullscreen keep their existing surface and control colors.
 
    Alternative considered: create a separate dock component outside the dialog. Keeping one window/dialog subtree preserves identity, focus ownership, and close behavior with less state coordination.
 
-   CSS visual order does not change sequential keyboard navigation, which remains Close, fullscreen, and Layout when all controls are present. This trade-off keeps each button inline and single-source as requested.
+   Alternative considered: attach pointer and keyboard handlers to the whole row while leaving controls inside it. That would require custom button semantics around nested native buttons and would make action isolation fragile.
+
+   CSS visual order does not change sequential keyboard navigation. Compact visits the restore surface, Close, and fullscreen in DOM order, while Theater remains Close, fullscreen, and Layout. The restore button has no visual box of its own; its `:focus-visible` state draws the keyboard indicator on the whole Compact chrome. This trade-off keeps every action native and avoids custom focus reordering.
 
 5. Compact fullscreen will reveal the game without changing browser-local workspace layout.
 
@@ -75,19 +81,19 @@ The implementation must preserve the current SDK bridge and iframe node across A
 
 7. Status motion and color will remain supplemental.
 
-   The badge always renders the agreed status text in uppercase inside a neutral ghost-style outline. Live uses a green dot with a 1.2-second opacity pulse. Reconnecting keeps warning-colored text and uses a warning-colored dot with a faster 0.8-second opacity pulse to distinguish active recovery from a healthy connection. Failed keeps neutral text with a static error-colored dot, while Finished keeps neutral text and a static neutral dot. Reduced-motion disables both pulses without removing text or state color, and both rates remain far below three flashes per second.
+   The badge always renders the agreed status text in uppercase as theme-content text on a white background. Live uses a green dot with a 1.2-second opacity pulse. Reconnecting uses a warning-colored dot with a faster 0.8-second opacity pulse to distinguish active recovery from a healthy connection. Failed uses a static error-colored dot, while Finished uses a static neutral dot. Reduced-motion disables both pulses without removing text or state color, and both rates remain far below three flashes per second.
 
    Alternative considered: replace text with only a colored dot. That would make state depend on color and animation and reduce accessibility.
 
 8. The compact collection will remain a single viewport-bounded stack.
 
-   The fixed lower-end container will use one responsive column, a bounded inline size, available viewport block size, and scrolling when the number of bars exceeds the viewport. Every compact grid row and window has a 4rem block size. Adjacent rows use a 0.375rem gap, half the original 0.75rem gap. Compact windows override the dialog surface shadow to `none` through an inherited component custom property, while Theater retains the dialog's default elevation.
+   The fixed lower-end container will use one responsive column, a bounded inline size, available viewport block size, and scrolling when the number of bars exceeds the viewport. Every compact grid row and window derives its block size from the 1.875rem controls and equal 0.5rem chrome padding. Adjacent rows use a 0.375rem gap, half the original 0.75rem gap. Compact windows override the dialog surface shadow to `none` through an inherited component custom property, while Theater retains the dialog's default elevation.
 
    Alternative considered: preserve the auto-fit preview grid. Multiple narrow status bars are easier to scan and operate as a single stack, especially on mobile and at text zoom.
 
 9. Browser-local workspace layout will initialize in Compact.
 
-   `createWorkspace/0` will initialize its local layout store with `{mode: "compact"}`. Complete workspace snapshots can add, remove, or replace session descriptors without selecting a Theater window. Activating Expand remains the only normal path to `{mode: "focused", id}`, and a newly mounted component creates a fresh Compact layout even when the same actor has sessions open elsewhere.
+   `createWorkspace/0` will initialize its local layout store with `{mode: "compact"}`. Complete workspace snapshots can add, remove, or replace session descriptors without selecting a Theater window. Activating a session's Compact restore surface remains the only normal path to `{mode: "focused", id}`, and a newly mounted component creates a fresh Compact layout even when the same actor has sessions open elsewhere.
 
    The existing `auto` layout variant and resolution branch will remain available to avoid unrelated interface churn, but it will no longer be the store's initial state.
 
@@ -99,12 +105,14 @@ The implementation must preserve the current SDK bridge and iframe node across A
 - [Risk] `content-visibility: hidden` is unavailable in Safari 17.2. -> Use `display: none` as the baseline and enable `content-visibility` only behind `@supports`; both keep the DOM node mounted.
 - [Risk] Adding a required descriptor field can break an independently deployed stale frontend. -> Deploy backend and frontend atomically as one Phoenix release and keep the field additive on the wire.
 - [Risk] Persistent identifier, Live, or Reconnecting motion could distract users. -> Animate only actual overflow and active transport states, pause identifier motion during inspection, keep status pulses restrained, and disable all motion under reduced-motion preferences.
-- [Risk] A compact row could crowd long status text and controls. -> Keep the 1.5rem status and controls non-shrinking, give the identifier the only flexible clipped lane, and verify minimum-viewport geometry in a real browser.
-- [Risk] Smaller controls can fall below comfortable touch-target guidance. -> Keep the requested 1.5rem square as the lower bound, preserve focus styling and accessible labels, and verify keyboard and pointer operation in a real browser.
-- [Risk] CSS visual order differs from the fixed Close, fullscreen, Layout DOM and sequential-focus order. -> Keep the source order stable and document the deliberate trade-off; restore state-specific DOM order if visual and keyboard order must align again.
+- [Risk] A compact row could crowd long status text and enlarged controls. -> Keep the 1.875rem status and controls non-shrinking, use equal 0.5rem padding, give the identifier the only flexible clipped lane, and verify the content-sized row at the minimum viewport in a real browser.
+- [Risk] The row-spanning restore surface could intercept fullscreen or Close. -> Keep the restore button below the visible content layer, place the named controls above it, and cover each action independently with pointer and keyboard tests.
+- [Risk] CSS visual order differs from the fixed source and sequential-focus order. -> Keep the source order stable within each state and document the deliberate trade-off; restore state-specific visual order if visual and keyboard order must align again.
 - [Risk] Fullscreen entered from Compact could remain inert or return to Theater. -> Derive game visibility from `expanded || fullscreen` and do not mutate workspace layout when toggling fullscreen.
 - [Risk] Many compact sessions can exceed viewport height. -> Bound the stack by dynamic viewport height and keep its scrollbar usable.
 - [Risk] A dialog surface shadow can visually fill the compact row gap. -> Disable surface elevation only for Compact windows and preserve the default shadow for Theater.
+- [Risk] Inverting the Compact palette could reduce legibility in a custom theme. -> Use the existing paired base and content theme tokens in opposite roles and verify the computed contrast in the active browser.
+- [Risk] A wider status badge could crowd the identifier on narrow viewports. -> Apply 5.25rem as a minimum rather than a fixed size, keep the identifier as the only shrinking lane, and verify both controls remain reachable without horizontal overflow.
 - [Risk] Reconnect or replacement snapshots could accidentally restore Auto expansion. -> Keep layout state independent from channel snapshots and cover initial, replacement, and remount behavior in focused tests.
 
 ## Migration Plan
@@ -113,7 +121,7 @@ The implementation must preserve the current SDK bridge and iframe node across A
 2. Separate internal session descriptors and runtime PIDs from the channel-owned public snapshot envelope.
 3. Require `phase` in the frontend descriptor and update test fixtures.
 4. Initialize browser-local layout in Compact and preserve explicit focus behavior.
-5. Replace compact preview rendering and geometry with the centered 4rem status row, hidden stable game wrapper, 1.5rem badge, identifier motion, and compact control variant.
+5. Replace compact preview rendering and geometry with the centered content-sized status row, hidden stable game wrapper, 1.875rem badge, identifier motion, restore surface, and compact control variant.
 6. Reveal the game for Compact fullscreen without changing workspace layout.
 7. Verify default Compact mounting, status precedence, iframe/bridge identity, accessibility exposure, motion preferences, responsive geometry, stacking, and Theater/fullscreen behavior.
 

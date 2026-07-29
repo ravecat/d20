@@ -50,3 +50,47 @@
 
 - [x] 7.1 Rename `D20Web.Workspace.snapshot/1` to `sessions/1`, return descriptors with a runtime PID set, and let `D20Web.WorkspaceChannel` construct the public snapshot envelope.
 - [x] 7.2 Update focused channel coverage and pass backend formatting, targeted tests, and strict OpenSpec validation.
+
+## 8. Keyboard Order Contract
+
+- [x] 8.1 Reconcile the legacy workspace-control specification and tracking requirements with the stable Close, fullscreen, Layout source order and mode-specific CSS visual order.
+- [x] 8.2 Add real-browser coverage for sequential keyboard order and native button activation without changing the production control markup.
+- [x] 8.3 Run Svelte analysis, focused frontend checks, broad repository checks, and strict OpenSpec validation.
+
+## 9. Compact Restore Surface and Sizing
+
+- [x] 9.1 Reconcile the proposal, design, specification, and tracking requirements for 25% larger Compact status and controls and surface-based restoration.
+- [x] 9.2 Convert the Compact summary into a native restore surface, remove the dedicated Compact Layout control, and preserve Theater compaction, fullscreen and Close isolation, and iframe continuity.
+- [x] 9.3 Increase only Compact status badges, controls, and icons by 25%, halve Compact block-axis padding, and preserve 4rem rows, Theater and fullscreen sizes, and narrow-viewport reachability.
+- [x] 9.4 Update focused component and browser tests for pointer and keyboard surface activation, action isolation, geometry, responsive layout, and mounted iframe continuity.
+- [x] 9.5 Run Svelte analysis twice, focused frontend checks, formatting, linting, type checking, broad frontend tests, browser verification, and strict OpenSpec validation.
+
+## 10. Balanced Compact Padding
+
+- [x] 10.1 Reconcile the proposal, design, specification, and tracking requirements for equal Compact chrome padding.
+- [x] 10.2 Set Compact chrome padding to 0.5rem on both axes, flatten its visible flex hierarchy, and move restoration to a row-spanning native button without changing row or control sizes.
+- [x] 10.3 Update pointer, keyboard-focus, hierarchy, and geometry coverage, then run Svelte analysis, focused frontend checks, broad frontend tests, browser verification, and strict OpenSpec validation.
+
+## 11. Shared Window-Control Geometry
+
+- [x] 11.1 Reconcile the proposal, design, specification, and tracking requirements for identical window-control geometry in every presentation mode.
+- [x] 11.2 Move the 1.875rem control and 0.9375rem icon sizes to the base window-control rules and update browser geometry coverage for Theater and fullscreen.
+- [x] 11.3 Run Svelte analysis, focused frontend checks, broad frontend tests, browser verification, and strict OpenSpec validation.
+
+## 12. Reduced Compact Vertical Whitespace
+
+- [x] 12.1 Reconcile the proposal, design, specification, and tracking requirements with the visible whitespace caused by the fixed Compact row height.
+- [x] 12.2 Remove fixed Compact row and window heights, retain equal 0.5rem chrome padding, and update browser geometry coverage for the content-sized result.
+- [x] 12.3 Verify the reduced whitespace, shared control geometry, narrow-viewport reachability, and strict OpenSpec validity.
+
+## 13. Inverted Compact Palette
+
+- [x] 13.1 Reconcile the requested Compact background, text, and control inversion with the existing theme-token boundary.
+- [x] 13.2 Add dialog surface color custom properties, invert only Compact surfaces and controls, and update browser style coverage.
+- [x] 13.3 Verify Compact contrast and unchanged Theater colors in the active browser and focused checks.
+
+## 14. Compact Status Palette and Width
+
+- [x] 14.1 Reconcile the clarified Compact background, white identifier, white status surface, theme-content status text, and wider default badge with the existing palette.
+- [x] 14.2 Apply the clarified colors, give the status badge a 5.25rem minimum inline size, center its contents, and update browser coverage.
+- [x] 14.3 Verify the palette, approximately 50% wider Live badge, narrow-viewport reachability, and strict OpenSpec validity.
