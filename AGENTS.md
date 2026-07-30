@@ -75,6 +75,8 @@
 - If a matching change exists but does not fully cover the request, update its artifacts before implementation.
 - Do not begin implementation until the OpenSpec artifacts describe the requested behavior and contain no unresolved blocking questions.
 - Use `$openspec-apply-change` to implement the ready change.
+- When all tasks for the matching change are complete and required validation passes, use `$openspec-archive-change` before reporting the repository task complete.
+- Do not archive a change while implementation, validation, migration, deployment, rollback, or other delivery work recorded in its artifacts remains incomplete.
 - Read-only investigation, explanation, and planning that do not change repository behavior do not require a new OpenSpec change.
 
 ## Architecture Boundaries
@@ -141,4 +143,5 @@
 - Cover the requested behavior with relevant tests.
 - Run the smallest relevant formatting, tests, linting, and type checks, then broaden according to risk.
 - Update public contracts and durable documentation when behavior changes.
+- For OpenSpec-backed work, archive the completed change, run `openspec validate --all --strict --no-interactive`, and confirm it no longer appears in `openspec list --json`.
 - Report commands run, verified behavior, and remaining risks.
