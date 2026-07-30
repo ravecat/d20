@@ -9,8 +9,8 @@ After the dock is removed, a single Compact preview still fills nearly the entir
 ## What Changes
 
 - Restore an explicit Compact action while a workspace game window is in Theater mode.
-- Arrange the shell-owned window controls in one vertical column in every display mode.
-- Put Close first, followed by the applicable Compact or Expand action, then the applicable fullscreen action.
+- Keep one stable source and sequential keyboard order: Close, fullscreen, then the applicable Compact or Expand action.
+- Arrange Theater controls visually as Close, Compact, Enter fullscreen and Compact controls visually as Expand, Enter fullscreen, Close through CSS.
 - Remove the duplicate workspace session dock without introducing a replacement panel.
 - Reclaim the dock-only layout reservation while retaining safe-area spacing and mounted active game windows.
 - On viewports wider than the existing `48rem` responsive boundary, bound the Compact preview region to approximately `50%` of viewport width by `25%` of viewport height and anchor it at the lower-right safe-area edge.
@@ -22,7 +22,7 @@ After the dock is removed, a single Compact preview still fills nearly the entir
 
 ### New Capabilities
 
-- `workspace-window-controls`: Defines the available actions, semantic order, vertical layout, accessibility, and continuity requirements for shell-owned workspace window controls.
+- `workspace-window-controls`: Defines the available actions, stable source order, mode-specific visual layout, accessibility, and continuity requirements for shell-owned workspace window controls.
 
 ### Modified Capabilities
 

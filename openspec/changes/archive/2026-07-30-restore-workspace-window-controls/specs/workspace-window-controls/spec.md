@@ -25,32 +25,27 @@ The shell SHALL expose Close and fullscreen actions for every mounted workspace 
 - **AND** no Compact or Expand action is exposed until browser fullscreen ends
 - **AND** exiting fullscreen restores the action applicable to the preserved workspace mode
 
-### Requirement: Workspace window controls use one semantic vertical order
+### Requirement: Workspace window controls use one stable semantic source order
 
-The shell SHALL render the workspace window controls as one named vertical group and MUST keep DOM, keyboard, and visual order aligned as Close first, the applicable mode action second when present, and the fullscreen action last.
+The shell SHALL render workspace window controls as one named group and MUST keep their DOM and sequential keyboard order as Close first, fullscreen second, and the applicable mode action last when present. CSS SHALL determine the mode-specific visual direction and order independently.
 
 #### Scenario: Theater control order
 
 - **WHEN** a workspace window is in Theater mode outside browser fullscreen
-- **THEN** the named control group is arranged in one vertical column
-- **AND** Close is first
-- **AND** Compact is second
-- **AND** Enter fullscreen is last
+- **THEN** the named control group is visually arranged in one vertical column as Close, Compact, Enter fullscreen
+- **AND** its DOM and sequential keyboard order is Close, Enter fullscreen, Compact
 
 #### Scenario: Compact control order
 
 - **WHEN** a workspace window is in Compact mode outside browser fullscreen
-- **THEN** the named control group is arranged in one vertical column
-- **AND** Close is first
-- **AND** Expand is second
-- **AND** Enter fullscreen is last
+- **THEN** the named control group is visually arranged in one horizontal row as Expand, Enter fullscreen, Close
+- **AND** its DOM and sequential keyboard order is Close, Enter fullscreen, Expand
 
 #### Scenario: Fullscreen control order
 
 - **WHEN** a workspace window is browser fullscreen
-- **THEN** the named control group is arranged in one vertical column
-- **AND** Close is first
-- **AND** Exit fullscreen is last
+- **THEN** the named control group is visually arranged in one vertical column as Close, Exit fullscreen
+- **AND** its DOM and sequential keyboard order is Close, Exit fullscreen
 
 ### Requirement: Reorganized controls preserve accessibility and geometry
 
@@ -59,9 +54,10 @@ The shell MUST retain native button semantics, result-oriented accessible names,
 #### Scenario: Keyboard user traverses the control group
 
 - **WHEN** a keyboard user navigates a workspace window's enabled controls
-- **THEN** focus follows the same Close, mode action, fullscreen action order that is presented visually
+- **THEN** focus follows Close, fullscreen, mode action when the mode action is present
+- **AND** this sequential focus order MAY differ from the CSS visual order
 - **AND** every focused control has a visible focus indicator
-- **AND** every action can be activated from the keyboard
+- **AND** every action can be activated with native button keyboard behavior
 
 #### Scenario: Assistive technology identifies the controls
 

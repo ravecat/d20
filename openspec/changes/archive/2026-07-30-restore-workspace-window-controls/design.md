@@ -8,20 +8,22 @@ The component also renders Expand before Close in Compact mode and uses the defa
 
 The Compact window collection currently spans almost the full viewport inline size, and `dialog--compact` fills the available grid track. A single preview therefore becomes a broad strip across the bottom of the page. The requested reference instead marks the lower-right half of the bottom quarter, corresponding to a target of approximately `50vw` by `25dvh`, or one eighth of the viewport area.
 
+The later `replace-compact-previews-with-session-status-bars` change supersedes this change's original aligned DOM, keyboard, and visual-order decision. The current contract keeps one Close, fullscreen, Layout source sequence and lets CSS arrange the same controls for Compact and Theater.
+
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Expose the existing `onCompact` transition from Theater mode.
-- Make Close the first control in DOM, keyboard, and visual order.
-- Place the applicable mode action second and fullscreen action last.
-- Render the control group as one vertical column without changing button geometry or top-end placement.
+- Keep one stable Close, fullscreen, Layout DOM and sequential keyboard order.
+- Present Theater visually as Close, Compact, Enter fullscreen and Compact visually as Expand, Enter fullscreen, Close.
+- Let CSS control the mode-specific direction and visual order without duplicating button markup.
 - Preserve native button semantics, accessible names, focus visibility, iframe identity, and SDK bridge identity.
 - Remove the passive workspace session dock and its duplicate metadata without a replacement panel.
 - Reclaim the dock-only block-end reservation while preserving the safe-area offset.
 - Bound the wide-viewport Compact preview region to approximately `50vw` by `25dvh` at the lower-right safe-area edge.
 - Keep a narrow-viewport fallback that prioritizes reachable controls and avoids horizontal viewport overflow.
-- Cover the action matrix, semantic order, and Theater-to-Compact continuity in the focused workspace component test, and verify the vertical layout in a real browser.
+- Cover the action matrix, stable source order, mode-specific visual order, and Theater-to-Compact continuity in focused component and browser tests.
 
 **Non-Goals:**
 
@@ -34,14 +36,15 @@ The Compact window collection currently spans almost the full viewport inline si
 - Add a replacement taskbar, switcher, status panel, or session-management surface.
 - Change Theater or browser fullscreen dimensions.
 - Change the embedded game's own responsive layout or zoom behavior.
+- Synchronize sequential keyboard focus with the mode-specific CSS visual order.
 
 ## Decisions
 
-1. Put semantic order in the markup.
+1. Keep one stable source order and derive visual order in CSS.
 
-   Close will render first. Outside browser fullscreen, the component will then render exactly one mode action selected from the current workspace mode. The fullscreen action will remain last. DOM order will therefore produce the same reading, tab, and visual sequence without CSS `order`.
+   Close renders first, fullscreen second, and the applicable mode action last outside browser fullscreen. Native sequential keyboard navigation follows that source order. CSS presents Compact as Expand, Enter fullscreen, Close and Theater as Close, Compact, Enter fullscreen without duplicating the controls.
 
-   Alternative considered: retain markup order and use CSS `order`. That would change only visual order and leave keyboard and assistive-technology traversal inconsistent with the requested hierarchy.
+   Alternative considered: render a different source order for each presentation mode. That would align visual and sequential keyboard order but duplicate or move interactive markup during mode changes, which is outside the accepted priority for this feature.
 
 2. Reuse the existing workspace mode callback.
 
@@ -63,7 +66,7 @@ The Compact window collection currently spans almost the full viewport inline si
 
 5. Split behavioral and presentation verification at their effective boundaries.
 
-   The existing Vitest and jsdom workspace test will inspect buttons through their accessible names inside the named group, assert the explicit DOM order for each mode, activate Theater-to-Compact directly, and verify that the iframe and SDK bridge are retained. A real-browser inspection will verify the computed column direction and focus presentation because the repository intentionally does not process scoped component CSS in jsdom.
+   The existing Vitest and jsdom workspace test will inspect buttons through their accessible names inside the named group, assert the stable DOM order for each mode, activate Theater-to-Compact directly, and verify that the iframe and SDK bridge are retained. A real-browser test will verify sequential keyboard navigation, native activation, and the computed mode-specific visual order because the repository intentionally does not process scoped component CSS in jsdom.
 
    Alternative considered: re-enable scoped CSS processing in Vitest. The repository previously removed computed-style assertions so component tests remain focused on observable behavior; restoring special test configuration for one declaration would reintroduce that coupling.
 
@@ -91,15 +94,15 @@ The Compact window collection currently spans almost the full viewport inline si
 
 - [Risk] Three vertical controls cover more block-axis game content than the current horizontal group. - Mitigation: preserve the reduced `2rem` control size and `0.3rem` gap, keep the group at the top-end edge, and verify the supported viewport behavior.
 - [Risk] The new mode button could trigger a dialog close event that compacts twice. - Mitigation: call the existing workspace callback directly and retain keyed workspace entries so the same dialog and iframe are updated declaratively.
-- [Risk] A CSS regression can preserve semantic order while breaking the vertical presentation. - Mitigation: verify computed `flex-direction`, action order, and focus presentation in a real browser while component tests protect the behavioral contract.
+- [Risk] CSS visual order differs from source and sequential keyboard order. - Mitigation: document the deliberate trade-off and verify both orders independently in a real browser.
 - [Risk] Removing the dock removes an at-a-glance session count and connection summary. - Mitigation: the panel exposes no action and duplicates mounted windows; preserve each window's existing status and recovery presentation, and treat any future session switcher as a separately specified capability.
 - [Risk] Several Compact windows have less visible space inside the bounded region. - Mitigation: retain the existing scrollable collection and verify that each window and its controls remain reachable.
 - [Risk] Viewport units can include browser chrome differently across devices. - Mitigation: use dynamic viewport block units, retain safe-area offsets, and verify the wide and narrow responsive branches in a real browser.
 
 ## Migration Plan
 
-1. Add focused component coverage for the expected action matrix, order, and Theater-to-Compact continuity.
-2. Reorder the semantic buttons, add the Theater Compact branch, name the control group, and switch its flex direction to column.
+1. Add focused component coverage for the expected action matrix, stable source order, and Theater-to-Compact continuity.
+2. Keep one Close, fullscreen, Layout source sequence, name the control group, and use CSS for the Compact and Theater visual arrangements.
 3. Run focused tests, formatting, frontend lint, type checks, and strict OpenSpec validation.
 4. Remove the workspace dock, delete its component, and reduce the game-window block-end inset to the safe-area offset.
 5. Verify in component tests and a real browser that no duplicate panel remains and every active game window stays mounted and controllable.
