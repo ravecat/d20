@@ -266,6 +266,41 @@ describe("Workspace presentation", () => {
     ).toBe(true);
   });
 
+  it("keeps Compact content readable with dark theme tokens", async () => {
+    await page.viewport(390, 640);
+    document.documentElement.style.setProperty("--color-base-content", "rgb(250 250 250)");
+    document.documentElement.style.setProperty("--color-base-100", "rgb(20 30 40)");
+    renderWorkspace([descriptor("session-a")]);
+
+    const dialog = page.getByRole("dialog", { name: "Game session session-a" });
+    const liveText = page.getByText("Live", { exact: true });
+    const sessionText = page.getByText("Session session-a", { exact: true });
+    const controls = page.getByRole("group", {
+      name: "Game session session-a window controls",
+    });
+    const surface = dialog.element().firstElementChild;
+    const liveBadge = liveText.element().closest(".workspace__compact-status");
+    const sessionLabel = sessionText.element().closest(".workspace__session-label");
+    if (
+      !(surface instanceof HTMLElement) ||
+      !(liveBadge instanceof HTMLElement) ||
+      !(sessionLabel instanceof HTMLElement)
+    ) {
+      throw new Error("Expected the Compact surface, status, and session label.");
+    }
+
+    expect(getComputedStyle(surface).backgroundColor).toBe("rgb(250, 250, 250)");
+    expect(getComputedStyle(surface).color).toBe("rgb(20, 30, 40)");
+    expect(getComputedStyle(liveBadge).backgroundColor).toBe("rgb(20, 30, 40)");
+    expect(getComputedStyle(liveBadge).color).toBe("rgb(250, 250, 250)");
+    expect(getComputedStyle(sessionLabel).color).toBe("rgb(20, 30, 40)");
+
+    for (const button of controls.getByRole("button").elements()) {
+      expect(getComputedStyle(button).backgroundColor).toBe("rgb(20, 30, 40)");
+      expect(getComputedStyle(button).color).toBe("rgb(250, 250, 250)");
+    }
+  });
+
   it("uses a content-sized lower-right status bar with equal padding", async () => {
     renderWorkspace([descriptor("session-a")]);
 
@@ -382,9 +417,9 @@ describe("Workspace presentation", () => {
     expect(badgeBounds.width).toBeCloseTo(5.25 * 16, 0);
     expect(getComputedStyle(liveBadge).minInlineSize).toBe("84px");
     expect(getComputedStyle(liveBadge).justifyContent).toBe("center");
-    expect(getComputedStyle(liveBadge).backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(getComputedStyle(liveBadge).backgroundColor).toBe("rgb(250, 250, 250)");
     expect(getComputedStyle(liveBadge).color).toBe("rgb(20, 30, 40)");
-    expect(getComputedStyle(sessionLabel).color).toBe("rgb(255, 255, 255)");
+    expect(getComputedStyle(sessionLabel).color).toBe("rgb(250, 250, 250)");
     for (const button of controlButtons) {
       const icon = button.querySelector("svg");
       if (!(icon instanceof SVGSVGElement)) throw new Error("Expected a Compact control icon.");

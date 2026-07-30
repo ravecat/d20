@@ -262,7 +262,7 @@
     gap: 0.3rem;
     border: 1px solid color-mix(in oklab, currentColor 32%, transparent);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--color-base-100);
     padding: 0.25rem 0.4rem;
     color: var(--color-base-content);
     font-size: 0.75rem;
@@ -306,7 +306,6 @@
     flex: 1;
     min-inline-size: 0;
     overflow: hidden;
-    color: white;
     pointer-events: none;
     white-space: nowrap;
   }
