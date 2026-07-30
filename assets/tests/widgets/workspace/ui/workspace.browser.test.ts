@@ -1,3 +1,4 @@
+import { module as exposeModule } from "@rvct/d20sdk";
 import { flushSync, mount, unmount } from "svelte";
 import { writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,6 +47,34 @@ afterEach(async () => {
 });
 
 describe("Workspace presentation", () => {
+  it("loads the Compact game frame before expansion without replacing its runtime", async () => {
+    const embedUrl = URL.createObjectURL(new Blob(["<!doctype html><title>Ready</title>"]));
+    const bridgeCalls = vi.mocked(exposeModule).mock.calls.length;
+
+    try {
+      renderWorkspace([descriptor("session-a", "in_progress", embedUrl, ["allow-same-origin"])]);
+
+      const iframe = page.getByTitle("Game module").element();
+      expect(iframe).toBeInstanceOf(HTMLIFrameElement);
+      if (!(iframe instanceof HTMLIFrameElement)) {
+        throw new Error("Expected a game module frame.");
+      }
+
+      expect(iframe.loading).toBe("eager");
+      await vi.waitFor(() => expect(iframe.contentDocument?.URL).toBe(embedUrl));
+      expect(vi.mocked(exposeModule).mock.calls).toHaveLength(bridgeCalls + 1);
+
+      await page.getByRole("button", { name: "Expand Game session session-a" }).click();
+      flushSync();
+
+      expect(page.getByTitle("Game module").element()).toBe(iframe);
+      expect(iframe.contentDocument?.URL).toBe(embedUrl);
+      expect(vi.mocked(exposeModule).mock.calls).toHaveLength(bridgeCalls + 1);
+    } finally {
+      URL.revokeObjectURL(embedUrl);
+    }
+  });
+
   it("keeps Compact restoration and Theater controls keyboard reachable in source order", async () => {
     renderWorkspace([descriptor("session-a")]);
 
@@ -611,15 +640,17 @@ function renderWorkspace(descriptors: WorkspaceSessionDescriptor[]) {
 function descriptor(
   id: string,
   phase: WorkspaceSessionDescriptor["phase"] = "in_progress",
+  embedUrl = "about:blank",
+  sandbox: string[] = [],
 ): WorkspaceSessionDescriptor {
   return {
     id,
     slug: "qwinto",
     phase,
     module: {
-      embed_url: "about:blank",
+      embed_url: embedUrl,
       allowed_origins: ["null"],
-      sandbox: [],
+      sandbox,
     },
     connection: {
       endpoint: "wss://module.example.test/socket",

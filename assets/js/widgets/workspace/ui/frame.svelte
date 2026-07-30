@@ -35,7 +35,7 @@
   class="frame"
   title="Game module"
   src={module.embed_url}
-  loading="lazy"
+  loading="eager"
   sandbox={module.sandbox.join(" ")}
 ></iframe>
 
