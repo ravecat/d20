@@ -7,6 +7,7 @@ defmodule D20.KoalaRescueClub.Game do
   use Ecto.Schema
 
   import Ecto.Changeset, only: [cast: 3, validate_required: 2]
+  import Function, only: [identity: 1]
 
   alias D20.Dice
   alias D20.KoalaRescueClub.Command
@@ -15,7 +16,6 @@ defmodule D20.KoalaRescueClub.Game do
 
   @phases [:setup, :ready, :roll, :submit, :finished]
   @modes [:solo, :multiplayer]
-  @player_statuses [:ready, :pending, :submitted]
   @derive Jason.Encoder
   @primary_key false
 
@@ -107,9 +107,9 @@ defmodule D20.KoalaRescueClub.Game do
       when event in ["join", "left"] and phase in [:roll, :submit],
       do: {:ok, game}
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left", actor_id: actor_id})
+  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left"} = command)
       when phase in [:setup, :ready] do
-    {:ok, game |> leave_player(actor_id) |> refresh_setup_phase()}
+    {:ok, apply_command(game, command)}
   end
 
   def dispatch(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"} = command) do
@@ -129,7 +129,7 @@ defmodule D20.KoalaRescueClub.Game do
   def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{} = command) do
     with {:ok, command} <- Command.validate(command),
          {:ok, player} <- Rules.resolve_turn(game, command) do
-      {:ok, apply_submit(game, command, player)}
+      {:ok, apply_command(game, command, player)}
     end
   end
 
@@ -158,82 +158,83 @@ defmodule D20.KoalaRescueClub.Game do
   def fetch_player(%__MODULE__{players: players}, player_id), do: Map.fetch(players, player_id)
 
   defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
-    game
-    |> join_player(actor_id)
-    |> refresh_setup_phase()
+    rulesheet = game |> Pathex.view!(lens(:sheet)) |> Ruleset.sheet!()
+
+    volunteers =
+      List.duplicate(:available, rulesheet.volunteers) ++
+        List.duplicate(:locked, Ruleset.volunteer() - rulesheet.volunteers)
+
+    sheet = %{
+      trees: [],
+      koalas: [],
+      areas:
+        rulesheet.areas
+        |> Enum.filter(fn {_id, area} -> area.access end)
+        |> Map.new(fn {id, _area} -> {id, true} end),
+      volunteers: volunteers,
+      hospitals: Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end),
+      skybridges: [],
+      bonuses: []
+    }
+
+    player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
+
+    game = Pathex.force_over!(game, lens(:players) ~> path(actor_id), &identity/1, player)
+
+    phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
+
+    Pathex.set!(game, lens(:phase), phase)
+  end
+
+  defp apply_command(game, %D20.Command{event: "left", actor_id: actor_id}) do
+    game =
+      Pathex.over!(game, lens(:players), fn players -> Pathex.without(players, path(actor_id)) end)
+
+    phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
+
+    Pathex.set!(game, lens(:phase), phase)
   end
 
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
-    players =
-      Map.new(game.players, fn {player_id, player} ->
-        {player_id, Map.merge(player, %{status: :ready, rounds: [], badges: %{}, turns: []})}
-      end)
+    players = Pathex.view!(game, lens(:players))
+    each_player = lens(:players) ~> all()
 
-    %{game | phase: :roll, mode: game_mode(game.players), round: 1, turn: 1, players: players}
+    mode =
+      case map_size(players) do
+        1 -> :solo
+        count when count > 1 -> :multiplayer
+      end
+
+    game
+    |> Pathex.set!(lens(:phase), :roll)
+    |> Pathex.set!(lens(:mode), mode)
+    |> Pathex.set!(lens(:round), 1)
+    |> Pathex.set!(lens(:turn), 1)
+    |> Pathex.set!(each_player ~> path(:status), :ready)
+    |> Pathex.set!(each_player ~> path(:rounds), [])
+    |> Pathex.set!(each_player ~> path(:badges), %{})
+    |> Pathex.set!(each_player ~> path(:turns), [])
   end
 
   defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"}) do
     %{d6: [value]} = Dice.roll!(d6: 1)
 
-    set_player_statuses(%{game | phase: :submit, roll: %{value: value}}, :pending)
+    game
+    |> Pathex.set!(lens(:phase), :submit)
+    |> Pathex.set!(lens(:roll), %{value: value})
+    |> Pathex.set!(lens(:players) ~> all() ~> path(:status), :pending)
   end
 
-  defp apply_submit(
+  defp apply_command(
          %__MODULE__{phase: :submit} = game,
          %D20.Command{event: "submit", actor_id: actor_id, attrs: %{die_value: value}},
          player
        ) do
-    player = record_turn(player, value)
+    player = Pathex.force_over!(player, path(:turns), &(&1 ++ [value]), [value])
 
     game
-    |> put_in([Access.key!(:players), actor_id], player)
+    |> Pathex.set!(lens(:players) ~> path(actor_id), player)
     |> maybe_resolve_turn()
-  end
-
-  defp join_player(game, player_id) do
-    if Map.has_key?(game.players, player_id) do
-      game
-    else
-      rulesheet = Ruleset.sheet!(game.sheet)
-
-      volunteers =
-        List.duplicate(:available, rulesheet.volunteers) ++
-          List.duplicate(:locked, Ruleset.volunteer() - rulesheet.volunteers)
-
-      sheet = %{
-        trees: [],
-        koalas: [],
-        areas:
-          rulesheet.areas
-          |> Enum.filter(fn {_id, area} -> area.access end)
-          |> Map.new(fn {id, _area} -> {id, true} end),
-        volunteers: volunteers,
-        hospitals: Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end),
-        skybridges: [],
-        bonuses: []
-      }
-
-      player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
-
-      %{game | players: Map.put(game.players, player_id, player)}
-    end
-  end
-
-  defp leave_player(game, player_id) do
-    %{game | players: Map.delete(game.players, player_id)}
-  end
-
-  defp refresh_setup_phase(game) do
-    phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
-
-    %{game | phase: phase}
-  end
-
-  defp game_mode(players) when map_size(players) == 1, do: :solo
-  defp game_mode(players) when map_size(players) > 1, do: :multiplayer
-
-  defp record_turn(player, value) do
-    Map.put(player, :turns, Map.get(player, :turns, []) ++ [value])
   end
 
   defp maybe_resolve_turn(game) do
@@ -252,15 +253,24 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   defp maybe_finish(game) do
-    if Ruleset.final_turn?(game.turn) do
-      %{game | phase: :finished, scores: score_players(game)}
-    else
-      {:ok, next_round} = Ruleset.round(game.turn + 1)
+    turn = Pathex.view!(game, lens(:turn))
 
-      set_player_statuses(
-        %{game | phase: :roll, round: next_round, turn: game.turn + 1, roll: nil},
-        :ready
-      )
+    if Ruleset.final_turn?(turn) do
+      scores = score_players(game)
+
+      game
+      |> Pathex.set!(lens(:phase), :finished)
+      |> Pathex.set!(lens(:scores), scores)
+    else
+      next_turn = turn + 1
+      {:ok, next_round} = Ruleset.round(next_turn)
+
+      game
+      |> Pathex.set!(lens(:phase), :roll)
+      |> Pathex.set!(lens(:round), next_round)
+      |> Pathex.set!(lens(:turn), next_turn)
+      |> Pathex.set!(lens(:roll), nil)
+      |> Pathex.set!(lens(:players) ~> all() ~> path(:status), :ready)
     end
   end
 
@@ -414,12 +424,5 @@ defmodule D20.KoalaRescueClub.Game do
     Enum.reduce(player_ids, game, fn player_id, game ->
       update_in(game.players[player_id], fun)
     end)
-  end
-
-  defp set_player_statuses(game, status) when status in @player_statuses do
-    players =
-      Map.new(game.players, fn {player_id, player} -> {player_id, %{player | status: status}} end)
-
-    %{game | players: players}
   end
 end

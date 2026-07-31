@@ -96,6 +96,47 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:error, :invalid_player_count} = dispatch(game, "join", "p100")
     end
 
+    test "preserves the complete player state when an existing player rejoins" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:ok, game} = dispatch(game, "join", "p1")
+
+      game = put_in(game.players["p1"].turns, [6])
+
+      assert {:ok, ^game} = dispatch(game, "join", "p1")
+    end
+
+    test "resets every accepted player when the game starts" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:ok, game} = dispatch(game, "join", "p1")
+      assert {:ok, game} = dispatch(game, "join", "p2")
+
+      players =
+        Map.new(game.players, fn {player_id, player} ->
+          {player_id,
+           %{
+             player
+             | status: :submitted,
+               rounds: [%{trees: 1, koalas: 1, hospitals: 1, total: 3}],
+               badges: %{trees: :large},
+               turns: [6]
+           }}
+        end)
+
+      game = %{game | players: players}
+
+      assert {:ok,
+              %Game{
+                phase: :roll,
+                mode: :multiplayer,
+                round: 1,
+                turn: 1,
+                players: %{
+                  "p1" => %{status: :ready, rounds: [], badges: %{}, turns: []},
+                  "p2" => %{status: :ready, rounds: [], badges: %{}, turns: []}
+                }
+              }} = dispatch(game, "start", "p1")
+    end
+
     test "uses one shared roll and advances after all players submit" do
       assert {:ok, game} = D20.Game.init(Game)
       assert {:ok, game} = dispatch(game, "join", "p1")
@@ -161,6 +202,13 @@ defmodule D20.KoalaRescueClub.GameTest do
 
       assert {:ok, %Game{phase: :roll, mode: :solo, players: %{"p1" => _player}}} =
                dispatch(game, "start", "p1")
+    end
+
+    test "keeps the ready roster unchanged when an absent player leaves" do
+      assert {:ok, game} = D20.Game.init(Game)
+      assert {:ok, game} = dispatch(game, "join", "p1")
+
+      assert {:ok, ^game} = dispatch(game, "left", "p2")
     end
 
     test "returns to setup when the last player leaves before start" do

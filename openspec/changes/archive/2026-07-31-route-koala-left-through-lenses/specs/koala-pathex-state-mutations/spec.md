@@ -1,21 +1,4 @@
-# koala-pathex-state-mutations Specification
-
-## Purpose
-TBD - created by archiving change evaluate-koala-pathex-lenses. Update Purpose after archive.
-## Requirements
-### Requirement: Koala field lenses do not duplicate schema metadata
-`D20.KoalaRescueClub.Game` SHALL consume the private Pathex field lens supplied by `use D20.Game` for aggregate field references. The shared lens mechanism SHALL inline map paths without maintaining a second enumeration of embedded-schema fields or depending on Ecto's internal compile-time field attributes.
-
-#### Scenario: Reducer addresses a declared aggregate field
-- **WHEN** reducer code requests a lens for a declared Koala aggregate field
-- **THEN** the lens addresses that field on the `Game` struct
-- **AND** Koala does not define or import a duplicate field-lens DSL
-- **AND** the generated traversal is compatible with struct and map values
-
-#### Scenario: Reducer executes an invalid internal field path
-- **WHEN** reducer code executes a bang operation with a lens field absent from the aggregate
-- **THEN** the traversal fails as a programmer defect
-- **AND** the failure does not become a new domain error or dispatch result
+## MODIFIED Requirements
 
 ### Requirement: Command application is expressed as lens-based aggregate mutation
 Every accepted state-changing public Koala command SHALL reach an `apply_command` reducer clause after its external payload and state-dependent legality have been checked. Each `apply_command` clause SHALL read and update aggregate fields through Pathex field or collection paths and SHALL NOT delegate aggregate mutation to a command-specific helper. When Rules derives data required by a transition, command dispatch MUST pass that accepted result to the reducer without repeating rule resolution.
@@ -68,28 +51,3 @@ Every accepted state-changing public Koala command SHALL reach an `apply_command
 - **THEN** no `apply_command` reducer clause runs
 - **AND** the complete source aggregate remains unchanged
 - **AND** the caller receives the existing changeset or stable rule error
-
-### Requirement: Automatic completed-turn transitions use lens-based aggregate mutation
-After a Koala turn is complete, the aggregate SHALL read its current turn and update final or next-turn state through Pathex field and collection paths. Automatic completion SHALL NOT delegate player status mutation to a map-rebuild helper, and all score and round derivation SHALL retain the existing rules.
-
-#### Scenario: A non-final completed turn advances
-- **WHEN** every accepted player has completed a turn that is not final
-- **THEN** the aggregate derives the next turn and round from the current turn
-- **AND** field lenses set phase to `:roll`, store the next round and turn, and clear the shared roll
-- **AND** a collection lens sets every accepted player status to `:ready`
-- **AND** all other aggregate and player facts remain unchanged
-
-#### Scenario: The final completed turn finishes the game
-- **WHEN** every accepted player has completed the final turn
-- **THEN** the aggregate derives scores from the complete post-turn state using the existing scoring rules
-- **AND** field lenses set phase to `:finished` and store the derived scores
-- **AND** no next-turn reset is applied
-- **AND** the existing caller-specific score and rank results remain unchanged
-
-### Requirement: The lens experiment preserves external behavior
-The Pathex experiment SHALL preserve existing Koala command results, validation, aggregate shape, public projection, protocol schema, and session runtime behavior.
-
-#### Scenario: A caller dispatches join
-- **WHEN** a caller dispatches a valid or invalid `join` command
-- **THEN** the caller observes the same success aggregate or stable error reason as before the lens refactor
-- **AND** no new public field, command payload, or failure shape is introduced

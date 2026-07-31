@@ -24,7 +24,17 @@ defmodule D20.Game do
     end
 
     quote do
+      use Pathex, default_mod: :map
+
+      import Pathex.Lenses, only: [all: 0]
+
       @behaviour D20.Game
+
+      defmacrop lens(field) do
+        quote do
+          path(unquote(field))
+        end
+      end
 
       @impl D20.Game
       def server, do: unquote(server)
