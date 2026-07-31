@@ -47,7 +47,7 @@ afterEach(async () => {
 });
 
 describe("Workspace presentation", () => {
-  it("loads the Compact game frame before expansion without replacing its runtime", async () => {
+  it("keeps the game frame while compacting and restoring its runtime", async () => {
     const embedUrl = URL.createObjectURL(new Blob(["<!doctype html><title>Ready</title>"]));
     const bridgeCalls = vi.mocked(exposeModule).mock.calls.length;
 
@@ -64,6 +64,9 @@ describe("Workspace presentation", () => {
       await vi.waitFor(() => expect(iframe.contentDocument?.URL).toBe(embedUrl));
       expect(vi.mocked(exposeModule).mock.calls).toHaveLength(bridgeCalls + 1);
 
+      await page.getByRole("button", { name: "Compact Game session session-a" }).click();
+      flushSync();
+
       await page.getByRole("button", { name: "Expand Game session session-a" }).click();
       flushSync();
 
@@ -77,6 +80,9 @@ describe("Workspace presentation", () => {
 
   it("keeps Compact restoration and Theater controls keyboard reachable in source order", async () => {
     renderWorkspace([descriptor("session-a")]);
+
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
+    flushSync();
 
     const controls = page.getByRole("group", {
       name: "Game session session-a window controls",
@@ -164,7 +170,7 @@ describe("Workspace presentation", () => {
     await exitFullscreen.click();
   });
 
-  it("starts Compact, stacks the Theater window above siblings, and restores selection", async () => {
+  it("starts Auto, stacks the Theater window above siblings, and restores selection", async () => {
     renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
 
     const firstDialog = page.getByRole("dialog", { name: "Game session session-a" });
@@ -181,7 +187,11 @@ describe("Workspace presentation", () => {
         .getByRole("button")
         .elements()
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Close Game session session-a", "Enter Game session session-a fullscreen"]);
+    ).toEqual([
+      "Close Game session session-a",
+      "Enter Game session session-a fullscreen",
+      "Compact Game session session-a",
+    ]);
 
     const initialFirstBounds = firstDialog.element().getBoundingClientRect();
     const initialSecondBounds = secondDialog.element().getBoundingClientRect();
@@ -191,16 +201,14 @@ describe("Workspace presentation", () => {
       throw new Error("Expected dialog surfaces.");
     }
 
-    expect(initialFirstBounds.height).toBeCloseTo(3 * 16, 0);
+    expect(initialFirstBounds.width).toBeCloseTo(window.innerWidth - 16, 0);
+    expect(initialFirstBounds.height).toBeCloseTo(window.innerHeight - 16, 0);
     expect(initialSecondBounds.height).toBeCloseTo(3 * 16, 0);
-    expect(initialFirstBounds.width).toBeCloseTo(initialSecondBounds.width, 0);
-    expect(getComputedStyle(firstSurface).backgroundColor).toBe("rgb(20, 30, 40)");
-    expect(getComputedStyle(firstSurface).color).toBe("rgb(250, 250, 250)");
-    expect(getComputedStyle(firstSurface).boxShadow).toBe("none");
+    expect(initialSecondBounds.width).toBeLessThan(initialFirstBounds.width);
+    expect(getComputedStyle(firstSurface).backgroundColor).toBe("rgb(250, 250, 250)");
+    expect(getComputedStyle(firstSurface).color).toBe("rgb(0, 0, 0)");
+    expect(getComputedStyle(firstSurface).boxShadow).not.toBe("none");
     expect(getComputedStyle(secondSurface).boxShadow).toBe("none");
-
-    await page.getByRole("button", { name: "Expand Game session session-a" }).click();
-    flushSync();
 
     const theaterControlButtons = firstControls.getByRole("button").elements();
     expect(theaterControlButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
@@ -301,6 +309,9 @@ describe("Workspace presentation", () => {
     document.documentElement.style.setProperty("--color-base-100", "rgb(20 30 40)");
     renderWorkspace([descriptor("session-a")]);
 
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
+    flushSync();
+
     const dialog = page.getByRole("dialog", { name: "Game session session-a" });
     const liveText = page.getByText("Live", { exact: true });
     const sessionText = page.getByText("Session session-a", { exact: true });
@@ -332,6 +343,9 @@ describe("Workspace presentation", () => {
 
   it("uses a content-sized lower-right status bar with equal padding", async () => {
     renderWorkspace([descriptor("session-a")]);
+
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
+    flushSync();
 
     const region = page.getByRole("region", { name: "Open game sessions" });
     const dialog = page.getByRole("dialog", { name: "Game session session-a" });
@@ -371,6 +385,9 @@ describe("Workspace presentation", () => {
   it("hides Compact game content and keeps horizontal controls reachable without overflow", async () => {
     await page.viewport(390, 640);
     renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
+
+    await page.getByRole("button", { name: "Compact Game session session-a" }).click();
+    flushSync();
 
     const region = page.getByRole("region", { name: "Open game sessions" });
     const firstDialog = page.getByRole("dialog", { name: "Game session session-a" });
@@ -502,6 +519,9 @@ describe("Workspace presentation", () => {
     await page.viewport(390, 640);
     const longId = "session-with-an-identifier-that-exceeds-the-available-compact-lane";
     const workspace = renderWorkspace([descriptor("short"), descriptor(longId, "finished")]);
+
+    await page.getByRole("button", { name: "Compact Game session short" }).click();
+    flushSync();
 
     const shortLabel = page.getByText("Session short", { exact: true });
     const longLabel = page.getByText(`Session ${longId}`, { exact: true });

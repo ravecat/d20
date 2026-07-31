@@ -56,31 +56,36 @@ The status MUST remain visible as uppercase theme-content text inside a white ba
 - **AND** its dot uses the error color and remains static
 - **AND** neither Live nor Finished overrides that transport state
 
-### Requirement: Workspace layout starts Compact
+### Requirement: Workspace layout starts Auto
 
-Each newly mounted workspace instance SHALL keep every discovered session Compact until the player explicitly activates that session's Compact restore surface. Browser-local layout state MUST NOT infer Theater selection from session membership or synchronize presentation state across tabs or devices.
+Each newly mounted workspace instance SHALL start in Auto layout and SHALL select the first session in the current authoritative workspace snapshot for Theater. Browser-local layout state MUST NOT synchronize presentation state across tabs, windows, browsers, or devices.
 
 #### Scenario: Initial snapshot contains sessions
 
 - **WHEN** a newly mounted workspace receives its first complete snapshot with one or more sessions
+- **THEN** the first authoritative session renders as the Theater window
+- **AND** every remaining session renders as a Compact status bar
+
+#### Scenario: Auto workspace receives a replacement snapshot
+
+- **WHEN** an Auto workspace receives a replacement authoritative snapshot with one or more sessions
+- **THEN** the first session in that snapshot renders as the Theater window
+- **AND** every remaining session renders as a Compact status bar
+
+#### Scenario: Player compacts the workspace
+
+- **WHEN** the player activates the Theater window's Compact control
 - **THEN** every session renders as a Compact status bar
-- **AND** no session covers the surrounding site as a Theater window
-
-#### Scenario: Snapshot adds a session before layout selection
-
-- **WHEN** a mounted Compact workspace receives a replacement snapshot containing a newly discoverable session
-- **THEN** every session remains Compact
-- **AND** the snapshot does not select a Theater window
 
 #### Scenario: Player explicitly restores a session
 
-- **WHEN** the player activates the Compact restore surface
+- **WHEN** the player activates a Compact restore surface
 - **THEN** that session becomes the Theater window
 
 #### Scenario: Workspace mounts again
 
 - **WHEN** the workspace component is unmounted and a new instance mounts for the same actor
-- **THEN** the new instance starts Compact independently of the previous instance's layout selection
+- **THEN** the new instance starts in Auto independently of the previous instance's layout selection
 
 ### Requirement: Compact mode renders a status bar instead of a game preview
 

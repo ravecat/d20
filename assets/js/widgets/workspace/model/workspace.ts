@@ -64,7 +64,7 @@ export function createWorkspace(): WorkspaceStore {
     }
   >({
     context: {
-      layout: { mode: "compact" },
+      layout: { mode: "auto" },
     },
     on: {
       focus: (context, event) => ({

@@ -84,8 +84,9 @@ describe("Workspace presentation", () => {
     expect(windowControls("Game session session-a")).toEqual([
       "Close Game session session-a",
       "Enter Game session session-a fullscreen",
+      "Compact Game session session-a",
     ]);
-    expect(iframe.parentElement?.inert).toBe(true);
+    expect(iframe.parentElement?.inert).toBe(false);
 
     button("Enter Game session session-a fullscreen").click();
     await vi.waitFor(() => expect(requestFullscreen).toHaveBeenCalledOnce());
@@ -104,10 +105,17 @@ describe("Workspace presentation", () => {
       expect(windowControls("Game session session-a")).toEqual([
         "Close Game session session-a",
         "Enter Game session session-a fullscreen",
+        "Compact Game session session-a",
       ]),
     );
 
     expect(gameFrame()).toBe(iframe);
+    expect(iframe.parentElement?.inert).toBe(false);
+    expect(findCompactRestore("session-a")).toBeUndefined();
+
+    button("Compact Game session session-a").click();
+    flushSync();
+
     expect(iframe.parentElement?.inert).toBe(true);
     expect(findCompactRestore("session-a")).toBeInstanceOf(HTMLButtonElement);
 
@@ -167,7 +175,23 @@ describe("Workspace presentation", () => {
 
     expect(transport.call).toHaveBeenCalledWith("close", { id: "session-a" });
     expect(document.querySelectorAll("dialog")).toHaveLength(2);
-    expect(findButton("Compact Game session session-a")).toBeUndefined();
+    expect(findButton("Compact Game session session-a")).toBeDefined();
+  });
+
+  it("expands the first authoritative session while layout remains Auto", () => {
+    const harness = workspaceHarness();
+    renderWorkspace();
+    harness.ready([descriptor("session-a"), descriptor("session-b")]);
+    flushSync();
+
+    expect(findButton("Compact Game session session-a")).toBeDefined();
+    expect(findButton("Expand Game session session-b")).toBeDefined();
+
+    harness.ready([descriptor("session-c"), descriptor("session-b")]);
+    flushSync();
+
+    expect(findButton("Compact Game session session-c")).toBeDefined();
+    expect(findButton("Expand Game session session-b")).toBeDefined();
   });
 
   it("expands the first remaining session when requested focus disappears", () => {
@@ -195,9 +219,6 @@ describe("Workspace presentation", () => {
       descriptor("session-c"),
     ];
     harness.loading(sessions);
-    flushSync();
-
-    button("Expand Game session session-a").click();
     flushSync();
 
     expect(document.body.textContent).toContain("Connecting to game");
@@ -234,6 +255,9 @@ describe("Workspace presentation", () => {
     harness.ready([descriptor("session-a"), descriptor("session-b", "qwinto", "finished")]);
     flushSync();
 
+    button("Compact Game session session-a").click();
+    flushSync();
+
     expect(compactStatus("session-a").textContent).toContain("Live");
     expect(compactStatus("session-b").textContent).toContain("Finished");
 
@@ -252,18 +276,18 @@ describe("Workspace presentation", () => {
     expect(compactStatus("session-b").textContent).toContain("Failed");
   });
 
-  it("starts a remounted workspace in Compact independently of the previous selection", async () => {
+  it("starts a remounted workspace in Auto independently of the previous selection", async () => {
     const firstHarness = workspaceHarness();
     renderWorkspace();
     firstHarness.ready([descriptor("session-a")]);
     flushSync();
 
-    expect(findButton("Expand Game session session-a")).toBeDefined();
+    expect(findButton("Compact Game session session-a")).toBeDefined();
 
-    button("Expand Game session session-a").click();
+    button("Compact Game session session-a").click();
     flushSync();
 
-    expect(findButton("Compact Game session session-a")).toBeDefined();
+    expect(findButton("Expand Game session session-a")).toBeDefined();
 
     await cleanup?.();
     cleanup = undefined;
@@ -273,8 +297,8 @@ describe("Workspace presentation", () => {
     secondHarness.ready([descriptor("session-a")]);
     flushSync();
 
-    expect(findButton("Expand Game session session-a")).toBeDefined();
-    expect(findButton("Compact Game session session-a")).toBeUndefined();
+    expect(findButton("Compact Game session session-a")).toBeDefined();
+    expect(findButton("Expand Game session session-a")).toBeUndefined();
   });
 
   it("releases the session subscription when the workspace unmounts", async () => {

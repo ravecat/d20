@@ -65,7 +65,7 @@ describe("Workspace", () => {
     expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
   });
 
-  it("keeps initial and replacement workspace snapshots compact", () => {
+  it("keeps initial and replacement workspace snapshots in Auto", () => {
     const discovery = discoveryHarness();
 
     discovery.ready([descriptor("session-a", "qwinto"), descriptor("session-b", "qwinto")]);
@@ -76,7 +76,7 @@ describe("Workspace", () => {
       { id: "session-a", slug: "qwinto", phase: "in_progress" },
       { id: "session-b", slug: "qwinto", phase: "in_progress" },
     ]);
-    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "auto" });
 
     discovery.ready([
       descriptor("session-b", "qwinto", "fresh-token"),
@@ -87,7 +87,7 @@ describe("Workspace", () => {
       "session-b",
       "session-c",
     ]);
-    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "auto" });
     expect(session(discovery.workspace, "session-b").connection.token).toBe("fresh-token");
   });
 
