@@ -266,7 +266,7 @@ describe("game detail page", () => {
     expect(document.body.textContent).not.toContain("Play");
   });
 
-  it("returns to Play and detaches the Lobby channel after the session starts", async () => {
+  it("keeps the Lobby mounted until navigation removes the selected session", async () => {
     const session = {
       id: "session-a",
       slug: "qwinto",
@@ -294,14 +294,26 @@ describe("game detail page", () => {
       );
     });
 
-    expect(document.body.textContent).toContain("Play");
+    expect(document.body.textContent).not.toContain("Play");
     expect(document.body.textContent).not.toContain("Start");
-    expect(waitingDetach).toHaveBeenCalledOnce();
+    expect(waitingDetach).not.toHaveBeenCalled();
 
     await cleanup?.();
     cleanup = undefined;
 
     expect(waitingDetach).toHaveBeenCalledOnce();
+
+    render(GamePageHarness, {
+      pageProps: {
+        slug: "qwinto",
+        game: gameMetadata(),
+        status: "active",
+        canLaunchGame: true,
+        session: null,
+      },
+    });
+
+    expect(document.body.textContent).toContain("Play");
   });
 
   it("detaches a waiting session when the caller leaves before Start", async () => {

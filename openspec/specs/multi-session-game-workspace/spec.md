@@ -171,31 +171,6 @@ Successful creation SHALL redirect with status 303 to `/games/:slug?session=<id>
 - **THEN** the page does not expose it as Lobby state
 - **AND** page props expose no module token
 
-### Requirement: Lobby handoff preserves Presence without controller transfer
-
-When Lobby observes `in_progress`, the page SHALL immediately return to its clean Play state and SHALL retain the Lobby session store only as a temporary Presence lease. The lease SHALL be detached when WorkspaceChannel reports `handoff_ready: true`.
-
-#### Scenario: Lobby session starts
-
-- **WHEN** the Lobby session becomes `in_progress`
-- **THEN** the page cleans the query URL
-- **AND** hides Lobby and renders Play
-- **AND** passes the existing Lobby store only as an invisible Presence lease
-- **AND** no session controller is adopted by the workspace window
-
-#### Scenario: Module Presence is ready
-
-- **GIVEN** the temporary Lobby lease remains attached
-- **WHEN** WorkspaceChannel reports the descriptor with `handoff_ready: true`
-- **THEN** the workspace detaches the Lobby store
-- **AND** the iframe Presence remains
-
-#### Scenario: Handoff is not ready
-
-- **WHEN** the descriptor is absent, stale, failed, or has `handoff_ready: false`
-- **THEN** the lease remains attached
-- **AND** Lobby content remains hidden
-
 ### Requirement: Workspace reconciliation supports multiple stable windows
 
 The workspace SHALL reconcile snapshots by session id, preserve local mode and order for retained ids, and keep one iframe and SDK bridge per retained entry.

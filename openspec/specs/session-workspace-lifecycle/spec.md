@@ -131,14 +131,20 @@ WorkspaceChannel SHALL report every live configured in-progress Session whose du
 - **THEN** the monitoring WorkspaceChannel pushes a complete snapshot without it
 
 ### Requirement: Lobby transition does not retain a Presence lease
-When Lobby observes that its Session is in progress or finished, it SHALL hide, clean the page selection, and detach its Session store through normal component cleanup. Workspace discovery SHALL NOT wait for Presence overlap or a handoff flag.
+When Lobby observes that its Session is in progress or finished, it SHALL navigate to the canonical game detail URL while the current page session descriptor continues to own the Lobby branch. The navigation response SHALL remove that descriptor, allowing normal component cleanup to detach the Session store. Workspace discovery SHALL NOT wait for Presence overlap or a handoff flag.
 
 #### Scenario: Waiting Session starts
 - **WHEN** Lobby receives an in-progress projection
-- **THEN** Lobby returns the game page to Play
-- **AND** its SessionChannel detaches
+- **THEN** Lobby requests the canonical game detail URL
+- **AND** the Lobby component remains mounted while that navigation is pending
+- **AND** the response supplies no selected session and returns the game page to Play
+- **AND** normal component cleanup detaches its SessionChannel
 - **AND** Workspace mounts the reported in-progress iframe from durable membership
 - **AND** no Session controller or Presence lease is transferred
+
+#### Scenario: Selected Session is already finished
+- **WHEN** Lobby receives a finished projection
+- **THEN** it follows the same canonical navigation and response-owned cleanup lifecycle
 
 ### Requirement: Workspace descriptors omit Presence handoff state
 Workspace join replies and snapshots SHALL contain Session identity, module bootstrap, and actor-bound connection data without `handoff_ready`. Descriptor refresh SHALL preserve retained iframe identity.

@@ -7,23 +7,19 @@
 
   interface Props {
     session: SessionDescriptor;
-    onStarted: () => void;
   }
 
-  const { session, onStarted }: Props = $props();
+  const { session }: Props = $props();
   const controller = untrack(() => createSession(session.topic));
   let handled = false;
   let joinRequested = false;
-  let visible = $state(true);
 
-  function finishLobby() {
+  function finish() {
     if (handled) return;
 
     const { slug } = session;
     handled = true;
-    visible = false;
 
-    onStarted();
     router.get(`/games/${slug}`, {}, { preserveScroll: true, replace: true });
   }
 
@@ -34,13 +30,11 @@
         controller.join();
       }
 
-      if (value?.phase === "in_progress" || value?.phase === "finished") finishLobby();
+      if (value?.phase === "in_progress" || value?.phase === "finished") finish();
     }),
   );
 
   onDestroy(controller.detach);
 </script>
 
-{#if visible}
-  <Session {controller} />
-{/if}
+<Session {controller} />

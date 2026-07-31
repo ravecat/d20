@@ -24,8 +24,6 @@
   const { slug, canLaunchGame = false, game, attrs = {}, session = null }: Props = $props();
   const formId = $props.id();
   const attrFields = $derived(Object.entries(attrs));
-  let dismissedSessionId = $state<string | null>(null);
-  const lobbySession = $derived(session?.id === dismissedSessionId ? null : session);
 
   function fieldValue(attr: AttrConfig) {
     return attr.value == null ? "" : String(attr.value);
@@ -97,12 +95,9 @@
           </div>
 
           <div class="game-detail-activation__body">
-            {#if lobbySession}
-              {#key lobbySession.id}
-                <Lobby
-                  session={lobbySession}
-                  onStarted={() => (dismissedSessionId = lobbySession.id)}
-                />
+            {#if session}
+              {#key session.id}
+                <Lobby {session} />
               {/key}
             {:else if canLaunchGame}
               <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>
