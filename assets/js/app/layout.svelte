@@ -36,7 +36,7 @@
     min-block-size: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
   }
 
   .layout__content:focus-visible {

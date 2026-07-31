@@ -55,6 +55,14 @@ afterEach(async () => {
 });
 
 describe("Layout scroll timeline", () => {
+  it("reserves scrollbar space symmetrically", () => {
+    renderLayout();
+
+    const content = page.getByRole("main").element();
+
+    expect(getComputedStyle(content).scrollbarGutter).toBe("stable both-edges");
+  });
+
   it.runIf(supportsScrollTimeline)(
     "links header dimensions to the internal content scroll position",
     async () => {
