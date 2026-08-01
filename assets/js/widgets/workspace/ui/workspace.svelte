@@ -11,23 +11,6 @@
   const { children }: Props = $props();
 
   const workspace = createWorkspace();
-
-  const expandedId = $derived.by(() => {
-    const { layout, sessions } = $workspace;
-
-    switch (layout.mode) {
-      case "auto":
-        return sessions[0]?.id;
-      case "focused":
-        return sessions.some((session) => session.id === layout.id) ? layout.id : sessions[0]?.id;
-      case "compact":
-        return undefined;
-      default: {
-        const exhaustive: never = layout;
-        return exhaustive;
-      }
-    }
-  });
 </script>
 
 {@render children?.()}
@@ -35,7 +18,7 @@
 <div class="workspace">
   <section class="workspace__tiles" aria-label="Open game sessions">
     {#each $workspace.sessions as session (session.id)}
-      {@const expanded = session.id === expandedId}
+      {@const expanded = session.id === $workspace.layout.id}
       <div
         class="workspace__window"
         class:workspace__window--expanded={expanded}

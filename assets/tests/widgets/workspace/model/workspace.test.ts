@@ -65,7 +65,7 @@ describe("Workspace", () => {
     expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
   });
 
-  it("keeps initial and replacement workspace snapshots in Auto", () => {
+  it("expands the first session from initial and replacement snapshots in Auto", () => {
     const discovery = discoveryHarness();
 
     discovery.ready([descriptor("session-a", "qwinto"), descriptor("session-b", "qwinto")]);
@@ -76,7 +76,8 @@ describe("Workspace", () => {
       { id: "session-a", slug: "qwinto", phase: "in_progress" },
       { id: "session-b", slug: "qwinto", phase: "in_progress" },
     ]);
-    expect(get(discovery.workspace).layout).toEqual({ mode: "auto" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "auto", id: "session-a" });
+    expect(get(discovery.workspace)).not.toHaveProperty("expandedId");
 
     discovery.ready([
       descriptor("session-b", "qwinto", "fresh-token"),
@@ -87,15 +88,18 @@ describe("Workspace", () => {
       "session-b",
       "session-c",
     ]);
-    expect(get(discovery.workspace).layout).toEqual({ mode: "auto" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "auto", id: "session-b" });
     expect(session(discovery.workspace, "session-b").connection.token).toBe("fresh-token");
   });
 
-  it("forwards focus events without rescanning session membership", () => {
+  it("publishes exact focused and compact layouts", () => {
     const discovery = discoveryHarness();
 
     discovery.ready([descriptor("session-a"), descriptor("session-b")]);
     discovery.workspace.focus("session-b");
+
+    expect(get(discovery.workspace).layout).toEqual({ mode: "focused", id: "session-b" });
+
     discovery.workspace.focus("missing-session");
 
     expect(get(discovery.workspace).layout).toEqual({
@@ -105,24 +109,25 @@ describe("Workspace", () => {
 
     discovery.workspace.compact();
 
-    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "compact", id: undefined });
+
+    discovery.ready([descriptor("session-b")]);
+
+    expect(get(discovery.workspace).layout).toEqual({ mode: "compact", id: undefined });
   });
 
-  it("retains requested focus while allowing the visible fallback to compact", () => {
+  it("retains exact focus while its session is absent and after it reappears", () => {
     const discovery = discoveryHarness();
 
     discovery.ready([descriptor("session-a"), descriptor("session-b")]);
     discovery.workspace.focus("session-b");
     discovery.ready([descriptor("session-a"), descriptor("session-c")]);
 
-    expect(get(discovery.workspace).layout).toEqual({
-      mode: "focused",
-      id: "session-b",
-    });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "focused", id: "session-b" });
 
-    discovery.workspace.compact();
+    discovery.ready([descriptor("session-a"), descriptor("session-b"), descriptor("session-c")]);
 
-    expect(get(discovery.workspace).layout).toEqual({ mode: "compact" });
+    expect(get(discovery.workspace).layout).toEqual({ mode: "focused", id: "session-b" });
   });
 
   it("keeps windows stale during a transport outage and applies the reconnected workspace", () => {

@@ -194,7 +194,7 @@ describe("Workspace presentation", () => {
     expect(findButton("Expand Game session session-b")).toBeDefined();
   });
 
-  it("expands the first remaining session when requested focus disappears", () => {
+  it("keeps exact focus when its session disappears and restores it when the session returns", () => {
     const harness = workspaceHarness();
     renderWorkspace();
     harness.ready([descriptor("session-a"), descriptor("session-b")]);
@@ -206,7 +206,14 @@ describe("Workspace presentation", () => {
     harness.ready([descriptor("session-a"), descriptor("session-c")]);
     flushSync();
 
-    expect(findButton("Compact Game session session-a")).toBeDefined();
+    expect(findButton("Expand Game session session-a")).toBeDefined();
+    expect(findButton("Expand Game session session-c")).toBeDefined();
+
+    harness.ready([descriptor("session-a"), descriptor("session-b"), descriptor("session-c")]);
+    flushSync();
+
+    expect(findButton("Expand Game session session-a")).toBeDefined();
+    expect(findButton("Compact Game session session-b")).toBeDefined();
     expect(findButton("Expand Game session session-c")).toBeDefined();
   });
 

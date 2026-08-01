@@ -4,9 +4,9 @@ import { derived, readable, type Readable } from "svelte/store";
 import { socket, type ModuleConnection, type ModuleEntry } from "~/shared/api";
 
 export type WorkspaceLayout =
-  | { mode: "auto" }
+  | { mode: "auto"; id: string | undefined }
   | { mode: "focused"; id: string }
-  | { mode: "compact" };
+  | { mode: "compact"; id: undefined };
 
 export type WorkspaceSessionPhase = "in_progress" | "finished";
 
@@ -54,52 +54,44 @@ export function createWorkspace(): WorkspaceStore {
     },
   }));
 
-  const store = createStore<
-    {
-      layout: WorkspaceLayout;
-    },
+  const layout = createStore<
+    WorkspaceLayout,
     {
       focus: { id: string };
       compact: null;
     }
   >({
-    context: {
-      layout: { mode: "auto" },
-    },
+    context: { mode: "auto", id: undefined },
     on: {
-      focus: (context, event) => ({
-        ...context,
-        layout: { mode: "focused", id: event.id },
-      }),
-      compact: (context) => ({
-        ...context,
-        layout: { mode: "compact" },
-      }),
+      focus: (_context, event) => ({ mode: "focused", id: event.id }),
+      compact: () => ({ mode: "compact", id: undefined }),
     },
   });
 
-  const context = readable(store.get().context, (set) => {
-    set(store.get().context);
+  const context = readable(layout.get().context, (set) => {
+    set(layout.get().context);
 
-    const subscription = store.subscribe(({ context }) => set(context));
+    const subscription = layout.subscribe(({ context }) => set(context));
     return () => subscription.unsubscribe();
   });
 
   const state = derived([session, context], ([$session, $context]) => {
+    const sessions = $session.value?.sessions ?? [];
+
     return {
       status: $session.status,
       error: $session.error,
-      sessions: $session.value?.sessions ?? [],
-      layout: $context.layout,
+      sessions,
+      layout: $context.mode === "auto" ? { ...$context, id: sessions[0]?.id } : $context,
     };
   });
 
   function focus(id: string) {
-    store.trigger.focus({ id });
+    layout.trigger.focus({ id });
   }
 
   function compact() {
-    store.trigger.compact();
+    layout.trigger.compact();
   }
 
   function close(id: string) {
