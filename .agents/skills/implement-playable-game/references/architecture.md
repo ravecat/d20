@@ -32,6 +32,12 @@ custom Server -> internal dispatch -----/                                      |
                                                 Projection(current Session, caller)
                                                                                 |
                                                                                 v
+                                           game-session topic join or projection event
+                                                                                |
+                                                                                v
+                                                                  client XState machine
+                                                                                |
+                                                                                v
                                                                          public render
 ```
 
@@ -39,7 +45,7 @@ custom Server -> internal dispatch -----/                                      |
 
 A custom game Server may schedule a stimulus and send an actorless command through the same dispatch pipeline. It must not mutate the game aggregate directly.
 
-Projection and rendering are downstream reads of the latest committed state held by the server. They may derive caller-specific permissions and legal choices through pure predicates, but they must not construct commands, dispatch events, schedule callbacks, call mutation APIs, or retain authoritative state. A user interaction starts a new actor dispatch; it is never a side effect of rendering.
+Projection and rendering are downstream reads of the latest committed state held by the server. They may derive caller-specific permissions and legal choices through pure predicates, but they must not construct commands, dispatch events, schedule callbacks, call mutation APIs, or retain authoritative state. Deliver the initial projection in the game-session topic join reply and later projections through that topic's `projection` event. The client feeds those snapshots into its local state machine before rendering. A user interaction starts a new actor dispatch; it is never a side effect of rendering.
 
 ## Discovery Artifact Templates
 
@@ -386,6 +392,21 @@ Trace every projected field to committed game state, immutable rules, or explici
 Render Projection only from caller context and the current Session. Do not route channel events, validate interaction payloads, or construct `%D20.Command{}` values in Projection.
 
 `D20Web.Projection.render/2` uses explicit engine routing. Add a clause for every playable engine. Its generic fallback returns the raw Session, so relying on it is a contract and data-exposure defect.
+
+## Client State-Machine Pattern
+
+Model an in-scope game client as a hybrid XState machine with two distinct inputs:
+
+- the latest caller-specific Projection, which is authoritative for session and game facts, permissions, legal choices, constraints, progress, and outcomes
+- explicit local state for connection, pending commands, selections, drafts, dialogs, animation, and other interaction facts that are not authoritative server state
+
+Join the D20 game-session topic at `session:<id>`, treat the join reply as the initial projection, and send every later `projection` event into the machine as a synchronization event. Replace or reconcile the authoritative slice from that payload. When local assumptions conflict with the projection, let the projection win and transition to the appropriate valid local state. On rejoin, rebuild from the new projection instead of replaying client history as authority.
+
+Send player intent through channel commands from machine effects. Treat command replies as acknowledgement or rejection only, and wait for a delivered projection before moving authoritative state forward. Keep pending state local and make rejection, disconnect, retry, and resynchronization transitions explicit when the workflow can encounter them.
+
+Use XState guards to combine local interaction facts with projected permissions and legal choices. A guard may decide whether to show or enter a client state, but it never replaces server authorization or Rules validation. Prefer XState primitives such as `setup`, `createMachine`, guards, actions, and invoked actors. Keep framework adapters thin so components render machine state and send events without hiding transition ownership behind framework-specific helpers.
+
+Keep the machine locally complete but minimal. Represent every behaviorally distinct local state required by the workflow, while deriving values from the current state node and Projection instead of copying them into parallel stores or component variables.
 
 ## Shell Integration Pattern
 

@@ -1,13 +1,13 @@
 ---
 name: implement-playable-game
-description: Implement or extend a playable game in the D20 Phoenix application from a rules specification. Use for new game namespaces or substantial gameplay additions involving static Ruleset or rulesheet data, Command payload validation, state-dependent Rules predicates, Game state-machine transitions, Permission, Projection, optional custom D20.Game.Server events, registry wiring, AsyncAPI contracts, and layered tests. Do not use for catalog-only entries, iframe-only UI work, or minor isolated fixes.
+description: Implement or extend a playable game in the D20 Phoenix application from a rules specification. Use for new game namespaces or substantial gameplay additions involving static Ruleset or rulesheet data, Command payload validation, state-dependent Rules predicates, Game state-machine transitions, Permission, Projection, optional custom D20.Game.Server events, in-scope mobile-first game clients with XState and channel projection synchronization, registry wiring, AsyncAPI contracts, and layered tests. Do not use for catalog-only entries, iframe-only UI work, or minor isolated fixes.
 ---
 
 # Implement Playable Game
 
 ## Purpose
 
-Turn an arbitrary game specification into one server-authoritative D20 game without assuming any particular mechanics. Guide the work from rule discovery through module boundaries, runtime integration, public contract, and validation. Preserve one-way runtime flow: stimuli enter through dispatch, accepted transitions produce committed state, and Projection renders only from that state.
+Turn an arbitrary game specification into one server-authoritative D20 game without assuming any particular mechanics. Guide the work from rule discovery through module boundaries, runtime integration, public contract, client synchronization when in scope, and validation. Preserve one-way runtime flow: stimuli enter through dispatch, accepted transitions produce committed state, Projection renders only from that state, and the client reconciles its local interaction state with each delivered projection.
 
 ## Load Context
 
@@ -44,6 +44,8 @@ Translate prose, tables, diagrams, and rulesheets into explicit decisions before
 - the minimal authoritative game facts needed to derive every caller projection from the current state, immutable rules, and caller and session context
 - the complete permitted facts and rule-derived guidance each supported client workflow needs without reimplementing domain logic or reconstructing state from event history
 - when a game client is in scope, every visible interaction, projection, informational, disabled, error, and focus state, including its semantic color role and non-color cue
+- when a game client is in scope, the hybrid client state machine that combines the latest server projection with explicit local interaction, connection, pending, and recovery states
+- when a game client is in scope, the narrow mobile and desktop layout behavior, information priority, touch interaction, and typography hierarchy
 - randomness ownership, sampling point, persistence, retry behavior, testability, deadlines, timers, and automatic actions
 
 Before designing modules or finalizing events, derive an authoritative state model from the inventory:
@@ -176,10 +178,14 @@ actor or internal Server
 -> Game transition
 -> committed server state
 -> Projection(current Session, caller)
+-> game-session topic join reply or projection event
+-> client state machine
 -> public render
 ```
 
 There is no reverse edge from Projection or rendering to dispatch. A client interaction is a new actor stimulus sent through the channel, not an effect emitted by Projection.
+
+Send client commands through the game-session channel and deliver all caller-visible gameplay state through Projection. In D20, return the initial caller projection when joining `session:<id>` and push later projections with the `projection` event on that topic. Treat command replies as acknowledgements or errors, not as an alternate source of game state. Never send a raw Session or Game aggregate to let the client reconstruct authority outside Projection.
 
 Use the default server through `use D20.Game` unless the process itself must initiate an asynchronous stimulus.
 
@@ -208,11 +214,22 @@ For every projected field, verify that its value is reproducible from the curren
 
 Keep Projection a pure derivation of caller context and the current committed state held in Session. The same inputs must produce the same public read model. Projection may call pure Rules queries for permissions and legal choices, but it must not validate interaction payloads, dispatch commands, schedule work, call mutation APIs, retain authoritative state, or synthesize `%D20.Command{}` values. Rendering never advances the state machine.
 
-### 9. Implement an accessible game client when in scope
+Treat the latest delivered projection as the authoritative client snapshot. Include enough phase, status, permission, legal-choice, and outcome information for the client to replace or reconcile its previous snapshot without inferring authority from command acknowledgements, local history, or optimistic state.
+
+### 9. Implement a mobile-first accessible game client when in scope
 
 Treat accessible presentation as a completion requirement whenever the task explicitly includes the shell UI or a separate iframe client.
 
 - Derive gameplay UI from the public Projection and keep only presentation calculations and ephemeral interaction state on the client.
+- Model the client as a hybrid XState machine whose context contains the latest authoritative Projection and the minimal complete local facts needed for the current interaction. Represent behaviorally distinct local modes explicitly instead of scattering them across component variables.
+- Feed the channel join result and every `projection` event into the machine as server synchronization events. Replace or reconcile the authoritative slice from the newest projection, let server state win every conflict, and clear or repair local selections and pending assumptions that the projection makes invalid.
+- Send player intents as channel commands from machine effects, but wait for a projection before considering authoritative game state changed. Model connection, rejoin, pending, rejection, and resynchronization behavior when those states affect the supported workflow.
+- Define XState guards from both local context and projected permissions, legal choices, constraints, and lifecycle status. Use these guards for client affordances only and revalidate every command on the server.
+- Prefer XState state-machine and actor primitives such as `setup`, `createMachine`, guards, actions, and invoked actors. Keep Svelte or other framework integration at a thin subscription and rendering boundary. Do not add helpers that hide the machine graph, events, guards, or transition ownership unless they remove demonstrated repetition across machines.
+- Design the narrow portrait mobile layout first because mobile play is the primary use case, then enhance the same information hierarchy for desktop. Keep the current game status and primary action usable without horizontal scrolling, zooming, or desktop-only hover behavior.
+- Prefer the smallest interface that remains complete and informative. Prioritize current phase, active player or turn, required choice, primary action, and actionable error; progressively disclose secondary history or explanation without hiding information needed to play correctly.
+- Apply typography best practices as a design recommendation: use a small consistent type scale, readable body size and line height, clear heading and label hierarchy, concise copy, controlled line length, and tabular numerals for changing scores, counters, and timers. Do not shrink essential text to force a desktop composition into a mobile viewport.
+- Size and space controls for touch, account for safe areas and on-screen keyboards, and preserve the same actions through keyboard and pointer input.
 - Prefer the existing color schemes and presentation tokens supplied by the game assets when styling the client interface, overlays, and gameplay-related controls. Map semantic roles onto those tokens before introducing new ones, and add new tokens only when the asset palette cannot express a required state accessibly.
 - Inventory semantic roles such as available, preview, temporary, committed, bonus, danger, disabled, informational, and focus before choosing colors. Expose them through shared presentation tokens instead of repeating literals.
 - Meet WCAG 2.2 AA contrast in the actual rendered context: at least 4.5:1 for normal text, 3:1 for large text, and 3:1 for visual information required to identify controls, states, and meaningful graphics against adjacent colors. Test every state over the least-contrasting expected board or artwork region, and leave extra margin for thin SVG strokes and anti-aliasing.
@@ -221,7 +238,7 @@ Treat accessible presentation as a completion requirement whenever the task expl
 - Keep keyboard focus visible and distinct from persistent game state. Preserve system-color behavior in forced-colors mode.
 - Do not add a universal halo, keyline, or duplicated geometry solely to satisfy contrast. First verify that it cannot be mistaken for an empty space, legal target, or other game state and does not obscure the board. Prefer one authoritative semantic outline and use a local boundary only where it remains unambiguous.
 - Preserve accessible names, roles, pressed or selected states, keyboard operation, hit geometry, and pointer behavior. Keep decorative SVG overlays out of the accessibility tree while exposing the same meaningful state through operable controls or text.
-- Validate with computed contrast checks and browser interaction tests, then inspect the real artwork at actual desktop and narrow rendering scales. Include forced-colors and representative color-vision or monochrome evaluation when the client supports authored game colors.
+- Validate with computed contrast checks and browser interaction tests, then inspect the real artwork at narrow mobile portrait and supported desktop scales. Include forced-colors and representative color-vision or monochrome evaluation when the client supports authored game colors.
 
 ### 10. Complete runtime and contract integration
 
@@ -237,7 +254,7 @@ For custom servers, test automatic-event identity, scheduling, duplicate prevent
 
 Format touched files and broaden checks according to risk. Do not claim semantic AsyncAPI validation from `just check`; the repository currently has no native semantic validator for it.
 
-For an in-scope client, run its native format, lint, type, browser-test, and production-build commands. Verify accessibility and game-state presentation against the real assets, not only isolated token values.
+For an in-scope client, run its native format, lint, type, browser-test, and production-build commands. Verify channel projection reconciliation, XState transitions and guards, mobile and desktop behavior, typography, accessibility, and game-state presentation against the real assets, not only isolated token values.
 
 ## Completion Output
 
@@ -248,5 +265,6 @@ Report:
 - the state machine and event-path decisions
 - default or custom server choice
 - public contract and integration points changed
+- client projection transport, XState synchronization, responsive layout, and typography decisions when a client is in scope
 - commands run and behavior verified
 - unresolved rule gaps, external coordination, and remaining risks

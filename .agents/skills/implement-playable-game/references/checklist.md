@@ -19,6 +19,8 @@
 - [ ] Define completion, outcome, tie, and terminal behavior.
 - [ ] Define caller visibility, private facts, and derived guidance.
 - [ ] List the complete permitted facts, statuses, permissions, choices, constraints, progress, outcomes, and rule-derived guidance required by every supported client workflow.
+- [ ] For an in-scope client, define the hybrid XState model, including projection synchronization, local interaction states, commands, guards, pending behavior, rejection, disconnect, and rejoin.
+- [ ] For an in-scope client, define mobile-first information priority, narrow portrait and desktop layouts, touch behavior, and typography hierarchy.
 - [ ] Trace every projected field to committed game state, immutable rules, or explicit caller and session context.
 - [ ] Confirm the proposed aggregate contains the minimal authoritative game facts needed to derive every projection without prior renders or client-held history.
 - [ ] Define randomness ownership, sampling point, persistence, test control, retries, and idempotency.
@@ -46,6 +48,8 @@
 - [ ] Keep the custom Server responsible for scheduling and dispatch, never direct aggregate mutation.
 - [ ] Keep Projection a pure downstream read of caller context and the current Session.
 - [ ] Confirm Projection does not construct commands, dispatch events, schedule work, call mutation APIs, or retain authoritative state.
+- [ ] Return the initial projection when joining the game-session topic and publish later caller-specific snapshots through its `projection` event.
+- [ ] Treat command replies as acknowledgements or errors rather than a parallel source of client game state.
 - [ ] Treat every client interaction as a new actor dispatch, never as an effect of rendering.
 
 ## Predicate Catalog
@@ -127,6 +131,7 @@
 - [ ] Derive legal choices from Rules predicates.
 - [ ] Include the permitted rule-derived statuses, constraints, progress, outcomes, and guidance needed by each supported client workflow.
 - [ ] Confirm clients need not duplicate authoritative game calculations or reconstruct current state from event history.
+- [ ] Confirm the client can replace or reconcile its previous authoritative snapshot from each Projection without command reply state or local history.
 - [ ] Keep only presentation calculations and ephemeral interaction state on the client.
 - [ ] Redact private facts explicitly.
 - [ ] Add negative assertions for every field marked hidden in the visibility matrix.
@@ -142,6 +147,7 @@
 - [ ] Derive actor identity from Scope.
 - [ ] Revalidate complete payload and current-state legality.
 - [ ] Store and broadcast only after complete success.
+- [ ] Deliver resulting caller-visible state through Projection on the game-session topic rather than embedding authoritative state in the command reply.
 
 ### Custom server event
 
@@ -171,10 +177,23 @@
 - [ ] Cover non-default creation inputs through session and relevant web tests.
 - [ ] Coordinate a separate client only when explicitly in scope.
 
-## Client Presentation and Accessibility
+## Client State, Presentation, and Accessibility
 
 Complete this section whenever the shell UI or a separate iframe client is in scope.
 
+- [ ] Model the client with XState as a hybrid of the latest authoritative Projection and explicit local interaction state.
+- [ ] Feed the game-session topic join projection and every `projection` event into the machine as synchronization events.
+- [ ] Let the latest Projection win conflicts and invalidate stale local selections, pending assumptions, or optimistic state safely.
+- [ ] Send commands from machine effects and wait for a Projection before treating authoritative state as changed.
+- [ ] Define connection, rejoin, pending, rejection, and resynchronization states wherever the supported workflow can encounter them.
+- [ ] Define XState guards from local facts plus projected permissions, legal choices, constraints, and lifecycle status without treating them as server authorization.
+- [ ] Use XState machine and actor primitives directly and keep framework-specific subscriptions and rendering adapters thin.
+- [ ] Avoid parallel component or store state that duplicates the machine state node, local context, or current Projection.
+- [ ] Design narrow portrait mobile layouts first, then enhance the same information hierarchy for supported desktop sizes.
+- [ ] Keep current status, the required choice, and the primary action visible and operable without horizontal scrolling, zooming, or hover-only behavior.
+- [ ] Prefer a minimal but informative composition and progressively disclose secondary history or explanation.
+- [ ] Use a readable, consistent type scale, line height, hierarchy, line length, and tabular numerals for changing scores, counters, and timers.
+- [ ] Size controls for touch, account for safe areas and on-screen keyboards, and preserve keyboard and pointer access.
 - [ ] Reuse the color schemes and presentation tokens supplied by the game assets for the client interface, overlays, and gameplay-related controls before introducing new tokens.
 - [ ] Inventory every interaction, projection, informational, disabled, error, and focus state before choosing colors.
 - [ ] Map semantic state roles to shared presentation tokens instead of repeating color literals.
@@ -204,7 +223,7 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 | Channel | Replies, accepted broadcasts, rejected non-broadcasts, caller-specific rendering |
 | Custom server | Selected module, scheduling, exactly-once action, actor rejection, nondeterministic-value idempotency, error behavior, idle coexistence |
 | Registry and contract | Engine discovery, contract serving, developer index |
-| In-scope client | Projection consumption, semantic states, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
+| In-scope client | Game-session projection synchronization, XState transitions and guards, mobile-first and desktop layouts, typography, semantic states, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
 
 ## Validation Commands
 
@@ -242,9 +261,11 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 - [ ] Projection derives only from caller context and current committed state and cannot initiate mutation.
 - [ ] Every projected field is reproducible from committed game state, immutable rules, and explicit caller and session context.
 - [ ] Every supported client workflow receives its permitted rule-derived information without duplicating authoritative calculations.
+- [ ] Every in-scope client treats channel-delivered Projection as authoritative and reconciles it through an explicit hybrid XState machine.
+- [ ] Client guards consume projected permissions and legal choices for affordances while server Rules remain authoritative.
 - [ ] Internal commands cannot be invoked with a client identity.
 - [ ] Game completion propagates to the outer session.
 - [ ] Every game follows the same shell-owned session launch lifecycle without registry or slug-specific bypasses.
 - [ ] Code, tests, AsyncAPI, and any in-scope client agree.
-- [ ] Every in-scope client meets the contrast, non-color-cue, focus, accessible-interaction, and real-asset validation requirements.
+- [ ] Every in-scope client meets the mobile-first layout, typography, contrast, non-color-cue, focus, accessible-interaction, and real-asset validation requirements at narrow mobile and supported desktop sizes.
 - [ ] Validation commands and remaining rule gaps are reported.
