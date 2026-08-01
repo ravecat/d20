@@ -26,7 +26,6 @@ beforeEach(() => {
   waitingController = {
     subscribe: waitingControllerState.subscribe,
     detach: waitingDetach,
-    join: vi.fn(),
     start: vi.fn(),
   } as unknown as SessionStore;
   sessionMock.createSession.mockReturnValue(waitingController);
@@ -260,7 +259,6 @@ describe("game detail page", () => {
     });
 
     expect(sessionMock.createSession).toHaveBeenCalledWith("session:session-a");
-    expect(waitingController.join).toHaveBeenCalledOnce();
     expect(document.body.textContent).toContain("Start");
     expect(document.body.textContent).toContain("Ada");
     expect(document.body.textContent).not.toContain("Play");
@@ -480,8 +478,8 @@ function waitingState(phase: Session["phase"]): SessionState {
     },
     status: "ready",
     error: null,
-    processing: { join: false, start: false },
-    errors: { join: null, start: null },
-    timeouts: { join: false, start: false },
+    processing: { start: false },
+    errors: { start: null },
+    timeouts: { start: false },
   };
 }

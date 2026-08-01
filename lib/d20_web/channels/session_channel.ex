@@ -6,6 +6,7 @@ defmodule D20Web.SessionChannel do
   alias D20.Sessions
   alias D20Web.Presence
   alias D20Web.Projection
+  alias D20Web.Workspace
 
   @spec topic(Sessions.id()) :: String.t()
   def topic(session_id) when is_binary(session_id), do: "session:" <> session_id
@@ -70,6 +71,17 @@ defmodule D20Web.SessionChannel do
     {:noreply, socket}
   end
 
+  def handle_info(
+        {:close_session, actor_id, session_id},
+        %{assigns: %{scope: %Scope{actor: %{id: actor_id}, session: %{id: session_id}}}} = socket
+      ) do
+    {:stop, :normal, socket}
+  end
+
+  def handle_info({:close_session, _actor_id, _session_id}, socket), do: {:noreply, socket}
+
+  def handle_info({:sessions_changed, _actor_id}, socket), do: {:noreply, socket}
+
   @impl true
   def handle_info({:session, session}, socket) do
     push(socket, "projection", Projection.render(socket.assigns.scope, session))
@@ -92,6 +104,7 @@ defmodule D20Web.SessionChannel do
   end
 
   defp join_session(socket, session) do
+    :ok = Workspace.subscribe(Scope.actor_id(socket.assigns.scope))
     send(self(), :after_join)
 
     {:ok, Projection.render(socket.assigns.scope, session), socket}

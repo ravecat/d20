@@ -37,6 +37,11 @@ defmodule D20Web.Plugs.AsyncApiTest do
 
     assert {:ok, contract} = File.read(spec_path)
     assert contract =~ "title: Workspace Channel Async API"
+    assert contract =~ "version: 1.1.0"
+    assert contract =~ "name: close_session"
+    assert contract =~ "closeWorkspaceSession:"
+    refute contract =~ "name: session_closed"
+    refute contract =~ "sessionClosedPayload:"
   end
 
   test "returns not found for a registered game without a specification" do
@@ -48,7 +53,7 @@ defmodule D20Web.Plugs.AsyncApiTest do
   test "serves the stateless Koala draft contract" do
     contract = build_conn() |> get("/developers/specs/koala-rescue-club/raw") |> response(200)
 
-    assert contract =~ "version: 0.9.0"
+    assert contract =~ "version: 1.0.0"
     assert contract =~ "turnMarks:"
     assert contract =~ "draftPayload:"
     assert contract =~ "draftPreview:"

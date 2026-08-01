@@ -14,8 +14,20 @@ const transport = vi.hoisted(() => ({
   session: vi.fn(),
 }));
 
+const bridge = vi.hoisted(() => ({
+  destroy: vi.fn(),
+}));
+
+interface WorkspaceSessionConfig {
+  events: {
+    snapshot(previous: Workspace | null, workspace: Workspace): Workspace;
+  };
+}
+
+let sessionConfigs: WorkspaceSessionConfig[] = [];
+
 vi.mock("@rvct/d20sdk", () => ({
-  module: vi.fn(() => ({ destroy: vi.fn() })),
+  module: vi.fn(() => bridge),
 }));
 
 vi.mock("phoenix-session", () => ({
@@ -44,6 +56,8 @@ const exitFullscreen = vi.fn(async function (this: Document) {
 beforeEach(() => {
   transport.call.mockReset();
   transport.session.mockReset();
+  bridge.destroy.mockReset();
+  sessionConfigs = [];
   Object.defineProperties(HTMLDialogElement.prototype, {
     show: { configurable: true, value: showDialog },
     close: { configurable: true, value: closeDialog },
@@ -159,7 +173,7 @@ describe("Workspace presentation", () => {
     expect(findCompactRestore("session-a")).toBeDefined();
   });
 
-  it("renders active windows without a duplicate workspace session panel", () => {
+  it("closes one active window and destroys its frame after the replacement snapshot", () => {
     const harness = workspaceHarness();
     renderWorkspace();
     harness.ready([descriptor("session-a"), descriptor("session-b", "koala-rescue-club")]);
@@ -172,10 +186,21 @@ describe("Workspace presentation", () => {
     expect(windowControls("Game session session-b")).toContain("Close Game session session-b");
 
     button("Close Game session session-a").click();
+    flushSync();
 
-    expect(transport.call).toHaveBeenCalledWith("close", { id: "session-a" });
+    expect(transport.call).toHaveBeenCalledWith("close_session", { id: "session-a" });
     expect(document.querySelectorAll("dialog")).toHaveLength(2);
-    expect(findButton("Compact Game session session-a")).toBeDefined();
+    expect(document.querySelectorAll('iframe[title="Game module"]')).toHaveLength(2);
+    expect(bridge.destroy).not.toHaveBeenCalled();
+
+    harness.ready([descriptor("session-b", "koala-rescue-club")]);
+    flushSync();
+
+    expect(document.querySelectorAll("dialog")).toHaveLength(1);
+    expect(document.querySelectorAll('iframe[title="Game module"]')).toHaveLength(1);
+    expect(findButton("Close Game session session-a")).toBeUndefined();
+    expect(findButton("Compact Game session session-b")).toBeDefined();
+    expect(bridge.destroy).toHaveBeenCalledOnce();
   });
 
   it("expands the first authoritative session while layout remains Auto", () => {
@@ -338,12 +363,21 @@ function workspaceHarness() {
       return { ...controller, ...factory({ call: transport.call }) };
     },
   };
-  transport.session.mockReturnValue(controller);
+  transport.session.mockImplementation((_socket: unknown, config: WorkspaceSessionConfig) => {
+    sessionConfigs.push(config);
+    return controller;
+  });
 
   return {
     unsubscribe,
     ready(sessions: WorkspaceSessionDescriptor[]) {
-      state.set(channelState("ready", { sessions }));
+      const config = workspaceConfig();
+
+      state.update((current) => ({
+        ...current,
+        status: "ready",
+        value: config.events.snapshot(current.value, { sessions }),
+      }));
     },
     loading(sessions: WorkspaceSessionDescriptor[]) {
       state.set(channelState("loading", { sessions }));
@@ -355,6 +389,12 @@ function workspaceHarness() {
       state.update((current) => ({ ...current, status: "failed" }));
     },
   };
+}
+
+function workspaceConfig() {
+  const config = sessionConfigs[sessionConfigs.length - 1];
+  if (!config) throw new Error("Expected a Workspace session configuration.");
+  return config;
 }
 
 function channelState(status: WorkspaceState["status"], value: Workspace | null) {

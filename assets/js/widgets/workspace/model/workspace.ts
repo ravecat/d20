@@ -22,6 +22,10 @@ export interface Workspace {
   sessions?: WorkspaceSessionDescriptor[];
 }
 
+interface WorkspaceCommandError {
+  reason?: string;
+}
+
 type PhoenixWorkspaceSession = ReturnType<typeof createSession<Workspace>>;
 
 type PhoenixWorkspaceState = Parameters<Parameters<PhoenixWorkspaceSession["subscribe"]>[0]>[0];
@@ -35,7 +39,7 @@ export interface WorkspaceState {
 
 export interface WorkspaceStore extends Readable<WorkspaceState> {
   compact(): void;
-  close(id: string): void;
+  closeSession(id: string): void;
   focus(id: string): void;
 }
 
@@ -49,8 +53,8 @@ export function createWorkspace(): WorkspaceStore {
       snapshot: (_value, workspace: Workspace) => workspace,
     },
   }).extend(({ call }) => ({
-    close(id: string) {
-      call("close", { id });
+    closeSession(id: string) {
+      return call<unknown, WorkspaceCommandError>("close_session", { id });
     },
   }));
 
@@ -94,14 +98,14 @@ export function createWorkspace(): WorkspaceStore {
     layout.trigger.compact();
   }
 
-  function close(id: string) {
-    session.close(id);
+  function closeSession(id: string) {
+    session.closeSession(id);
   }
 
   return {
     subscribe: state.subscribe,
     compact,
-    close,
+    closeSession,
     focus,
   };
 }

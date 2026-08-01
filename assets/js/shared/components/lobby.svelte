@@ -10,27 +10,19 @@
   }
 
   const { session }: Props = $props();
-  const controller = untrack(() => createSession(session.topic));
+  const { topic, slug } = untrack(() => session);
+  const controller = createSession(topic);
   let handled = false;
-  let joinRequested = false;
-
-  function finish() {
-    if (handled) return;
-
-    const { slug } = session;
-    handled = true;
-
-    router.get(`/games/${slug}`, {}, { preserveScroll: true, replace: true });
-  }
 
   onMount(() =>
-    controller.subscribe(({ value, status }) => {
-      if (status === "ready" && value?.phase === "waiting_for_players" && !joinRequested) {
-        joinRequested = true;
-        controller.join();
-      }
+    controller.subscribe(({ value }) => {
+      if (value?.phase === "in_progress" || value?.phase === "finished") {
+        if (handled) return;
 
-      if (value?.phase === "in_progress" || value?.phase === "finished") finish();
+        handled = true;
+
+        router.get(`/games/${slug}`, {}, { preserveScroll: true, replace: true });
+      }
     }),
   );
 

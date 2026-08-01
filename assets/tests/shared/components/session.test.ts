@@ -21,9 +21,9 @@ describe("Session", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
       error: null,
     });
 
@@ -38,9 +38,9 @@ describe("Session", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
       error: null,
     });
 
@@ -57,9 +57,9 @@ describe("Session", () => {
         attrs: projectedAttrs(),
       },
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
       error: null,
     });
 
@@ -85,9 +85,9 @@ describe("Session", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players", { can_start_game: false }),
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
       error: null,
     });
 
@@ -106,9 +106,9 @@ describe("Session", () => {
     renderPanel({
       value: { ...sessionWithPhase("waiting_for_players"), members: {} },
       status: "failed",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
       error: { kind: "transport_error", cause: new Error("transport failed") },
     });
 
@@ -120,9 +120,9 @@ describe("Session", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: true },
-      errors: { join: null, start: { reason: "not_owner" } },
+      processing: { start: false },
+      timeouts: { start: true },
+      errors: { start: { reason: "not_owner" } },
       error: null,
     });
 
@@ -134,9 +134,9 @@ describe("Session", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: { reason: "not_owner" } },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: { reason: "not_owner" } },
       error: null,
     });
 
@@ -147,9 +147,9 @@ describe("Session", () => {
     renderPanel({
       value: sessionWithPhase("in_progress"),
       status: "ready",
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
       error: null,
     });
 
@@ -164,9 +164,9 @@ describe("Session", () => {
       value: sessionWithPhase("finished"),
       status: "ready",
       error: null,
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
     });
 
     expect(document.body.textContent).not.toContain("Start");
@@ -180,9 +180,9 @@ describe("Session", () => {
       value: null,
       status: "loading",
       error: null,
-      processing: { join: false, start: false },
-      timeouts: { join: false, start: false },
-      errors: { join: null, start: null },
+      processing: { start: false },
+      timeouts: { start: false },
+      errors: { start: null },
     });
 
     expect(document.querySelector('iframe[title="Game module"]')).toBeNull();

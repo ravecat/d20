@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Game Session Async API
-  version: 0.1.0
+  version: 0.2.0
   description: >
     Real-time async API for game sessions.
 
@@ -58,10 +58,10 @@ channels:
     description: >
       Stateful channel for one game session. A successful channel join returns
       the initial session projection and then tracks transport presence, which
-      adds or refreshes the caller as a session member. Later
-      accepted commands receive an empty success response; the updated state
-      and caller-specific permissions are delivered separately as the latest
-      session projection.
+      adds or refreshes the caller as a session member and asks the game engine
+      to admit the actor as a player. Later accepted commands receive an empty
+      success response; the updated state and caller-specific permissions are
+      delivered separately as the latest session projection.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -81,8 +81,6 @@ channels:
         $ref: "#/components/messages/channelClosed"
       sessionProjection:
         $ref: "#/components/messages/sessionProjection"
-      joinGame:
-        $ref: "#/components/messages/joinGame"
       leaveGame:
         $ref: "#/components/messages/leaveGame"
       startSession:
@@ -112,9 +110,11 @@ operations:
     description: |
       Client joins `session:{session_id}`.
       On success, the server replies with the current session projection and
-      tracks online status. Presence then adds or refreshes Session membership.
-      A transport disconnect marks the member offline but does not remove
-      membership or change game player state.
+      tracks online status. Presence then adds or refreshes Session membership
+      and the game engine decides whether to admit the actor as a player or keep
+      the actor as a spectator. A transport disconnect marks the member offline
+      but does not remove membership or change game player state. The client
+      does not send a separate game `join` event.
     messages:
       - $ref: "#/channels/gameSession/messages/joinSessionRequest"
     reply:
@@ -122,21 +122,6 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/joinSessionReply"
-  joinGame:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Join the Qwinto game
-    description: >
-      Client sends `join` with an empty payload. The server adds the actor to
-      game player state without changing session membership.
-    messages:
-      - $ref: "#/channels/gameSession/messages/joinGame"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
   leaveGame:
     action: send
     channel:
@@ -333,13 +318,6 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/session"
-    joinGame:
-      name: join
-      title: Join Game
-      summary: Add the caller to Qwinto player state
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/emptyPayload"
     leaveGame:
       name: left
       title: Leave Game

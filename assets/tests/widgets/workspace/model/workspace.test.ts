@@ -14,6 +14,18 @@ const mocks = vi.hoisted(() => ({
   socket: {},
 }));
 
+interface WorkspaceSessionConfig {
+  topic: string;
+  connect: {
+    ok(previous: Workspace | null, workspace: Workspace): Workspace;
+  };
+  events: {
+    snapshot(previous: Workspace | null, workspace: Workspace): Workspace;
+  };
+}
+
+let sessionConfigs: WorkspaceSessionConfig[] = [];
+
 vi.mock("phoenix-session", () => ({
   session: mocks.session,
 }));
@@ -26,6 +38,7 @@ beforeEach(() => {
   mocks.call.mockReset();
   mocks.session.mockReset();
   mocks.subscribe.mockReset();
+  sessionConfigs = [];
   mocks.subscribe.mockImplementation((listener: (state: WorkspaceChannelState) => void) => {
     listener(discoveryState("ready", workspaceSnapshot("fresh-token")));
     return vi.fn();
@@ -37,32 +50,22 @@ beforeEach(() => {
       return { ...controller, ...factory({ call: mocks.call }) };
     },
   };
-  mocks.session.mockReturnValue(controller);
+  mocks.session.mockImplementation((_socket: unknown, config: WorkspaceSessionConfig) => {
+    sessionConfigs.push(config);
+    return controller;
+  });
 });
 
 describe("Workspace", () => {
-  it("joins the actor workspace and consumes complete wire snapshots without transformation", () => {
-    const workspace = createWorkspace();
-    const [_socket, config] = mocks.session.mock.calls[0] as [
-      unknown,
-      {
-        topic: string;
-        connect: {
-          ok(previous: unknown, workspace: Workspace): unknown;
-        };
-        events: {
-          snapshot(previous: unknown, workspace: Workspace): unknown;
-        };
-      },
-    ];
+  it("joins the actor workspace and consumes complete wire snapshots", () => {
+    createWorkspace();
+    const config = sessionConfigs[0];
+    if (!config) throw new Error("Expected a Workspace session configuration.");
     const snapshot = workspaceSnapshot("fresh-token");
 
     expect(config.topic).toBe("workspace");
     expect(config.connect.ok(null, snapshot)).toBe(snapshot);
     expect(config.events.snapshot(null, snapshot)).toBe(snapshot);
-    workspace.close("session-a");
-
-    expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
   });
 
   it("expands the first session from initial and replacement snapshots in Auto", () => {
@@ -144,36 +147,90 @@ describe("Workspace", () => {
     expect(get(discovery.workspace).sessions).toEqual([]);
   });
 
-  it("sends close through the workspace session and waits for workspace state before removing the window", () => {
+  it("requests close and waits for an authoritative replacement snapshot", () => {
     const discovery = discoveryHarness();
 
+    discovery.ready([descriptor("session-a"), descriptor("session-b")]);
+    discovery.workspace.closeSession("session-a");
+
+    expect(mocks.call).toHaveBeenCalledWith("close_session", { id: "session-a" });
+    expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual([
+      "session-a",
+      "session-b",
+    ]);
+
+    discovery.ready([descriptor("session-b")]);
+
+    expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual(["session-b"]);
+    expect(get(discovery.workspace).layout).toEqual({ mode: "auto", id: "session-b" });
+
+    discovery.ready([descriptor("session-a"), descriptor("session-b", "qwinto", "fresh")]);
+
+    expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual([
+      "session-a",
+      "session-b",
+    ]);
+    expect(session(discovery.workspace, "session-b").connection.token).toBe("fresh");
+  });
+
+  it("does not retain client close exclusions between Workspace instances", () => {
+    const first = discoveryHarness();
+
+    first.ready([descriptor("session-a")]);
+    first.workspace.closeSession("session-a");
+    first.ready([]);
+
+    expect(get(first.workspace).sessions).toEqual([]);
+
+    const second = discoveryHarness();
+    second.ready([descriptor("session-a")]);
+
+    expect(get(second.workspace).sessions.map(({ id }) => id)).toEqual(["session-a"]);
+    expect(mocks.call).toHaveBeenCalledOnce();
+  });
+
+  it("keeps browser-local focus when the replacement snapshot omits its window", () => {
+    const discovery = discoveryHarness();
+
+    discovery.ready([descriptor("session-a"), descriptor("session-b")]);
+    discovery.workspace.focus("session-b");
+    discovery.workspace.closeSession("session-b");
+
+    expect(get(discovery.workspace).layout).toEqual({ mode: "focused", id: "session-b" });
+
     discovery.ready([descriptor("session-a")]);
-    discovery.workspace.close("session-a");
-    discovery.workspace.close("missing-session");
 
-    expect(mocks.call).toHaveBeenCalledWith("close", { id: "session-a" });
-    expect(mocks.call).toHaveBeenCalledWith("close", { id: "missing-session" });
     expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual(["session-a"]);
-
-    discovery.ready([]);
-
-    expect(get(discovery.workspace).sessions).toEqual([]);
+    expect(get(discovery.workspace).layout).toEqual({ mode: "focused", id: "session-b" });
   });
 });
 
 function discoveryHarness() {
   const state = writable(discoveryState("loading", null));
   mocks.subscribe.mockImplementation(state.subscribe);
+  const workspace = createWorkspace();
 
   return {
-    workspace: createWorkspace(),
+    workspace,
     ready(sessions: WorkspaceSessionDescriptor[]) {
-      state.set(discoveryState("ready", { sessions }));
+      const config = workspaceConfig();
+
+      state.update((current) => ({
+        ...current,
+        status: "ready",
+        value: config.events.snapshot(current.value, { sessions }),
+      }));
     },
     stale() {
       state.update((current) => ({ ...current, status: "stale" }));
     },
   };
+}
+
+function workspaceConfig() {
+  const config = sessionConfigs[sessionConfigs.length - 1];
+  if (!config) throw new Error("Expected a Workspace session configuration.");
+  return config;
 }
 
 function discoveryState(status: WorkspaceState["status"], value: Workspace | null) {

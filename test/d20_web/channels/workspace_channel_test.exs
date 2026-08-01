@@ -5,6 +5,7 @@ defmodule D20Web.WorkspaceChannelTest do
   alias D20.Actors.Actor
   alias D20.Sessions
   alias D20.Sessions.Session
+  alias D20Web.SessionChannel
   alias D20Web.UserSocket
   alias D20Web.Workspace
   alias D20Web.WorkspaceChannel
@@ -102,7 +103,7 @@ defmodule D20Web.WorkspaceChannelTest do
     end
   end
 
-  test "pushes complete snapshots when phase or membership eligibility changes" do
+  test "pushes a complete snapshot when phase eligibility changes" do
     actor = actor()
     session = create_session("qwinto", actor.id, start?: false)
 
@@ -113,12 +114,6 @@ defmodule D20Web.WorkspaceChannelTest do
 
     assert_push "snapshot", %{sessions: [%{id: session_id, phase: :in_progress}]}
     assert session_id == session.id
-
-    assert {:ok, %Session{members: members}} =
-             Sessions.remove_member(scope(session.id, actor.id, "qwinto"))
-
-    refute Map.has_key?(members, actor.id)
-    assert_push "snapshot", %{sessions: []}
 
     assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session.id})
     assert Process.alive?(pid)
@@ -152,10 +147,10 @@ defmodule D20Web.WorkspaceChannelTest do
     assert session_id == session.id
   end
 
-  test "keeps an offline member discoverable until an explicit leave" do
+  test "keeps an offline member discoverable" do
     actor = actor()
     session = create_lifecycle_session("owner")
-    assert {:ok, %{sessions: []}, _socket} = join_workspace(actor)
+    assert {:ok, %{sessions: []}, socket} = join_workspace(actor)
     assert [{pid, AutomaticServer}] = Registry.lookup(D20.Registry, {:session, session.id})
 
     send(pid, {:online, actor.id, %{online_at: 1}})
@@ -170,12 +165,9 @@ defmodule D20Web.WorkspaceChannelTest do
 
     assert {:ok, {%Session{members: members}, "qwinto"}} = Sessions.get(session.id)
     assert %{status: :offline, online_at: 1} = members[actor.id]
-
-    assert {:ok, %Session{members: members}} =
-             Sessions.remove_member(scope(session.id, actor.id, "qwinto"))
-
-    refute Map.has_key?(members, actor.id)
-    assert_push "snapshot", %{sessions: []}
+    assert {[%{id: session_id}], runtime_pids} = Workspace.sessions(socket)
+    assert runtime_pids == MapSet.new([pid])
+    assert session_id == session.id
   end
 
   test "publishes eligibility changes from a custom server automatic transition" do
@@ -205,45 +197,116 @@ defmodule D20Web.WorkspaceChannelTest do
     assert session_id == session.id
   end
 
-  test "an explicit close removes the game from every actor workspace" do
+  test "coordinates close across every actor workspace without mutating the session" do
     actor = actor()
+    actor_id = actor.id
     session = create_session("qwinto", actor.id)
 
-    assert {:ok, %{sessions: [_]}, _first_socket} = join_workspace(actor)
+    assert {:ok, %{sessions: [_]}, first_socket} = join_workspace(actor)
     assert {:ok, %{sessions: [_]}, _second_socket} = join_workspace(actor)
+    assert {:ok, _projection, session_socket} = join_session_channel(session.id, actor)
+    assert_push "projection", %{}
 
-    assert {:ok, %Session{}} = Sessions.remove_member(scope(session.id, actor.id, "qwinto"))
+    assert {:ok, {before, "qwinto"}} = Sessions.get(session.id)
+    :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
+    session_reference = Process.monitor(session_socket.channel_pid)
+    reference = push(first_socket, "close_session", %{"id" => session.id})
 
+    assert_reply reference, :ok
+    assert_receive {:DOWN, ^session_reference, :process, _pid, :normal}
     assert_push "snapshot", %{sessions: []}
     assert_push "snapshot", %{sessions: []}
+
+    assert_receive {:session,
+                    %Session{members: %{^actor_id => %{status: :offline}}} = after_close}
+
+    assert {:ok, {^after_close, "qwinto"}} = Sessions.get(session.id)
+    assert after_close.game == before.game
+    assert Enum.sort(Map.keys(after_close.members)) == Enum.sort(Map.keys(before.members))
+    assert %{status: :offline} = after_close.members[actor.id]
+    assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session.id})
+    assert Process.alive?(pid)
+
+    assert {:ok, %{sessions: [%{id: session_id}]}, _fresh_socket} = join_workspace(actor)
+    assert session_id == session.id
   end
 
-  test "accepts close for a finished session and keeps the runtime alive" do
+  test "coordinates close for a finished session and keeps membership and runtime" do
     actor = actor()
+    actor_id = actor.id
     session = create_lifecycle_session(actor.id)
 
     assert {:ok, %Session{phase: :finished}} =
              Sessions.dispatch(scope(session.id, actor.id, "qwinto"), "finish", %{})
 
     assert {:ok, %{sessions: [_]}, socket} = join_workspace(actor)
-    reference = push(socket, "close", %{"id" => session.id})
+    assert {:ok, _projection, session_socket} = join_session_channel(session.id, actor)
+    assert_push "projection", %{}
+    assert {:ok, {before, "qwinto"}} = Sessions.get(session.id)
+    :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
+    session_reference = Process.monitor(session_socket.channel_pid)
+    reference = push(socket, "close_session", %{"id" => session.id})
 
     assert_reply reference, :ok
+    assert_receive {:DOWN, ^session_reference, :process, _pid, :normal}
     assert_push "snapshot", %{sessions: []}
-    assert {:ok, {%Session{members: members}, "qwinto"}} = Sessions.get(session.id)
-    refute Map.has_key?(members, actor.id)
+
+    assert_receive {:session,
+                    %Session{members: %{^actor_id => %{status: :offline}}} = after_close}
+
+    assert {:ok, {^after_close, "qwinto"}} = Sessions.get(session.id)
+    assert after_close.game == before.game
+    assert MapSet.new(Map.keys(after_close.members)) == MapSet.new(Map.keys(before.members))
+    assert %{status: :offline} = after_close.members[actor.id]
     assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session.id})
     assert Process.alive?(pid)
   end
 
-  test "rejects close when the actor is not a current member" do
+  test "accepts idempotent close for an offline durable member" do
     actor = actor()
-    session = create_session("qwinto", actor("member").id)
+    actor_id = actor.id
+    session = create_session("qwinto", actor.id)
+    assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session.id})
+
+    send(pid, {:offline, actor.id})
+
+    assert {:ok, {%Session{members: %{^actor_id => %{status: :offline}}} = before, "qwinto"}} =
+             Sessions.get(session.id)
+
+    assert {:ok, %{sessions: [_]}, socket} = join_workspace(actor)
+    reference = push(socket, "close_session", %{"id" => session.id})
+
+    assert_reply reference, :ok
+    assert_push "snapshot", %{sessions: []}
+    assert {:ok, {^before, "qwinto"}} = Sessions.get(session.id)
+    assert Process.alive?(pid)
+  end
+
+  test "accepts close as a no-op for a waiting session" do
+    actor = actor()
+    session = create_session("qwinto", actor.id, start?: false)
 
     assert {:ok, %{sessions: []}, socket} = join_workspace(actor)
-    reference = push(socket, "close", %{"id" => session.id})
+    assert {:ok, {before, "qwinto"}} = Sessions.get(session.id)
+    reference = push(socket, "close_session", %{"id" => session.id})
 
-    assert_reply reference, :error, %{reason: "forbidden"}
+    assert_reply reference, :ok
+    assert_push "snapshot", %{sessions: []}
+    assert {:ok, {^before, "qwinto"}} = Sessions.get(session.id)
+  end
+
+  test "accepts close as a no-op for an actor outside the session" do
+    owner = actor("owner")
+    actor = actor("outsider")
+    session = create_session("qwinto", owner.id)
+
+    assert {:ok, %{sessions: []}, socket} = join_workspace(actor)
+    assert {:ok, {before, "qwinto"}} = Sessions.get(session.id)
+    reference = push(socket, "close_session", %{"id" => session.id})
+
+    assert_reply reference, :ok
+    assert_push "snapshot", %{sessions: []}
+    assert {:ok, {^before, "qwinto"}} = Sessions.get(session.id)
   end
 
   test "rebuilds the snapshot when a reported runtime terminates" do
@@ -325,12 +388,19 @@ defmodule D20Web.WorkspaceChannelTest do
     subscribe_and_join(socket, WorkspaceChannel, "workspace", %{})
   end
 
+  defp join_session_channel(session_id, actor) do
+    token = D20.Actors.Token.sign(D20Web.Endpoint, actor)
+
+    assert {:ok, socket} = connect(UserSocket, %{}, connect_info: %{auth_token: token, uri: @uri})
+
+    subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
+  end
+
   defp add_member(session_id, actor_id) do
     assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session_id})
     send(pid, {:online, actor_id, %{online_at: 1}})
-    send(pid, {:offline, actor_id})
 
-    assert {:ok, {%Session{members: %{^actor_id => %{status: :offline}}}, _slug}} =
+    assert {:ok, {%Session{members: %{^actor_id => %{status: :online}}}, _slug}} =
              Sessions.get(session_id)
   end
 

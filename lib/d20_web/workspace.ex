@@ -21,9 +21,15 @@ defmodule D20Web.Workspace do
     Phoenix.PubSub.subscribe(D20.PubSub, topic(actor_id))
   end
 
+  @spec close_session_for_actor(Session.player_id(), Sessions.id()) :: :ok | {:error, term()}
+  def close_session_for_actor(actor_id, session_id)
+      when is_binary(actor_id) and is_binary(session_id) do
+    Phoenix.PubSub.broadcast(D20.PubSub, topic(actor_id), {:close_session, actor_id, session_id})
+  end
+
   @spec publish_session_changes(Session.t(), Session.t()) :: :ok
   def publish_session_changes(%Session{} = previous, %Session{} = current) do
-    if discovery_changed?(previous, current) do
+    if changed?(previous, current) do
       previous.members
       |> Map.keys()
       |> Kernel.++(Map.keys(current.members))
@@ -40,7 +46,7 @@ defmodule D20Web.Workspace do
   def sessions(socket) do
     entries =
       socket.assigns.scope
-      |> Sessions.list_runtime()
+      |> Sessions.list()
       |> Enum.flat_map(fn
         {pid, {%Session{id: id, phase: phase}, slug}} when phase in [:in_progress, :finished] ->
           case Registry.fetch(slug) do
@@ -71,7 +77,7 @@ defmodule D20Web.Workspace do
     }
   end
 
-  defp discovery_changed?(previous, session) do
+  defp changed?(previous, session) do
     previous.phase != session.phase or
       MapSet.new(Map.keys(previous.members)) != MapSet.new(Map.keys(session.members))
   end

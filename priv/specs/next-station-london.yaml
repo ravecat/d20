@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Next Station London Session Async API
-  version: 1.0.0
+  version: 2.0.0
   description: >
     Real-time contract for Next Station London sessions. Clients join one
     session topic, start the game, submit simultaneous construction choices,
@@ -61,8 +61,9 @@ channels:
     description: >
       A successful channel join returns the current caller-specific projection
       and then tracks transport presence, which adds or refreshes the caller as
-      a session member. Accepted commands receive an empty success reply. State
-      changes and automatic round preparation are published as projections.
+      a session member and asks the game engine to admit the actor as a player.
+      Accepted commands receive an empty success reply. State changes and
+      automatic round preparation are published as projections.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -82,8 +83,6 @@ channels:
         $ref: "#/components/messages/channelClosed"
       sessionProjection:
         $ref: "#/components/messages/sessionProjection"
-      joinGame:
-        $ref: "#/components/messages/joinGame"
       leaveGame:
         $ref: "#/components/messages/leaveGame"
       startSession:
@@ -106,9 +105,11 @@ operations:
     summary: Join a session topic
     description: >
       On success the server replies with the current projection and tracks the
-      caller's online status. Presence then adds or refreshes Session
-      membership. A transport disconnect marks the member offline but does not
-      remove membership or change game player state.
+      caller's online status. Presence then adds or refreshes Session membership
+      and the game engine decides whether to admit the actor as a player or keep
+      the actor as a spectator. A transport disconnect marks the member offline
+      but does not remove membership or change game player state. The client
+      does not send a separate game `join` event.
     messages:
       - $ref: "#/channels/gameSession/messages/joinSessionRequest"
     reply:
@@ -116,21 +117,6 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/joinSessionReply"
-  joinGame:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Join the Next Station London game
-    description: >
-      Client sends `join` with an empty payload. The server adds the actor to
-      game player state without changing session membership.
-    messages:
-      - $ref: "#/channels/gameSession/messages/joinGame"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
   leaveGame:
     action: send
     channel:
@@ -275,13 +261,6 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/session"
-    joinGame:
-      name: join
-      title: Join Game
-      summary: Add the caller to Next Station London player state
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/emptyPayload"
     leaveGame:
       name: left
       title: Leave Game

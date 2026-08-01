@@ -31,16 +31,13 @@ beforeEach(() => {
 });
 
 describe("Session store", () => {
-  it("exposes separate game join and session start commands", () => {
-    const joinCall = {};
+  it("exposes the session start command", () => {
     const startCall = {};
-    mocks.call.mockReturnValueOnce(joinCall).mockReturnValueOnce(startCall);
+    mocks.call.mockReturnValueOnce(startCall);
 
     const controller = createSession("session:session-a");
 
-    expect(controller.join()).toBe(joinCall);
     expect(controller.start({ sheet: "dharug" })).toBe(startCall);
-    expect(mocks.call).toHaveBeenNthCalledWith(1, "join", {});
-    expect(mocks.call).toHaveBeenNthCalledWith(2, "start", { sheet: "dharug" });
+    expect(mocks.call).toHaveBeenCalledWith("start", { sheet: "dharug" });
   });
 });

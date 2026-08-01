@@ -1,14 +1,15 @@
 asyncapi: 3.0.0
 info:
   title: Workspace Channel Async API
-  version: 0.1.0
+  version: 1.1.0
   description: >
     Actor-authenticated discovery feed for live in-progress and finished game
-    sessions.
-    The channel returns complete replacement snapshots and accepts only the
-    shell-level close operation. Game state, game commands, and Presence remain
-    on session channels. Runtime membership survives a session-channel
-    disconnect, so a hard reload rediscovers sessions that remain available.
+    sessions. The channel returns complete replacement snapshots and accepts one
+    actor-scoped close command for a concrete Session. Accepted Close causes a
+    complete replacement snapshot in every active Workspace for that actor and
+    terminates the actor's matching SessionChannel attachments without removing
+    durable membership or game state.
+    Game state, game commands, and Presence remain outside this discovery channel.
   license:
     name: MIT
   tags:
@@ -60,8 +61,8 @@ channels:
     description: >
       The actor is derived from the authenticated user socket. Join parameters
       cannot select another actor. Only live in-progress or finished runtime
-      sessions whose durable members include that actor are reported. Waiting,
-      missing, and unconfigured sessions are excluded.
+      sessions whose durable members contain that actor are reported. Waiting,
+      missing, and unconfigured sessions are excluded independently of Presence status.
     servers:
       - $ref: "#/servers/production"
       - $ref: "#/servers/development"
@@ -108,11 +109,11 @@ operations:
     action: send
     channel:
       $ref: "#/channels/workspace"
-    summary: Close one reported session
+    summary: Close one Session for the authenticated actor
     description: >
-      The authenticated actor explicitly closes the selected in-progress or
-      finished session. The resulting complete snapshot removes the window from
-      every actor tab without sending a game `left` command.
+      Requests actor-wide closure of the matching Session attachment without
+      deleting Session membership or game player state. Each active actor
+      Workspace receives one replacement snapshot omitting the supplied id.
     messages:
       - $ref: "#/channels/workspace/messages/closeWorkspaceSession"
     reply:
@@ -175,16 +176,16 @@ components:
       payload:
         $ref: "#/components/schemas/workspaceSnapshot"
     closeWorkspaceSession:
-      name: close
+      name: close_session
       title: Close Workspace Session
-      summary: Explicitly close one session for the authenticated actor
+      summary: Request actor-wide closure of one concrete Session attachment
       contentType: application/json
       payload:
         $ref: "#/components/schemas/closePayload"
     closeWorkspaceSessionReply:
       name: phx_reply
       title: Close Workspace Session Reply
-      summary: Close acceptance or failure
+      summary: Idempotent Close acceptance or internal publication failure
       tags:
         - name: channel-protocol
       contentType: application/json
@@ -227,48 +228,6 @@ components:
     channelSystemPayload:
       type: object
       additionalProperties: true
-    emptyReplyResponse:
-      type: object
-      additionalProperties: false
-    closePayload:
-      type: object
-      required:
-        - id
-      properties:
-        id:
-          type: string
-          format: uuid
-      additionalProperties: false
-    closeReply:
-      oneOf:
-        - type: object
-          required:
-            - status
-            - response
-          properties:
-            status:
-              const: ok
-            response:
-              $ref: "#/components/schemas/emptyReplyResponse"
-          additionalProperties: false
-        - type: object
-          required:
-            - status
-            - response
-          properties:
-            status:
-              const: error
-            response:
-              $ref: "#/components/schemas/closeError"
-          additionalProperties: false
-    closeError:
-      type: object
-      required:
-        - reason
-      properties:
-        reason:
-          type: string
-      additionalProperties: false
     workspaceJoinReply:
       oneOf:
         - type: object
@@ -299,6 +258,47 @@ components:
         reason:
           type: string
           const: forbidden
+      additionalProperties: false
+    closePayload:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Session to close for the authenticated actor.
+      additionalProperties: false
+    closeReply:
+      oneOf:
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: ok
+            response:
+              type: object
+              additionalProperties: false
+          additionalProperties: false
+        - type: object
+          required:
+            - status
+            - response
+          properties:
+            status:
+              const: error
+            response:
+              $ref: "#/components/schemas/closeError"
+          additionalProperties: false
+    closeError:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
       additionalProperties: false
     workspaceSnapshot:
       type: object

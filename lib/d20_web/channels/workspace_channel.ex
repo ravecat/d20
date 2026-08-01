@@ -2,15 +2,11 @@ defmodule D20Web.WorkspaceChannel do
   use D20Web, :channel
 
   alias D20.Accounts.Scope
-  alias D20.Sessions
-  alias D20.Sessions.Session
   alias D20Web.Workspace
-
-  @channel_topic "workspace"
 
   @impl true
   def join(
-        @channel_topic,
+        "workspace",
         _payload,
         %{assigns: %{scope: %Scope{actor: %{id: actor_id}}, request_uri: %URI{}}} = socket
       )
@@ -23,21 +19,17 @@ defmodule D20Web.WorkspaceChannel do
     {:ok, %{sessions: sessions}, socket}
   end
 
-  def join(@channel_topic, _payload, _socket), do: {:error, %{reason: "forbidden"}}
+  def join("workspace", _payload, _socket), do: {:error, %{reason: "forbidden"}}
 
   @impl true
   def handle_in(
-        "close",
+        "close_session",
         %{"id" => session_id},
-        %{assigns: %{scope: %Scope{actor: %{id: actor_id}} = scope}} = socket
-      ) do
-    with {:ok, {%Session{members: members}, slug}} <- Sessions.get(session_id),
-         true <- Map.has_key?(members, actor_id),
-         scope = scope |> Scope.put_session(session_id) |> Scope.put_game(slug),
-         {:ok, _session} <- Sessions.remove_member(scope) do
-      {:reply, :ok, socket}
-    else
-      false -> {:reply, {:error, %{reason: "forbidden"}}, socket}
+        %{assigns: %{scope: %Scope{actor: %{id: actor_id}}}} = socket
+      )
+      when is_binary(session_id) do
+    case Workspace.close_session_for_actor(actor_id, session_id) do
+      :ok -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
   end
@@ -50,6 +42,15 @@ defmodule D20Web.WorkspaceChannel do
   def handle_info({:sessions_changed, actor_id}, %{assigns: %{scope: scope}} = socket)
       when actor_id == scope.actor.id do
     {:noreply, refresh(socket)}
+  end
+
+  def handle_info({:close_session, actor_id, session_id}, %{assigns: %{scope: scope}} = socket)
+      when actor_id == scope.actor.id do
+    {sessions, _runtime_pids} = Workspace.sessions(socket)
+    sessions = Enum.reject(sessions, &(&1.id == session_id))
+    push(socket, "snapshot", %{sessions: sessions})
+
+    {:noreply, socket}
   end
 
   def handle_info({:DOWN, reference, :process, pid, _reason}, socket) do

@@ -197,22 +197,6 @@ defmodule D20.Game.Server do
     {:keep_state_and_data, [{:reply, from, reply}, idle_action()]}
   end
 
-  def handle_event({:call, from}, {:remove_member, actor_id}, _state, {slug, engine, session}) do
-    case Session.remove_member(session, actor_id) do
-      {:ok, ^session} ->
-        {:keep_state_and_data, [{:reply, from, {:ok, session}}, idle_action()]}
-
-      {:ok, %Session{} = updated_session} ->
-        broadcast(session, updated_session)
-
-        {:keep_state, {slug, engine, updated_session},
-         [{:reply, from, {:ok, updated_session}}, idle_action()]}
-
-      {:error, reason} ->
-        {:keep_state_and_data, [{:reply, from, {:error, reason}}, idle_action()]}
-    end
-  end
-
   def handle_event(:internal, {:dispatch, %Command{} = command}, state, {slug, engine, session}) do
     case Session.dispatch(session, engine, command) do
       {:ok, ^session} ->
@@ -235,8 +219,21 @@ defmodule D20.Game.Server do
     end
   end
 
-  def handle_event(:info, {:online, actor_id, attrs}, state, data) do
-    update_presence(state, data, &Session.online(&1, actor_id, attrs))
+  def handle_event(:info, {:online, actor_id, attrs}, state, {_slug, engine, _session} = data) do
+    update_presence(state, data, fn session ->
+      with {:ok, online_session} <- Session.online(session, actor_id, attrs) do
+        command = %Command{
+          event: "join",
+          actor_id: actor_id,
+          attrs: Map.take(attrs, [:display_name, :avatar, :online_at])
+        }
+
+        case Session.dispatch(online_session, engine, command) do
+          {:ok, admitted_session} -> {:ok, admitted_session}
+          {:error, _reason} -> {:ok, online_session}
+        end
+      end
+    end)
   end
 
   def handle_event(:info, {:offline, actor_id}, state, data) do
@@ -271,14 +268,22 @@ defmodule D20.Game.Server do
   defp state(%Session{game: %{phase: phase}}), do: phase
   defp state(%Session{phase: phase}), do: phase
 
-  defp update_presence(_state, {slug, engine, session}, update) do
+  defp update_presence(state, {slug, engine, session}, update) do
     case update.(session) do
       {:ok, ^session} ->
         {:keep_state_and_data, [idle_action()]}
 
       {:ok, %Session{} = updated_session} ->
         broadcast(session, updated_session)
-        {:keep_state, {slug, engine, updated_session}, [idle_action()]}
+
+        data = {slug, engine, updated_session}
+        next_state = state(updated_session)
+
+        if next_state == state do
+          {:keep_state, data, [idle_action()]}
+        else
+          {:next_state, next_state, data, [idle_action()]}
+        end
 
       {:error, _reason} ->
         {:keep_state_and_data, [idle_action()]}

@@ -40,13 +40,8 @@ defmodule D20.Sessions do
     end
   end
 
-  @spec list(Scope.t()) :: [state()]
-  def list(%Scope{} = scope) do
-    Enum.map(list_runtime(scope), fn {_pid, state} -> state end)
-  end
-
-  @spec list_runtime(Scope.t()) :: [runtime_state()]
-  def list_runtime(%Scope{actor: %{id: actor_id}}) when is_binary(actor_id) do
+  @spec list(Scope.t()) :: [runtime_state()]
+  def list(%Scope{actor: %{id: actor_id}}) when is_binary(actor_id) do
     D20.Registry
     |> Registry.select([{{{:session, :"$1"}, :"$2", :"$3"}, [], [{{:"$1", :"$2", :"$3"}}]}])
     |> Enum.flat_map(fn {id, pid, _server} ->
@@ -60,7 +55,7 @@ defmodule D20.Sessions do
     end)
   end
 
-  def list_runtime(%Scope{}), do: []
+  def list(%Scope{}), do: []
 
   @spec get(id()) :: {:ok, state()} | {:error, reason()}
   def get(id) when is_binary(id) do
@@ -87,14 +82,6 @@ defmodule D20.Sessions do
   end
 
   def preview(%Scope{}, _event, _attrs), do: {:error, :forbidden}
-
-  @spec remove_member(Scope.t()) :: {:ok, Session.t()} | {:error, reason()}
-  def remove_member(%Scope{session: %{id: id}, actor: %{id: actor_id}})
-      when is_binary(id) and is_binary(actor_id) do
-    call(id, {:remove_member, actor_id})
-  end
-
-  def remove_member(%Scope{}), do: {:error, :forbidden}
 
   @spec stop(id(), term(), timeout()) :: :ok
   def stop(id, reason \\ :normal, timeout \\ :infinity)

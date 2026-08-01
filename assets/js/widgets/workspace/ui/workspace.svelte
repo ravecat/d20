@@ -88,7 +88,7 @@
                   class="workspace__window-control workspace__window-control--close"
                   type="button"
                   aria-label={`Close Game session ${session.id}`}
-                  onclick={() => workspace.close(session.id)}
+                  onclick={() => workspace.closeSession(session.id)}
                 >
                   <svg viewBox="0 0 16 16" aria-hidden="true">
                     <path d="m1 1 14 14M15 1 1 15" />

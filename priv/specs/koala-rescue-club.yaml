@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Koala Rescue Club Session Async API
-  version: 0.9.0
+  version: 1.0.0
   description: >
     Real-time async API for Koala Rescue Club game sessions.
 
@@ -61,11 +61,11 @@ channels:
     description: >
       Stateful channel for one game session. A successful channel join returns
       the initial session projection and then tracks transport presence, which
-      adds or refreshes the caller as a session member. Accepted
-      state-changing game commands receive an empty success response and publish
-      the resulting caller-specific projection. A `draft` request instead
-      returns caller-specific placement guidance without changing or publishing
-      the session.
+      adds or refreshes the caller as a session member and asks the game engine
+      to admit the actor as a player. Accepted state-changing game commands
+      receive an empty success response and publish the resulting caller-specific
+      projection. A `draft` request instead returns caller-specific placement
+      guidance without changing or publishing the session.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -85,8 +85,6 @@ channels:
         $ref: "#/components/messages/channelClosed"
       sessionProjection:
         $ref: "#/components/messages/sessionProjection"
-      joinGame:
-        $ref: "#/components/messages/joinGame"
       leaveGame:
         $ref: "#/components/messages/leaveGame"
       startSession:
@@ -112,9 +110,11 @@ operations:
     description: |
       Client joins `session:{session_id}`. On success, the server replies with
       the current caller-specific session projection and tracks online status.
-      Presence then adds or refreshes Session membership. A transport
-      disconnect marks the member offline but does not remove membership or
-      change game player state.
+      Presence then adds or refreshes Session membership and the game engine
+      decides whether to admit the actor as a player or keep the actor as a
+      spectator. A transport disconnect marks the member offline but does not
+      remove membership or change game player state. The client does not send a
+      separate game `join` event.
     messages:
       - $ref: "#/channels/gameSession/messages/joinSessionRequest"
     reply:
@@ -122,21 +122,6 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/joinSessionReply"
-  joinGame:
-    action: send
-    channel:
-      $ref: "#/channels/gameSession"
-    summary: Join the Koala Rescue Club game
-    description: >
-      Client sends `join` with an empty payload. The server adds the actor to
-      game player state without changing session membership.
-    messages:
-      - $ref: "#/channels/gameSession/messages/joinGame"
-    reply:
-      channel:
-        $ref: "#/channels/gameSession"
-      messages:
-        - $ref: "#/channels/gameSession/messages/commandReply"
   leaveGame:
     action: send
     channel:
@@ -283,13 +268,6 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/session"
-    joinGame:
-      name: join
-      title: Join Game
-      summary: Add the caller to Koala Rescue Club player state
-      contentType: application/json
-      payload:
-        $ref: "#/components/schemas/emptyPayload"
     leaveGame:
       name: left
       title: Leave Game

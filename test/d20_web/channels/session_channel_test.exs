@@ -15,6 +15,7 @@ defmodule D20Web.SessionChannelTest do
   alias D20Web.Presence
   alias D20Web.SessionChannel
   alias D20Web.UserSocket
+  alias D20Web.Workspace
 
   describe "session topic" do
     test "should track anonymous actor presence" do
@@ -35,7 +36,11 @@ defmodule D20Web.SessionChannelTest do
 
       assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
-      assert_push "projection", %{members: members, permissions: permissions}
+      assert_push "projection", %{
+        members: members,
+        permissions: permissions,
+        game: %D20.Qwinto.Game{order: [^actor_id]}
+      }
 
       assert permissions.can_start_game == false
 
@@ -118,13 +123,74 @@ defmodule D20Web.SessionChannelTest do
 
       assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
-      assert_push "projection", %{members: members, permissions: permissions}
+      assert_push "projection", %{
+        members: members,
+        permissions: permissions,
+        game: %D20.Qwinto.Game{order: [^actor_id]}
+      }
 
       assert permissions.can_start_game == false
       assert %{status: :online, online_at: ^tracked_online_at} = members[actor_id]
 
       assert {:ok, {%Session{members: members}, "qwinto"}} = D20.Sessions.get(session_id)
       assert %{status: :online, online_at: ^tracked_online_at} = members[actor_id]
+    end
+
+    test "leaves every matching actor channel while preserving membership and game state" do
+      actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      other_actor = %{id: Ecto.UUID.generate(), type: :anonymous}
+      actor_id = actor.id
+      other_actor_id = other_actor.id
+      session_id = create_runtime_session(actor.id)
+      other_session_id = create_runtime_session(actor.id)
+
+      assert {:ok, %Session{}} =
+               D20.Sessions.dispatch(session_scope(session_id, actor.id), "join", %{})
+
+      assert {:ok, %Session{}} =
+               D20.Sessions.dispatch(session_scope(session_id, other_actor.id), "join", %{})
+
+      assert {:ok, %Session{phase: :in_progress}} =
+               D20.Sessions.dispatch(session_scope(session_id, actor.id), "start", %{})
+
+      assert {:ok, _projection, first_socket} = join_session_channel(session_id, actor)
+      assert {:ok, _projection, second_socket} = join_session_channel(session_id, actor)
+      assert {:ok, _projection, other_socket} = join_session_channel(session_id, other_actor)
+
+      assert {:ok, _projection, other_session_socket} =
+               join_session_channel(other_session_id, actor)
+
+      assert_push "projection", %{
+        members: %{^actor_id => %{status: :online}, ^other_actor_id => %{status: :online}}
+      }
+
+      assert {:ok, {%Session{game: game_before}, "qwinto"}} = D20.Sessions.get(session_id)
+
+      first_pid = first_socket.channel_pid
+      second_pid = second_socket.channel_pid
+      other_pid = other_socket.channel_pid
+      other_session_pid = other_session_socket.channel_pid
+      first_reference = Process.monitor(first_pid)
+      second_reference = Process.monitor(second_pid)
+
+      assert :ok = Workspace.close_session_for_actor(actor.id, session_id)
+
+      assert_receive {:DOWN, ^first_reference, :process, ^first_pid, :normal}
+      assert_receive {:DOWN, ^second_reference, :process, ^second_pid, :normal}
+      assert Process.alive?(other_pid)
+      assert Process.alive?(other_session_pid)
+
+      assert_push "projection", %{
+        members: %{^actor_id => %{status: :offline}, ^other_actor_id => %{status: :online}}
+      }
+
+      assert {:ok, {%Session{members: members, game: ^game_before}, "qwinto"}} =
+               D20.Sessions.get(session_id)
+
+      assert %{status: :offline} = members[actor.id]
+      assert %{status: :online} = members[other_actor.id]
+      assert [{runtime_pid, _server}] = Registry.lookup(D20.Registry, {:session, session_id})
+      assert Process.alive?(runtime_pid)
     end
 
     test "should reject tokens for another session" do
@@ -167,15 +233,16 @@ defmodule D20Web.SessionChannelTest do
 
       assert join_permissions.can_start_game == false
 
-      assert_push "projection", %{members: members, permissions: permissions}
-      assert permissions.can_start_game == false
+      assert_push "projection", %{
+        members: members,
+        permissions: permissions,
+        game: %D20.Qwinto.Game{order: ["p2", ^actor_id]}
+      }
+
+      assert permissions.can_start_game == true
       assert %{status: :online, online_at: actor_online_at} = members[actor_id]
       refute Map.has_key?(members, "p2")
       assert is_integer(actor_online_at)
-
-      join_ref = push(socket, "join", %{})
-      assert_reply join_ref, :ok
-      assert_push "projection", %{game: %D20.Qwinto.Game{order: ["p2", ^actor_id]}}
 
       ref = push(socket, "start", %{})
 
@@ -197,11 +264,6 @@ defmodule D20Web.SessionChannelTest do
       session_id = create_runtime_session(actor.id)
 
       assert {:ok, _payload, socket} = join_session_channel(session_id, actor)
-
-      assert_push "projection", %{game: %D20.Qwinto.Game{phase: :setup, order: []}}
-
-      join_ref = push(socket, "join", %{})
-      assert_reply join_ref, :ok
 
       assert_push "projection", %{game: %D20.Qwinto.Game{phase: :setup, order: [^actor_id]}}
 
@@ -384,19 +446,11 @@ defmodule D20Web.SessionChannelTest do
       assert %{
                self: ^actor_id,
                members: %{^actor_id => %{status: :online}},
-               permissions: %{can_start_game: false},
-               game: %{phase: :setup, players: %{}}
+               permissions: %{can_start_game: true},
+               game: %{phase: :ready, players: %{^actor_id => %{status: :ready}}}
              } = projection
 
       refute Map.has_key?(projection, :attrs)
-
-      join_ref = push(socket, "join", %{})
-      assert_reply join_ref, :ok
-
-      assert_push "projection", %{
-        permissions: %{can_start_game: true},
-        game: %{phase: :ready, players: %{^actor_id => %{status: :ready}}}
-      }
 
       start_ref = push(socket, "start", %{})
 

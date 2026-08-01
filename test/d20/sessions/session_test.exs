@@ -268,8 +268,8 @@ defmodule D20.Sessions.SessionTest do
       assert session.members["p1"].status == :offline
       assert {:ok, session} = Session.online(session, "p1", %{online_at: 11})
       assert session.members["p1"].status == :online
-      assert {:ok, session} = Session.remove_member(session, "p1")
-      assert session.members == %{}
+      assert {:ok, session} = Session.offline(session, "p1")
+      assert session.members["p1"].status == :offline
       assert {:ok, ^session} = Session.offline(session, "p1")
     end
   end

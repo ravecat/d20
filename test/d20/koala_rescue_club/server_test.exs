@@ -22,12 +22,12 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
 
     send(pid, {:online, "owner", %{online_at: 1}})
-    assert_receive {:session, %Session{members: %{"owner" => %{status: :online}}}}
 
-    assert {:ok, %Session{game: %Game{phase: :ready}}} =
-             Sessions.dispatch(scope(session.id), "join", %{})
-
-    assert_receive {:session, %Session{game: %Game{phase: :ready}}}
+    assert_receive {:session,
+                    %Session{
+                      members: %{"owner" => %{status: :online}},
+                      game: %Game{phase: :ready, players: %{"owner" => _player}}
+                    }}
 
     %{pid: pid, session: session}
   end
@@ -37,6 +37,33 @@ defmodule D20.KoalaRescueClub.ServerTest do
              Sessions.get(session.id)
 
     assert {:ready, {"koala-rescue-club", Game, ^current_session}} = :sys.get_state(pid)
+  end
+
+  test "keeps player state across duplicate online and final offline events", %{
+    pid: pid,
+    session: session
+  } do
+    assert {:ok, {%Session{game: %Game{players: %{"owner" => player}}}, _slug}} =
+             Sessions.get(session.id)
+
+    send(pid, {:online, "owner", %{online_at: 2}})
+
+    assert_receive {:session,
+                    %Session{
+                      members: %{"owner" => %{status: :online, online_at: 2}},
+                      game: %Game{players: %{"owner" => ^player}}
+                    } = online}
+
+    send(pid, {:offline, "owner"})
+
+    assert_receive {:session,
+                    %Session{
+                      members: %{"owner" => %{status: :offline, online_at: 2}},
+                      game: %Game{players: %{"owner" => ^player}}
+                    } = offline}
+
+    assert {:ok, {^offline, "koala-rescue-club"}} = Sessions.get(session.id)
+    assert online.game == offline.game
   end
 
   test "schedules and performs one server-owned roll", %{pid: pid, session: session} do

@@ -59,20 +59,28 @@ The system SHALL schedule the authoritative Koala roll with a `state_timeout` th
 - **AND** exposes a new `roll_due_at`
 
 ### Requirement: Koala state-machine sessions preserve shared lifecycle behavior
-The system SHALL preserve the existing session lookup, Presence membership, publication, and idle-expiration behavior when Koala uses `:gen_statem`.
+The system SHALL preserve session lookup, Presence membership and admission, publication, roll scheduling, and idle-expiration behavior when Koala uses `:gen_statem`.
 
 #### Scenario: Session state is requested
 - **WHEN** `D20.Sessions.get/1` resolves a running Koala server
 - **THEN** the server returns the current live session and its slug through the shared server API
 
-#### Scenario: Presence membership event succeeds
-- **WHEN** a Koala server receives an accepted Presence `join` or `left` event
-- **THEN** it stores and publishes the updated session
-- **AND** preserves any active roll-state timeout when the game phase does not change
+#### Scenario: Presence online admits a Koala player
+- **WHEN** a Koala server receives a Presence `online` event during setup
+- **THEN** it applies online Session membership and internal game `join` admission
+- **AND** stores and publishes the final Session once
+- **AND** transitions to the resulting game phase without disturbing unrelated timers
 
-#### Scenario: Presence membership event is rejected
-- **WHEN** the Koala engine rejects a Presence `join` or `left` event
-- **THEN** the server preserves its current state and publishes no update
+#### Scenario: Presence admission is rejected
+- **WHEN** the Koala engine rejects a Presence-driven internal `join`
+- **THEN** the server retains and publishes online Session membership
+- **AND** preserves Koala player state and the active roll-state timeout
+
+#### Scenario: Presence offline changes status only
+- **WHEN** the actor's final Presence meta leaves
+- **THEN** the Koala server marks the member offline
+- **AND** sends no game `left` command
+- **AND** preserves Koala player state and the active roll-state timeout
 
 #### Scenario: Session remains idle
 - **WHEN** the Koala server receives no supported activity for the configured idle timeout

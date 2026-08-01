@@ -19,9 +19,6 @@ export function createSession(topic: string) {
       projection: (_value, state: Session) => state,
     },
   }).extend(({ call }) => ({
-    join() {
-      return call<unknown, CommandError>("join", {});
-    },
     start(attrs: Attrs = {}) {
       return call<unknown, CommandError>("start", attrs);
     },

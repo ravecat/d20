@@ -24,10 +24,9 @@ defmodule D20.NextStationLondon.ServerTest do
     assert [{pid, Server}] = Registry.lookup(D20.Registry, {:session, session.id})
     assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
 
-    assert {:ok, %Session{game: %Game{phase: :ready}} = joined} =
-             Sessions.dispatch(scope(session.id), "join", %{})
+    send(pid, {:online, "owner", %{online_at: 1}})
 
-    assert_receive {:session, ^joined}
+    assert_receive {:session, %Session{game: %Game{phase: :ready}} = joined}
 
     %{pid: pid, session: joined}
   end

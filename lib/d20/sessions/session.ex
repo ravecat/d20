@@ -103,36 +103,20 @@ defmodule D20.Sessions.Session do
 
   def preview(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
 
-  @spec online(t(), player_id(), map()) :: {:ok, t()} | {:error, :invalid_identity}
+  @spec online(t(), player_id(), map()) :: {:ok, t()}
   def online(%__MODULE__{} = session, actor_id, attrs) when is_map(attrs) do
-    with :ok <- require_identity(actor_id) do
-      member =
-        attrs |> Map.take([:display_name, :avatar, :online_at]) |> Map.put(:status, :online)
+    member = attrs |> Map.take([:display_name, :avatar, :online_at]) |> Map.put(:status, :online)
 
-      members = Map.update(session.members, actor_id, member, &Map.merge(&1, member))
+    members = Map.update(session.members, actor_id, member, &Map.merge(&1, member))
 
-      if members == session.members,
-        do: {:ok, session},
-        else: {:ok, %{session | members: members}}
-    end
+    if members == session.members,
+      do: {:ok, session},
+      else: {:ok, %{session | members: members}}
   end
 
-  @spec offline(t(), player_id()) :: {:ok, t()} | {:error, :invalid_identity}
+  @spec offline(t(), player_id()) :: {:ok, t()}
   def offline(%__MODULE__{} = session, actor_id) do
-    with :ok <- require_identity(actor_id) do
-      update_member(session, actor_id, &Map.put(&1, :status, :offline))
-    end
-  end
-
-  @spec remove_member(t(), player_id()) :: {:ok, t()} | {:error, :invalid_identity}
-  def remove_member(%__MODULE__{} = session, actor_id) do
-    with :ok <- require_identity(actor_id) do
-      members = Map.delete(session.members, actor_id)
-
-      if members == session.members,
-        do: {:ok, session},
-        else: {:ok, %{session | members: members}}
-    end
+    update_member(session, actor_id, &Map.put(&1, :status, :offline))
   end
 
   defp maybe_finish(session, engine) do

@@ -1,8 +1,11 @@
 # multi-session-game-workspace Specification
 
 ## Purpose
+
 TBD - created by archiving change add-multi-session-game-workspace. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: The application shell owns a persistent workspace
 
 The shell SHALL mount one workspace outside replaceable Inertia page content. It SHALL keep every still-eligible game window mounted across Inertia navigation and SHALL NOT stop a runtime because the current page changes.
@@ -50,12 +53,18 @@ Every successful join and every `snapshot` event SHALL contain a complete replac
 
 ### Requirement: Eligibility follows current runtime state
 
-A session SHALL be eligible only when its runtime is alive, its phase is `in_progress`, its current `members` contains the actor id, and its slug resolves to a configured module. Ownership alone SHALL NOT grant eligibility.
+A session SHALL be eligible only when its runtime is alive, its phase is `in_progress` or `finished`, its current `members` contains the actor, and its slug resolves to a configured module. Presence status SHALL NOT affect eligibility, and ownership alone SHALL NOT grant it.
 
-#### Scenario: Waiting or finished session is evaluated
+#### Scenario: Durable member session is evaluated
 
-- **WHEN** a current-member session is `waiting_for_players` or `finished`
-- **THEN** WorkspaceChannel excludes it
+- **WHEN** a current-member Session is live, configured, and `in_progress` or `finished`
+- **THEN** WorkspaceChannel includes it
+
+#### Scenario: Durable member is offline
+
+- **GIVEN** an actor remains in `session.members` with `status: offline`
+- **WHEN** WorkspaceChannel builds a snapshot
+- **THEN** Presence status does not exclude that Session
 
 #### Scenario: Owner is no longer a member
 
@@ -105,17 +114,23 @@ Every descriptor SHALL contain `id`, `slug`, `module`, fresh actor-bound `connec
 
 ### Requirement: Accepted transitions and Presence publish realtime snapshots
 
-The server SHALL invalidate affected actor workspaces after accepted phase or membership changes. Presence meta joins and leaves SHALL also invalidate the actor so `handoff_ready` remains current.
+The server SHALL invalidate affected actor workspaces after accepted phase or durable membership changes. Presence status alone SHALL NOT change Workspace discovery.
 
 #### Scenario: Waiting session starts
 
 - **WHEN** an accepted transition changes a current-member session to `in_progress`
 - **THEN** each affected WorkspaceChannel pushes a snapshot containing it
 
-#### Scenario: Session finishes or actor leaves
+#### Scenario: Session finishes
 
-- **WHEN** a reported session finishes or removes the actor
-- **THEN** each affected WorkspaceChannel pushes a snapshot excluding it
+- **WHEN** a reported Session changes phase to `finished`
+- **THEN** each affected WorkspaceChannel pushes a snapshot retaining its finished descriptor
+
+#### Scenario: Final Presence meta leaves
+
+- **WHEN** the final SessionChannel Presence meta for an actor leaves
+- **THEN** the Session process serializes the member's offline status
+- **AND** Workspace discovery eligibility remains unchanged
 
 #### Scenario: Removed member is notified
 
@@ -173,7 +188,7 @@ Successful creation SHALL redirect with status 303 to `/games/:slug?session=<id>
 
 ### Requirement: Workspace reconciliation supports multiple stable windows
 
-The workspace SHALL reconcile snapshots by session id, preserve local mode and order for retained ids, and keep one iframe and SDK bridge per retained entry.
+The workspace SHALL reconcile authoritative snapshots by session id, preserve local mode for retained ids, keep one iframe and SDK bridge per retained visible entry, and SHALL NOT maintain a parallel client-side set of closed ids.
 
 #### Scenario: Snapshot adds and retains sessions
 
@@ -188,41 +203,78 @@ The workspace SHALL reconcile snapshots by session id, preserve local mode and o
 - **THEN** its window and iframe are unmounted
 - **AND** local presentation for that id is removed
 
+#### Scenario: Preserved Session returns in a fresh snapshot
+
+- **GIVEN** session A was closed and its durable member record was preserved offline
+- **WHEN** a fresh Workspace snapshot contains A and B
+- **THEN** A and B are both reconciled from the authoritative snapshot
+- **AND** no client-side closed-id filter suppresses A
+
 #### Scenario: Presentation changes
 
-- **WHEN** a retained entry changes between Theater and Compact or survives navigation
+- **WHEN** a retained visible entry changes between Theater and Compact or survives navigation
 - **THEN** the same iframe node and SDK bridge remain mounted
 
-### Requirement: Window close globally removes actor membership
+### Requirement: Window close is actor-wide and Session-scoped
 
-Each game window SHALL expose one close control. It SHALL send `close` with the session id through WorkspaceChannel, keep the window mounted while pending, and wait for the authoritative snapshot. WorkspaceChannel SHALL dispatch the actor-scoped session `left` event and SHALL reject game commands.
+Each game window SHALL expose one close control that requests closure of the selected Session for the authenticated actor. After server acceptance, every active Workspace for that actor SHALL suppress and unmount the matching window, iframe, and SDK bridge, and every matching actor SessionChannel SHALL leave the concrete Session topic without removing Session membership or game player state.
 
-#### Scenario: Actor closes a game
+#### Scenario: Actor closes a game window
 
-- **GIVEN** the same actor has the game open in one or more tabs
-- **WHEN** one tab activates close
-- **THEN** WorkspaceChannel validates current membership and dispatches the session `left` event
-- **AND** the actor is removed from `session.members`
-- **AND** every actor WorkspaceChannel pushes a snapshot without the session
-- **AND** every affected tab removes its window
-- **AND** the runtime is not explicitly stopped
+- **GIVEN** two active Workspace instances for the same actor present the same Session
+- **WHEN** the actor activates that Session window's close control in either Workspace
+- **THEN** the client sends one WorkspaceChannel `close_session` command containing the Session id
+- **AND** both Workspace instances receive a complete replacement snapshot omitting that Session
+- **AND** both instances unmount that Session window, iframe, and SDK bridge
+- **AND** no membership-removal or game `left` command is sent
 
-#### Scenario: Close fails or times out
+#### Scenario: Later durable snapshot is built after Close
 
-- **WHEN** WorkspaceChannel close fails or times out
-- **THEN** the local window remains mounted
-- **AND** presents a retryable error
-- **AND** the client does not locally suppress the descriptor
+- **GIVEN** Close stopped the actor's SessionChannel but preserved runtime and membership
+- **WHEN** a later ordinary discovery snapshot is rebuilt
+- **THEN** it may report the Session again
+- **AND** the client reconciles that authoritative snapshot without a retained closed-id filter
+
+#### Scenario: Another actor remains attached
+
+- **GIVEN** another actor has a SessionChannel meta for the same Session
+- **WHEN** the current actor closes that Session
+- **THEN** only SessionChannels belonging to the current actor leave
+- **AND** the other actor remains mounted and online
+
+### Requirement: WorkspaceChannel accepts only the close_session application command
+
+WorkspaceChannel SHALL provide authenticated join replies, server-pushed complete snapshots, and a self-scoped `close_session` command. It SHALL reject every other client-sent application event as unsupported.
+
+#### Scenario: Actor closes a Session attachment
+
+- **WHEN** an authenticated actor sends `close_session` with a binary Session id
+- **THEN** WorkspaceChannel replies successfully
+- **AND** coordinates SessionChannel termination and replacement Workspace snapshots for the actor and Session
+- **AND** does not mutate Session membership or game state
+
+#### Scenario: Actor closes a missing or unrelated attachment
+
+- **WHEN** an actor sends `close_session` for an id without a matching actor SessionChannel
+- **THEN** WorkspaceChannel replies successfully
+- **AND** the actor-scoped command has no SessionChannel effect
+
+#### Scenario: Offline durable member repeats Close
+
+- **GIVEN** an actor is already offline
+- **WHEN** that authenticated actor repeats `close_session`
+- **THEN** WorkspaceChannel accepts the idempotent request
+- **AND** Presence or membership status is not inspected
 
 #### Scenario: Game command is sent to WorkspaceChannel
 
-- **WHEN** a client sends an event other than the supported shell close
+- **WHEN** a client sends a game command through WorkspaceChannel
 - **THEN** WorkspaceChannel replies with `unsupported_event`
 - **AND** does not mutate game state
 
 ### Requirement: Workspace presentation is browser-local and accessible
 
-The workspace SHALL keep order, focus, Theater, and Compact in memory for the current tab. Controls SHALL have accessible names, visible keyboard focus, and keyboard activation.
+The workspace SHALL keep order, focus, Theater, and Compact presentation in memory for the current tab. Controls SHALL have accessible names, visible keyboard focus, and keyboard activation. Layout controls SHALL remain browser-local, while accepted Close SHALL apply to every active Workspace for the authenticated actor.
 
 #### Scenario: Another window is expanded
 
@@ -231,11 +283,18 @@ The workspace SHALL keep order, focus, Theater, and Compact in memory for the cu
 - **AND** the prior entry remains reachable in Compact mode
 - **AND** no game command is sent
 
+#### Scenario: Window is closed
+
+- **WHEN** the actor activates a window's accessible Close control
+- **THEN** the current Workspace waits for server acceptance
+- **AND** every active Workspace for that actor removes the matching Session after its replacement snapshot arrives
+- **AND** another eligible visible window can become the automatic Theater entry
+
 #### Scenario: Redundant controls are avoided
 
 - **WHEN** a workspace window is rendered
 - **THEN** its header and dock do not expose Focus, Minimize, or Detach
-- **AND** expansion and close remain available in the established overlay
+- **AND** expansion and actor-wide Close remain available in the established overlay
 
 ### Requirement: Temporary WorkspaceChannel loss keeps windows stale
 
@@ -251,21 +310,16 @@ During a temporary user-socket disconnect in the same JavaScript lifetime, exist
 
 ### Requirement: Full page reload does not promise restoration
 
-The client SHALL NOT persist session ids, descriptors, tokens, projections, modes, order, or focus in browser storage.
+The client SHALL NOT persist session ids, descriptors, tokens, projections, modes, order, focus, or closed ids in browser storage.
 
-#### Scenario: Document reloads
+#### Scenario: Document reloads after close
 
+- **GIVEN** a live Session was closed in the prior Workspace instance without removing durable membership
 - **WHEN** a full page reload destroys the JavaScript workspace
-- **THEN** the new workspace starts from the new WorkspaceChannel join snapshot
-- **AND** sessions absent from that snapshot are not recreated
+- **THEN** the new Workspace starts from its new WorkspaceChannel join snapshot
+- **AND** the Session is presented again when durable discovery still reports it
 
-### Requirement: Finished sessions are absent from workspace
+#### Scenario: Session is no longer reported
 
-The workspace SHALL stop presenting a session after its authoritative phase becomes `finished`.
-
-#### Scenario: Active game finishes
-
-- **WHEN** an in-progress game reaches `finished`
-- **THEN** WorkspaceChannel pushes a snapshot excluding it
-- **AND** the workspace unmounts its window
-- **AND** does not retain it for inspection
+- **WHEN** a fresh WorkspaceChannel join snapshot omits a prior Session
+- **THEN** the new Workspace does not recreate it from client state

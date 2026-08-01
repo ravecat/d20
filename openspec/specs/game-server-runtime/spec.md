@@ -37,7 +37,7 @@ The system SHALL generate a `server/0` callback that selects the default `:gen_s
 - **THEN** the game satisfies the required server callback with the default implementation
 
 ### Requirement: Default game server preserves shared session lifecycle behavior
-The default game server SHALL preserve the existing session state access, command dispatch, Presence membership, state publication, idle expiration, registration, supervision, and temporary restart semantics.
+The default game server SHALL preserve session state access, command dispatch, Presence membership and admission, state publication, idle expiration, registration, supervision, and temporary restart semantics.
 
 #### Scenario: Session state is requested
 - **WHEN** `D20.Sessions.get/1` resolves a running default game server
@@ -54,19 +54,29 @@ The default game server SHALL preserve the existing session state access, comman
 - **THEN** the default game server preserves its current state name and session data
 - **AND** returns the engine error without publishing a new session
 
-#### Scenario: Presence membership changes
-- **WHEN** the default game server receives a Presence `join` or `left` notification
-- **THEN** it preserves the existing profile enrichment and membership dispatch behavior
-- **AND** stores and publishes an accepted update
-- **AND** preserves state without publication when the engine rejects the update
+#### Scenario: Presence online admits a player
+- **WHEN** the default game server receives a normalized Presence `online` message
+- **THEN** it applies Session membership and the internal game `join` command in one serialized transition
+- **AND** stores and publishes the final accepted Session state once
+
+#### Scenario: Presence game admission is rejected
+- **WHEN** Session membership accepts an `online` actor and the game engine rejects the internal `join`
+- **THEN** the default game server stores and publishes the online membership update
+- **AND** preserves game player state
+- **AND** does not expose the engine rejection as a transport failure
+
+#### Scenario: Presence offline changes status
+- **WHEN** the default game server receives a normalized Presence `offline` message
+- **THEN** it marks an existing member offline
+- **AND** it sends no `left` command to the game engine
 
 #### Scenario: Session remains idle
 - **WHEN** the default game server receives no supported activity for the configured idle timeout
 - **THEN** it stops normally and is not restarted
 
 #### Scenario: Custom server inherits the default lifecycle
-- **WHEN** a custom server uses `D20.Game.Server` without overriding `init/1` or `handle_event/4`
-- **THEN** it inherits Presence subscription, membership dispatch, publication, and idle expiration
+- **WHEN** a custom server uses `D20.Game.Server` without overriding Presence handling
+- **THEN** it inherits Presence subscription, automatic game admission, status-only offline handling, publication, and idle expiration
 - **AND** it does not need game-specific extension hooks
 
 ### Requirement: Public session APIs remain runtime-implementation agnostic
