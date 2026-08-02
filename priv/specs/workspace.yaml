@@ -1,14 +1,16 @@
 asyncapi: 3.0.0
 info:
   title: Workspace Channel Async API
-  version: 1.1.0
+  version: 1.2.0
   description: >
     Actor-authenticated discovery feed for live in-progress and finished game
     sessions. The channel returns complete replacement snapshots and accepts one
-    actor-scoped close command for a concrete Session. Accepted Close causes a
-    complete replacement snapshot in every active Workspace for that actor and
-    terminates the actor's matching SessionChannel attachments without removing
-    durable membership or game state.
+    actor-scoped close command for a concrete Session. Accepted Close removes
+    the actor's volatile Workspace attachment, causes complete replacement
+    snapshots in every active Workspace for that actor, and terminates matching
+    SessionChannels without removing retained membership or game state. Ordinary
+    disconnects retain the attachment. A later authorized direct SessionChannel
+    join recreates it and restores the Session in every actor Workspace.
     Game state, game commands, and Presence remain outside this discovery channel.
   license:
     name: MIT
@@ -61,8 +63,9 @@ channels:
     description: >
       The actor is derived from the authenticated user socket. Join parameters
       cannot select another actor. Only live in-progress or finished runtime
-      sessions whose durable members contain that actor are reported. Waiting,
-      missing, and unconfigured sessions are excluded independently of Presence status.
+      sessions whose retained members contain that actor and whose actor-to-Session
+      Workspace attachment remains active are reported. Waiting, detached, missing,
+      and unconfigured sessions are excluded independently of Presence status.
     servers:
       - $ref: "#/servers/production"
       - $ref: "#/servers/development"
@@ -111,9 +114,11 @@ operations:
       $ref: "#/channels/workspace"
     summary: Close one Session for the authenticated actor
     description: >
-      Requests actor-wide closure of the matching Session attachment without
-      deleting Session membership or game player state. Each active actor
-      Workspace receives one replacement snapshot omitting the supplied id.
+      Idempotently removes the actor's matching Workspace attachment without
+      deleting retained Session membership or game player state. Active actor
+      Workspaces receive complete replacement snapshots omitting the supplied id.
+      The Session stays absent from fresh Workspaces until a later authorized
+      direct SessionChannel join recreates the attachment.
     messages:
       - $ref: "#/channels/workspace/messages/closeWorkspaceSession"
     reply:
@@ -171,7 +176,7 @@ components:
     workspaceSnapshot:
       name: snapshot
       title: Workspace Snapshot
-      summary: Complete replacement snapshot for the authenticated actor
+      summary: Authoritative complete replacement snapshot for the authenticated actor
       contentType: application/json
       payload:
         $ref: "#/components/schemas/workspaceSnapshot"
@@ -267,7 +272,7 @@ components:
         id:
           type: string
           format: uuid
-          description: Session to close for the authenticated actor.
+          description: Session attachment to remove for the authenticated actor.
       additionalProperties: false
     closeReply:
       oneOf:

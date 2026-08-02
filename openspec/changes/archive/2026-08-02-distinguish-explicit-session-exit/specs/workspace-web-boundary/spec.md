@@ -1,10 +1,4 @@
-# workspace-web-boundary Specification
-
-## Purpose
-
-TBD - created by archiving change extract-workspace-module. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Workspace web boundary owns actor invalidation
 
@@ -23,11 +17,6 @@ TBD - created by archiving change extract-workspace-module. Update Purpose after
 #### Scenario: Presence changes only
 
 - **WHEN** an attached retained member changes between online and offline
-- **THEN** no Workspace invalidation is required
-
-#### Scenario: Non-discovery member metadata changes
-
-- **WHEN** an existing member remains online and only profile or last-online metadata changes
 - **THEN** no Workspace invalidation is required
 
 ### Requirement: Workspace web boundary builds complete actor snapshots
@@ -78,19 +67,6 @@ TBD - created by archiving change extract-workspace-module. Update Purpose after
 
 `D20Web.WorkspaceChannel` SHALL use `D20Web.Workspace` for subscription, snapshot construction, and authenticated Close coordination while retaining runtime monitoring, pushes, and unsupported-event rejection. It SHALL NOT call raw Registry functions or mutate Session state directly.
 
-#### Scenario: Workspace invalidation arrives
-
-- **WHEN** a subscribed WorkspaceChannel receives `{:sessions_changed, actor_id}` for its current actor
-- **THEN** it obtains a fresh complete snapshot from `D20Web.Workspace`
-- **AND** synchronizes its runtime monitors
-- **AND** pushes the unchanged `snapshot` event to the client
-
-#### Scenario: Reported runtime terminates
-
-- **WHEN** a runtime monitored by WorkspaceChannel terminates
-- **THEN** the channel obtains a fresh complete snapshot
-- **AND** pushes a snapshot without the terminated runtime
-
 #### Scenario: Client closes a Session attachment
 
 - **WHEN** an authenticated actor sends `close_session` with a binary Session id
@@ -125,27 +101,9 @@ TBD - created by archiving change extract-workspace-module. Update Purpose after
 - **THEN** Workspace is invalidated for that actor
 - **AND** no unchanged Session projection is published solely for attachment
 
-#### Scenario: Accepted transition changes discovery
-
-- **WHEN** an accepted Session transition changes phase or retained member ids
-- **THEN** SessionChannel subscribers receive `{:session, session}` through the existing topic
-- **AND** affected WorkspaceChannel processes receive actor invalidation through `D20Web.Workspace`
-
-#### Scenario: Accepted transition does not change discovery
-
-- **WHEN** an accepted Session transition changes only game state or existing member attributes
-- **THEN** SessionChannel subscribers receive the updated Session
-- **AND** Workspace discovery is not invalidated
-
 ### Requirement: Workspace extraction preserves public contracts
 
 The Workspace boundary SHALL preserve the `workspace` topic, join reply, `snapshot` event, descriptor shape, Session projection delivery, game state behavior, and runtime supervision while making `close_session` remove the actor attachment authoritatively.
-
-#### Scenario: Current client connects
-
-- **WHEN** a client joins Workspace and consumes complete snapshots
-- **THEN** it observes the existing join reply, snapshot payloads, runtime monitoring, and iframe connection descriptors
-- **AND** it sends `close_session` only when the actor activates a Session window Close control
 
 #### Scenario: Current client closes a Session
 

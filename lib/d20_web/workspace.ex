@@ -3,6 +3,7 @@ defmodule D20Web.Workspace do
   Discovers and invalidates actor-specific workspace sessions.
   """
 
+  alias D20.Accounts.Scope
   alias D20.Games.Registry
   alias D20.Sessions
   alias D20.Sessions.Session
@@ -16,15 +17,26 @@ defmodule D20Web.Workspace do
           required(:connection) => Module.connection()
         }
 
-  @spec subscribe(Session.player_id()) :: :ok | {:error, term()}
-  def subscribe(actor_id) when is_binary(actor_id) do
-    Phoenix.PubSub.subscribe(D20.PubSub, topic(actor_id))
+  @spec subscribe(Scope.t()) :: :ok | {:error, term()}
+  def subscribe(%Scope{} = scope) do
+    Phoenix.PubSub.subscribe(D20.PubSub, topic(Scope.actor_id(scope)))
   end
 
-  @spec close_session_for_actor(Session.player_id(), Sessions.id()) :: :ok | {:error, term()}
-  def close_session_for_actor(actor_id, session_id)
+  @spec close_session_for_actor(Scope.t(), Sessions.id()) :: :ok | {:error, term()}
+  def close_session_for_actor(%Scope{actor: %{id: actor_id}} = scope, session_id)
       when is_binary(actor_id) and is_binary(session_id) do
-    Phoenix.PubSub.broadcast(D20.PubSub, topic(actor_id), {:close_session, actor_id, session_id})
+    with :ok <- Sessions.detach(scope, session_id) do
+      Phoenix.PubSub.broadcast(
+        D20.PubSub,
+        topic(actor_id),
+        {:close_session, actor_id, session_id}
+      )
+    end
+  end
+
+  @spec publish_sessions_changed(Session.player_id()) :: :ok | {:error, term()}
+  def publish_sessions_changed(actor_id) when is_binary(actor_id) do
+    Phoenix.PubSub.local_broadcast(D20.PubSub, topic(actor_id), {:sessions_changed, actor_id})
   end
 
   @spec publish_session_changes(Session.t(), Session.t()) :: :ok
@@ -34,9 +46,7 @@ defmodule D20Web.Workspace do
       |> Map.keys()
       |> Kernel.++(Map.keys(current.members))
       |> Enum.uniq()
-      |> Enum.each(fn actor_id ->
-        Phoenix.PubSub.local_broadcast(D20.PubSub, topic(actor_id), {:sessions_changed, actor_id})
-      end)
+      |> Enum.each(&publish_sessions_changed/1)
     end
 
     :ok

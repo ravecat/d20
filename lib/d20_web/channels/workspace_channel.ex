@@ -8,10 +8,10 @@ defmodule D20Web.WorkspaceChannel do
   def join(
         "workspace",
         _payload,
-        %{assigns: %{scope: %Scope{actor: %{id: actor_id}}, request_uri: %URI{}}} = socket
+        %{assigns: %{scope: %Scope{actor: %{id: actor_id}} = scope, request_uri: %URI{}}} = socket
       )
       when is_binary(actor_id) do
-    :ok = Workspace.subscribe(actor_id)
+    :ok = Workspace.subscribe(scope)
 
     {sessions, runtime_pids} = Workspace.sessions(socket)
     socket = sync_monitors(socket, runtime_pids)
@@ -25,10 +25,10 @@ defmodule D20Web.WorkspaceChannel do
   def handle_in(
         "close_session",
         %{"id" => session_id},
-        %{assigns: %{scope: %Scope{actor: %{id: actor_id}}}} = socket
+        %{assigns: %{scope: %Scope{actor: %{id: _actor_id}} = scope}} = socket
       )
       when is_binary(session_id) do
-    case Workspace.close_session_for_actor(actor_id, session_id) do
+    case Workspace.close_session_for_actor(scope, session_id) do
       :ok -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
@@ -44,13 +44,9 @@ defmodule D20Web.WorkspaceChannel do
     {:noreply, refresh(socket)}
   end
 
-  def handle_info({:close_session, actor_id, session_id}, %{assigns: %{scope: scope}} = socket)
+  def handle_info({:close_session, actor_id, _session_id}, %{assigns: %{scope: scope}} = socket)
       when actor_id == scope.actor.id do
-    {sessions, _runtime_pids} = Workspace.sessions(socket)
-    sessions = Enum.reject(sessions, &(&1.id == session_id))
-    push(socket, "snapshot", %{sessions: sessions})
-
-    {:noreply, socket}
+    {:noreply, refresh(socket)}
   end
 
   def handle_info({:DOWN, reference, :process, pid, _reason}, socket) do

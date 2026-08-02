@@ -41,12 +41,12 @@ defmodule D20.Sessions do
   end
 
   @spec list(Scope.t()) :: [runtime_state()]
-  def list(%Scope{actor: %{id: actor_id}}) when is_binary(actor_id) do
-    D20.Registry
-    |> Registry.select([{{{:session, :"$1"}, :"$2", :"$3"}, [], [{{:"$1", :"$2", :"$3"}}]}])
-    |> Enum.flat_map(fn {id, pid, _server} ->
-      case get(id) do
-        {:ok, {%Session{} = session, slug}} ->
+  def list(%Scope{actor: %{id: actor_id}}) do
+    actor_id
+    |> D20.Sessions.Registry.list()
+    |> Enum.flat_map(fn {pid, id} ->
+      case runtime_state(pid) do
+        {:ok, {%Session{id: ^id} = session, slug}} ->
           if Map.has_key?(session.members, actor_id), do: [{pid, {session, slug}}], else: []
 
         {:error, _reason} ->
@@ -56,6 +56,24 @@ defmodule D20.Sessions do
   end
 
   def list(%Scope{}), do: []
+
+  @spec attach(Scope.t()) :: :ok | {:error, reason()}
+  def attach(%Scope{session: %{id: id}, actor: %{id: actor_id}})
+      when is_binary(id) and is_binary(actor_id) do
+    call(id, {:attach, actor_id})
+  end
+
+  def attach(%Scope{}), do: {:error, :forbidden}
+
+  @spec detach(Scope.t(), id()) :: :ok | {:error, reason()}
+  def detach(%Scope{actor: %{id: actor_id}}, id) when is_binary(actor_id) and is_binary(id) do
+    case call(id, {:detach, actor_id}) do
+      {:error, :session_not_found} -> :ok
+      result -> result
+    end
+  end
+
+  def detach(%Scope{}, _id), do: {:error, :forbidden}
 
   @spec get(id()) :: {:ok, state()} | {:error, reason()}
   def get(id) when is_binary(id) do
@@ -100,6 +118,12 @@ defmodule D20.Sessions do
   catch
     :exit, :noproc -> {:error, :session_not_found}
     :exit, {:noproc, _details} -> {:error, :session_not_found}
+  end
+
+  defp runtime_state(pid) do
+    :gen_statem.call(pid, :get)
+  catch
+    :exit, _reason -> {:error, :session_not_found}
   end
 
   defp start_child(slug, engine, session) do

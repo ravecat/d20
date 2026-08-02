@@ -47,6 +47,32 @@ afterEach(async () => {
 });
 
 describe("Workspace presentation", () => {
+  it("waits for authoritative Close snapshots and restores a directly reattached session", async () => {
+    const workspace = renderWorkspace([descriptor("session-a"), descriptor("session-b")]);
+
+    await page.getByRole("button", { name: "Close Game session session-a" }).click();
+    flushSync();
+
+    expect(transport.call).toHaveBeenCalledWith("close_session", { id: "session-a" });
+    expect(page.getByRole("dialog", { name: "Game session session-a" }).elements()).toHaveLength(1);
+    expect(page.getByRole("dialog", { name: "Game session session-b" }).elements()).toHaveLength(1);
+
+    workspace.ready([descriptor("session-b")]);
+    flushSync();
+
+    expect(page.getByRole("dialog", { name: "Game session session-a" }).elements()).toHaveLength(0);
+    await expect
+      .element(page.getByRole("dialog", { name: "Game session session-b" }))
+      .toBeVisible();
+
+    workspace.ready([descriptor("session-a"), descriptor("session-b")]);
+    flushSync();
+
+    await expect
+      .element(page.getByRole("dialog", { name: "Game session session-a" }))
+      .toBeVisible();
+  });
+
   it("keeps the game frame while compacting and restoring its runtime", async () => {
     const embedUrl = URL.createObjectURL(new Blob(["<!doctype html><title>Ready</title>"]));
     const bridgeCalls = vi.mocked(exposeModule).mock.calls.length;
@@ -651,6 +677,13 @@ function renderWorkspace(descriptors: WorkspaceSessionDescriptor[]) {
   };
 
   return {
+    ready(sessions: WorkspaceSessionDescriptor[]) {
+      channelState.update((current) => ({
+        ...current,
+        status: "ready",
+        value: { sessions },
+      }));
+    },
     status(status: WorkspaceState["status"]) {
       channelState.update((current) => ({ ...current, status }));
     },

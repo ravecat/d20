@@ -26,6 +26,8 @@ defmodule D20.Game.Server do
 
   @callback start_link(opts()) :: :gen_statem.start_ret()
   @callback get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
+  @callback attach(:gen_statem.server_ref(), Session.player_id()) :: :ok
+  @callback detach(:gen_statem.server_ref(), Session.player_id()) :: :ok
   @callback dispatch(:gen_statem.server_ref(), Command.t()) ::
               {:ok, Session.t()} | {:error, Session.reason()}
   @callback preview(:gen_statem.server_ref(), Command.t()) ::
@@ -55,6 +57,14 @@ defmodule D20.Game.Server do
       def get(server), do: D20.Game.Server.get(server)
 
       @impl D20.Game.Server
+      @spec attach(:gen_statem.server_ref(), D20.Sessions.Session.player_id()) :: :ok
+      def attach(server, actor_id), do: D20.Game.Server.attach(server, actor_id)
+
+      @impl D20.Game.Server
+      @spec detach(:gen_statem.server_ref(), D20.Sessions.Session.player_id()) :: :ok
+      def detach(server, actor_id), do: D20.Game.Server.detach(server, actor_id)
+
+      @impl D20.Game.Server
       @spec dispatch(:gen_statem.server_ref(), D20.Command.t()) ::
               {:ok, D20.Sessions.Session.t()} | {:error, D20.Sessions.Session.reason()}
       def dispatch(server, %D20.Command{} = command) do
@@ -74,6 +84,8 @@ defmodule D20.Game.Server do
       defoverridable child_spec: 1,
                      start_link: 1,
                      get: 1,
+                     attach: 2,
+                     detach: 2,
                      dispatch: 2,
                      preview: 2,
                      callback_mode: 0
@@ -130,6 +142,12 @@ defmodule D20.Game.Server do
   @spec get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
   def get(server), do: :gen_statem.call(server, :get)
 
+  @spec attach(:gen_statem.server_ref(), Session.player_id()) :: :ok
+  def attach(server, actor_id), do: :gen_statem.call(server, {:attach, actor_id})
+
+  @spec detach(:gen_statem.server_ref(), Session.player_id()) :: :ok
+  def detach(server, actor_id), do: :gen_statem.call(server, {:detach, actor_id})
+
   @spec dispatch(:gen_statem.server_ref(), Command.t()) ::
           {:ok, Session.t()} | {:error, Session.reason()}
   def dispatch(server, %Command{} = command) do
@@ -154,6 +172,38 @@ defmodule D20.Game.Server do
     case Presence.subscribe(session.id) do
       :ok -> {:keep_state_and_data, [idle_action()]}
       {:error, reason} -> {:stop, reason, data}
+    end
+  end
+
+  def handle_event({:call, from}, {:attach, actor_id}, _state, {_slug, _engine, session}) do
+    actor_id
+    |> Sessions.Registry.attach(session.id)
+    |> publish_attachment(actor_id)
+
+    {:keep_state_and_data, [{:reply, from, :ok}, idle_action()]}
+  end
+
+  def handle_event({:call, from}, {:detach, actor_id}, state, {slug, engine, session}) do
+    attachment_change = Sessions.Registry.detach(actor_id)
+
+    case Session.offline(session, actor_id) do
+      {:ok, ^session} ->
+        publish_attachment(attachment_change, actor_id)
+        {:keep_state_and_data, [{:reply, from, :ok}, idle_action()]}
+
+      {:ok, %Session{} = updated_session} ->
+        broadcast(session, updated_session)
+        publish_attachment(attachment_change, actor_id)
+
+        data = {slug, engine, updated_session}
+        next_state = state(updated_session)
+        actions = [{:reply, from, :ok}, idle_action()]
+
+        if next_state == state do
+          {:keep_state, data, actions}
+        else
+          {:next_state, next_state, data, actions}
+        end
     end
   end
 
@@ -222,11 +272,7 @@ defmodule D20.Game.Server do
   def handle_event(:info, {:online, actor_id, attrs}, state, {_slug, engine, _session} = data) do
     update_presence(state, data, fn session ->
       with {:ok, online_session} <- Session.online(session, actor_id, attrs) do
-        command = %Command{
-          event: "join",
-          actor_id: actor_id,
-          attrs: Map.take(attrs, [:display_name, :avatar, :online_at])
-        }
+        command = %Command{event: "join", actor_id: actor_id, attrs: attrs}
 
         case Session.dispatch(online_session, engine, command) do
           {:ok, admitted_session} -> {:ok, admitted_session}
@@ -267,6 +313,12 @@ defmodule D20.Game.Server do
 
   defp state(%Session{game: %{phase: phase}}), do: phase
   defp state(%Session{phase: phase}), do: phase
+
+  defp publish_attachment(change, actor_id) when change in [:attached, :detached] do
+    Workspace.publish_sessions_changed(actor_id)
+  end
+
+  defp publish_attachment(:unchanged, _actor_id), do: :ok
 
   defp update_presence(state, {slug, engine, session}, update) do
     case update.(session) do

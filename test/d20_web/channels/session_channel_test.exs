@@ -10,6 +10,7 @@ defmodule D20Web.SessionChannelTest do
   alias D20.KoalaRescueClub.Ruleset
   alias D20.NextStationLondon.Game, as: LondonGame
   alias D20.NextStationLondon.Ruleset, as: LondonRuleset
+  alias D20.Sessions.Registry, as: SessionRegistry
   alias D20.Sessions.Session
   alias D20Web.ModuleSocket
   alias D20Web.Presence
@@ -33,6 +34,9 @@ defmodule D20Web.SessionChannelTest do
       assert socket.assigns.scope.session == %{id: session_id}
 
       assert socket.assigns.scope.game == %{slug: "qwinto"}
+
+      assert [{runtime_pid, ^session_id}] = SessionRegistry.list(actor_id)
+      assert Process.alive?(runtime_pid)
 
       assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
@@ -173,7 +177,22 @@ defmodule D20Web.SessionChannelTest do
       first_reference = Process.monitor(first_pid)
       second_reference = Process.monitor(second_pid)
 
-      assert :ok = Workspace.close_session_for_actor(actor.id, session_id)
+      assert [{session_runtime_pid, _server}] =
+               Registry.lookup(D20.Registry, {:session, session_id})
+
+      assert [{other_session_runtime_pid, _server}] =
+               Registry.lookup(D20.Registry, {:session, other_session_id})
+
+      assert SessionRegistry.list(actor.id) |> Enum.sort() ==
+               Enum.sort([
+                 {session_runtime_pid, session_id},
+                 {other_session_runtime_pid, other_session_id}
+               ])
+
+      assert SessionRegistry.list(other_actor.id) == [{session_runtime_pid, session_id}]
+
+      assert :ok =
+               Workspace.close_session_for_actor(session_scope(session_id, actor.id), session_id)
 
       assert_receive {:DOWN, ^first_reference, :process, ^first_pid, :normal}
       assert_receive {:DOWN, ^second_reference, :process, ^second_pid, :normal}
@@ -191,6 +210,8 @@ defmodule D20Web.SessionChannelTest do
       assert %{status: :online} = members[other_actor.id]
       assert [{runtime_pid, _server}] = Registry.lookup(D20.Registry, {:session, session_id})
       assert Process.alive?(runtime_pid)
+      assert SessionRegistry.list(actor.id) == [{other_session_runtime_pid, other_session_id}]
+      assert SessionRegistry.list(other_actor.id) == [{session_runtime_pid, session_id}]
     end
 
     test "should reject tokens for another session" do

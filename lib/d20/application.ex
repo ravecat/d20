@@ -13,6 +13,7 @@ defmodule D20.Application do
       {DNSCluster, query: Application.get_env(:d20, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: D20.PubSub},
       {Registry, [name: D20.Registry, keys: :unique]},
+      {Registry, [name: D20.Sessions.Registry, keys: :duplicate]},
       {DynamicSupervisor, [name: D20.Sessions.Supervisor, strategy: :one_for_one]},
       # Start a worker by calling: D20.Worker.start_link(arg)
       # {D20.Worker, arg},

@@ -37,7 +37,7 @@ The system SHALL generate a `server/0` callback that selects the default `:gen_s
 - **THEN** the game satisfies the required server callback with the default implementation
 
 ### Requirement: Default game server preserves shared session lifecycle behavior
-The default game server SHALL preserve session state access, command dispatch, Presence membership and admission, state publication, idle expiration, registration, supervision, and temporary restart semantics.
+The default game server SHALL preserve state access, command dispatch, Presence membership and admission, actor attachment and detachment, publication, idle expiration, registration, supervision, and temporary restart semantics. Attachment mutations SHALL be serialized by the Session process and SHALL remain distinct from game-engine commands.
 
 #### Scenario: Session state is requested
 - **WHEN** `D20.Sessions.get/1` resolves a running default game server
@@ -54,10 +54,23 @@ The default game server SHALL preserve session state access, command dispatch, P
 - **THEN** the default game server preserves its current state name and session data
 - **AND** returns the engine error without publishing a new session
 
+#### Scenario: Actor attaches
+- **WHEN** the default game server receives an authenticated attach call
+- **THEN** its process idempotently registers `actor_id -> session_id` in `D20.Sessions.Registry`
+- **AND** a new relationship invalidates that actor's Workspace
+- **AND** no game command or Session projection change occurs solely for attachment
+
+#### Scenario: Actor detaches
+- **WHEN** the default game server receives an authenticated detach call
+- **THEN** its process removes only its own attachment under that actor id
+- **AND** normalizes an existing retained member to offline
+- **AND** preserves game state and runtime
+- **AND** invalidates Workspace only when the relationship existed
+
 #### Scenario: Presence online admits a player
-- **WHEN** the default game server receives a normalized Presence `online` message
-- **THEN** it applies Session membership and the internal game `join` command in one serialized transition
-- **AND** stores and publishes the final accepted Session state once
+- **WHEN** the default game server receives normalized Presence online
+- **THEN** it updates retained membership and attempts internal game `join`
+- **AND** it does not create attachment implicitly
 
 #### Scenario: Presence game admission is rejected
 - **WHEN** Session membership accepts an `online` actor and the game engine rejects the internal `join`
@@ -66,21 +79,29 @@ The default game server SHALL preserve session state access, command dispatch, P
 - **AND** does not expose the engine rejection as a transport failure
 
 #### Scenario: Presence offline changes status
-- **WHEN** the default game server receives a normalized Presence `offline` message
+- **WHEN** the default game server receives normalized Presence offline
 - **THEN** it marks an existing member offline
-- **AND** it sends no `left` command to the game engine
+- **AND** it does not detach or issue game `left`
 
 #### Scenario: Session remains idle
 - **WHEN** the default game server receives no supported activity for the configured idle timeout
 - **THEN** it stops normally and is not restarted
 
-#### Scenario: Custom server inherits the default lifecycle
-- **WHEN** a custom server uses `D20.Game.Server` without overriding Presence handling
-- **THEN** it inherits Presence subscription, automatic game admission, status-only offline handling, publication, and idle expiration
-- **AND** it does not need game-specific extension hooks
+#### Scenario: Custom server inherits the lifecycle
+- **WHEN** a custom server uses `D20.Game.Server` without overriding attachment handling
+- **THEN** it inherits attach, detach, Presence, publication, and idle behavior
 
 ### Requirement: Public session APIs remain runtime-implementation agnostic
-The system SHALL preserve the public `D20.Sessions` create, get, dispatch, lookup, and stop contracts without exposing GenServer-specific details.
+The system SHALL expose runtime-agnostic `D20.Sessions` create, list, get, attach, detach, dispatch, preview, lookup, and stop contracts without exposing raw `:gen_statem` or Registry operations.
+
+#### Scenario: SessionChannel attaches through shared API
+- **WHEN** SessionChannel calls `D20.Sessions.attach/1` with authenticated scope
+- **THEN** the configured default or custom server owns the Registry mutation
+
+#### Scenario: Workspace detaches through shared API
+- **WHEN** Workspace calls `D20.Sessions.detach/2` with authenticated scope and Session id
+- **THEN** the configured default or custom server owns the Registry mutation
+- **AND** missing runtime and absent relationship can be treated idempotently by the web workflow
 
 #### Scenario: Caller uses shared session API
 - **WHEN** a caller creates or interacts with either a default or custom game session
@@ -91,6 +112,10 @@ The system SHALL preserve the public `D20.Sessions` create, get, dispatch, looku
 - **WHEN** a caller stops a running game session through `D20.Sessions.stop/3`
 - **THEN** the system stops the registered `:gen_statem` process with the requested reason and timeout
 - **AND** treating an already stopped process remains idempotent
+
+#### Scenario: Caller uses existing Session APIs
+- **WHEN** a caller gets, dispatches, previews, or stops a Session
+- **THEN** existing success and error shapes remain independent of the concrete server module
 
 ### Requirement: Game engines remain independent from OTP runtime callbacks
 The system SHALL keep `D20.Game` engines and `D20.Sessions.Session` focused on pure initialization, validation, command reduction, and completion checks while server modules own OTP lifecycle and timer behavior.

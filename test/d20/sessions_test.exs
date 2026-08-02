@@ -7,6 +7,7 @@ defmodule D20.SessionsTest do
   alias D20.Game.Server
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions
+  alias D20.Sessions.Registry, as: SessionRegistry
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
@@ -122,7 +123,7 @@ defmodule D20.SessionsTest do
   describe "game server contract" do
     test "keeps game-specific hooks out of the default and generated servers" do
       assert Enum.sort(Server.behaviour_info(:callbacks)) ==
-               Enum.sort(start_link: 1, get: 1, dispatch: 2, preview: 2)
+               Enum.sort(start_link: 1, get: 1, attach: 2, detach: 2, dispatch: 2, preview: 2)
 
       refute function_exported?(Server, :handle_event, 5)
       refute function_exported?(Server, :transition, 5)
@@ -163,6 +164,33 @@ defmodule D20.SessionsTest do
                       } = updated_session}
 
       assert {:ok, {^updated_session, "shared-default"}} = Sessions.get(session.id)
+    end
+
+    test "provides serialized attachment behavior to custom servers by default" do
+      assert {:ok, %Session{} = session} = Sessions.create("custom", CustomServerGame, "owner")
+
+      on_exit(fn -> Sessions.stop(session.id) end)
+
+      actor_scope = scope(session.id, "actor")
+      assert [{pid, CustomServer}] = Registry.lookup(D20.Registry, {:session, session.id})
+
+      assert :ok = Sessions.attach(actor_scope)
+      assert :ok = Sessions.attach(actor_scope)
+      assert SessionRegistry.list("actor") == [{pid, session.id}]
+
+      send(pid, {:online, "actor", %{online_at: 123}})
+
+      assert {:ok, {%Session{members: %{"actor" => %{status: :online}}, game: game}, "custom"}} =
+               Sessions.get(session.id)
+
+      assert :ok = Sessions.detach(actor_scope, session.id)
+
+      assert {:ok,
+              {%Session{members: %{"actor" => %{status: :offline}}, game: detached_game},
+               "custom"}} = Sessions.get(session.id)
+
+      assert detached_game == game
+      assert SessionRegistry.list("actor") == []
     end
   end
 
@@ -471,8 +499,62 @@ defmodule D20.SessionsTest do
     end
   end
 
+  describe "actor attachments" do
+    setup do
+      start_test_session(TestGame, "p1")
+    end
+
+    test "serializes idempotent attach and detach through the Session process", %{
+      ref: ref,
+      pid: pid
+    } do
+      actor_scope = scope(ref, "p2")
+
+      assert :ok = Sessions.attach(actor_scope)
+      assert :ok = Sessions.attach(actor_scope)
+      assert SessionRegistry.list("p2") == [{pid, ref}]
+
+      send(pid, {:online, "p2", %{online_at: 123}})
+
+      assert {:ok, {%Session{members: %{"p2" => %{status: :online}}, game: game}, _slug}} =
+               Sessions.get(ref)
+
+      assert :ok = Sessions.detach(actor_scope, ref)
+      assert :ok = Sessions.detach(actor_scope, ref)
+      assert SessionRegistry.list("p2") == []
+
+      assert {:ok,
+              {%Session{members: %{"p2" => %{status: :offline}}, game: detached_game}, _slug}} =
+               Sessions.get(ref)
+
+      assert detached_game == game
+      refute Enum.any?(detached_game.events, fn {event, _actor_id, _attrs} -> event == "left" end)
+    end
+
+    test "ordinary Presence offline keeps the attachment", %{ref: ref, pid: pid} do
+      assert :ok = Sessions.attach(scope(ref, "p2"))
+      send(pid, {:online, "p2", %{online_at: 123}})
+      assert {:ok, {%Session{members: %{"p2" => %{status: :online}}}, _slug}} = Sessions.get(ref)
+
+      send(pid, {:offline, "p2"})
+      assert {:ok, {%Session{members: %{"p2" => %{status: :offline}}}, _slug}} = Sessions.get(ref)
+      assert SessionRegistry.list("p2") == [{pid, ref}]
+    end
+
+    test "rejects attach and detach without authenticated scope", %{ref: ref} do
+      assert {:error, :forbidden} = Sessions.attach(%Scope{})
+      assert {:error, :forbidden} = Sessions.detach(%Scope{}, ref)
+    end
+
+    test "treats detach from a missing runtime as an idempotent success" do
+      missing_id = Ecto.UUID.generate()
+
+      assert :ok = Sessions.detach(scope(missing_id, "p2"), missing_id)
+    end
+  end
+
   describe "list/1" do
-    test "returns current member runtime sessions without treating ownership as participation" do
+    test "returns only attached member runtimes without treating ownership as participation" do
       actor_id = Ecto.UUID.generate()
       actor_scope = Scope.for_actor(%Actor{id: actor_id, type: :anonymous})
 
@@ -492,6 +574,10 @@ defmodule D20.SessionsTest do
       mark_online(joined_session.id, actor_id)
       mark_online(second_joined_session.id, actor_id)
       mark_online(unrelated_session.id, "another-actor")
+
+      assert :ok = Sessions.attach(scope(joined_session.id, actor_id))
+      assert :ok = Sessions.attach(scope(second_joined_session.id, actor_id))
+      assert :ok = Sessions.attach(scope(unrelated_session.id, "another-actor"))
 
       assert runtime_sessions =
                actor_scope
@@ -544,6 +630,28 @@ defmodule D20.SessionsTest do
         [{registered_pid, Server}] -> refute Process.alive?(registered_pid)
         [] -> :ok
       end
+    end
+
+    test "removes every attachment owned by the stopped Session process", %{
+      ref: session_ref,
+      pid: pid
+    } do
+      assert :ok = Sessions.attach(scope(session_ref, "p1"))
+      assert :ok = Sessions.attach(scope(session_ref, "p2"))
+      assert SessionRegistry.list("p1") == [{pid, session_ref}]
+      assert SessionRegistry.list("p2") == [{pid, session_ref}]
+
+      partition = session_registry_partition()
+      :erlang.trace(partition, true, [:receive])
+      on_exit(fn -> :erlang.trace(partition, false, [:receive]) end)
+
+      assert :ok = Sessions.stop(session_ref)
+      assert_registry_cleanup_received(partition, pid)
+      :sys.get_state(partition)
+      :erlang.trace(partition, false, [:receive])
+
+      assert SessionRegistry.list("p1") == []
+      assert SessionRegistry.list("p2") == []
     end
   end
 
@@ -602,6 +710,22 @@ defmodule D20.SessionsTest do
     case Registry.lookup(D20.Registry, {:session, session_ref}) do
       [{pid, _server}] -> refute Process.alive?(pid)
       [] -> :ok
+    end
+  end
+
+  defp session_registry_partition do
+    [{_id, partition, :worker, [Registry.Partition]}] =
+      SessionRegistry |> Process.whereis() |> Supervisor.which_children()
+
+    partition
+  end
+
+  defp assert_registry_cleanup_received(partition, owner) do
+    receive do
+      {:trace, ^partition, :receive, {:DOWN, _reference, :process, ^owner, :normal}} -> :ok
+      {:trace, ^partition, :receive, {:EXIT, ^owner, :normal}} -> :ok
+    after
+      1_000 -> flunk("Registry did not observe the Session process termination")
     end
   end
 

@@ -1,10 +1,4 @@
-# finished-session-workspace-access Specification
-
-## Purpose
-
-TBD - created by archiving change keep-finished-sessions-in-workspace. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Live finished Sessions remain discoverable
 
@@ -24,25 +18,6 @@ Workspace SHALL report every live configured finished Session where the actor re
 
 - **WHEN** a retained actor has no attachment to the live finished Session
 - **THEN** the snapshot excludes it
-
-#### Scenario: Ineligible Sessions remain hidden
-
-- **WHEN** a Session is detached, waiting, unconfigured, terminated, or missing the authenticated actor
-- **THEN** the Workspace snapshot excludes that Session
-
-### Requirement: Finished game results remain accessible
-
-The system SHALL keep an attached finished Session module available to receive and render its terminal caller-specific projection without adding game-specific result data to the Workspace descriptor.
-
-#### Scenario: Mounted module receives terminal state
-
-- **WHEN** an attached Session publishes its terminal projection and changes phase to `finished`
-- **THEN** the Workspace retains the existing Session entry so the mounted module can continue rendering the final results
-
-#### Scenario: Restored module receives terminal state
-
-- **WHEN** the Workspace restores a live finished Session from a new join snapshot
-- **THEN** the module can join its existing SessionChannel and receive the current terminal caller-specific projection
 
 ### Requirement: Finished Sessions use the existing dismissal lifecycle
 
@@ -69,18 +44,6 @@ Workspace SHALL allow an attached actor to Close finished results. Acceptance SH
 ### Requirement: Workspace wire shapes remain compatible
 
 Finished Session discovery SHALL keep the existing Workspace join reply, `snapshot`, descriptor, module connection, and common `close_session` schemas. Attachment state SHALL remain server-internal.
-
-#### Scenario: Finished descriptor uses the discovery schema
-
-- **WHEN** a Workspace snapshot reports a finished Session
-- **THEN** its descriptor contains the existing id, slug, phase, module, and connection fields
-- **AND** the client can connect to the Session without a finished-specific payload
-
-#### Scenario: Finished window is closed
-
-- **WHEN** the client closes a finished result window
-- **THEN** it sends the common Workspace `close_session` command with the Session id
-- **AND** each active actor Workspace receives a complete snapshot omitting that Session
 
 #### Scenario: Finished result is closed and restored
 

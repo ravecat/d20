@@ -150,6 +150,7 @@ defmodule D20Web.WorkspaceChannelTest do
   test "keeps an offline member discoverable" do
     actor = actor()
     session = create_lifecycle_session("owner")
+    assert :ok = Sessions.attach(scope(session.id, actor.id, "qwinto"))
     assert {:ok, %{sessions: []}, socket} = join_workspace(actor)
     assert [{pid, AutomaticServer}] = Registry.lookup(D20.Registry, {:session, session.id})
 
@@ -197,7 +198,7 @@ defmodule D20Web.WorkspaceChannelTest do
     assert session_id == session.id
   end
 
-  test "coordinates close across every actor workspace without mutating the session" do
+  test "persists Close across every actor Workspace and restores it through direct re-entry" do
     actor = actor()
     actor_id = actor.id
     session = create_session("qwinto", actor.id)
@@ -227,8 +228,16 @@ defmodule D20Web.WorkspaceChannelTest do
     assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session.id})
     assert Process.alive?(pid)
 
-    assert {:ok, %{sessions: [%{id: session_id}]}, _fresh_socket} = join_workspace(actor)
-    assert session_id == session.id
+    assert {:ok, %{sessions: []}, fresh_socket} = join_workspace(actor)
+    assert {[], MapSet.new()} == Workspace.sessions(fresh_socket)
+
+    assert {:ok, _projection, _rejoined_socket} = join_session_channel(session.id, actor)
+
+    assert_push "snapshot", %{sessions: [%{id: rejoined_session_id}]}
+    assert rejoined_session_id == session.id
+
+    assert {[%{id: ^rejoined_session_id}], runtime_pids} = Workspace.sessions(fresh_socket)
+    assert runtime_pids == MapSet.new([pid])
   end
 
   test "coordinates close for a finished session and keeps membership and runtime" do
@@ -280,9 +289,14 @@ defmodule D20Web.WorkspaceChannelTest do
     assert_push "snapshot", %{sessions: []}
     assert {:ok, {^before, "qwinto"}} = Sessions.get(session.id)
     assert Process.alive?(pid)
+
+    repeated_reference = push(socket, "close_session", %{"id" => session.id})
+    assert_reply repeated_reference, :ok
+    assert_push "snapshot", %{sessions: []}
+    assert {:ok, %{sessions: []}, _fresh_socket} = join_workspace(actor)
   end
 
-  test "accepts close as a no-op for a waiting session" do
+  test "accepts close for a waiting attachment and keeps its runtime state" do
     actor = actor()
     session = create_session("qwinto", actor.id, start?: false)
 
@@ -292,7 +306,10 @@ defmodule D20Web.WorkspaceChannelTest do
 
     assert_reply reference, :ok
     assert_push "snapshot", %{sessions: []}
-    assert {:ok, {^before, "qwinto"}} = Sessions.get(session.id)
+
+    assert {:ok, {%Session{} = after_close, "qwinto"}} = Sessions.get(session.id)
+    assert after_close.game == before.game
+    assert %{status: :offline} = after_close.members[actor.id]
   end
 
   test "accepts close as a no-op for an actor outside the session" do
@@ -356,6 +373,8 @@ defmodule D20Web.WorkspaceChannelTest do
 
     add_member(session.id, actor_id)
     add_member(session.id, "second-player")
+    assert :ok = Sessions.attach(scope(session.id, actor_id, slug))
+    assert :ok = Sessions.attach(scope(session.id, "second-player", slug))
 
     if Keyword.get(options, :start?, true) do
       assert {:ok, %Session{phase: :in_progress}} =
@@ -373,6 +392,7 @@ defmodule D20Web.WorkspaceChannelTest do
              Sessions.dispatch(scope(session.id, actor_id, "qwinto"), "join", %{})
 
     add_member(session.id, actor_id)
+    assert :ok = Sessions.attach(scope(session.id, actor_id, "qwinto"))
 
     assert {:ok, %Session{phase: :in_progress}} =
              Sessions.dispatch(scope(session.id, actor_id, "qwinto"), "start", %{})

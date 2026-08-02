@@ -25,7 +25,7 @@ defmodule D20Web.SessionChannel do
         } = socket
       ) do
     with {:ok, {session, ^slug}} <- Sessions.get(session_id) do
-      join_session(socket, session)
+      join_to_session(socket, session)
     else
       {:ok, {_session, _session_slug}} -> join_error({:error, :forbidden})
       {:error, reason} -> join_error({:error, reason})
@@ -46,7 +46,7 @@ defmodule D20Web.SessionChannel do
 
       socket = assign(socket, :scope, scope)
 
-      join_session(socket, session)
+      join_to_session(socket, session)
     else
       {:error, reason} -> join_error({:error, reason})
     end
@@ -103,11 +103,17 @@ defmodule D20Web.SessionChannel do
     end
   end
 
-  defp join_session(socket, session) do
-    :ok = Workspace.subscribe(Scope.actor_id(socket.assigns.scope))
-    send(self(), :after_join)
+  defp join_to_session(socket, session) do
+    :ok = Workspace.subscribe(socket.assigns.scope)
 
-    {:ok, Projection.render(socket.assigns.scope, session), socket}
+    case Sessions.attach(socket.assigns.scope) do
+      :ok ->
+        send(self(), :after_join)
+        {:ok, Projection.render(socket.assigns.scope, session), socket}
+
+      {:error, reason} ->
+        join_error({:error, reason})
+    end
   end
 
   defp join_error({:error, :forbidden}), do: {:error, %{reason: "forbidden"}}
