@@ -195,12 +195,12 @@ The public Session AsyncAPI contracts SHALL keep Phoenix channel join and Presen
 
 ### Requirement: Session and Presence publications respect their ownership boundaries
 
-`D20.Game.Server` SHALL publish accepted Session transitions to SessionChannel and SHALL delegate Workspace invalidation for phase, membership, attach, and detach changes to `D20Web.Workspace`. `D20Web.Presence` SHALL continue to publish only normalized online and offline messages and SHALL NOT own attachment mutations.
+`D20.Sessions.Server` SHALL publish accepted Session transitions to SessionChannel and SHALL delegate Workspace invalidation for phase, membership, attach, and detach changes to `D20Web.Workspace`. `D20Web.Presence` SHALL continue to publish only normalized online and offline messages and SHALL NOT own attachment mutations.
 
 #### Scenario: Accepted phase transition changes Workspace eligibility
 
 - **WHEN** an accepted Session transition changes eligible phase or retained member ids
-- **THEN** the game server publishes the updated Session to the SessionChannel topic
+- **THEN** the Session server publishes the updated Session to the SessionChannel topic
 - **AND** `D20Web.Workspace` publishes actor discovery invalidation for affected member ids
 - **AND** joined SessionChannel processes receive the update through their existing Phoenix subscription
 

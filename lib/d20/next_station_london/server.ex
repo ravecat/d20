@@ -3,7 +3,7 @@ defmodule D20.NextStationLondon.Server do
   Session server that prepares each Next Station: London round on state entry.
   """
 
-  use D20.Game.Server
+  use D20.Sessions.Server
 
   alias D20.Command
   alias D20.NextStationLondon.Game

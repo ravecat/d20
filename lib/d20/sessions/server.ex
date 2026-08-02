@@ -1,12 +1,12 @@
-defmodule D20.Game.Server do
+defmodule D20.Sessions.Server do
   @moduledoc """
-  Default game-session server and `:gen_statem` adapter for custom servers.
+  Default Session server and `:gen_statem` adapter for custom servers.
 
   The module is the fallback process for engines without a custom server.
   Custom servers inherit the default Presence, session, publication, and idle
   behavior and override standard `:gen_statem` callbacks when required:
 
-      use D20.Game.Server
+      use D20.Sessions.Server
 
   Custom `handle_event/4` clauses run before an automatically generated
   fallback to the default implementation.
@@ -26,8 +26,6 @@ defmodule D20.Game.Server do
 
   @callback start_link(opts()) :: :gen_statem.start_ret()
   @callback get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
-  @callback attach(:gen_statem.server_ref(), Session.player_id()) :: :ok
-  @callback detach(:gen_statem.server_ref(), Session.player_id()) :: :ok
   @callback dispatch(:gen_statem.server_ref(), Command.t()) ::
               {:ok, Session.t()} | {:error, Session.reason()}
   @callback preview(:gen_statem.server_ref(), Command.t()) ::
@@ -35,47 +33,39 @@ defmodule D20.Game.Server do
 
   defmacro __using__([]) do
     quote do
-      @behaviour D20.Game.Server
+      @behaviour D20.Sessions.Server
       @behaviour :gen_statem
-      @before_compile D20.Game.Server
+      @before_compile D20.Sessions.Server
 
-      import D20.Game.Server, only: [broadcast: 2, idle_action: 0]
+      import D20.Sessions.Server, only: [broadcast: 2, idle_action: 0]
 
-      @type opts :: D20.Game.Server.opts()
-      @type state :: D20.Game.Server.state()
+      @type opts :: D20.Sessions.Server.opts()
+      @type state :: D20.Sessions.Server.state()
 
       @spec child_spec(opts()) :: Supervisor.child_spec()
-      def child_spec(opts), do: D20.Game.Server.child_spec(__MODULE__, opts)
+      def child_spec(opts), do: D20.Sessions.Server.child_spec(__MODULE__, opts)
 
-      @impl D20.Game.Server
+      @impl D20.Sessions.Server
       @spec start_link(opts()) :: :gen_statem.start_ret()
-      def start_link(opts), do: D20.Game.Server.start_link(__MODULE__, opts)
+      def start_link(opts), do: D20.Sessions.Server.start_link(__MODULE__, opts)
 
-      @impl D20.Game.Server
+      @impl D20.Sessions.Server
       @spec get(:gen_statem.server_ref()) ::
               {:ok, {D20.Sessions.Session.t(), D20.Sessions.slug()}}
-      def get(server), do: D20.Game.Server.get(server)
+      def get(server), do: D20.Sessions.Server.get(server)
 
-      @impl D20.Game.Server
-      @spec attach(:gen_statem.server_ref(), D20.Sessions.Session.player_id()) :: :ok
-      def attach(server, actor_id), do: D20.Game.Server.attach(server, actor_id)
-
-      @impl D20.Game.Server
-      @spec detach(:gen_statem.server_ref(), D20.Sessions.Session.player_id()) :: :ok
-      def detach(server, actor_id), do: D20.Game.Server.detach(server, actor_id)
-
-      @impl D20.Game.Server
+      @impl D20.Sessions.Server
       @spec dispatch(:gen_statem.server_ref(), D20.Command.t()) ::
               {:ok, D20.Sessions.Session.t()} | {:error, D20.Sessions.Session.reason()}
       def dispatch(server, %D20.Command{} = command) do
-        D20.Game.Server.dispatch(server, command)
+        D20.Sessions.Server.dispatch(server, command)
       end
 
-      @impl D20.Game.Server
+      @impl D20.Sessions.Server
       @spec preview(:gen_statem.server_ref(), D20.Command.t()) ::
               {:ok, map()} | {:error, D20.Sessions.Session.reason()}
       def preview(server, %D20.Command{} = command) do
-        D20.Game.Server.preview(server, command)
+        D20.Sessions.Server.preview(server, command)
       end
 
       @impl :gen_statem
@@ -84,8 +74,6 @@ defmodule D20.Game.Server do
       defoverridable child_spec: 1,
                      start_link: 1,
                      get: 1,
-                     attach: 2,
-                     detach: 2,
                      dispatch: 2,
                      preview: 2,
                      callback_mode: 0
@@ -97,13 +85,13 @@ defmodule D20.Game.Server do
     quote do
       @impl :gen_statem
       @spec init(state()) :: :gen_statem.init_result(term(), state())
-      def init(data), do: D20.Game.Server.init(data)
+      def init(data), do: D20.Sessions.Server.init(data)
 
       @impl :gen_statem
       @spec handle_event(:gen_statem.event_type(), term(), term(), state()) ::
               :gen_statem.event_handler_result(term(), state())
       def handle_event(event_type, event_content, state, data) do
-        D20.Game.Server.handle_event(event_type, event_content, state, data)
+        D20.Sessions.Server.handle_event(event_type, event_content, state, data)
       end
     end
   end
@@ -141,12 +129,6 @@ defmodule D20.Game.Server do
 
   @spec get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
   def get(server), do: :gen_statem.call(server, :get)
-
-  @spec attach(:gen_statem.server_ref(), Session.player_id()) :: :ok
-  def attach(server, actor_id), do: :gen_statem.call(server, {:attach, actor_id})
-
-  @spec detach(:gen_statem.server_ref(), Session.player_id()) :: :ok
-  def detach(server, actor_id), do: :gen_statem.call(server, {:detach, actor_id})
 
   @spec dispatch(:gen_statem.server_ref(), Command.t()) ::
           {:ok, Session.t()} | {:error, Session.reason()}

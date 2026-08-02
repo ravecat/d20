@@ -10,14 +10,14 @@ defmodule D20.Game do
       use D20.Game, server: D20.KoalaRescueClub.Server
 
   Without `:server`, the generated `server/0` callback returns
-  `D20.Game.Server`.
+  `D20.Sessions.Server`.
   """
 
   @type engine :: module()
   @type attrs :: map()
 
   defmacro __using__(opts) do
-    server = opts |> Keyword.get(:server, D20.Game.Server) |> Macro.expand(__CALLER__)
+    server = opts |> Keyword.get(:server, D20.Sessions.Server) |> Macro.expand(__CALLER__)
 
     unless is_atom(server) do
       raise ArgumentError, "expected :server to be a module, got: #{inspect(server)}"

@@ -111,7 +111,7 @@ TBD - created by archiving change extract-workspace-module. Update Purpose after
 
 ### Requirement: Session publication precedes workspace invalidation
 
-`D20.Game.Server` SHALL publish a changed Session projection before delegating Workspace invalidation. Attachment-only changes MAY invalidate Workspace without publishing an unchanged Session projection.
+`D20.Sessions.Server` SHALL publish a changed Session projection before delegating Workspace invalidation. Attachment-only changes MAY invalidate Workspace without publishing an unchanged Session projection.
 
 #### Scenario: Detach also changes member status
 

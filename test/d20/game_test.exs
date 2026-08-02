@@ -72,8 +72,8 @@ defmodule D20.GameTest do
 
   test "configures the default session server unless an engine provides one" do
     assert function_exported?(TestGame, :server, 0)
-    assert TestGame.server() == D20.Game.Server
-    assert D20.Game.server(TestGame) == D20.Game.Server
+    assert TestGame.server() == D20.Sessions.Server
+    assert D20.Game.server(TestGame) == D20.Sessions.Server
     assert function_exported?(CustomServerGame, :server, 0)
     assert D20.Game.server(CustomServerGame) == CustomServer
   end

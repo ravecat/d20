@@ -84,7 +84,7 @@
 - Use `D20.Sessions` as the public runtime boundary for game sessions.
 - `D20.Sessions.Session` owns generic table and session lifecycle.
 - `D20.Game` defines the game-engine contract.
-- Use `D20.Game.Server` unless server-owned timers or automatic transitions require a custom server.
+- Use `D20.Sessions.Server` unless server-owned timers or automatic transitions require a custom server.
 - Inside a game namespace:
   - `Command` validates and normalizes external payloads.
   - `Rules` validates state-dependent legality and derives legal actions.

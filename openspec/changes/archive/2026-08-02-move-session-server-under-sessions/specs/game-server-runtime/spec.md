@@ -1,8 +1,5 @@
-# game-server-runtime Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change unify-game-servers-on-gen-statem. Update Purpose after archive.
-## Requirements
 ### Requirement: All live game sessions use the game-server contract
 The system SHALL run every live game session through a module that implements the `D20.Sessions.Server` contract and SHALL use `:gen_statem` as the sole OTP primitive for that runtime contract.
 
@@ -121,17 +118,3 @@ The system SHALL expose runtime-agnostic `D20.Sessions` create, list, get, attac
 #### Scenario: Caller uses existing Session APIs
 - **WHEN** a caller gets, dispatches, previews, or stops a Session
 - **THEN** existing success and error shapes remain independent of the concrete server module
-
-### Requirement: Game engines remain independent from OTP runtime callbacks
-The system SHALL keep `D20.Game` engines and `D20.Sessions.Session` focused on pure initialization, validation, command reduction, and completion checks while server modules own OTP lifecycle and timer behavior.
-
-#### Scenario: Default engine processes a command
-- **WHEN** the default game server dispatches a command to an engine
-- **THEN** the engine receives the current game state and command without receiving process state, timer references, or OTP callback data
-
-#### Scenario: Custom server needs state-machine behavior
-- **WHEN** a game requires phase-specific timers or runtime events
-- **THEN** its custom game-server module overrides the required standard `:gen_statem` callbacks
-- **AND** it delegates unmatched events to the generated default implementation with `super`
-- **AND** neither the default server nor the server macro exposes game-specific extension hooks
-- **AND** the game engine remains usable as a pure reducer outside a running process

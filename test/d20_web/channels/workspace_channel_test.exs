@@ -13,7 +13,7 @@ defmodule D20Web.WorkspaceChannelTest do
   @uri URI.parse("https://shell.example.com/socket/websocket?vsn=2.0.0")
 
   defmodule AutomaticServer do
-    use D20.Game.Server
+    use D20.Sessions.Server
 
     alias D20.Command
     alias D20.Sessions.Session

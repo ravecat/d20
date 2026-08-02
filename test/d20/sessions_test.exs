@@ -4,10 +4,10 @@ defmodule D20.SessionsTest do
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20.Command
-  alias D20.Game.Server
   alias D20.KoalaRescueClub.Game, as: KoalaGame
   alias D20.Sessions
   alias D20.Sessions.Registry, as: SessionRegistry
+  alias D20.Sessions.Server
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
@@ -40,7 +40,7 @@ defmodule D20.SessionsTest do
   end
 
   defmodule CustomServer do
-    use D20.Game.Server
+    use D20.Sessions.Server
 
     alias D20.Sessions.Session
 
@@ -53,7 +53,7 @@ defmodule D20.SessionsTest do
     def handle_event({:call, from}, {:dispatch, %Command{} = command}, state, data) do
       command = %{command | attrs: Map.put(command.attrs, :server, :custom)}
 
-      D20.Game.Server.handle_event({:call, from}, {:dispatch, command}, state, data)
+      D20.Sessions.Server.handle_event({:call, from}, {:dispatch, command}, state, data)
     end
   end
 
@@ -78,7 +78,7 @@ defmodule D20.SessionsTest do
   end
 
   defmodule SharedDefaultServer do
-    use D20.Game.Server
+    use D20.Sessions.Server
   end
 
   defmodule SharedDefaultServerGame do
@@ -123,7 +123,7 @@ defmodule D20.SessionsTest do
   describe "game server contract" do
     test "keeps game-specific hooks out of the default and generated servers" do
       assert Enum.sort(Server.behaviour_info(:callbacks)) ==
-               Enum.sort(start_link: 1, get: 1, attach: 2, detach: 2, dispatch: 2, preview: 2)
+               Enum.sort(start_link: 1, get: 1, dispatch: 2, preview: 2)
 
       refute function_exported?(Server, :handle_event, 5)
       refute function_exported?(Server, :transition, 5)
@@ -131,6 +131,11 @@ defmodule D20.SessionsTest do
       for server <- [Server, CustomServer, SharedDefaultServer],
           {hook, arity} <- [state_name: 1, prepare_transition: 2, handle_game_event: 4] do
         refute function_exported?(server, hook, arity)
+      end
+
+      for server <- [Server, CustomServer, SharedDefaultServer],
+          {client, arity} <- [attach: 2, detach: 2] do
+        refute function_exported?(server, client, arity)
       end
 
       for server <- [Server, CustomServer, SharedDefaultServer],

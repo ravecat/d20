@@ -3,7 +3,7 @@ defmodule D20.KoalaRescueClub.Server do
   Game server that schedules the automatic roll on entry to the roll phase.
   """
 
-  use D20.Game.Server
+  use D20.Sessions.Server
 
   alias D20.Command
 
