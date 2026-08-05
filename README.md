@@ -105,11 +105,6 @@ Stop the Compose services with:
 docker compose down
 ```
 
-## Features
-
-- Browse configured game modules.
-- Create game sessions from available modules.
-
 ## Stack
 
 | Area                            | Source files                               |
@@ -136,49 +131,17 @@ docker compose down
 
 ## Commands
 
-Named `just` recipes are reserved for workflows that compose multiple project actions. The default command-listing recipe and the generic Mix and asset dispatchers are the only infrastructure exceptions.
+The project exposes four named `just` workflows. Use the `mix` and `assets` dispatchers for all other project and frontend commands.
 
-| Command                          | Purpose                                                             |
-| -------------------------------- | ------------------------------------------------------------------- |
-| `just`                           | List available project workflows and dispatchers.                   |
-| `just serve`                     | Set up dependencies and start the development server.               |
-| `just up`                        | Start shared Docker Compose routing and run the development server. |
-| `just format`                    | Format Elixir and frontend assets.                                  |
-| `just check`                     | Run formatting, asset, type, and test checks.                       |
-| `just mix <task> [args...]`      | Run any Mix task from the repository root.                          |
-| `just assets <script> [args...]` | Run any package script from `assets/` through Bun.                   |
-
-Run single native operations directly, or use the matching dispatcher:
-
-| Removed recipe            | Native replacement                         |
-| ------------------------- | ------------------------------------------ |
-| `just setup`              | `mix setup` or `just mix setup`            |
-| `just start`              | `iex --sname d20 --erl "-proto_dist inet6_tcp" -S mix serve` |
-| `just down`               | `docker compose down`                      |
-| `just test`               | `mix test` or `just mix test`              |
-| `just build`              | `mix deploy` or `just mix deploy`          |
-| `just typecheck`          | `mix typecheck` or `just mix typecheck`    |
-| `just agent-skills-sync`  | `mix usage_rules.sync --yes`               |
-| `just agent-skills-check` | `mix usage_rules.sync --check`             |
-| `just db-create`          | `mix ecto.create`                          |
-| `just db-migrate`         | `mix ecto.migrate`                         |
-| `just db-reset`           | `mix ecto.reset`                           |
-
-## Agent Skills
-
-`AGENTS.md` and `.agents/skills/implement-playable-game/` are maintained manually. Skills containing `metadata.managed-by: usage-rules` are generated from the locked Mix dependencies configured in `mix.exs`.
-
-Run `mix usage_rules.sync --yes` after changing those dependencies or the UsageRules configuration, then review and commit the generated diff. Use `mix usage_rules.sync --check` when a read-only verification of generated agent skills is needed.
-
-UsageRules covers Mix dependencies only. Frontend guidance for Svelte, TypeScript, Inertia, Bun, and npm packages remains outside this synchronization path.
-
-## Testing and Checks
-
-```sh
-mix test
-mix typecheck
-mix assets.lint
-```
+| Command                          | Purpose                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `just`                           | List available project workflows and dispatchers.                          |
+| `just up`                        | Start shared Docker Compose routing and run the development server.        |
+| `just format`                    | Format Elixir and frontend assets.                                         |
+| `just serve`                     | Set up dependencies and start the development server.                      |
+| `just check`                     | Run formatting, asset, type, and test checks.                              |
+| `just mix <task> [args...]`      | Run a Mix task at the project level from the repository root.              |
+| `just assets <script> [args...]` | Run a Bun package script at the asset level from the `assets/` directory.  |
 
 ## License
 
