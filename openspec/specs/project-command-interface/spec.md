@@ -82,7 +82,8 @@ The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named c
 #### Scenario: Routed development workflow runs
 
 - **WHEN** a developer runs `just up`
-- **THEN** the workflow starts Docker Compose services before running the retained `serve` workflow
+- **THEN** the workflow starts Docker Compose services before delegating to the private reuse-or-start helper
+- **AND** the helper triggers the existing watcher when the exact `d20` node is registered or runs the retained `serve` workflow when it is absent
 
 #### Scenario: Formatting workflow runs
 

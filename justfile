@@ -18,16 +18,16 @@ assets +args:
 serve sname="d20" erl="-proto_dist inet6_tcp":
     mix setup
     watchexec --restart --shell=none --wrap-process=none --ignore-nothing \
-        --watch envs --watch config \
-        --filter envs/.env \
-        --filter config/config.exs \
-        --filter config/runtime.exs \
-        --filter "config/${MIX_ENV:-dev}.exs" -- \
+        --watch envs --watch config -- \
         direnv exec . iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
+
+[private]
+restart-or-serve:
+    if epmd -names | grep -q '[[:space:]]d20[[:space:]]'; then touch "config/${MIX_ENV:-dev}.exs"; else just serve; fi
 
 up:
     docker compose up -d
-    just serve
+    just restart-or-serve
 
 format:
     mix format
