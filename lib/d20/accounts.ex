@@ -113,6 +113,22 @@ defmodule D20.Accounts do
     |> Repo.insert()
   end
 
+  @doc """
+  Registers a passwordless user and delivers their confirmation magic link.
+
+  A delivery failure does not remove the user or token because a provider may
+  have accepted the message before returning an ambiguous transport error.
+  """
+  def register_user_with_magic_link(attrs, magic_link_url_fun)
+      when is_function(magic_link_url_fun, 1) do
+    with {:ok, user} <- register_user(attrs) do
+      case deliver_login_instructions(user, magic_link_url_fun) do
+        {:ok, _email} -> {:ok, user}
+        {:error, _reason} -> {:error, :delivery_failed}
+      end
+    end
+  end
+
   defp user_profile(%User{} = user) do
     %{id: to_string(user.id), display_name: user.email, avatar: nil}
   end

@@ -230,6 +230,71 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(conn.assigns, :page_title)
   end
 
+  test "Inertia pages share guest authentication state", %{conn: conn} do
+    conn = get(conn, ~p"/developers")
+
+    assert inertia_props(conn).auth == %{authenticated: false, local: false, prompt: nil}
+    assert "auth" in inertia_shared_props(conn)
+    refute "authenticated" in inertia_shared_props(conn)
+    refute "authPrompt" in inertia_shared_props(conn)
+    refute "localMailboxAvailable" in inertia_shared_props(conn)
+  end
+
+  test "Inertia pages expose the local mailbox when dev routes and the Local adapter are enabled",
+       %{conn: conn} do
+    put_local_mailbox_config(true, Swoosh.Adapters.Local)
+
+    conn = get(conn, ~p"/developers")
+
+    assert inertia_props(conn).auth.local == true
+  end
+
+  test "Inertia pages hide the local mailbox when dev routes are disabled", %{conn: conn} do
+    put_local_mailbox_config(false, Swoosh.Adapters.Local)
+
+    conn = get(conn, ~p"/developers")
+
+    assert inertia_props(conn).auth.local == false
+  end
+
+  test "Inertia pages hide the local mailbox when the Local adapter is disabled", %{conn: conn} do
+    put_local_mailbox_config(true, Swoosh.Adapters.Test)
+
+    conn = get(conn, ~p"/developers")
+
+    assert inertia_props(conn).auth.local == false
+  end
+
+  test "Inertia pages share authenticated user state", %{conn: conn} do
+    conn = conn |> log_in_user(D20.AccountsFixtures.user_fixture()) |> get(~p"/developers")
+
+    assert inertia_props(conn).auth.authenticated == true
+    assert "auth" in inertia_shared_props(conn)
+  end
+
+  test "Inertia pages expose an authentication prompt once", %{conn: conn} do
+    prompt = %{
+      email: "player@example.com",
+      message: "You must log in to access this page.",
+      reauthenticate: false,
+      return_to: "/users/settings"
+    }
+
+    conn = conn |> init_test_session(auth_prompt: prompt) |> get(~p"/developers")
+
+    assert inertia_props(conn).auth.prompt == %{
+             email: "player@example.com",
+             message: "You must log in to access this page.",
+             reauthenticate: false,
+             returnTo: "/users/settings"
+           }
+
+    refute get_session(conn, :auth_prompt)
+
+    conn = conn |> recycle() |> get(~p"/developers")
+    assert inertia_props(conn).auth.prompt == nil
+  end
+
   test "Inertia pages do not bootstrap workspace sessions or module tokens", %{conn: conn} do
     conn = get(conn, ~p"/developers")
     props = inertia_props(conn)
@@ -511,6 +576,23 @@ defmodule D20Web.PageControllerTest do
 
   defp put_registry_games(games) do
     Application.put_env(:d20, Registry, games: games)
+  end
+
+  defp put_local_mailbox_config(dev_routes, adapter) do
+    original_dev_routes = Application.get_env(:d20, :dev_routes, :not_configured)
+    original_mailer_config = Application.fetch_env!(:d20, D20.Mailer)
+
+    Application.put_env(:d20, :dev_routes, dev_routes)
+    Application.put_env(:d20, D20.Mailer, Keyword.put(original_mailer_config, :adapter, adapter))
+
+    on_exit(fn ->
+      Application.put_env(:d20, D20.Mailer, original_mailer_config)
+
+      case original_dev_routes do
+        :not_configured -> Application.delete_env(:d20, :dev_routes)
+        configured -> Application.put_env(:d20, :dev_routes, configured)
+      end
+    end)
   end
 
   defp stub_bgg_game(xml, id \\ "183006") do

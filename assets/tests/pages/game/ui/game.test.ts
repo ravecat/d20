@@ -1,21 +1,22 @@
-import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
+import { render } from "@testing-library/svelte";
+import { flushSync } from "svelte";
 import { writable, type Writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GamePage } from "~/pages/game";
 import type { SessionState, SessionStore } from "~/shared/stores";
 import type { Attrs, GameMetadata, Session } from "~/shared/types";
-import GamePageHarness from "../../../mocks/game_page_harness.svelte";
 import inertiaMock from "../../../mocks/inertia";
 
 const sessionMock = vi.hoisted(() => ({
   createSession: vi.fn(),
 }));
 
+const auth = { authenticated: false, local: false, prompt: null };
+
 vi.mock("~/shared/stores", () => ({
   createSession: sessionMock.createSession,
 }));
 
-let cleanup: (() => Promise<void>) | undefined;
 let waitingController: SessionStore;
 let waitingControllerState: Writable<SessionState>;
 let waitingDetach = vi.fn<() => void>();
@@ -62,16 +63,14 @@ const nextStationAttrs: Attrs = {
   },
 };
 
-afterEach(async () => {
-  await cleanup?.();
-  cleanup = undefined;
-  document.body.innerHTML = "";
+afterEach(() => {
   sessionMock.createSession.mockClear();
 });
 
 describe("game detail page", () => {
   it("renders runtime title, preview image, and description", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata({
         name: "Resolved Qwinto",
@@ -80,7 +79,6 @@ describe("game detail page", () => {
         imageUrl: "https://example.invalid/qwinto.jpg",
         description: "Resolved details.",
       }),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -102,6 +100,7 @@ describe("game detail page", () => {
 
   it("renders provider metadata labels in the activation panel", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata({
         minPlayers: 2,
@@ -113,7 +112,6 @@ describe("game detail page", () => {
         complexity: 2.14,
         rating: 7.42,
       }),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -130,6 +128,7 @@ describe("game detail page", () => {
 
   it("renders single metadata values without fake ranges", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata({
         minPlayers: 1,
@@ -138,7 +137,6 @@ describe("game detail page", () => {
         minPlayTime: 15,
         maxPlayTime: 15,
       }),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -149,13 +147,13 @@ describe("game detail page", () => {
 
   it("renders minimum-only play time as an open-ended value", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata({
         playingTime: null,
         minPlayTime: 20,
         maxPlayTime: null,
       }),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -166,6 +164,7 @@ describe("game detail page", () => {
 
   it("omits missing provider metadata labels", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata({
         name: null,
@@ -181,7 +180,6 @@ describe("game detail page", () => {
         complexity: null,
         rating: null,
       }),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -199,6 +197,7 @@ describe("game detail page", () => {
 
   it("keeps available metadata while omitting missing metadata labels", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata({
         minPlayers: 2,
@@ -210,7 +209,6 @@ describe("game detail page", () => {
         complexity: null,
         rating: null,
       }),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -224,9 +222,9 @@ describe("game detail page", () => {
 
   it("posts session creation to the internal slug route", () => {
     render(GamePage, {
+      auth,
       slug: "qwinto",
       game: gameMetadata(),
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -248,14 +246,12 @@ describe("game detail page", () => {
       topic: "session:session-a",
     };
 
-    render(GamePageHarness, {
-      pageProps: {
-        slug: "qwinto",
-        game: gameMetadata(),
-        status: "active",
-        canLaunchGame: true,
-        session,
-      },
+    render(GamePage, {
+      auth,
+      slug: "qwinto",
+      game: gameMetadata(),
+      canLaunchGame: true,
+      session,
     });
 
     expect(sessionMock.createSession).toHaveBeenCalledWith("session:session-a");
@@ -264,21 +260,19 @@ describe("game detail page", () => {
     expect(document.body.textContent).not.toContain("Play");
   });
 
-  it("keeps the Lobby mounted until navigation removes the selected session", async () => {
+  it("requests a page refresh without detaching the active lobby", async () => {
     const session = {
       id: "session-a",
       slug: "qwinto",
       topic: "session:session-a",
     };
 
-    render(GamePageHarness, {
-      pageProps: {
-        slug: "qwinto",
-        game: gameMetadata(),
-        status: "active",
-        canLaunchGame: true,
-        session,
-      },
+    const { unmount } = render(GamePage, {
+      auth,
+      slug: "qwinto",
+      game: gameMetadata(),
+      canLaunchGame: true,
+      session,
     });
 
     waitingControllerState.set(waitingState("in_progress"));
@@ -296,51 +290,35 @@ describe("game detail page", () => {
     expect(document.body.textContent).not.toContain("Start");
     expect(waitingDetach).not.toHaveBeenCalled();
 
-    await cleanup?.();
-    cleanup = undefined;
+    unmount();
 
     expect(waitingDetach).toHaveBeenCalledOnce();
-
-    render(GamePageHarness, {
-      pageProps: {
-        slug: "qwinto",
-        game: gameMetadata(),
-        status: "active",
-        canLaunchGame: true,
-        session: null,
-      },
-    });
-
-    expect(document.body.textContent).toContain("Play");
   });
 
-  it("detaches a waiting session when the caller leaves before Start", async () => {
-    render(GamePageHarness, {
-      pageProps: {
+  it("detaches a waiting session when the caller leaves before Start", () => {
+    const { unmount } = render(GamePage, {
+      auth,
+      slug: "qwinto",
+      game: gameMetadata(),
+      canLaunchGame: true,
+      session: {
+        id: "session-a",
         slug: "qwinto",
-        game: gameMetadata(),
-        status: "active",
-        canLaunchGame: true,
-        session: {
-          id: "session-a",
-          slug: "qwinto",
-          topic: "session:session-a",
-        },
+        topic: "session:session-a",
       },
     });
 
-    await cleanup?.();
-    cleanup = undefined;
+    unmount();
 
     expect(waitingDetach).toHaveBeenCalledOnce();
   });
 
   it("posts selected creation attrs when creating a session", () => {
     render(GamePage, {
+      auth,
       slug: "koala-rescue-club",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       attrs: koalaAttrs,
-      status: "in_progress",
       canLaunchGame: true,
     });
 
@@ -369,10 +347,10 @@ describe("game detail page", () => {
 
   it("renders boolean creation attrs as checkboxes and posts their values", () => {
     render(GamePage, {
+      auth,
       slug: "next-station-london",
       game: gameMetadata({ name: "Next Station London" }),
       attrs: nextStationAttrs,
-      status: "active",
       canLaunchGame: true,
     });
 
@@ -398,8 +376,8 @@ describe("game detail page", () => {
 
   it("keeps game details visible without session controls when launch is unavailable", () => {
     render(GamePage, {
+      auth,
       slug: "voyages",
-      status: null,
       canLaunchGame: false,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
     });
@@ -410,20 +388,6 @@ describe("game detail page", () => {
     expect(document.querySelector("button")).toBeNull();
   });
 });
-
-function render(Component: unknown, props: Record<string, unknown>) {
-  const target = document.createElement("div");
-  document.body.append(target);
-
-  const component = flushSync(() =>
-    mount(Component as SvelteComponent<Record<string, unknown>>, { target, props }),
-  );
-
-  cleanup = async () => {
-    await unmount(component);
-    target.remove();
-  };
-}
 
 function inputByLabel(label: string) {
   const input = [...document.getElementsByTagName("input")].find((candidate) =>

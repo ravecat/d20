@@ -74,6 +74,44 @@ defmodule D20Web.UserAuthTest do
     end
   end
 
+  describe "store_return_to/2" do
+    test "stores a local absolute path", %{conn: conn} do
+      conn = UserAuth.store_return_to(conn, "/games/qwinto?session=table-1")
+
+      assert get_session(conn, :return_to) == "/games/qwinto?session=table-1"
+    end
+
+    test "ignores external, protocol-relative, malformed, and backslash paths", %{conn: conn} do
+      for path <- [
+            "https://example.org/steal-session",
+            "//example.org/steal-session",
+            "/%2Fexample.org/steal-session",
+            "/\\example.org/steal-session",
+            "/%5Cexample.org/steal-session",
+            "games/qwinto",
+            "/games/%",
+            "/games/qwinto\r\nlocation:https://example.org",
+            "/games/qwinto%0d%0alocation:https://example.org"
+          ] do
+        returned_conn = UserAuth.store_return_to(conn, path)
+
+        refute get_session(returned_conn, :return_to)
+      end
+    end
+  end
+
+  describe "safe_local_path/2" do
+    test "returns local paths and replaces unsafe paths with the fallback" do
+      assert UserAuth.safe_local_path("/users/log-in?next=settings", "/") ==
+               "/users/log-in?next=settings"
+
+      assert UserAuth.safe_local_path("//example.org/steal-session", "/users/log-in") ==
+               "/users/log-in"
+
+      assert UserAuth.safe_local_path(nil, "/users/register") == "/users/register"
+    end
+  end
+
   describe "log_in_user/3" do
     test "stores the user token in the session", %{conn: conn, user: user} do
       conn = UserAuth.log_in_user(conn, user)
@@ -115,7 +153,7 @@ defmodule D20Web.UserAuthTest do
     end
 
     test "redirects to the configured path", %{conn: conn, user: user} do
-      conn = conn |> put_session(:user_return_to, "/hello") |> UserAuth.log_in_user(user)
+      conn = conn |> put_session(:return_to, "/hello") |> UserAuth.log_in_user(user)
       assert redirected_to(conn) == "/hello"
     end
 
@@ -272,10 +310,16 @@ defmodule D20Web.UserAuthTest do
         |> assign(:scope, Scope.for_actor(user))
         |> UserAuth.require_sudo_mode([])
 
-      assert redirected_to(conn) == ~p"/users/log-in"
+      assert redirected_to(conn) == ~p"/"
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
-               "You must re-authenticate to access this page."
+      assert %{
+               email: email,
+               message: "You must re-authenticate to access this page.",
+               reauthenticate: true,
+               return_to: "/"
+             } = get_session(conn, :auth_prompt)
+
+      assert email == user.email
     end
   end
 
@@ -311,10 +355,14 @@ defmodule D20Web.UserAuthTest do
       conn = conn |> fetch_flash() |> UserAuth.require_authenticated_user([])
       assert conn.halted
 
-      assert redirected_to(conn) == ~p"/users/log-in"
+      assert redirected_to(conn) == ~p"/"
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
-               "You must log in to access this page."
+      assert %{
+               email: "",
+               message: "You must log in to access this page.",
+               reauthenticate: false,
+               return_to: "/"
+             } = get_session(conn, :auth_prompt)
     end
 
     test "stores the path to redirect to on GET", %{conn: conn} do
@@ -324,7 +372,8 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.require_authenticated_user([])
 
       assert halted_conn.halted
-      assert get_session(halted_conn, :user_return_to) == "/foo"
+      assert get_session(halted_conn, :return_to) == "/foo"
+      assert get_session(halted_conn, :auth_prompt).return_to == "/foo"
 
       halted_conn =
         %{conn | path_info: ["foo"], query_string: "bar=baz"}
@@ -332,7 +381,8 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.require_authenticated_user([])
 
       assert halted_conn.halted
-      assert get_session(halted_conn, :user_return_to) == "/foo?bar=baz"
+      assert get_session(halted_conn, :return_to) == "/foo?bar=baz"
+      assert get_session(halted_conn, :auth_prompt).return_to == "/foo?bar=baz"
 
       halted_conn =
         %{conn | path_info: ["foo"], query_string: "bar", method: "POST"}
@@ -340,7 +390,7 @@ defmodule D20Web.UserAuthTest do
         |> UserAuth.require_authenticated_user([])
 
       assert halted_conn.halted
-      refute get_session(halted_conn, :user_return_to)
+      refute get_session(halted_conn, :return_to)
     end
 
     test "does not redirect if user is authenticated", %{conn: conn, user: user} do

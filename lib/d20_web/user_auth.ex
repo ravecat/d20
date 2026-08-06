@@ -32,15 +32,15 @@ defmodule D20Web.UserAuth do
   @doc """
   Logs the user in.
 
-  Redirects to the session's `:user_return_to` path
+  Redirects to the session's `:return_to` path
   or falls back to the `signed_in_path/1`.
   """
   def log_in_user(conn, user, params \\ %{}) do
-    user_return_to = get_session(conn, :user_return_to)
+    return_to = get_session(conn, :return_to)
 
     conn
     |> create_or_extend_session(user, params)
-    |> redirect(to: user_return_to || signed_in_path(conn))
+    |> redirect(to: return_to || signed_in_path(conn))
   end
 
   @doc """
@@ -93,6 +93,67 @@ defmodule D20Web.UserAuth do
   end
 
   def put_actor_token(conn, _opts), do: conn
+
+  @doc """
+  Exposes authentication state and any stored prompt to the next Inertia page.
+  """
+  def put_auth_prop(%{assigns: %{current_user: current_user}} = conn, _opts) do
+    prompt = get_session(conn, :auth_prompt)
+
+    conn
+    |> Inertia.Controller.assign_shared_prop(:auth, %{
+      authenticated: not is_nil(current_user),
+      local: local_mailbox_available?(),
+      prompt: prompt
+    })
+    |> then(fn conn -> if prompt, do: delete_session(conn, :auth_prompt), else: conn end)
+  end
+
+  @doc """
+  Stores the shared account dialog state for the next Inertia page.
+  """
+  def put_auth_prompt(conn, opts) do
+    current_user = conn.assigns[:current_user]
+
+    prompt = %{
+      email: if(current_user, do: current_user.email, else: ""),
+      message: Keyword.fetch!(opts, :message),
+      reauthenticate: Keyword.get(opts, :reauthenticate, not is_nil(current_user)),
+      return_to: safe_local_path(get_session(conn, :return_to), ~p"/")
+    }
+
+    put_session(conn, :auth_prompt, prompt)
+  end
+
+  @doc """
+  Stores a local absolute path as the post-authentication destination.
+
+  External, protocol-relative, malformed, and backslash-containing paths are ignored.
+  """
+  def store_return_to(conn, path) do
+    case safe_local_path(path, nil) do
+      nil -> conn
+      local_path -> put_session(conn, :return_to, local_path)
+    end
+  end
+
+  @doc """
+  Returns a submitted local absolute path or the provided safe fallback.
+  """
+  def safe_local_path(path, fallback) when is_binary(path) do
+    with {:ok, %URI{scheme: nil, host: nil, path: local_path}} <- URI.new(path),
+         true <- is_binary(local_path) and String.starts_with?(local_path, "/"),
+         false <- Regex.match?(~r/%(?![[:xdigit:]]{2})/, path),
+         decoded_path = URI.decode(path),
+         false <- String.starts_with?(decoded_path, "//"),
+         false <- String.contains?(decoded_path, ["\\", "\r", "\n"]) do
+      path
+    else
+      _ -> fallback
+    end
+  end
+
+  def safe_local_path(_path, fallback), do: fallback
 
   defp get_anonymous(conn) do
     case get_session(conn, :anonymous_user_id) do
@@ -200,9 +261,12 @@ defmodule D20Web.UserAuth do
       conn
     else
       conn
-      |> put_flash(:error, "You must re-authenticate to access this page.")
       |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log-in")
+      |> put_auth_prompt(
+        message: "You must re-authenticate to access this page.",
+        reauthenticate: true
+      )
+      |> redirect(to: ~p"/")
       |> halt()
     end
   end
@@ -230,19 +294,24 @@ defmodule D20Web.UserAuth do
       conn
     else
       conn
-      |> put_flash(:error, "You must log in to access this page.")
       |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log-in")
+      |> put_auth_prompt(message: "You must log in to access this page.", reauthenticate: false)
+      |> redirect(to: ~p"/")
       |> halt()
     end
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do
-    put_session(conn, :user_return_to, current_path(conn))
+    store_return_to(conn, current_path(conn))
   end
 
   defp maybe_store_return_to(conn), do: conn
 
   defp authenticated?(%User{}), do: true
   defp authenticated?(_user), do: false
+
+  defp local_mailbox_available? do
+    Application.get_env(:d20, :dev_routes, false) and
+      Application.get_env(:d20, D20.Mailer, [])[:adapter] == Swoosh.Adapters.Local
+  end
 end

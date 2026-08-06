@@ -14,6 +14,7 @@ defmodule D20Web.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug Inertia.Plug
+    plug :put_auth_prop
   end
 
   pipeline :browser do
@@ -77,14 +78,13 @@ defmodule D20Web.Router do
   ## Authentication routes
 
   scope "/", D20Web do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
+    pipe_through [:inertia, :redirect_if_user_is_authenticated]
 
-    get "/users/register", UserRegistrationController, :new
     post "/users/register", UserRegistrationController, :create
   end
 
   scope "/", D20Web do
-    pipe_through [:browser, :require_authenticated_user]
+    pipe_through [:inertia, :require_authenticated_user]
 
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
@@ -92,9 +92,8 @@ defmodule D20Web.Router do
   end
 
   scope "/", D20Web do
-    pipe_through [:browser]
+    pipe_through [:inertia]
 
-    get "/users/log-in", UserSessionController, :new
     get "/users/log-in/:token", UserSessionController, :confirm
     post "/users/log-in", UserSessionController, :create
     delete "/users/log-out", UserSessionController, :delete

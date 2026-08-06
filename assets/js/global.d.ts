@@ -2,6 +2,23 @@ import "@inertiajs/core";
 import type { LiveSocket } from "phoenix_live_view";
 import type { SharedPageProps } from "@inertiajs/core";
 
+declare module "@inertiajs/core" {
+  interface InertiaConfig {
+    sharedPageProps: {
+      auth: {
+        readonly authenticated: boolean;
+        readonly local: boolean;
+        readonly prompt: {
+          readonly email: string;
+          readonly message: string;
+          readonly reauthenticate: boolean;
+          readonly returnTo: string;
+        } | null;
+      };
+    };
+  }
+}
+
 declare module "svelte/elements" {
   interface HTMLAttributes<T extends EventTarget> {
     "scroll-region"?: boolean | "";

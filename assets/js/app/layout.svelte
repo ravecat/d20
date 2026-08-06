@@ -1,16 +1,16 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { Footer, Header } from "~/shared/components";
   import { Workspace } from "~/widgets/workspace";
+  import { Footer, Header } from "./ui";
 
-  type Variant = "default" | "narrow";
+  type Variant = "narrow" | "wide";
 
   type Props = {
     children?: Snippet;
     variant?: Variant;
   };
 
-  const { children, variant = "default" }: Props = $props();
+  const { children, variant = "narrow" }: Props = $props();
 </script>
 
 <div class="layout">

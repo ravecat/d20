@@ -19,6 +19,11 @@ export type FormSubmission = {
   action: string;
   method: string;
   data: Record<string, FormDataConvertible | FormDataConvertible[]>;
+  errorBag?: string;
+};
+type FormResponder = {
+  error: (errors: Record<string, string>) => void;
+  success: () => void;
 };
 type RouterMockKey =
   | "delete"
@@ -61,6 +66,7 @@ const defaultPage = (): Page<PageProps> => ({
   encryptHistory: false,
   flash: {},
   props: {
+    auth: { authenticated: false, local: false, prompt: null },
     errors: {},
   },
   rescuedProps: [],
@@ -71,6 +77,8 @@ const defaultPage = (): Page<PageProps> => ({
 const page = defaultPage() as (typeof import("@inertiajs/svelte"))["page"];
 const preparedForms: InertiaFormMock[] = [];
 const createdForms: InertiaFormMock[] = [];
+const formResponders = new Set<FormResponder>();
+let pendingFormResponder: FormResponder | undefined;
 const formSubmit = vi.fn((_submission: FormSubmission) => undefined);
 
 const router = {
@@ -109,6 +117,27 @@ const inertiaMock = {
   usePage,
   router,
   formSubmit,
+  registerForm(responder: FormResponder) {
+    formResponders.add(responder);
+
+    return () => {
+      formResponders.delete(responder);
+
+      if (pendingFormResponder === responder) pendingFormResponder = undefined;
+    };
+  },
+  submitForm(responder: FormResponder, submission: FormSubmission) {
+    if (!formResponders.has(responder)) throw new Error("Cannot submit an unregistered form");
+
+    pendingFormResponder = responder;
+    formSubmit(submission);
+  },
+  respondWithErrors(errors: Record<string, string>) {
+    takePendingFormResponder().error(errors);
+  },
+  respondWithSuccess() {
+    takePendingFormResponder().success();
+  },
   prepareForm<TForm extends object = object>(options: InertiaFormMockOptions<TForm> = {}) {
     const form = createForm<TForm>((options.fields ?? {}) as TForm, options);
     preparedForms.push(form as unknown as InertiaFormMock);
@@ -124,6 +153,8 @@ const inertiaMock = {
   reset() {
     preparedForms.length = 0;
     createdForms.length = 0;
+    formResponders.clear();
+    pendingFormResponder = undefined;
     Object.assign(this.page, defaultPage());
     this.inertia.mockClear();
     this.useForm.mockClear();
@@ -137,6 +168,15 @@ const inertiaMock = {
 };
 
 export default inertiaMock;
+
+function takePendingFormResponder() {
+  if (!pendingFormResponder) throw new Error("No submitted form is awaiting a response");
+
+  const responder = pendingFormResponder;
+  pendingFormResponder = undefined;
+
+  return responder;
+}
 
 function createForm<TForm extends object = InertiaFormFields>(
   fields: TForm = {} as TForm,

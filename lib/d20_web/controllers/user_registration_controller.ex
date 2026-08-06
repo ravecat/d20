@@ -2,27 +2,45 @@ defmodule D20Web.UserRegistrationController do
   use D20Web, :controller
 
   alias D20.Accounts
-  alias D20.Accounts.User
+  alias D20Web.CoreComponents
+  alias D20Web.UserAuth
 
-  def new(conn, _params) do
-    changeset = Accounts.change_user_email(%User{})
-    render(conn, :new, changeset: changeset)
-  end
+  def create(conn, %{"user" => user_params} = params) do
+    conn = UserAuth.store_return_to(conn, params["return_to"])
 
-  def create(conn, %{"user" => user_params}) do
-    case Accounts.register_user(user_params) do
+    case Accounts.register_user_with_magic_link(user_params, &url(~p"/users/log-in/#{&1}")) do
       {:ok, user} ->
-        {:ok, _} = Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
-
         conn
         |> put_flash(
           :info,
           "An email was sent to #{user.email}, please access it to confirm your account."
         )
-        |> redirect(to: ~p"/users/log-in")
+        |> redirect_to_response(params, ~p"/")
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        render(conn, :new, changeset: changeset)
+        conn
+        |> assign_errors(registration_errors(changeset))
+        |> redirect_to_response(params, ~p"/")
+
+      {:error, :delivery_failed} ->
+        conn
+        |> assign_errors(%{
+          delivery:
+            "Your account was created, but we could not send the confirmation email. Log in to request another link."
+        })
+        |> redirect_to_response(params, ~p"/")
     end
+  end
+
+  defp redirect_to_response(conn, params, fallback) do
+    conn
+    |> put_status(:see_other)
+    |> redirect(to: UserAuth.safe_local_path(params["response_to"], fallback))
+  end
+
+  defp registration_errors(changeset) do
+    changeset
+    |> Ecto.Changeset.traverse_errors(&CoreComponents.translate_error/1)
+    |> Map.new(fn {field, messages} -> {field, List.first(messages)} end)
   end
 end

@@ -135,6 +135,84 @@ defmodule D20.AccountsTest do
     end
   end
 
+  describe "register_user_with_magic_link/2" do
+    test "creates one passwordless account and confirms the same stable identity" do
+      email = unique_user_email()
+      parent = self()
+
+      assert {:ok, user} =
+               Accounts.register_user_with_magic_link(%{email: email}, fn token ->
+                 send(parent, {:registration_token, token})
+                 "https://example.com/users/log-in/#{token}"
+               end)
+
+      assert user.email == email
+      assert is_nil(user.hashed_password)
+      assert is_nil(user.confirmed_at)
+      assert_receive {:registration_token, token}
+
+      assert {:ok, {confirmed_user, _expired_tokens}} = Accounts.login_user_by_magic_link(token)
+
+      assert confirmed_user.id == user.id
+      assert D20.Accounts.Scope.for_actor(confirmed_user).actor.id == to_string(user.id)
+    end
+
+    test "does not send another registration email for an equivalent existing email" do
+      email = unique_user_email()
+
+      assert {:ok, _user} =
+               Accounts.register_user_with_magic_link(
+                 %{email: email},
+                 &"https://example.com/#{&1}"
+               )
+
+      assert_receive {:email, _email}
+
+      assert {:error, changeset} =
+               Accounts.register_user_with_magic_link(
+                 %{email: String.upcase(email)},
+                 &"https://example.com/#{&1}"
+               )
+
+      assert "has already been taken" in errors_on(changeset).email
+      assert Repo.aggregate(from(user in User, where: user.email == ^email), :count) == 1
+      refute_receive {:email, _email}, 20
+    end
+
+    test "keeps the account and token when delivery fails" do
+      use_mailer_adapter(D20.FailingMailerAdapter)
+      email = unique_user_email()
+
+      assert {:error, :delivery_failed} =
+               Accounts.register_user_with_magic_link(
+                 %{email: email},
+                 &"https://example.com/#{&1}"
+               )
+
+      assert %User{confirmed_at: nil} = user = Accounts.get_user_by_email(email)
+      assert Repo.get_by(UserToken, user_id: user.id, context: "login")
+    end
+
+    test "database uniqueness converts competing equivalent inserts into one controlled error" do
+      email = unique_user_email()
+
+      changesets = [
+        User.email_changeset(%User{}, %{email: email}),
+        User.email_changeset(%User{}, %{email: String.upcase(email)})
+      ]
+
+      results =
+        changesets
+        |> Task.async_stream(&Repo.insert/1, max_concurrency: 2, ordered: false)
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.count(results, &match?({:ok, %User{}}, &1)) == 1
+      assert [{:error, changeset}] = Enum.filter(results, &match?({:error, _}, &1))
+      assert "has already been taken" in errors_on(changeset).email
+      assert Repo.aggregate(from(user in User, where: user.email == ^email), :count) == 1
+    end
+  end
+
   describe "sudo_mode?/2" do
     test "validates the authenticated_at time" do
       now = DateTime.utc_now()
@@ -423,5 +501,12 @@ defmodule D20.AccountsTest do
     test "does not include password" do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""
     end
+  end
+
+  defp use_mailer_adapter(adapter) do
+    previous_config = Application.fetch_env!(:d20, D20.Mailer)
+    Application.put_env(:d20, D20.Mailer, Keyword.put(previous_config, :adapter, adapter))
+
+    on_exit(fn -> Application.put_env(:d20, D20.Mailer, previous_config) end)
   end
 end

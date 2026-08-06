@@ -1,14 +1,6 @@
-import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
-import { afterEach, describe, expect, it } from "vitest";
+import { render } from "@testing-library/svelte";
+import { describe, expect, it } from "vitest";
 import { DevelopersPage } from "~/pages/developers";
-
-let cleanup: (() => Promise<void>) | undefined;
-
-afterEach(async () => {
-  await cleanup?.();
-  cleanup = undefined;
-  document.body.innerHTML = "";
-});
 
 describe("developers page", () => {
   it("introduces client implementation and links every public game specification", () => {
@@ -50,17 +42,3 @@ describe("developers page", () => {
     expect(document.body.textContent).not.toContain("Version 0.1.0");
   });
 });
-
-function render(Component: unknown, props: Record<string, unknown>) {
-  const target = document.createElement("div");
-  document.body.append(target);
-
-  const component = flushSync(() =>
-    mount(Component as SvelteComponent<Record<string, unknown>>, { target, props }),
-  );
-
-  cleanup = async () => {
-    await unmount(component);
-    target.remove();
-  };
-}

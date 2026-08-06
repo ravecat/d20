@@ -1,10 +1,10 @@
-import { flushSync, mount, unmount } from "svelte";
+import { render, screen } from "@testing-library/svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Layout from "~/app/layout.svelte";
-import { layout as developersLayout } from "~/pages/developers";
+import * as developersPage from "~/pages/developers";
 import * as gamePage from "~/pages/game";
-import { layout as homeLayout } from "~/pages/home";
-import LayoutHarness from "../mocks/layout_harness.svelte";
+import * as homePage from "~/pages/home";
+import { auth } from "~/shared/stores";
 
 const workspaceMock = vi.hoisted(() => {
   const workspace = {
@@ -31,78 +31,27 @@ vi.mock("~/widgets/workspace/model/workspace", () => ({
   createWorkspace: workspaceMock.createWorkspace,
 }));
 
-let cleanup: (() => Promise<void>) | undefined;
-
-afterEach(async () => {
-  await cleanup?.();
-  cleanup = undefined;
-  document.body.innerHTML = "";
+afterEach(() => {
+  auth.trigger.reset();
   workspaceMock.createWorkspace.mockClear();
 });
 
 describe("Layout", () => {
-  it("gets non-default presentation metadata from page public APIs", () => {
-    expect(homeLayout).toEqual({ variant: "narrow" });
-    expect(developersLayout).toEqual({ variant: "narrow" });
-    expect(gamePage).not.toHaveProperty("layout");
+  it("uses narrow presentation by default and exposes only wide page overrides", () => {
+    expect(homePage).not.toHaveProperty("layout");
+    expect(developersPage).not.toHaveProperty("layout");
+    expect(gamePage.layout).toEqual({ variant: "wide" });
   });
 
   it("marks page content as an Inertia scroll region and links developers", () => {
-    renderLayout();
+    render(Layout);
 
-    const content = document.body.querySelector("main");
-    const developerLink = document.body.querySelector('footer a[href="/developers"]');
+    const content = screen.getByRole("main");
+    const developerLink = screen.getByRole("link", { name: "for developers" });
 
-    expect(content?.hasAttribute("scroll-region")).toBe(true);
-    expect(content?.getAttribute("tabindex")).toBe("-1");
-    expect(developerLink?.textContent).toBe("for developers");
-    expect(developerLink?.getAttribute("href")).toBe("/developers");
-  });
-
-  it("preserves one realtime workspace while replaceable page content changes", () => {
-    const component = renderLayoutHarness();
-    const main = document.querySelector("main");
-    const header = document.querySelector("header");
-
-    component.navigate("home", "narrow");
-    flushSync();
-
-    expect(workspaceMock.createWorkspace).toHaveBeenCalledOnce();
-    expect(document.querySelector("main")).toBe(main);
-    expect(document.querySelector("header")).toBe(header);
-    expect(header?.classList.contains("header--narrow")).toBe(true);
-
-    component.navigate("game", "default");
-    flushSync();
-
-    expect(workspaceMock.createWorkspace).toHaveBeenCalledOnce();
-    expect(document.querySelector("main")).toBe(main);
-    expect(document.querySelector("[data-page=game]")).not.toBeNull();
+    expect(content.hasAttribute("scroll-region")).toBe(true);
+    expect(content.getAttribute("tabindex")).toBe("-1");
+    expect(developerLink.textContent).toBe("for developers");
+    expect(developerLink.getAttribute("href")).toBe("/developers");
   });
 });
-
-function renderLayout() {
-  const target = document.createElement("div");
-  document.body.append(target);
-
-  const component = flushSync(() => mount(Layout, { target }));
-
-  cleanup = async () => {
-    await unmount(component);
-    target.remove();
-  };
-}
-
-function renderLayoutHarness() {
-  const target = document.createElement("div");
-  document.body.append(target);
-
-  const component = flushSync(() => mount(LayoutHarness, { target }));
-
-  cleanup = async () => {
-    await unmount(component);
-    target.remove();
-  };
-
-  return component;
-}

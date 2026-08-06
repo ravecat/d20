@@ -1,3 +1,4 @@
+import "@testing-library/svelte/vitest";
 import { afterEach, vi } from "vitest";
 import inertiaMock from "./mocks/inertia";
 

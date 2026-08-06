@@ -1,19 +1,14 @@
-import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
-import { afterEach, describe, expect, it } from "vitest";
+import { render } from "@testing-library/svelte";
+import { describe, expect, it } from "vitest";
 import { HomePage } from "~/pages/home";
 import type { GameMetadata } from "~/shared/types";
 
-let cleanup: (() => Promise<void>) | undefined;
-
-afterEach(async () => {
-  await cleanup?.();
-  cleanup = undefined;
-  document.body.innerHTML = "";
-});
+const auth = { authenticated: false, local: false, prompt: null };
 
 describe("home page", () => {
   it("renders game tiles with preview images and slug links", () => {
     render(HomePage, {
+      auth,
       games: [
         {
           slug: "qwinto",
@@ -47,6 +42,7 @@ describe("home page", () => {
 
   it("renders fallback preview state when metadata has no image", () => {
     render(HomePage, {
+      auth,
       games: [
         {
           slug: "qwinto",
@@ -65,6 +61,7 @@ describe("home page", () => {
 
   it("renders the Soon label for in-progress games", () => {
     render(HomePage, {
+      auth,
       games: [
         {
           slug: "koala-rescue-club",
@@ -84,6 +81,7 @@ describe("home page", () => {
 
   it("renders games in the received catalog order", () => {
     render(HomePage, {
+      auth,
       games: [
         {
           slug: "inactive-first",
@@ -128,20 +126,6 @@ describe("home page", () => {
     ]);
   });
 });
-
-function render(Component: unknown, props: Record<string, unknown>) {
-  const target = document.createElement("div");
-  document.body.append(target);
-
-  const component = flushSync(() =>
-    mount(Component as SvelteComponent<Record<string, unknown>>, { target, props }),
-  );
-
-  cleanup = async () => {
-    await unmount(component);
-    target.remove();
-  };
-}
 
 function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {
   return {

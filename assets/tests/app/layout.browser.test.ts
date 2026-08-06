@@ -1,7 +1,10 @@
-import { flushSync, mount, unmount } from "svelte";
+import { createRawSnippet } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
-import LayoutHarness from "../mocks/layout_harness.svelte";
+import { render } from "vitest-browser-svelte";
+import Layout from "~/app/layout.svelte";
+import { auth } from "~/shared/stores";
+import inertiaMock from "../mocks/inertia";
 
 const workspaceMock = vi.hoisted(() => {
   const workspace = {
@@ -29,44 +32,98 @@ vi.mock("~/widgets/workspace/model/workspace", () => ({
   createWorkspace: workspaceMock.createWorkspace,
 }));
 
-vi.mock("@inertiajs/svelte", () => ({
-  inertia: () => undefined,
-  router: {
-    get: () => undefined,
-  },
-}));
-
-let cleanup: (() => Promise<void>) | undefined;
-
 const supportsScrollTimeline = CSS.supports(
   "(animation-timeline: scroll()) and (animation-range: 0% 100%) and " +
     "(scroll-timeline: --app-shell-scroll block) and (timeline-scope: --app-shell-scroll)",
 );
 
 beforeEach(async () => {
+  auth.trigger.reset();
   await page.viewport(1280, 800);
+  inertiaMock.setPage({
+    props: {
+      auth: { authenticated: false, local: false, prompt: null },
+      errors: {},
+    },
+  });
 });
 
-afterEach(async () => {
-  await cleanup?.();
-  cleanup = undefined;
-  document.body.innerHTML = "";
+afterEach(() => {
   workspaceMock.createWorkspace.mockClear();
 });
 
 describe("Layout scroll timeline", () => {
-  it("reserves scrollbar space symmetrically", () => {
-    renderLayout();
+  it("hosts a server-requested account dialog", async () => {
+    inertiaMock.setPage({
+      url: "/",
+      props: {
+        auth: {
+          authenticated: false,
+          local: false,
+          prompt: {
+            email: "",
+            message: "You must log in to access this page.",
+            reauthenticate: false,
+            returnTo: "/users/settings",
+          },
+        },
+        errors: {},
+      },
+    });
+
+    await render(Layout, { children: narrowLayoutContent });
+
+    await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
+    await expect.element(page.getByRole("status")).toHaveTextContent("You must log in");
+  });
+
+  it("reserves scrollbar space symmetrically", async () => {
+    await render(Layout, { children: narrowLayoutContent });
 
     const content = page.getByRole("main").element();
 
     expect(getComputedStyle(content).scrollbarGutter).toBe("stable both-edges");
   });
 
+  it("aligns header and content horizontal gutters", async () => {
+    await page.viewport(800, 800);
+    await render(Layout, { children: narrowLayoutContent });
+
+    const brand = page.getByRole("link", { name: "D20" }).element();
+    const register = page.getByRole("button", { name: "Register" }).element();
+    const content = page.getByText("initial", { exact: true }).element();
+    const contentStyle = getComputedStyle(content);
+    const contentStart =
+      content.getBoundingClientRect().left + Number.parseFloat(contentStyle.paddingInlineStart);
+    const contentEnd =
+      content.getBoundingClientRect().right - Number.parseFloat(contentStyle.paddingInlineEnd);
+
+    expect(brand.getBoundingClientRect().left).toBeCloseTo(contentStart, 0);
+    expect(register.getBoundingClientRect().right).toBeCloseTo(contentEnd, 0);
+    expect(contentStart).toBeCloseTo(window.innerWidth - contentEnd, 0);
+  });
+
+  it("aligns wide header and content horizontal gutters", async () => {
+    await render(Layout, { variant: "wide", children: wideLayoutContent });
+
+    const brand = page.getByRole("link", { name: "D20" }).element();
+    const register = page.getByRole("button", { name: "Register" }).element();
+    const content = page.getByText("wide", { exact: true }).element();
+    const contentStyle = getComputedStyle(content);
+    const contentStart =
+      content.getBoundingClientRect().left + Number.parseFloat(contentStyle.paddingInlineStart);
+    const contentEnd =
+      content.getBoundingClientRect().right - Number.parseFloat(contentStyle.paddingInlineEnd);
+
+    expect(brand.getBoundingClientRect().left).toBeCloseTo(contentStart, 0);
+    expect(register.getBoundingClientRect().right).toBeCloseTo(contentEnd, 0);
+    expect(contentStart).toBeCloseTo(window.innerWidth - contentEnd, 0);
+  });
+
   it.runIf(supportsScrollTimeline)(
     "links header dimensions to the internal content scroll position",
     async () => {
-      renderLayout();
+      await render(Layout, { children: narrowLayoutContent });
 
       const header = page.getByRole("banner");
       const content = page.getByRole("main");
@@ -90,14 +147,12 @@ describe("Layout scroll timeline", () => {
   );
 });
 
-function renderLayout() {
-  const target = document.createElement("div");
-  document.body.append(target);
+const narrowLayoutContent = createRawSnippet(() => ({
+  render: () =>
+    '<p style="box-sizing: border-box; inline-size: 100%; max-inline-size: 46.25rem; min-block-size: 200dvh; margin: 0 auto; padding-inline: 1rem;">initial</p>',
+}));
 
-  const component = flushSync(() => mount(LayoutHarness, { target }));
-
-  cleanup = async () => {
-    await unmount(component);
-    target.remove();
-  };
-}
+const wideLayoutContent = createRawSnippet(() => ({
+  render: () =>
+    '<p style="box-sizing: border-box; inline-size: 100%; max-inline-size: 64rem; min-block-size: 200dvh; margin: 0 auto;">wide</p>',
+}));

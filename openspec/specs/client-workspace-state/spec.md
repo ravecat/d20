@@ -220,15 +220,15 @@ The client workspace SHALL be exposed as a Feature-Sliced Design widget whose mo
 
 The client application SHALL use one route-agnostic persistent default layout and SHALL let each page public API declare its non-default layout presentation metadata.
 
-#### Scenario: Narrow page resolves
-
-- **WHEN** a page public API exports the narrow layout variant
-- **THEN** Inertia applies that variant to the persistent default layout without application bootstrap branching on the page name
-
-#### Scenario: Default page resolves
+#### Scenario: Default narrow page resolves
 
 - **WHEN** a page public API does not export layout presentation metadata
-- **THEN** the persistent application layout uses its default variant
+- **THEN** the persistent application layout uses its narrow variant
+
+#### Scenario: Wide page resolves
+
+- **WHEN** a page public API exports the wide layout variant
+- **THEN** Inertia applies that variant to the persistent default layout without application bootstrap branching on the page name
 
 #### Scenario: Navigation changes the layout variant
 

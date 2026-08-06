@@ -14,7 +14,10 @@
   type Props = {
     action?: FormComponentProps["action"];
     method?: FormComponentProps["method"];
+    errorBag?: FormComponentProps["errorBag"];
     disableWhileProcessing?: boolean;
+    onError?: FormComponentProps["onError"];
+    onSuccess?: FormComponentProps["onSuccess"];
     class?: string;
     children?: Snippet<[SlotProps]>;
   };
@@ -24,21 +27,38 @@
   const {
     action = "",
     method = "get",
+    errorBag = null,
     disableWhileProcessing: _disableWhileProcessing = false,
+    onError,
+    onSuccess,
     children,
     ...rest
   }: Props = $props();
   let formElement: HTMLFormElement;
 
-  const errors: SlotProps["errors"] = {};
-  const processing = false;
+  let errors = $state<SlotProps["errors"]>({});
+  let processing = $state(false);
+  let wasSuccessful = $state(false);
+  const responder = {
+    error(nextErrors: Record<string, string>) {
+      errors = nextErrors;
+      processing = false;
+      onError?.(nextErrors);
+    },
+    success() {
+      errors = {};
+      processing = false;
+      wasSuccessful = true;
+      onSuccess?.(inertiaMock.page);
+    },
+  };
   const slotProps = $derived<SlotProps>({
     errors,
     hasErrors: Object.keys(errors).length > 0,
     processing,
     progress: null,
-    wasSuccessful: false,
-    recentlySuccessful: false,
+    wasSuccessful,
+    recentlySuccessful: wasSuccessful,
     isDirty: false,
     clearErrors: () => undefined,
     resetAndClearErrors: () => undefined,
@@ -58,17 +78,24 @@
   });
 
   function submit() {
-    inertiaMock.formSubmit({
+    inertiaMock.submitForm(responder, {
       action: actionUrl(action),
       method: formMethod(action, method),
       data: getData(),
+      ...(errorBag ? { errorBag } : {}),
     });
   }
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    processing = true;
+    wasSuccessful = false;
     submit();
   }
+
+  $effect(() => {
+    return inertiaMock.registerForm(responder);
+  });
 
   function getFormData() {
     return new FormData(formElement);

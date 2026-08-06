@@ -67,7 +67,7 @@
     inline-size: 100%;
     max-inline-size: 46.25rem;
     margin-inline: auto;
-    padding: 1.5rem 1.5rem 2.5rem;
+    padding: 1.5rem 1rem 2.5rem;
   }
 
   .developers-intro {

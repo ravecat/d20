@@ -71,6 +71,9 @@ export default defineConfig({
         test: {
           name: "browser",
           include: ["tests/**/*.browser.test.ts"],
+          alias: {
+            "@inertiajs/svelte": path.resolve(assetsDir, "tests/mocks/inertia_svelte.ts"),
+          },
           browser: {
             enabled: true,
             headless: true,

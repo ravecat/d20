@@ -16,6 +16,7 @@
     "@inertiajs/svelte": "3.6.0",
     "@rvct/d20sdk": "1.2.0",
     "@xstate/store": "4.2.1",
+    "@xstate/store-svelte": "2.0.0",
     "phoenix": "file:../deps/phoenix",
     "phoenix-session": "1.1.0",
     "phoenix_html": "file:../deps/phoenix_html",
@@ -27,6 +28,7 @@
     "@eslint/js": "^10.0.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tailwindcss/vite": "^4.1.0",
+    "@testing-library/svelte": "^5.4.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/browser-playwright": "4.1.7",
     "browserslist": "^4.28.6",
@@ -45,7 +47,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.0",
     "vite": "^8.1.5",
-    "vitest": "4.1.7"
+    "vitest": "4.1.7",
+    "vitest-browser-svelte": "^3.0.0"
   },
   "browserslist": [
     "baseline widely available with downstream",

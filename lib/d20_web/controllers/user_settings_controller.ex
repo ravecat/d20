@@ -7,10 +7,9 @@ defmodule D20Web.UserSettingsController do
   import D20Web.UserAuth, only: [require_sudo_mode: 2]
 
   plug :require_sudo_mode
-  plug :assign_email_and_password_changesets
 
   def edit(conn, _params) do
-    render(conn, :edit)
+    render_inertia(conn, "account_settings", %{email: conn.assigns.current_user.email})
   end
 
   def update(conn, %{"action" => "update_email"} = params) do
@@ -33,7 +32,7 @@ defmodule D20Web.UserSettingsController do
         |> redirect(to: ~p"/users/settings")
 
       changeset ->
-        render(conn, :edit, email_changeset: %{changeset | action: :insert})
+        conn |> assign_errors(%{changeset | action: :insert}) |> redirect_to_settings()
     end
   end
 
@@ -45,11 +44,11 @@ defmodule D20Web.UserSettingsController do
       {:ok, {user, _}} ->
         conn
         |> put_flash(:info, "Password updated successfully.")
-        |> put_session(:user_return_to, ~p"/users/settings")
+        |> put_session(:return_to, ~p"/users/settings")
         |> UserAuth.log_in_user(user)
 
       {:error, changeset} ->
-        render(conn, :edit, password_changeset: changeset)
+        conn |> assign_errors(changeset) |> redirect_to_settings()
     end
   end
 
@@ -67,11 +66,9 @@ defmodule D20Web.UserSettingsController do
     end
   end
 
-  defp assign_email_and_password_changesets(conn, _opts) do
-    user = conn.assigns.current_user
-
+  defp redirect_to_settings(conn) do
     conn
-    |> assign(:email_changeset, Accounts.change_user_email(user))
-    |> assign(:password_changeset, Accounts.change_user_password(user))
+    |> put_status(:see_other)
+    |> redirect(to: ~p"/users/settings")
   end
 end

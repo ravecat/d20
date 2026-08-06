@@ -88,7 +88,7 @@
     inline-size: 100%;
     max-inline-size: 46.25rem;
     margin-inline: auto;
-    padding: 1.5rem;
+    padding: 1.5rem 1rem;
   }
 
   .home-grid {
@@ -300,11 +300,5 @@
     line-height: 1.1;
     white-space: nowrap;
     box-shadow: 0 8px 18px rgb(0 0 0 / 0.2);
-  }
-
-  @media (max-width: 48rem) {
-    .home-shell {
-      padding-inline: 1rem;
-    }
   }
 </style>
