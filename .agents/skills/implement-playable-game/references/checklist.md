@@ -182,11 +182,20 @@
 Complete this section whenever the shell UI or a separate iframe client is in scope.
 
 - [ ] Model the client with XState as a hybrid of the latest authoritative Projection and explicit local interaction state.
+- [ ] Use the hierarchical state value as the canonical identity of mutually exclusive modes instead of duplicating it in context booleans, tags, component stores, or custom state-node IDs.
+- [ ] Put each event on the narrowest compound state that owns all valid sources and use local sibling or descendant target paths.
+- [ ] Use `stateIn(...)` and `snapshot.matches(...)` for exact structural questions, and reserve tags for stable cross-cutting semantics that span unrelated branches.
+- [ ] Keep guards pure and synchronous, order alternative transitions from most specific to fallback, and keep mutations or effects in actions and actors.
+- [ ] Use targetless transitions only when actions should preserve the active descendants, and use explicit targets or `reenter: true` only when reset or restart semantics are intended.
+- [ ] Keep guarded `always` states transient and avoid UI or test assertions that require those states to be emitted.
 - [ ] Feed the game-session topic join projection and every `projection` event into the machine as synchronization events.
+- [ ] Model connection snapshots and Projection snapshots as distinct typed events with separate context assignments and invalidation rules.
+- [ ] Preserve an in-flight state across a snapshot only through a guarded targetless transition that proves the new snapshot keeps it valid; otherwise reclassify from updated context.
 - [ ] Let the latest Projection win conflicts and invalidate stale local selections, pending assumptions, or optimistic state safely.
 - [ ] Send commands from machine effects and wait for a Projection before treating authoritative state as changed.
 - [ ] Define connection, rejoin, pending, rejection, and resynchronization states wherever the supported workflow can encounter them.
 - [ ] Define XState guards from local facts plus projected permissions, legal choices, constraints, and lifecycle status without treating them as server authorization.
+- [ ] Build the exact typed event payload first, use `snapshot.can(event)` for the affordance, and send that same event object without recreating guard logic in the component.
 - [ ] Use XState machine and actor primitives directly and keep framework-specific subscriptions and rendering adapters thin.
 - [ ] Avoid parallel component or store state that duplicates the machine state node, local context, or current Projection.
 - [ ] Design narrow portrait mobile layouts first, then enhance the same information hierarchy for supported desktop sizes.
@@ -223,7 +232,7 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 | Channel | Replies, accepted broadcasts, rejected non-broadcasts, caller-specific rendering |
 | Custom server | Selected module, scheduling, exactly-once action, actor rejection, nondeterministic-value idempotency, error behavior, idle coexistence |
 | Registry and contract | Engine discovery, contract serving, developer index |
-| In-scope client | Game-session projection synchronization, XState transitions and guards, mobile-first and desktop layouts, typography, semantic states, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
+| In-scope client | Game-session projection synchronization, hierarchical XState paths and transition ownership, guarded-candidate priority, targetless preservation, intentional resets, `snapshot.can(event)` affordances, mobile-first and desktop layouts, typography, semantic states, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
 
 ## Validation Commands
 

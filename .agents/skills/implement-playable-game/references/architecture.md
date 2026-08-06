@@ -400,13 +400,68 @@ Model an in-scope game client as a hybrid XState machine with two distinct input
 - the latest caller-specific Projection, which is authoritative for session and game facts, permissions, legal choices, constraints, progress, and outcomes
 - explicit local state for connection, pending commands, selections, drafts, dialogs, animation, and other interaction facts that are not authoritative server state
 
+### Hierarchy and state identity
+
+Use the statechart hierarchy as the canonical identity of mutually exclusive modes. Put facts that answer "which mode is active?" in state nodes. Put data needed by more than one mode, such as the latest Projection, a selection, or a correlation epoch, in context. Do not mirror the same mode with a state node, a context boolean, a component store, and a tag.
+
+Design the tree so each compound state names a meaningful behavioral scope. For example, a turn may contain `waiting`, `editing`, and `submitting`, while `editing` contains `primary` and `review`. A parent state then answers the broad question and a leaf answers the precise question.
+
+Use local transition targets from the state node that owns the event:
+
+| Relationship from transition source | Target shape |
+| --- | --- |
+| Sibling | `sibling` |
+| Descendant of a sibling | `sibling.child` |
+| Descendant of the current state | `.child.grandchild` |
+
+Avoid custom state-node IDs that merely create a second naming system for the same hierarchy. Keep IDs for invoked or spawned actors that must be addressed, or for a deliberate state-node reference that cannot be expressed through a maintainable local path.
+
+Declare an event on the narrowest compound state that contains every valid source and target. XState checks active leaf states before their parents, so a child can specialize an inherited event. Use an explicit empty transition such as `{ "game.player.view": {} }` only when that child must forbid the parent's behavior.
+
+If one event has alternative transitions, XState evaluates them in order and takes the first enabled candidate. Put the most specific guarded case first and an unconditional fallback last. Do not treat the array as a set of transitions that all run.
+
+### Guards, actions, and state queries
+
+Keep guards pure, synchronous, and free of mutation or effects. Define reusable guards in `setup(...)`; keep an inline guard only when its complete condition is easier to understand at the transition. Use `and`, `or`, and `not` when composition exposes the decision more clearly than one large predicate.
+
+Prefer transition ownership over an in-state guard. Use `stateIn(stateValue)` when a root-owned event, parallel region, or other real cross-tree decision must inspect structural state. Pass object state values such as `{ ready: { game: { turn: "submitting" } } }` so the hierarchy remains visible.
+
+Use `snapshot.matches(stateValue)` for a structural read such as "is this exact workflow branch active?" Use a tag when a stable semantic category intentionally spans unrelated branches and should survive hierarchy refactoring. Do not add a tag that only renames one existing parent state.
+
+Use `assign(...)` to replace context immutably after narrowing the discriminated event type. Keep external I/O in invoked actors or other actor logic and send typed events between actors. An action may orchestrate effects, but a guard must remain safe to execute repeatedly because `snapshot.can(event)` also evaluates guards.
+
+Build the complete typed event object, including its payload, before checking availability. Use `snapshot.can(event)` to derive an affordance or filter legal local targets, then send that same event object. This keeps the component aligned with current state, event payload, and guard logic without reproducing those checks outside the machine.
+
+### Target and transient-state semantics
+
+A transition without `target` runs its actions and preserves the active state and descendants. Use this deliberately when a synchronization event updates context but the new data proves that an in-flight mode remains valid.
+
+An explicit target re-resolves the targeted descendant path. A transition to the same compound state therefore resets its child state to the selected or initial descendant. Add `reenter: true` only when the compound state's entry, exit, delays, or invoked actors must restart too.
+
+Use guarded `always` transitions for immediate internal classification after context changes. Every branch must converge on a different stable state, and no rendering or test should depend on observing the transient routing state because subscribers receive the final snapshot after eventless microsteps.
+
+### Authoritative snapshot reconciliation
+
 Join the D20 game-session topic at `session:<id>`, treat the join reply as the initial projection, and send every later `projection` event into the machine as a synchronization event. Replace or reconcile the authoritative slice from that payload. When local assumptions conflict with the projection, let the projection win and transition to the appropriate valid local state. On rejoin, rebuild from the new projection instead of replaying client history as authority.
+
+Represent connection snapshots and game-session Projection snapshots as distinct discriminated events. They update different context slices: connection snapshots describe transport availability, while Projection snapshots replace server-authoritative session and game facts. Their guards and reconciliation therefore have different invalidation criteria even when both ultimately reclassify the machine.
+
+A useful synchronization pattern is:
+
+1. Handle each snapshot event once at the machine root.
+2. Narrow its event type and update only the corresponding context slice with `assign(...)`.
+3. If the machine is in a critical in-flight state, take a guarded targetless transition only when the new snapshot proves that state is still valid.
+4. Otherwise target a transient classifier whose guarded `always` transitions derive the next stable state from the newly updated context.
+
+This pattern preserves an active submission across harmless connection or Projection updates without allowing stale local workflow to survive an authoritative phase, permission, actor, or turn-epoch change.
 
 Send player intent through channel commands from machine effects. Treat command replies as acknowledgement or rejection only, and wait for a delivered projection before moving authoritative state forward. Keep pending state local and make rejection, disconnect, retry, and resynchronization transitions explicit when the workflow can encounter them.
 
 Use XState guards to combine local interaction facts with projected permissions and legal choices. A guard may decide whether to show or enter a client state, but it never replaces server authorization or Rules validation. Prefer XState primitives such as `setup`, `createMachine`, guards, actions, and invoked actors. Keep framework adapters thin so components render machine state and send events without hiding transition ownership behind framework-specific helpers.
 
 Keep the machine locally complete but minimal. Represent every behaviorally distinct local state required by the workflow, while deriving values from the current state node and Projection instead of copying them into parallel stores or component variables.
+
+Test the transition contract directly. Cover hierarchical entry and exit, guarded-candidate priority, targetless descendant preservation, targeted reset or reentry when intentional, snapshot-driven invalidation, stale reply correlation, and `snapshot.can(event)` with the same payload later sent by the UI.
 
 ## Shell Integration Pattern
 
