@@ -103,11 +103,12 @@ describe("Layout scroll timeline", () => {
     expect(contentStart).toBeCloseTo(window.innerWidth - contentEnd, 0);
   });
 
-  it("aligns wide header and content horizontal gutters", async () => {
+  it("aligns the wide header, content, and footer to desktop gutters", async () => {
     await render(Layout, { variant: "wide", children: wideLayoutContent });
 
     const brand = page.getByRole("link", { name: "D20" }).element();
     const register = page.getByRole("button", { name: "Register" }).element();
+    const developerLink = page.getByRole("link", { name: "for developers" }).element();
     const content = page.getByText("wide", { exact: true }).element();
     const contentStyle = getComputedStyle(content);
     const contentStart =
@@ -117,6 +118,31 @@ describe("Layout scroll timeline", () => {
 
     expect(brand.getBoundingClientRect().left).toBeCloseTo(contentStart, 0);
     expect(register.getBoundingClientRect().right).toBeCloseTo(contentEnd, 0);
+    expect(developerLink.getBoundingClientRect().right).toBeCloseTo(contentEnd, 0);
+    expect(contentStart - content.getBoundingClientRect().left).toBeCloseTo(24, 3);
+    expect(content.getBoundingClientRect().right - contentEnd).toBeCloseTo(24, 3);
+    expect(contentStart).toBeCloseTo(window.innerWidth - contentEnd, 0);
+  });
+
+  it("aligns the wide header, content, and footer to mobile gutters", async () => {
+    await page.viewport(412, 915);
+    await render(Layout, { variant: "wide", children: mobileWideLayoutContent });
+
+    const brand = page.getByRole("link", { name: "D20" }).element();
+    const register = page.getByRole("button", { name: "Register" }).element();
+    const developerLink = page.getByRole("link", { name: "for developers" }).element();
+    const content = page.getByText("mobile wide", { exact: true }).element();
+    const contentStyle = getComputedStyle(content);
+    const contentStart =
+      content.getBoundingClientRect().left + Number.parseFloat(contentStyle.paddingInlineStart);
+    const contentEnd =
+      content.getBoundingClientRect().right - Number.parseFloat(contentStyle.paddingInlineEnd);
+
+    expect(brand.getBoundingClientRect().left).toBeCloseTo(contentStart, 0);
+    expect(register.getBoundingClientRect().right).toBeCloseTo(contentEnd, 0);
+    expect(developerLink.getBoundingClientRect().right).toBeCloseTo(contentEnd, 0);
+    expect(contentStart - content.getBoundingClientRect().left).toBeCloseTo(16, 3);
+    expect(content.getBoundingClientRect().right - contentEnd).toBeCloseTo(16, 3);
     expect(contentStart).toBeCloseTo(window.innerWidth - contentEnd, 0);
   });
 
@@ -154,5 +180,10 @@ const narrowLayoutContent = createRawSnippet(() => ({
 
 const wideLayoutContent = createRawSnippet(() => ({
   render: () =>
-    '<p style="box-sizing: border-box; inline-size: 100%; max-inline-size: 64rem; min-block-size: 200dvh; margin: 0 auto;">wide</p>',
+    '<p style="box-sizing: border-box; inline-size: 100%; max-inline-size: 64rem; min-block-size: 200dvh; margin: 0 auto; padding-inline: 1.5rem;">wide</p>',
+}));
+
+const mobileWideLayoutContent = createRawSnippet(() => ({
+  render: () =>
+    '<p style="box-sizing: border-box; inline-size: 100%; max-inline-size: 64rem; min-block-size: 200dvh; margin: 0 auto; padding-inline: 1rem;">mobile wide</p>',
 }));

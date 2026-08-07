@@ -207,6 +207,7 @@
     max-inline-size: 64rem;
     margin-inline: auto;
     padding-block: 0 1.5rem;
+    padding-inline: 1.5rem;
   }
 
   .game-detail-page {
@@ -550,6 +551,10 @@
   }
 
   @media (max-width: 48rem) {
+    .game-detail-shell {
+      padding-inline: 1rem;
+    }
+
     .game-detail-layout {
       grid-template-columns: minmax(0, 1fr);
       gap: 1rem;

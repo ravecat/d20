@@ -44,7 +44,7 @@
 
   .footer--wide .footer__inner {
     max-inline-size: 64rem;
-    padding-inline: 0;
+    padding-inline: 1.5rem;
   }
 
   .footer__link {
@@ -62,6 +62,12 @@
   .footer__link:focus-visible {
     outline: 1px solid currentColor;
     outline-offset: 0.25rem;
+  }
+
+  @media (max-width: 48rem) {
+    .footer--wide .footer__inner {
+      padding-inline: 1rem;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

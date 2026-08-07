@@ -28,6 +28,14 @@ describe("game detail responsive spacing", () => {
     const preview = requiredElement(".game-detail-preview");
 
     expect(preview.getBoundingClientRect().top).toBeCloseTo(shell.getBoundingClientRect().top, 0);
+    expect(preview.getBoundingClientRect().left - shell.getBoundingClientRect().left).toBeCloseTo(
+      16,
+      3,
+    );
+    expect(shell.getBoundingClientRect().right - preview.getBoundingClientRect().right).toBeCloseTo(
+      16,
+      3,
+    );
     expect(
       activation.getBoundingClientRect().bottom - action.getBoundingClientRect().bottom,
     ).toBeCloseTo(0, 3);
@@ -64,6 +72,14 @@ describe("game detail responsive spacing", () => {
     const preview = requiredElement(".game-detail-preview");
 
     expect(preview.getBoundingClientRect().top).toBeCloseTo(shell.getBoundingClientRect().top, 0);
+    expect(preview.getBoundingClientRect().left - shell.getBoundingClientRect().left).toBeCloseTo(
+      24,
+      3,
+    );
+    expect(shell.getBoundingClientRect().right - preview.getBoundingClientRect().right).toBeCloseTo(
+      24,
+      3,
+    );
     expect(activation.getBoundingClientRect().top).toBeCloseTo(
       description.getBoundingClientRect().top,
       0,

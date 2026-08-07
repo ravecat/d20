@@ -142,7 +142,7 @@
 
   .header--wide .header__inner {
     max-inline-size: 64rem;
-    padding-inline: 0;
+    padding-inline: 1.5rem;
   }
 
   .brand {
@@ -186,6 +186,12 @@
   .header__register:focus-visible {
     outline: 0.1875rem solid var(--color-primary);
     outline-offset: 0.1875rem;
+  }
+
+  @media (max-width: 48rem) {
+    .header--wide .header__inner {
+      padding-inline: 1rem;
+    }
   }
 
   @media (max-width: 34rem) {
