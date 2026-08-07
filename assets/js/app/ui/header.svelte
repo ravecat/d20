@@ -21,7 +21,7 @@
   $effect(() => {
     const prompt = page.props.auth.prompt;
 
-    if (prompt) auth.trigger.openPrompt({ prompt });
+    if (prompt) auth.trigger.open({ prompt });
   });
 </script>
 

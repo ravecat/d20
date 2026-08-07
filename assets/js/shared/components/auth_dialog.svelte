@@ -2,7 +2,7 @@
   import type { FormComponentSlotProps } from "@inertiajs/core";
   import { Form, usePage } from "@inertiajs/svelte";
   import { useSelector } from "@xstate/store-svelte";
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import appleIconSvg from "~/shared/icons/apple.svg?raw";
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
@@ -17,27 +17,15 @@
 
   let dialog = $state<HTMLDialogElement>();
   let activeEmailInput = $state<HTMLInputElement>();
+  let passwordVisible = $state(false);
 
-  $effect(() => {
-    if (!dialog) return;
-
-    if ($authState.open && !dialog.open) {
-      dialog.showModal();
-      void focusActiveEmail();
-    } else if (!$authState.open && dialog.open) {
-      dialog.close();
-    }
+  onMount(() => {
+    dialog?.showModal();
   });
 
   async function switchMode(nextMode: Mode) {
-    if (nextMode === $authState.mode) return;
-
+    passwordVisible = false;
     auth.trigger.switchMode({ mode: nextMode });
-
-    await focusActiveEmail();
-  }
-
-  async function focusActiveEmail() {
     await tick();
     activeEmailInput?.focus();
   }
@@ -66,7 +54,7 @@
         class="auth-panel__close"
         type="button"
         aria-label="Close"
-        onclick={() => auth.trigger.close()}
+        onclick={() => dialog?.close()}
       >
         <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
           <path d="M5 5l14 14M19 5 5 19" />
@@ -120,8 +108,10 @@
                 <label class="auth-panel__sr-only" for="auth-dialog-registration-email">
                   Email address
                 </label>
+                <!-- svelte-ignore a11y_autofocus (Native modal entry focus is intentional.) -->
                 <input
                   bind:this={activeEmailInput}
+                  autofocus
                   value={$authState.email}
                   oninput={(event) =>
                     auth.trigger.updateEmail({ email: event.currentTarget.value })}
@@ -235,8 +225,10 @@
                   <label class="auth-panel__sr-only" for="auth-dialog-magic-link-email">
                     Email address
                   </label>
+                  <!-- svelte-ignore a11y_autofocus (Native modal entry focus is intentional.) -->
                   <input
                     bind:this={activeEmailInput}
+                    autofocus
                     value={$authState.email}
                     oninput={(event) =>
                       auth.trigger.updateEmail({ email: event.currentTarget.value })}
@@ -314,7 +306,7 @@
                   <input
                     id="auth-dialog-password-login-password"
                     name="user[password]"
-                    type={$authState.passwordVisible ? "text" : "password"}
+                    type={passwordVisible ? "text" : "password"}
                     placeholder="Password"
                     autocomplete="current-password"
                     required
@@ -325,11 +317,11 @@
                   />
                   <button
                     type="button"
-                    aria-label={$authState.passwordVisible ? "Hide password" : "Show password"}
-                    aria-pressed={$authState.passwordVisible}
-                    onclick={() => auth.trigger.togglePassword()}
+                    aria-label={passwordVisible ? "Hide password" : "Show password"}
+                    aria-pressed={passwordVisible}
+                    onclick={() => (passwordVisible = !passwordVisible)}
                   >
-                    {$authState.passwordVisible ? "Hide" : "Show"}
+                    {passwordVisible ? "Hide" : "Show"}
                   </button>
                 </div>
                 {#if errors.credentials}
@@ -453,7 +445,7 @@
   .auth-panel__title-row {
     display: flex;
     min-inline-size: 0;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
   }
@@ -734,8 +726,14 @@
 
   @media (max-width: 34rem) {
     .auth-dialog {
-      inline-size: calc(100% - 1rem);
-      max-block-size: calc(100dvh - 1rem);
+      inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
+      inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
+      inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
+      inset-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
+      inline-size: auto;
+      block-size: auto;
+      max-block-size: none;
+      margin: 0;
       padding: 1rem;
     }
 

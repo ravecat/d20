@@ -53,6 +53,7 @@ describe("app header account dialog", () => {
       getComputedStyle(page.getByText("Email address", { exact: true }).element()).clipPath,
     ).toBe("inset(50%)");
     expect((registrationEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
+    expect(registrationEmail.element().hasAttribute("autofocus")).toBe(true);
     await expect.poll(() => document.activeElement).toBe(registrationEmail.element());
 
     await registrationEmail.fill("player@example.com");
@@ -71,10 +72,24 @@ describe("app header account dialog", () => {
     ).toBe("Password");
     expect(loginEmails[0]?.value).toBe("player@example.com");
     expect(loginEmails[1]?.value).toBe("player@example.com");
+    expect(loginEmails[0]?.hasAttribute("autofocus")).toBe(true);
+    expect(loginEmails[1]?.hasAttribute("autofocus")).toBe(false);
     await expect.poll(() => document.activeElement).toBe(loginEmails[0]);
     expect(
       page.getByRole("button", { name: "Create account", exact: true }).elements(),
     ).toHaveLength(1);
+
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
+
+    const switchedRegistrationEmail = page.getByLabelText("Email address");
+
+    await expect
+      .element(page.getByRole("dialog", { name: "Create your free account" }))
+      .toBeVisible();
+    expect((switchedRegistrationEmail.element() as HTMLInputElement).value).toBe(
+      "player@example.com",
+    );
+    await expect.poll(() => document.activeElement).toBe(switchedRegistrationEmail.element());
 
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => dialogElement.open).toBe(false);
@@ -88,6 +103,26 @@ describe("app header account dialog", () => {
       .toBeVisible();
     expect((reopenedEmail.element() as HTMLInputElement).value).toBe("");
     expect(page.getByLabelText("Password", { exact: true }).elements()).toHaveLength(0);
+  });
+
+  it("routes the explicit close action through the native dialog", async () => {
+    renderHeader();
+
+    const register = page.getByRole("button", { name: "Register", exact: true });
+    await register.click();
+
+    const dialog = page.getByRole("dialog", { name: "Create your free account" });
+    const dialogElement = dialog.element() as HTMLDialogElement;
+
+    await page.getByLabelText("Email address").fill("discard@example.com");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await expect.poll(() => dialogElement.open).toBe(false);
+    expect(page.getByRole("dialog").elements()).toHaveLength(0);
+
+    await register.click();
+
+    expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe("");
   });
 
   it("delegates backdrop light dismissal to the native modal dialog", async () => {
@@ -274,6 +309,25 @@ describe("app header account dialog", () => {
     await expect.element(page.getByRole("button", { name: "Email me a login link" })).toBeVisible();
   });
 
+  it("resets local password visibility after leaving Login mode", async () => {
+    renderHeader();
+    await openLoginMode();
+
+    const password = page.getByLabelText("Password", { exact: true });
+    await page.getByRole("button", { name: "Show password" }).click();
+
+    expect((password.element() as HTMLInputElement).type).toBe("text");
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
+
+    expect(
+      (page.getByLabelText("Password", { exact: true }).element() as HTMLInputElement).type,
+    ).toBe("password");
+    await expect
+      .element(page.getByRole("button", { name: "Show password" }))
+      .toHaveAttribute("aria-pressed", "false");
+  });
+
   it("shows mode-specific provider choices without allowing provider actions", async () => {
     renderHeader();
     await page.getByRole("button", { name: "Register" }).click();
@@ -363,18 +417,47 @@ describe("app header account dialog", () => {
     expect(panel.style.blockSize).toBe("");
   });
 
-  it("keeps every login method reachable at a narrow viewport", async () => {
-    await page.viewport(360, 640);
+  it("keeps an inset mobile surface and every login method reachable", async () => {
+    await page.viewport(280, 640);
     renderHeader();
-    await openLoginMode();
+    await page.getByRole("button", { name: "Register", exact: true }).click();
+
+    const registrationDialog = page.getByRole("dialog", { name: "Create your free account" });
+    const registrationBounds = registrationDialog.element().getBoundingClientRect();
+    const registrationStyle = getComputedStyle(registrationDialog.element());
+    const headingBounds = page
+      .getByRole("heading", { name: "Create your free account" })
+      .element()
+      .getBoundingClientRect();
+    const closeBounds = page
+      .getByRole("button", { name: "Close", exact: true })
+      .element()
+      .getBoundingClientRect();
+
+    expect(registrationBounds.left).toBeCloseTo(8, 0);
+    expect(registrationBounds.top).toBeCloseTo(8, 0);
+    expect(registrationBounds.right).toBeCloseTo(window.innerWidth - 8, 0);
+    expect(registrationBounds.bottom).toBeCloseTo(window.innerHeight - 8, 0);
+    expect(registrationStyle.borderLeftWidth).toBe("1px");
+    expect(registrationStyle.borderRadius).toBe("8px");
+    expect(registrationStyle.boxShadow).not.toBe("none");
+    expect(registrationStyle.paddingTop).toBe("16px");
+    expect(registrationStyle.paddingRight).toBe("16px");
+    expect(registrationStyle.paddingBottom).toBe("16px");
+    expect(registrationStyle.paddingLeft).toBe("16px");
+    expect(headingBounds.height).toBeGreaterThan(closeBounds.height);
+    expect(closeBounds.top).toBeCloseTo(headingBounds.top, 0);
+
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     const dialog = page.getByRole("dialog", { name: "Log in" });
     const bounds = dialog.element().getBoundingClientRect();
     const modeSwitch = page.getByRole("button", { name: "Create account", exact: true });
 
-    expect(bounds.width).toBeLessThanOrEqual(window.innerWidth);
-    expect(bounds.height).toBeLessThanOrEqual(window.innerHeight);
-    expect(getComputedStyle(dialog.element()).paddingLeft).toBe("16px");
+    expect(bounds.left).toBeCloseTo(8, 0);
+    expect(bounds.top).toBeCloseTo(8, 0);
+    expect(bounds.right).toBeCloseTo(window.innerWidth - 8, 0);
+    expect(bounds.bottom).toBeCloseTo(window.innerHeight - 8, 0);
     expect(
       getComputedStyle(dialog.element().querySelector(".auth-panel__content")!).overflowY,
     ).toBe("auto");

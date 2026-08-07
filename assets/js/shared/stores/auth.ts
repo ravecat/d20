@@ -9,19 +9,16 @@ type AuthContext = {
   prompt: AuthPrompt | null;
   registrationCompleted: boolean;
   magicLinkCompleted: boolean;
-  passwordVisible: boolean;
 };
 
 export const auth = createStore<
   AuthContext,
   {
-    open: null;
-    openPrompt: { prompt: AuthPrompt };
+    open: { prompt?: AuthPrompt };
     switchMode: { mode: AuthContext["mode"] };
     updateEmail: { email: string };
     registrationSucceeded: null;
     magicLinkSucceeded: null;
-    togglePassword: null;
     close: null;
     reset: null;
   }
@@ -33,33 +30,21 @@ export const auth = createStore<
     prompt: null,
     registrationCompleted: false,
     magicLinkCompleted: false,
-    passwordVisible: false,
   },
   on: {
-    open: () => ({
+    open: (_context, event) => ({
       open: true,
-      mode: "register",
-      email: "",
-      prompt: null,
+      mode: event.prompt ? "login" : "register",
+      email: event.prompt?.email ?? "",
+      prompt: event.prompt ?? null,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
-    }),
-    openPrompt: (_context, event) => ({
-      open: true,
-      mode: "login",
-      email: event.prompt.email,
-      prompt: event.prompt,
-      registrationCompleted: false,
-      magicLinkCompleted: false,
-      passwordVisible: false,
     }),
     switchMode: (context, event) => ({
       ...context,
       mode: event.mode,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     }),
     updateEmail: (context, event) => ({
       ...context,
@@ -73,10 +58,6 @@ export const auth = createStore<
       ...context,
       magicLinkCompleted: true,
     }),
-    togglePassword: (context) => ({
-      ...context,
-      passwordVisible: !context.passwordVisible,
-    }),
     close: () => ({
       open: false,
       mode: "register",
@@ -84,7 +65,6 @@ export const auth = createStore<
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     }),
     reset: () => ({
       open: false,
@@ -93,7 +73,6 @@ export const auth = createStore<
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     }),
   },
 });

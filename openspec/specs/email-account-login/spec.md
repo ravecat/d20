@@ -8,7 +8,19 @@ Define the shared and direct Inertia account journeys for magic-link and passwor
 
 ### Requirement: Shared account dialog switches between registration and login
 
-The system SHALL provide one guest account dialog with Register and Login modes. Activating the existing-user action in Register mode SHALL switch to Login mode without navigation, and activating the new-user action in Login mode SHALL switch to Register mode without navigation. A mode change SHALL preserve the entered email, clear stale form errors and result states, update the accessible dialog name, and focus the first field in the active mode. The visible title for reauthentication, Register, and Login SHALL be selected directly inside the rendered heading from component input properties so localizable display strings remain at their markup consumption site; the component MUST NOT store the selected title in intermediate reactive state. Closing the dialog SHALL discard unfinished input and transient form and result state so the next opening starts from its requested initial mode and values. The inactive top-level mode MUST NOT remain in the rendered accessibility tree.
+The system SHALL provide one guest account dialog with Register and Login modes. Activating the existing-user action in Register mode SHALL switch to Login mode without navigation, and activating the new-user action in Login mode SHALL switch to Register mode without navigation. The first email field in each active mode SHALL be declared as that mode's native autofocus target when the dialog is shown. Mounting the dialog for an open auth state SHALL invoke its native modal opening behavior once. Escape, supported light dismissal, and the explicit close action SHALL converge on the native dialog close event, which SHALL close shared auth state and remove the dialog. A mode change while the dialog is already open SHALL preserve the entered email, clear stale form errors and result states, update the accessible dialog name, and focus the first field in the active mode from the shared mode-switch handler after its conditional DOM update. The visible title for reauthentication, Register, and Login SHALL be selected directly inside the rendered heading from component input properties so localizable display strings remain at their markup consumption site; the component MUST NOT store the selected title in intermediate reactive state. Closing the dialog SHALL discard unfinished input and transient form and result state so the next opening starts from its requested initial mode and values. The inactive top-level mode MUST NOT remain in the rendered accessibility tree.
+
+#### Scenario: Guest opens an account mode
+
+- **WHEN** the shared account dialog opens in Register or Login mode
+- **THEN** the browser's native dialog focusing behavior selects the first email field in the active mode
+
+#### Scenario: Guest uses the explicit close action
+
+- **WHEN** a guest activates the dialog's explicit close action
+- **THEN** the native modal closes
+- **AND** the shared auth state closes and removes the dialog
+- **AND** reopening the dialog starts with fresh transient state
 
 #### Scenario: Guest switches from registration to login
 
@@ -16,7 +28,7 @@ The system SHALL provide one guest account dialog with Register and Login modes.
 - **THEN** the same dialog displays Login mode without changing the current page URL
 - **AND** the entered email remains available in the login forms
 - **AND** registration-only controls are no longer rendered
-- **AND** focus moves to the first login email field
+- **AND** focus moves to the first login email field after Login mode is rendered
 
 #### Scenario: Guest switches from login to registration
 
@@ -24,6 +36,7 @@ The system SHALL provide one guest account dialog with Register and Login modes.
 - **THEN** the same dialog displays Register mode without navigation
 - **AND** the entered email remains available in registration
 - **AND** login-only controls are no longer rendered
+- **AND** focus moves to the registration email field after Register mode is rendered
 
 #### Scenario: Guest closes unfinished account entry
 
@@ -39,7 +52,7 @@ The system SHALL provide one guest account dialog with Register and Login modes.
 
 ### Requirement: Account dialog follows the active mode content size
 
-At viewports tall enough to contain the active mode, the account dialog SHALL derive its block size from that mode's content through CSS while retaining one common inline size. The native dialog SHALL own its visible surface and common responsive content inset, and the title, description, notices, forms, results, separators, provider choices, and mode switch SHALL share that inline alignment without independent horizontal region padding. Non-scrolling account content MUST NOT reserve scrollbar space and SHALL keep equal inline insets between the dialog content edges and full-width method controls. Switching between Register and Login MUST NOT require scripted DOM measurement, numeric block-size writes, animation-frame scheduling, or resize timers. When the active mode is taller than the available viewport, the dialog SHALL constrain itself to the viewport and keep active content reachable through internal scrolling.
+At viewports wider than the supported mobile breakpoint and tall enough to contain the active mode, the account dialog SHALL derive its block size from that mode's content through CSS while retaining one common inline size. At supported mobile viewport widths, the account dialog SHALL nearly fill the available dynamic viewport within a small safe-area-aware outer inset and SHALL retain its border, rounded corners, and shadow so it remains visually identifiable as a dialog. The native dialog SHALL own its visible surface and common responsive content inset, and the title, description, notices, forms, results, separators, provider choices, and mode switch SHALL share that inline alignment without independent horizontal region padding. Non-scrolling account content MUST NOT reserve scrollbar space and SHALL keep equal inline insets between the dialog content edges and full-width method controls. Switching between Register and Login MUST NOT require scripted DOM measurement, numeric block-size writes, animation-frame scheduling, or resize timers. When the active mode is taller than the available viewport, the dialog SHALL constrain itself within the outer inset and keep active content reachable through internal scrolling.
 
 #### Scenario: Guest switches modes on a desktop viewport
 
@@ -56,6 +69,14 @@ At viewports tall enough to contain the active mode, the account dialog SHALL de
 - **THEN** the dialog retains its common inline size
 - **AND** the check-email result uses the same inline alignment as the replaced form and surrounding Register mode content
 - **AND** the dialog block size changes only by the natural size difference between the email form and result
+
+#### Scenario: Account dialog opens on a mobile viewport
+
+- **WHEN** a guest opens Register or Login at a supported mobile viewport width
+- **THEN** a small outer reveal separates every dialog edge from the available dynamic viewport edge
+- **AND** each outer reveal respects the corresponding device safe area
+- **AND** the surface retains its border, rounded corners, and shadow
+- **AND** each content edge retains the common mobile inset
 
 #### Scenario: Active dialog content exceeds the viewport
 
@@ -208,7 +229,8 @@ The account dialog SHALL use native modal dialog semantics, expose an accessible
 #### Scenario: Login opens on a narrow viewport
 
 - **WHEN** a guest opens Login at a supported mobile viewport width
-- **THEN** both enabled forms, provider choices, the mode switch, status messages, and close action remain visible or reachable by scrolling
+- **THEN** Login uses the near-full-viewport inset account surface
+- **AND** both enabled forms, provider choices, the mode switch, status messages, and close action remain visible or reachable by scrolling
 
 ### Requirement: Server-required authentication opens the shared dialog once
 

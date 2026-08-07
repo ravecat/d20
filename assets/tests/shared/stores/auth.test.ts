@@ -14,9 +14,8 @@ beforeEach(() => {
 
 describe("auth store", () => {
   it("opens a clean registration dialog", () => {
-    auth.trigger.openPrompt({ prompt });
+    auth.trigger.open({ prompt });
     auth.trigger.magicLinkSucceeded();
-    auth.trigger.togglePassword();
 
     auth.trigger.open();
 
@@ -27,12 +26,11 @@ describe("auth store", () => {
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     });
   });
 
   it("captures a server prompt as a login dialog session", () => {
-    auth.trigger.openPrompt({ prompt });
+    auth.trigger.open({ prompt });
 
     expect(auth.get().context).toEqual({
       open: true,
@@ -41,15 +39,13 @@ describe("auth store", () => {
       prompt,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     });
   });
 
   it("preserves prompt and email while resetting mode-specific interaction state", () => {
-    auth.trigger.openPrompt({ prompt });
+    auth.trigger.open({ prompt });
     auth.trigger.updateEmail({ email: "changed@example.com" });
     auth.trigger.magicLinkSucceeded();
-    auth.trigger.togglePassword();
 
     auth.trigger.switchMode({ mode: "register" });
 
@@ -60,12 +56,11 @@ describe("auth store", () => {
       prompt,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     });
   });
 
   it("resets the complete dialog session when closed", () => {
-    auth.trigger.openPrompt({ prompt });
+    auth.trigger.open({ prompt });
 
     auth.trigger.close();
 
@@ -76,7 +71,6 @@ describe("auth store", () => {
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
-      passwordVisible: false,
     });
   });
 });
