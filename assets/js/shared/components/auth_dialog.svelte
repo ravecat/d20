@@ -62,26 +62,26 @@
       </button>
     </header>
 
-    <p class="auth-panel__description">
-      {#if $authState.prompt?.reauthenticate}
-        Sign in again to continue to the protected account action.
-      {:else}
-        Save your game history and achievements. Continue game sessions across devices and watch
-        replays of completed games.
-      {/if}
-    </p>
-
-    {#if $authState.prompt?.message}
-      <aside class="auth-panel__notice" role="status">{$authState.prompt.message}</aside>
-    {/if}
-
-    {#if page.props.auth.local}
-      <aside class="auth-panel__notice" role="status">
-        Sent development emails are available in the <a href="/dev/mailbox">local mailbox</a>.
-      </aside>
-    {/if}
-
     <div class="auth-panel__content">
+      <p class="auth-panel__description">
+        {#if $authState.prompt?.reauthenticate}
+          Sign in again to continue to the protected account action.
+        {:else}
+          Save your game history and achievements. Continue game sessions across devices and watch
+          replays of completed games.
+        {/if}
+      </p>
+
+      {#if $authState.prompt?.message}
+        <aside class="auth-panel__notice" role="status">{$authState.prompt.message}</aside>
+      {/if}
+
+      {#if page.props.auth.local}
+        <aside class="auth-panel__notice" role="status">
+          Sent development emails are available in the <a href="/dev/mailbox">local mailbox</a>.
+        </aside>
+      {/if}
+
       {#if $authState.mode === "register"}
         {#if $authState.registrationCompleted}
           <div class="auth-panel__result" role="status" aria-live="polite">
@@ -410,7 +410,7 @@
     border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, transparent);
     border-radius: var(--radius-box);
     background: var(--color-base-100);
-    padding: 1.5rem;
+    padding: 0;
     color: var(--color-base-content);
     box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 0.38);
   }
@@ -448,6 +448,8 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+    padding-block-start: 1.5rem;
+    padding-inline: 1.5rem;
   }
 
   .auth-panel__title {
@@ -493,10 +495,15 @@
   }
 
   .auth-panel__content {
+    display: flex;
     flex: 0 1 auto;
+    flex-direction: column;
+    gap: 0.75rem;
     min-block-size: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-block-end: 1.5rem;
+    padding-inline: 1.5rem;
   }
 
   :global(.auth-form),
@@ -734,7 +741,16 @@
       block-size: auto;
       max-block-size: none;
       margin: 0;
-      padding: 1rem;
+    }
+
+    .auth-panel__title-row {
+      padding-block-start: 1rem;
+      padding-inline: 1rem;
+    }
+
+    .auth-panel__content {
+      padding-block-end: 1rem;
+      padding-inline: 1rem;
     }
 
     .auth-providers__button {

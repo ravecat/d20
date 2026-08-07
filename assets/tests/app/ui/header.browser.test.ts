@@ -355,22 +355,32 @@ describe("app header account dialog", () => {
     const registrationEmail = page.getByLabelText("Email address");
     const registrationBounds = dialogElement.getBoundingClientRect();
     const registrationContent = dialogElement.querySelector<HTMLElement>(".auth-panel__content")!;
+    const registrationContentBounds = registrationContent.getBoundingClientRect();
+    const registrationContentStyle = getComputedStyle(registrationContent);
+    const titleRow = heading.element().closest("header") as HTMLElement;
     const panel = heading.element().closest("section") as HTMLElement;
     const dialogStyle = getComputedStyle(dialogElement);
+    const surfaceInlineStart =
+      registrationBounds.left + Number.parseFloat(dialogStyle.borderLeftWidth);
+    const surfaceInlineEnd =
+      registrationBounds.right - Number.parseFloat(dialogStyle.borderRightWidth);
     const contentInlineStart =
-      registrationBounds.left +
-      Number.parseFloat(dialogStyle.borderLeftWidth) +
-      Number.parseFloat(dialogStyle.paddingLeft);
+      surfaceInlineStart + Number.parseFloat(registrationContentStyle.paddingLeft);
     const contentInlineEnd =
-      registrationBounds.right -
-      Number.parseFloat(dialogStyle.borderRightWidth) -
-      Number.parseFloat(dialogStyle.paddingRight);
+      surfaceInlineEnd - Number.parseFloat(registrationContentStyle.paddingRight);
     const registrationEmailBounds = registrationEmail.element().getBoundingClientRect();
 
     expect(registrationContent.scrollHeight).toBeLessThanOrEqual(registrationContent.clientHeight);
-    expect(dialogStyle.paddingLeft).toBe("24px");
+    expect(dialogStyle.paddingLeft).toBe("0px");
     expect(dialogStyle.backgroundColor).toBe("rgb(250, 250, 250)");
     expect(getComputedStyle(panel).paddingLeft).toBe("0px");
+    expect(getComputedStyle(titleRow).paddingLeft).toBe("24px");
+    expect(getComputedStyle(titleRow).paddingRight).toBe("24px");
+    expect(registrationContentStyle.paddingLeft).toBe("24px");
+    expect(registrationContentStyle.paddingRight).toBe("24px");
+    expect(registrationContentStyle.paddingBottom).toBe("24px");
+    expect(registrationContentBounds.left).toBeCloseTo(surfaceInlineStart, 0);
+    expect(registrationContentBounds.right).toBeCloseTo(surfaceInlineEnd, 0);
     expect(heading.element().getBoundingClientRect().left).toBeCloseTo(contentInlineStart, 0);
     expect(description.element().getBoundingClientRect().left).toBeCloseTo(contentInlineStart, 0);
     expect(registrationEmailBounds.left).toBeCloseTo(contentInlineStart, 0);
@@ -423,16 +433,25 @@ describe("app header account dialog", () => {
     await page.getByRole("button", { name: "Register", exact: true }).click();
 
     const registrationDialog = page.getByRole("dialog", { name: "Create your free account" });
-    const registrationBounds = registrationDialog.element().getBoundingClientRect();
-    const registrationStyle = getComputedStyle(registrationDialog.element());
-    const headingBounds = page
-      .getByRole("heading", { name: "Create your free account" })
-      .element()
-      .getBoundingClientRect();
+    const registrationElement = registrationDialog.element() as HTMLDialogElement;
+    const registrationBounds = registrationElement.getBoundingClientRect();
+    const registrationStyle = getComputedStyle(registrationElement);
+    const registrationHeading = page.getByRole("heading", { name: "Create your free account" });
+    const headingBounds = registrationHeading.element().getBoundingClientRect();
     const closeBounds = page
       .getByRole("button", { name: "Close", exact: true })
       .element()
       .getBoundingClientRect();
+    const registrationTitleRow = registrationHeading.element().closest("header") as HTMLElement;
+    const registrationTitleStyle = getComputedStyle(registrationTitleRow);
+    const registrationContent =
+      registrationElement.querySelector<HTMLElement>(".auth-panel__content")!;
+    const registrationContentBounds = registrationContent.getBoundingClientRect();
+    const registrationContentStyle = getComputedStyle(registrationContent);
+    const registrationSurfaceInlineStart =
+      registrationBounds.left + Number.parseFloat(registrationStyle.borderLeftWidth);
+    const registrationSurfaceInlineEnd =
+      registrationBounds.right - Number.parseFloat(registrationStyle.borderRightWidth);
 
     expect(registrationBounds.left).toBeCloseTo(8, 0);
     expect(registrationBounds.top).toBeCloseTo(8, 0);
@@ -441,10 +460,20 @@ describe("app header account dialog", () => {
     expect(registrationStyle.borderLeftWidth).toBe("1px");
     expect(registrationStyle.borderRadius).toBe("8px");
     expect(registrationStyle.boxShadow).not.toBe("none");
-    expect(registrationStyle.paddingTop).toBe("16px");
-    expect(registrationStyle.paddingRight).toBe("16px");
-    expect(registrationStyle.paddingBottom).toBe("16px");
-    expect(registrationStyle.paddingLeft).toBe("16px");
+    expect(registrationStyle.paddingTop).toBe("0px");
+    expect(registrationStyle.paddingRight).toBe("0px");
+    expect(registrationStyle.paddingBottom).toBe("0px");
+    expect(registrationStyle.paddingLeft).toBe("0px");
+    expect(registrationTitleStyle.paddingTop).toBe("16px");
+    expect(registrationTitleStyle.paddingRight).toBe("16px");
+    expect(registrationTitleStyle.paddingLeft).toBe("16px");
+    expect(registrationContentStyle.paddingRight).toBe("16px");
+    expect(registrationContentStyle.paddingBottom).toBe("16px");
+    expect(registrationContentStyle.paddingLeft).toBe("16px");
+    expect(registrationContentBounds.left).toBeCloseTo(registrationSurfaceInlineStart, 0);
+    expect(registrationContentBounds.right).toBeCloseTo(registrationSurfaceInlineEnd, 0);
+    expect(headingBounds.left).toBeCloseTo(registrationSurfaceInlineStart + 16, 0);
+    expect(closeBounds.right).toBeCloseTo(registrationSurfaceInlineEnd - 16, 0);
     expect(headingBounds.height).toBeGreaterThan(closeBounds.height);
     expect(closeBounds.top).toBeCloseTo(headingBounds.top, 0);
 
@@ -452,18 +481,40 @@ describe("app header account dialog", () => {
 
     const dialog = page.getByRole("dialog", { name: "Log in" });
     const bounds = dialog.element().getBoundingClientRect();
+    const heading = page.getByRole("heading", { name: "Log in" });
+    const description = page.getByText("Save your game history and achievements.", {
+      exact: false,
+    });
     const modeSwitch = page.getByRole("button", { name: "Create account", exact: true });
+    const content = dialog.element().querySelector<HTMLElement>(".auth-panel__content")!;
+    const contentBounds = content.getBoundingClientRect();
+    const contentStyle = getComputedStyle(content);
+    const dialogStyle = getComputedStyle(dialog.element());
+    const surfaceInlineStart = bounds.left + Number.parseFloat(dialogStyle.borderLeftWidth);
+    const surfaceInlineEnd = bounds.right - Number.parseFloat(dialogStyle.borderRightWidth);
+    const headingTop = heading.element().getBoundingClientRect().top;
+    const contentTop = content.getBoundingClientRect().top;
 
     expect(bounds.left).toBeCloseTo(8, 0);
     expect(bounds.top).toBeCloseTo(8, 0);
     expect(bounds.right).toBeCloseTo(window.innerWidth - 8, 0);
     expect(bounds.bottom).toBeCloseTo(window.innerHeight - 8, 0);
-    expect(
-      getComputedStyle(dialog.element().querySelector(".auth-panel__content")!).overflowY,
-    ).toBe("auto");
-    const content = dialog.element().querySelector<HTMLElement>(".auth-panel__content")!;
+    expect(contentStyle.overflowY).toBe("auto");
+    expect(contentStyle.paddingLeft).toBe("16px");
+    expect(contentStyle.paddingRight).toBe("16px");
+    expect(contentBounds.left).toBeCloseTo(surfaceInlineStart, 0);
+    expect(contentBounds.right).toBeCloseTo(surfaceInlineEnd, 0);
+    expect(description.element().getBoundingClientRect().left).toBeCloseTo(
+      surfaceInlineStart + 16,
+      0,
+    );
+    expect(content.firstElementChild).toBe(description.element());
+    expect(content.contains(heading.element())).toBe(false);
     expect(content.scrollHeight).toBeGreaterThan(content.clientHeight);
-    modeSwitch.element().scrollIntoView({ block: "nearest" });
+    content.scrollTop = content.scrollHeight;
+    await expect.poll(() => content.scrollTop).toBeGreaterThan(0);
+    expect(heading.element().getBoundingClientRect().top).toBeCloseTo(headingTop, 0);
+    expect(description.element().getBoundingClientRect().bottom).toBeLessThanOrEqual(contentTop);
     await expect.element(modeSwitch).toBeVisible();
   });
 
