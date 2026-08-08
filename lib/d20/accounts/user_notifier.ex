@@ -9,7 +9,8 @@ defmodule D20.Accounts.UserNotifier do
     email =
       new()
       |> to(recipient)
-      |> from({"D20", "contact@example.com"})
+      |> from(config!(:from))
+      |> reply_to(config!(:reply_to))
       |> subject(subject)
       |> text_body(body)
 
@@ -80,5 +81,12 @@ defmodule D20.Accounts.UserNotifier do
 
     ==============================
     """)
+  end
+
+  @spec config!(:from | :reply_to) :: {String.t(), String.t()}
+  defp config!(key) do
+    :d20
+    |> Application.fetch_env!(__MODULE__)
+    |> Keyword.fetch!(key)
   end
 end

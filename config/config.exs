@@ -105,6 +105,10 @@ config :d20, D20Web.Endpoint,
 # at the `config/runtime.exs`.
 config :d20, D20.Mailer, adapter: Swoosh.Adapters.Local
 
+config :d20, D20.Accounts.UserNotifier,
+  from: {"D20", "noreply@d20.ravecat.io"},
+  reply_to: {"D20 Support", "support@ravecat.io"}
+
 config :inertia,
   endpoint: D20Web.Endpoint,
   static_paths: ["/assets/js/app.js"],

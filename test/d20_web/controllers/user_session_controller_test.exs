@@ -1,5 +1,5 @@
 defmodule D20Web.UserSessionControllerTest do
-  use D20Web.ConnCase, async: true
+  use D20Web.ConnCase, async: false
 
   import D20.AccountsFixtures
   alias D20.Accounts
@@ -182,6 +182,30 @@ defmodule D20Web.UserSessionControllerTest do
       refute get_session(conn, :user_token)
     end
 
+    test "keeps the neutral Inertia result without an HTML error dialog on timeout", %{
+      conn: conn,
+      user: user
+    } do
+      use_mailer_adapter(D20.FailingMailerAdapter, failure_reason: :timeout)
+
+      conn =
+        conn
+        |> inertia_request()
+        |> post(~p"/users/log-in", %{
+          "user" => %{"email" => user.email},
+          "response_to" => "/games/qwinto",
+          "return_to" => "/games/qwinto"
+        })
+
+      assert redirected_to(conn, 303) == "/games/qwinto"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "If your email is in our system"
+      assert D20.Repo.get_by!(Accounts.UserToken, user_id: user.id).context == "login"
+
+      response_conn = follow_inertia_redirect(conn)
+
+      assert inertia_errors(response_conn) == %{}
+    end
+
     test "returns a modal request to its host while storing the later authentication path", %{
       conn: conn,
       user: user
@@ -284,5 +308,15 @@ defmodule D20Web.UserSessionControllerTest do
     |> recycle()
     |> inertia_request()
     |> get(redirect_path)
+  end
+
+  defp use_mailer_adapter(adapter, config) do
+    previous_config = Application.fetch_env!(:d20, D20.Mailer)
+
+    test_config = previous_config |> Keyword.put(:adapter, adapter) |> Keyword.merge(config)
+
+    Application.put_env(:d20, D20.Mailer, test_config)
+
+    on_exit(fn -> Application.put_env(:d20, D20.Mailer, previous_config) end)
   end
 end

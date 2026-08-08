@@ -123,6 +123,7 @@ docker compose down
 | `STATIC_PORT`       | No                   | Development asset server port. Defaults to `5174`.                     |
 | `STATIC_URL_HOST`   | No                   | Development asset host. Defaults to an automatically detected LAN IP. |
 | `BGG_API_KEY`       | Production           | BoardGameGeek enrichment key. Optional for local development, with fallback metadata when absent. |
+| `RESEND_API_KEY`    | Yes                  | Send-only Resend API key restricted to `d20.ravecat.io`. Sender addresses are checked-in config. |
 | `PHX_HOST`          | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.   |
 | `PHX_SERVER`        | No                   | Enables the endpoint server when running a release.                    |
 | `POOL_SIZE`         | No                   | Ecto pool size. Defaults to `10`.                                      |

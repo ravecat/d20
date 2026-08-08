@@ -32,6 +32,19 @@ if config_env() == :prod do
     """
   end
 
+  resend_api_key = System.get_env("RESEND_API_KEY")
+
+  if is_nil(resend_api_key) or String.trim(resend_api_key) == "" do
+    raise """
+    environment variable RESEND_API_KEY is missing.
+    Create a send-only Resend API key and set it in production.
+    """
+  end
+
+  config :d20, D20.Mailer,
+    adapter: Swoosh.Adapters.Resend,
+    api_key: resend_api_key
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
@@ -130,22 +143,4 @@ if config_env() == :prod do
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
-
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :d20, D20.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
