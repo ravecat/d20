@@ -37,7 +37,7 @@ describe("Session store", () => {
 
     const controller = createSession("session:session-a");
 
-    expect(controller.start({ sheet: "dharug" })).toBe(startCall);
-    expect(mocks.call).toHaveBeenCalledWith("start", { sheet: "dharug" });
+    expect(controller.start()).toBe(startCall);
+    expect(mocks.call).toHaveBeenCalledWith("start", {});
   });
 });

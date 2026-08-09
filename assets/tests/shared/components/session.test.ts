@@ -34,7 +34,7 @@ describe("Session", () => {
     expect(document.querySelector('iframe[title="Game module"]')).toBeNull();
   });
 
-  it("starts sessions without projected attrs", () => {
+  it("starts sessions without attrs", () => {
     renderPanel({
       value: sessionWithPhase("waiting_for_players"),
       status: "ready",
@@ -47,38 +47,7 @@ describe("Session", () => {
     document.querySelector("button")?.click();
     flushSync();
 
-    expect(start).toHaveBeenCalledWith({});
-  });
-
-  it("submits projected attrs without client-side normalization", () => {
-    renderPanel({
-      value: {
-        ...sessionWithPhase("waiting_for_players"),
-        attrs: projectedAttrs(),
-      },
-      status: "ready",
-      processing: { start: false },
-      timeouts: { start: false },
-      errors: { start: null },
-      error: null,
-    });
-
-    const seat1 = selectByLabel("Seat 1");
-    const seat4 = selectByLabel("Seat 4");
-
-    expect(seat1.value).toBe("ada");
-    expect(seat4.value).toBe("margaret");
-
-    seat1.value = "margaret";
-
-    expect(seat4.value).toBe("margaret");
-
-    document.querySelector("button")?.click();
-    flushSync();
-
-    expect(start).toHaveBeenCalledWith({
-      turn_order: ["margaret", "grace", "katherine", "margaret"],
-    });
+    expect(start).toHaveBeenCalledWith();
   });
 
   it("disables start when permissions do not allow starting the game", () => {
@@ -237,37 +206,4 @@ function sessionWithPhase(
     permissions,
     game: {},
   };
-}
-
-function projectedAttrs() {
-  const players = ["ada", "grace", "katherine", "margaret"];
-
-  return Object.fromEntries(
-    players.map((player, index) => [
-      `turn_order_${index}`,
-      {
-        id: `turn_order_${index}`,
-        name: `turn_order[${index}]`,
-        type: "enum",
-        label: `Seat ${index + 1}`,
-        position: index,
-        value: player,
-        required: true,
-        values: players,
-        errors: [],
-      },
-    ]),
-  );
-}
-
-function selectByLabel(label: string) {
-  const select = [...document.getElementsByTagName("select")].find((candidate) =>
-    [...candidate.labels].some((element) => element.textContent?.trim().startsWith(label)),
-  );
-
-  if (!select) {
-    throw new Error(`Expected select labelled ${label}.`);
-  }
-
-  return select;
 }

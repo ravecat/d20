@@ -1,8 +1,9 @@
 import { flushSync, mount, type Component as SvelteComponent, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
+import type { Schema } from "@sjsf/form";
 import { GamePage } from "~/pages/game";
-import type { Attrs, GameMetadata } from "~/shared/types";
+import type { GameMetadata } from "~/shared/types";
 
 let cleanup: (() => Promise<void>) | undefined;
 
@@ -23,6 +24,7 @@ describe("game detail responsive spacing", () => {
     const activation = page.getByRole("complementary", { name: "Game activation" }).element();
     const description = page.getByRole("region", { name: "Description" }).element();
     const descriptionContent = page.getByText(/^Long game description\./).element();
+    const setupField = page.getByRole("combobox", { name: /sheet/i }).element();
     const action = page.getByRole("button", { name: "Play" }).element();
     const shell = requiredElement(".game-detail-shell");
     const preview = requiredElement(".game-detail-preview");
@@ -47,6 +49,8 @@ describe("game detail responsive spacing", () => {
       activation.getBoundingClientRect().right,
       3,
     );
+    expect(setupField.getBoundingClientRect().height).toBeCloseTo(36, 3);
+    expect(action.getBoundingClientRect().height).toBeCloseTo(40, 3);
     expect(descriptionContent.getBoundingClientRect().top).toBeCloseTo(
       description.getBoundingClientRect().top,
       3,
@@ -128,7 +132,7 @@ function renderGame() {
         slug: "koala-rescue-club",
         canLaunchGame: true,
         game: gameMetadata(),
-        attrs: gameAttrs(),
+        schema: gameSchema(),
         session: null,
       },
     }),
@@ -150,17 +154,14 @@ function requiredElement(selector: string) {
   return element;
 }
 
-function gameAttrs(): Attrs {
+function gameSchema(): Schema {
   return {
-    sheet: {
-      id: "attrs_sheet",
-      name: "sheet",
-      type: "enum",
-      value: "dharug",
-      required: true,
-      values: ["dharug", "yugambeh"],
-      errors: [],
+    type: "object",
+    properties: {
+      sheet: { type: "string", enum: ["dharug", "yugambeh"] },
     },
+    required: ["sheet"],
+    default: { sheet: "dharug" },
   };
 }
 

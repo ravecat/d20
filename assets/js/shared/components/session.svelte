@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { formDataToObject } from "@inertiajs/core";
   import type { SessionStore } from "~/shared/stores";
-  import type { AttrConfig } from "~/shared/types";
 
   interface Props {
     controller: SessionStore;
@@ -25,65 +23,17 @@
   );
   const status = $derived($controller.status);
   const phase = $derived($controller.value?.phase);
-  const attrFields = $derived(
-    Object.entries($controller.value?.attrs ?? {}).sort(
-      ([, left], [, right]) => (left.position ?? 0) - (right.position ?? 0),
-    ),
-  );
-
-  function fieldValue(attr: AttrConfig) {
-    return attr.value == null ? "" : String(attr.value);
-  }
-
-  function startGame(event: SubmitEvent) {
-    event.preventDefault();
-
-    if (event.currentTarget instanceof HTMLFormElement) {
-      controller.start(formDataToObject(new FormData(event.currentTarget)));
-    }
-  }
 </script>
 
 {#if phase === "waiting_for_players"}
   <section class="session-panel-start">
-    <form class="session-panel-start__content" onsubmit={startGame}>
-      {#if attrFields.length > 0}
-        <fieldset class="session-panel-start__fields">
-          <legend>Game setup</legend>
-          <div class="session-panel-start__field-grid">
-            {#each attrFields as [name, attr] (name)}
-              <label for={attr.id}>
-                <span>{attr.label ?? name}</span>
-                {#if attr.type === "enum"}
-                  <select
-                    id={attr.id}
-                    name={attr.name ?? name}
-                    value={fieldValue(attr)}
-                    required={attr.required ?? false}
-                  >
-                    {#each attr.values ?? [] as value (value)}
-                      <option {value}>{value}</option>
-                    {/each}
-                  </select>
-                {:else}
-                  <input
-                    id={attr.id}
-                    name={attr.name ?? name}
-                    value={fieldValue(attr)}
-                    required={attr.required ?? false}
-                  />
-                {/if}
-              </label>
-            {/each}
-          </div>
-        </fieldset>
-      {/if}
-
+    <div class="session-panel-start__content">
       <button
         class="session-panel-start__action"
-        type="submit"
+        type="button"
         disabled={$controller.processing.start || !$controller.value?.permissions?.can_start_game}
         aria-busy={$controller.processing.start}
+        onclick={() => controller.start()}
       >
         {#if $controller.processing.start}
           <span class="session-panel-start__spinner" aria-hidden="true"></span>
@@ -126,7 +76,7 @@
           </ul>
         {/if}
       </div>
-    </form>
+    </div>
   </section>
 {/if}
 
@@ -143,44 +93,6 @@
     min-inline-size: 0;
     flex-direction: column;
     gap: 1rem;
-  }
-
-  .session-panel-start__fields {
-    min-inline-size: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-
-  .session-panel-start__fields legend {
-    margin-block-end: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .session-panel-start__field-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-    gap: 0.5rem;
-  }
-
-  .session-panel-start__field-grid label {
-    display: grid;
-    min-inline-size: 0;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-  }
-
-  .session-panel-start__field-grid select,
-  .session-panel-start__field-grid input {
-    min-block-size: 2.25rem;
-    inline-size: 100%;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-sm);
-    background: var(--color-base-100);
-    padding-inline: 0.5rem;
-    color: var(--color-base-content);
-    font: inherit;
   }
 
   .session-panel-start__action {

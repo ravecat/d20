@@ -24,9 +24,8 @@ export default defineConfig({
   optimizeDeps: {
     // https://vitejs.dev/guide/dep-pre-bundling#monorepos-and-linked-dependencies
     include: isVitest
-      ? ["svelte"]
+      ? ["@inertiajs/core", "svelte"]
       : ["@inertiajs/svelte", "phoenix", "phoenix_html", "phoenix_live_view", "svelte"],
-    exclude: isVitest ? ["@inertiajs/svelte"] : [],
   },
   build: {
     target: browserTargets,
@@ -68,6 +67,9 @@ export default defineConfig({
       },
       {
         extends: true,
+        optimizeDeps: {
+          exclude: ["@inertiajs/svelte", "@sjsf/basic-theme", "@sjsf/form"],
+        },
         test: {
           name: "browser",
           include: ["tests/**/*.browser.test.ts"],

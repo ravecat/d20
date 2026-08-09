@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { FormComponentSlotProps } from "@inertiajs/core";
-  import { Form } from "@inertiajs/svelte";
+  import type { Schema } from "@sjsf/form";
   import {
     AgeLabel,
     BggRatingLabel,
@@ -9,30 +8,18 @@
     PlayTimeLabel,
     PlayerCountLabel,
   } from "~/shared/components";
-  import type { AttrConfig, Attrs, GameMetadata, SessionDescriptor } from "~/shared/types";
+  import type { GameMetadata, SessionDescriptor } from "~/shared/types";
+  import LaunchForm from "./launch_form.svelte";
 
   type Props = InertiaProps<{
     slug: string;
     canLaunchGame: boolean;
     game: GameMetadata;
-    attrs?: Attrs;
+    schema: Schema | null;
     session?: SessionDescriptor | null;
   }>;
-  type SessionFormFields = Record<string, string>;
-  type SessionFormSlotProps = FormComponentSlotProps<SessionFormFields>;
 
-  const { slug, canLaunchGame = false, game, attrs = {}, session = null }: Props = $props();
-  const formId = $props.id();
-  const attrFields = $derived(Object.entries(attrs));
-
-  function fieldValue(attr: AttrConfig) {
-    return attr.value == null ? "" : String(attr.value);
-  }
-
-  function fieldLabel(value: string) {
-    const label = value.replace(/_/g, " ");
-    return label.charAt(0).toUpperCase() + label.slice(1);
-  }
+  const { slug, canLaunchGame = false, game, schema, session = null }: Props = $props();
 </script>
 
 <div class="game-detail-page">
@@ -99,88 +86,8 @@
               {#key session.id}
                 <Lobby {session} />
               {/key}
-            {:else if canLaunchGame}
-              <Form method="post" action={`/games/${slug}/sessions`} disableWhileProcessing>
-                {#snippet children({ errors, processing }: SessionFormSlotProps)}
-                  <div class="game-detail-start">
-                    {#if attrFields.length > 0}
-                      <div class="game-detail-start__fields">
-                        {#each attrFields as [name, attr] (name)}
-                          {@const fieldName = attr.name ?? name}
-                          {#if attr.type === "enum"}
-                            <fieldset class="game-detail-start__field">
-                              <legend>{fieldLabel(name)}</legend>
-                              <div class="game-detail-start__options">
-                                {#each attr.values ?? [] as value, optionIndex (value)}
-                                  {@const optionId = `${formId}-${name}-${optionIndex}`}
-                                  <label class="game-detail-start__option" for={optionId}>
-                                    <input
-                                      id={optionId}
-                                      type="radio"
-                                      name={fieldName}
-                                      {value}
-                                      defaultChecked={fieldValue(attr) === value}
-                                      required={attr.required ?? false}
-                                    />
-                                    <span>{fieldLabel(value)}</span>
-                                  </label>
-                                {/each}
-                              </div>
-                              {#if errors[name]}
-                                <p class="game-detail-activation__error">{errors[name]}</p>
-                              {/if}
-                            </fieldset>
-                          {:else if attr.type === "boolean"}
-                            {@const optionId = attr.id || `${formId}-${name}`}
-                            <input type="hidden" name={fieldName} value="false" />
-                            <div class="game-detail-start__field">
-                              <label class="game-detail-start__option" for={optionId}>
-                                <input
-                                  id={optionId}
-                                  type="checkbox"
-                                  name={fieldName}
-                                  value="true"
-                                  defaultChecked={fieldValue(attr) === "true"}
-                                />
-                                <span>{fieldLabel(name)}</span>
-                              </label>
-                              {#if errors[name]}
-                                <p class="game-detail-activation__error">{errors[name]}</p>
-                              {/if}
-                            </div>
-                          {:else}
-                            <label class="game-detail-start__field">
-                              <span>{fieldLabel(name)}</span>
-                              <input
-                                id={attr.id}
-                                name={fieldName}
-                                value={fieldValue(attr)}
-                                required={attr.required ?? false}
-                              />
-                              {#if errors[name]}
-                                <p class="game-detail-activation__error">{errors[name]}</p>
-                              {/if}
-                            </label>
-                          {/if}
-                        {/each}
-                      </div>
-                    {/if}
-
-                    <button class="game-detail-action" type="submit" aria-busy={processing}>
-                      {#if processing}
-                        <span class="game-detail-action__spinner" aria-hidden="true"></span>
-                        Starting
-                      {:else}
-                        Play
-                      {/if}
-                    </button>
-
-                    {#if errors.session}
-                      <p class="game-detail-activation__error">{errors.session}</p>
-                    {/if}
-                  </div>
-                {/snippet}
-              </Form>
+            {:else if canLaunchGame && schema}
+              <LaunchForm {slug} {schema} />
             {/if}
           </div>
         </aside>
@@ -412,141 +319,11 @@
     gap: 1rem;
   }
 
-  .game-detail-start {
-    display: flex;
-    min-inline-size: 0;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .game-detail-start__fields {
-    display: grid;
-    min-inline-size: 0;
-    gap: 0.75rem;
-  }
-
-  .game-detail-start__field {
-    min-inline-size: 0;
-    margin: 0;
-    border: 0;
-    padding: 0;
-  }
-
-  .game-detail-start__field legend,
-  .game-detail-start__field > span {
-    display: block;
-    margin-block-end: 0.5rem;
-    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1.2;
-  }
-
-  .game-detail-start__field > input {
-    inline-size: 100%;
-    min-block-size: 2.25rem;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-sm);
-    padding: 0.45rem 0.65rem;
-    background: var(--color-base-100);
-    color: var(--color-base-content);
-    font: inherit;
-  }
-
-  .game-detail-start__options {
-    display: flex;
-    min-inline-size: 0;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .game-detail-start__option {
-    display: inline-flex;
-    min-block-size: 2.25rem;
-    min-inline-size: 0;
-    align-items: center;
-    gap: 0.45rem;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.65rem;
-    color: var(--color-base-content);
-    cursor: pointer;
-    font-size: 0.8125rem;
-    line-height: 1.2;
-  }
-
-  .game-detail-start__option input {
-    inline-size: 1rem;
-    block-size: 1rem;
-    flex: none;
-    accent-color: var(--color-base-content);
-  }
-
   @container game-detail-activation (min-width: 22rem) {
     .game-detail-activation__metadata {
       flex-wrap: nowrap;
       gap: 0.45em;
       font-size: clamp(0.8rem, 3.75cqi, 0.9rem);
-    }
-  }
-
-  .game-detail-action {
-    display: inline-flex;
-    min-block-size: 2.5rem;
-    inline-size: 100%;
-    min-inline-size: 0;
-    align-self: stretch;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    border: 1px solid var(--color-base-content);
-    border-radius: var(--radius-sm);
-    background: var(--color-base-content);
-    padding: 0.5rem 1rem;
-    color: var(--color-base-100);
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1;
-    transition:
-      background-color 150ms ease,
-      border-color 150ms ease,
-      opacity 150ms ease;
-  }
-
-  .game-detail-action:hover {
-    background: color-mix(in oklab, var(--color-base-content) 86%, transparent);
-  }
-
-  .game-detail-action:focus-visible {
-    outline: 2px solid color-mix(in oklab, var(--color-base-content) 42%, transparent);
-    outline-offset: 2px;
-  }
-
-  .game-detail-action:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  .game-detail-action__spinner {
-    inline-size: 0.875rem;
-    block-size: 0.875rem;
-    flex: none;
-    animation: game-detail-spin 700ms linear infinite;
-    border: 2px solid color-mix(in oklab, var(--color-base-100) 35%, transparent);
-    border-block-start-color: var(--color-base-100);
-    border-radius: 999px;
-  }
-
-  .game-detail-activation__error {
-    margin: 0;
-    color: var(--color-error);
-    font-size: 0.8125rem;
-    line-height: 1.4;
-  }
-
-  @keyframes game-detail-spin {
-    to {
-      rotate: 360deg;
     }
   }
 
@@ -582,14 +359,6 @@
       inset-block-start: 0.75rem;
       inset-block-end: auto;
       max-inline-size: calc(100% - 1.5rem);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .game-detail-action,
-    .game-detail-action__spinner {
-      animation: none;
-      transition: none;
     }
   }
 </style>

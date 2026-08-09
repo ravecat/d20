@@ -25,20 +25,6 @@ export interface GameCatalogEntry {
 
 export type GameStatus = "active" | "in_progress";
 
-export interface AttrConfig {
-  id: string;
-  name: string;
-  type: string;
-  label?: string;
-  position?: number;
-  value?: string | number | boolean | null;
-  required?: boolean;
-  values?: string[];
-  errors?: string[];
-}
-
-export type Attrs = Record<string, AttrConfig>;
-
 export interface SessionDescriptor {
   id: string;
   slug: string;
@@ -63,6 +49,5 @@ export interface Session<TGame = unknown> {
   owner_id: string;
   members: Record<string, SessionMember>;
   permissions?: SessionPermissions;
-  attrs?: Attrs;
   game: TGame;
 }

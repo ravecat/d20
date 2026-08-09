@@ -1,4 +1,3 @@
-import type { FormDataConvertible } from "@inertiajs/core";
 import { session } from "phoenix-session";
 import { socket } from "~/shared/api";
 import type { Session } from "~/shared/types";
@@ -6,8 +5,6 @@ import type { Session } from "~/shared/types";
 type CommandError = {
   reason?: string;
 };
-
-type Attrs = Record<string, FormDataConvertible>;
 
 export function createSession(topic: string) {
   return session<Session>(socket, {
@@ -19,8 +16,8 @@ export function createSession(topic: string) {
       projection: (_value, state: Session) => state,
     },
   }).extend(({ call }) => ({
-    start(attrs: Attrs = {}) {
-      return call<unknown, CommandError>("start", attrs);
+    start() {
+      return call<unknown, CommandError>("start", {});
     },
   }));
 }

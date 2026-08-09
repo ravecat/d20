@@ -34,17 +34,19 @@ defmodule D20Web.PageController do
          {:ok, session} <- resolve_game_session(slug, params["session"]) do
       can_launch_game = Games.session_launch_available?(entry)
 
-      attrs =
-        if can_launch_game,
-          do: entry.engine |> D20.Game.changeset() |> D20.Form.to_form(),
-          else: %{}
+      schema =
+        if can_launch_game do
+          entry.engine |> D20.Game.changeset() |> to_schema()
+        else
+          nil
+        end
 
       conn
       |> assign_prop(:slug, slug)
       |> assign_prop(:status, entry.status)
       |> assign_prop(:can_launch_game, can_launch_game)
       |> assign_prop(:game, Map.from_struct(game))
-      |> assign_prop(:attrs, attrs)
+      |> assign_prop(:schema, schema)
       |> assign_prop(:session, session)
       |> render_inertia("game")
     else
@@ -128,6 +130,14 @@ defmodule D20Web.PageController do
     if Games.session_launch_available?(entry),
       do: :ok,
       else: {:error, :session_launch_forbidden}
+  end
+
+  defp to_schema(changeset) do
+    defaults = Map.take(changeset.data, Map.keys(changeset.types))
+
+    changeset
+    |> Schemecto.to_json_schema()
+    |> Map.put("default", defaults)
   end
 
   defp resolve_game_session(_slug, nil), do: {:ok, nil}

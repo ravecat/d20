@@ -1,6 +1,4 @@
 export type {
-  AttrConfig,
-  Attrs,
   GameCatalogEntry,
   GameMetadata,
   GameStatus,

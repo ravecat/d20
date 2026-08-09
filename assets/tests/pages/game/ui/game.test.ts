@@ -1,10 +1,11 @@
-import { render } from "@testing-library/svelte";
+import { fireEvent, render } from "@testing-library/svelte";
 import { flushSync } from "svelte";
 import { writable, type Writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Schema } from "@sjsf/form";
 import { GamePage } from "~/pages/game";
 import type { SessionState, SessionStore } from "~/shared/stores";
-import type { Attrs, GameMetadata, Session } from "~/shared/types";
+import type { GameMetadata, Session } from "~/shared/types";
 import inertiaMock from "../../../mocks/inertia";
 
 const sessionMock = vi.hoisted(() => ({
@@ -12,6 +13,12 @@ const sessionMock = vi.hoisted(() => ({
 }));
 
 const auth = { authenticated: false, local: false, prompt: null };
+
+const emptySchema: Schema = {
+  type: "object",
+  properties: {},
+  default: {},
+};
 
 vi.mock("~/shared/stores", () => ({
   createSession: sessionMock.createSession,
@@ -32,35 +39,23 @@ beforeEach(() => {
   sessionMock.createSession.mockReturnValue(waitingController);
 });
 
-const koalaAttrs: Attrs = {
-  sheet: {
-    id: "attrs_sheet",
-    name: "sheet",
-    type: "enum",
-    value: "dharug",
-    required: true,
-    values: ["dharug", "yugambeh"],
-    errors: [],
+const koalaSchema: Schema = {
+  type: "object",
+  properties: {
+    sheet: { type: "string", enum: ["dharug", "yugambeh"] },
   },
+  required: ["sheet"],
+  default: { sheet: "dharug" },
 };
 
-const nextStationAttrs: Attrs = {
-  objectives: {
-    id: "attrs_objectives",
-    name: "objectives",
-    type: "boolean",
-    value: false,
-    required: true,
-    errors: [],
+const nextStationSchema: Schema = {
+  type: "object",
+  properties: {
+    objectives: { type: "boolean" },
+    powers: { type: "boolean" },
   },
-  powers: {
-    id: "attrs_powers",
-    name: "powers",
-    type: "boolean",
-    value: false,
-    required: true,
-    errors: [],
-  },
+  required: ["objectives", "powers"],
+  default: { objectives: false, powers: false },
 };
 
 afterEach(() => {
@@ -80,6 +75,7 @@ describe("game detail page", () => {
         description: "Resolved details.",
       }),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     expect(document.body.textContent).toContain("Resolved Qwinto");
@@ -113,6 +109,7 @@ describe("game detail page", () => {
         rating: 7.42,
       }),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("2-6");
@@ -138,6 +135,7 @@ describe("game detail page", () => {
         maxPlayTime: 15,
       }),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("1");
@@ -155,6 +153,7 @@ describe("game detail page", () => {
         maxPlayTime: null,
       }),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     const playTime = document.querySelector('[aria-label="Play time"]')?.textContent;
@@ -181,6 +180,7 @@ describe("game detail page", () => {
         rating: null,
       }),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     expect(document.body.textContent).toContain("Play");
@@ -210,6 +210,7 @@ describe("game detail page", () => {
         rating: null,
       }),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     expect(document.querySelector('[aria-label="Players"]')?.textContent).toContain("2-6");
@@ -220,22 +221,25 @@ describe("game detail page", () => {
     expect(document.body.textContent).not.toContain("Not listed");
   });
 
-  it("posts session creation to the internal slug route", () => {
+  it("posts session creation to the internal slug route", async () => {
     render(GamePage, {
       auth,
       slug: "qwinto",
       game: gameMetadata(),
       canLaunchGame: true,
+      schema: emptySchema,
     });
 
     expect(document.querySelector("button")?.textContent).toContain("Play");
 
     document.querySelector("button")?.click();
 
-    expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
-      action: "/games/qwinto/sessions",
-      method: "post",
-      data: {},
+    await vi.waitFor(() => {
+      expect(inertiaMock.router.post).toHaveBeenCalledWith(
+        "/games/qwinto/sessions",
+        {},
+        expect.objectContaining({ errorBag: "session" }),
+      );
     });
   });
 
@@ -251,6 +255,7 @@ describe("game detail page", () => {
       slug: "qwinto",
       game: gameMetadata(),
       canLaunchGame: true,
+      schema: emptySchema,
       session,
     });
 
@@ -272,6 +277,7 @@ describe("game detail page", () => {
       slug: "qwinto",
       game: gameMetadata(),
       canLaunchGame: true,
+      schema: emptySchema,
       session,
     });
 
@@ -301,6 +307,7 @@ describe("game detail page", () => {
       slug: "qwinto",
       game: gameMetadata(),
       canLaunchGame: true,
+      schema: emptySchema,
       session: {
         id: "session-a",
         slug: "qwinto",
@@ -313,64 +320,109 @@ describe("game detail page", () => {
     expect(waitingDetach).toHaveBeenCalledOnce();
   });
 
-  it("posts selected creation attrs when creating a session", () => {
+  it("posts a selected enum value from the creation form schema", async () => {
     render(GamePage, {
       auth,
       slug: "koala-rescue-club",
       game: gameMetadata({ name: "Koala Rescue Club" }),
-      attrs: koalaAttrs,
+      schema: koalaSchema,
       canLaunchGame: true,
     });
 
-    const defaultOption = document.querySelector('input[value="dharug"]');
-    const selectedOption = document.querySelector('input[value="yugambeh"]');
+    const sheet = selectByLabel("sheet");
+    const defaultOption = [...sheet.options].find((option) => option.textContent === "dharug");
+    const selectedOption = [...sheet.options].find((option) => option.textContent === "yugambeh");
 
-    if (!(defaultOption instanceof HTMLInputElement)) {
-      throw new Error("Expected Dharug radio option.");
+    if (!defaultOption) {
+      throw new Error("Expected Dharug option.");
     }
 
-    if (!(selectedOption instanceof HTMLInputElement)) {
-      throw new Error("Expected Yugambeh radio option.");
+    if (!selectedOption) {
+      throw new Error("Expected Yugambeh option.");
     }
 
-    expect(defaultOption.checked).toBe(true);
+    expect(sheet.value).toBe(defaultOption.value);
 
-    selectedOption.click();
+    await fireEvent.change(sheet, { target: { value: selectedOption.value } });
     document.querySelector("button")?.click();
 
-    expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
-      action: "/games/koala-rescue-club/sessions",
-      method: "post",
-      data: { sheet: "yugambeh" },
+    await vi.waitFor(() => {
+      expect(inertiaMock.router.post).toHaveBeenCalledWith(
+        "/games/koala-rescue-club/sessions",
+        { sheet: "yugambeh" },
+        expect.any(Object),
+      );
     });
   });
 
-  it("renders boolean creation attrs as checkboxes and posts their values", () => {
+  it("shows an Inertia field error on the SJSF control", async () => {
+    render(GamePage, {
+      auth,
+      slug: "koala-rescue-club",
+      game: gameMetadata({ name: "Koala Rescue Club" }),
+      schema: koalaSchema,
+      canLaunchGame: true,
+    });
+
+    document.querySelector("button")?.click();
+
+    await vi.waitFor(() => {
+      expect(inertiaMock.router.post).toHaveBeenCalledOnce();
+    });
+
+    const onError = inertiaMock.router.post.mock.calls[0]?.[2]?.onError;
+
+    if (!onError) {
+      throw new Error("Expected an Inertia error callback.");
+    }
+
+    onError({ sheet: "is invalid" });
+    flushSync();
+
+    expect(document.body.textContent).toContain("is invalid");
+  });
+
+  it("shows an Inertia session error outside the SJSF controls", () => {
+    Object.assign(inertiaMock.page.props.errors, {
+      session: { session: "Could not start session." },
+    });
+
+    render(GamePage, {
+      auth,
+      slug: "qwinto",
+      game: gameMetadata(),
+      canLaunchGame: true,
+      schema: emptySchema,
+    });
+
+    expect(document.body.textContent).toContain("Could not start session.");
+  });
+
+  it("renders boolean schema properties as checkboxes and posts typed values", async () => {
     render(GamePage, {
       auth,
       slug: "next-station-london",
       game: gameMetadata({ name: "Next Station London" }),
-      attrs: nextStationAttrs,
+      schema: nextStationSchema,
       canLaunchGame: true,
     });
 
-    const objectives = inputByLabel("Objectives");
-    const powers = inputByLabel("Powers");
+    const objectives = inputByLabel("objectives");
+    const powers = inputByLabel("powers");
 
     expect(objectives.type).toBe("checkbox");
     expect(powers.type).toBe("checkbox");
     expect(objectives.checked).toBe(false);
     expect(powers.checked).toBe(false);
-    expect(objectives.required).toBe(false);
-    expect(powers.required).toBe(false);
-
     powers.click();
     document.querySelector("button")?.click();
 
-    expect(inertiaMock.formSubmit).toHaveBeenCalledWith({
-      action: "/games/next-station-london/sessions",
-      method: "post",
-      data: { objectives: "false", powers: "true" },
+    await vi.waitFor(() => {
+      expect(inertiaMock.router.post).toHaveBeenCalledWith(
+        "/games/next-station-london/sessions",
+        { objectives: false, powers: true },
+        expect.any(Object),
+      );
     });
   });
 
@@ -379,6 +431,7 @@ describe("game detail page", () => {
       auth,
       slug: "voyages",
       canLaunchGame: false,
+      schema: null,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
     });
 
@@ -399,6 +452,20 @@ function inputByLabel(label: string) {
   }
 
   return input;
+}
+
+function selectByLabel(label: string) {
+  const select = [...document.getElementsByTagName("select")].find((candidate) =>
+    [...candidate.labels].some(
+      (element) => element.textContent?.replace(/\s/g, "") === `${label}*`,
+    ),
+  );
+
+  if (!select) {
+    throw new Error(`Expected select labelled ${label}.`);
+  }
+
+  return select;
 }
 
 function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {

@@ -312,7 +312,12 @@ defmodule D20Web.PageControllerTest do
 
     assert inertia_component(conn) == "game"
 
-    assert %{slug: "qwinto", session: nil, game: game} = inertia_props(conn)
+    assert %{
+             slug: "qwinto",
+             session: nil,
+             game: game,
+             schema: %{"type" => "object", "properties" => %{}, "default" => %{}}
+           } = inertia_props(conn)
 
     refute Map.has_key?(inertia_props(conn), :module)
     refute Map.has_key?(inertia_props(conn), :connection)
@@ -344,7 +349,7 @@ defmodule D20Web.PageControllerTest do
              slug: "voyages",
              status: nil,
              canLaunchGame: false,
-             attrs: %{},
+             schema: nil,
              game: %{name: "Voyages", description: "Draw maps and chart a course."}
            } = inertia_props(conn)
   end
@@ -368,7 +373,21 @@ defmodule D20Web.PageControllerTest do
 
     conn = get(conn, ~p"/games/next-station-london")
 
-    assert %{status: :in_progress, canLaunchGame: true, attrs: %{}} = inertia_props(conn)
+    assert %{
+             status: :in_progress,
+             canLaunchGame: true,
+             schema: %{
+               "type" => "object",
+               "properties" => %{
+                 "objectives" => %{"type" => "boolean"},
+                 "powers" => %{"type" => "boolean"}
+               },
+               "required" => required,
+               "default" => %{objectives: false, powers: false}
+             }
+           } = inertia_props(conn)
+
+    assert Enum.sort(required) == ["objectives", "powers"]
   end
 
   test "GET /games/:slug disables Next Station launch when in-progress launch is disabled", %{
@@ -379,25 +398,22 @@ defmodule D20Web.PageControllerTest do
 
     conn = get(conn, ~p"/games/next-station-london")
 
-    assert %{status: :in_progress, canLaunchGame: false, attrs: %{}} = inertia_props(conn)
+    assert %{status: :in_progress, canLaunchGame: false, schema: nil} = inertia_props(conn)
   end
 
-  test "GET /games/:slug renders game-owned creation attrs", %{conn: conn} do
+  test "GET /games/:slug renders a game-owned creation form schema", %{conn: conn} do
     stub_bgg_game(@koala_xml, "425873")
 
     conn = get(conn, ~p"/games/koala-rescue-club")
 
     assert %{
-             attrs: %{
-               sheet: %{
-                 id: "attrs_sheet",
-                 name: "sheet",
-                 type: "enum",
-                 value: "dharug",
-                 required: true,
-                 values: ["dharug", "yugambeh"],
-                 errors: []
-               }
+             schema: %{
+               "type" => "object",
+               "properties" => %{
+                 "sheet" => %{"type" => "string", "enum" => ["dharug", "yugambeh"]}
+               },
+               "required" => ["sheet"],
+               "default" => %{sheet: :dharug}
              }
            } = inertia_props(conn)
   end
@@ -417,7 +433,14 @@ defmodule D20Web.PageControllerTest do
                status: :active,
                canLaunchGame: true,
                game: %{name: nil, imageUrl: nil},
-               attrs: %{sheet: %{value: "dharug"}},
+               schema: %{
+                 "type" => "object",
+                 "properties" => %{
+                   "sheet" => %{"type" => "string", "enum" => ["dharug", "yugambeh"]}
+                 },
+                 "required" => ["sheet"],
+                 "default" => %{sheet: :dharug}
+               },
                session: nil
              } = inertia_props(conn)
     end)

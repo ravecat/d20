@@ -15,8 +15,12 @@
   "dependencies": {
     "@inertiajs/svelte": "3.6.0",
     "@rvct/d20sdk": "1.2.0",
+    "@sjsf/ajv8-validator": "3.8.0",
+    "@sjsf/basic-theme": "3.8.0",
+    "@sjsf/form": "3.8.0",
     "@xstate/store": "4.2.1",
     "@xstate/store-svelte": "2.0.0",
+    "ajv": "8.20.0",
     "phoenix": "file:../deps/phoenix",
     "phoenix-session": "1.1.0",
     "phoenix_html": "file:../deps/phoenix_html",
