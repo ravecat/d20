@@ -8,6 +8,7 @@ defmodule D20.Accounts do
 
   alias D20.Accounts.Anonymous
   alias D20.Accounts.User
+  alias D20.Accounts.UserIdentity
   alias D20.Accounts.UserNotifier
   alias D20.Accounts.UserToken
 
@@ -68,6 +69,47 @@ defmodule D20.Accounts do
   """
   @spec get_user(term()) :: %User{} | nil
   def get_user(id), do: Repo.get(User, id)
+
+  @doc """
+  Gets a user by an exact external provider identity.
+
+  Returns `nil` when the identity has not been linked.
+  """
+  @spec get_user_by_identity(UserIdentity.provider(), String.t()) :: %User{} | nil
+  def get_user_by_identity(provider, provider_uid) do
+    Repo.one(
+      from identity in UserIdentity,
+        join: user in assoc(identity, :user),
+        where: identity.provider == ^provider and identity.provider_uid == ^provider_uid,
+        select: user
+    )
+  end
+
+  @doc """
+  Links an external provider identity to an existing user.
+
+  The provider UID is treated as an opaque, case-sensitive identifier. Provider
+  credentials and profile claims are intentionally not accepted by this API.
+  """
+  @spec link_user_identity(%User{}, UserIdentity.provider(), String.t()) ::
+          {:ok, %UserIdentity{}} | {:error, Ecto.Changeset.t()}
+  def link_user_identity(%User{} = user, provider, provider_uid) do
+    %UserIdentity{user_id: user.id}
+    |> UserIdentity.changeset(%{provider: provider, provider_uid: provider_uid})
+    |> Repo.insert()
+  end
+
+  @doc """
+  Lists the external identities owned by a user.
+  """
+  @spec list_user_identities(%User{}) :: [%UserIdentity{}]
+  def list_user_identities(%User{id: user_id}) do
+    Repo.all(
+      from identity in UserIdentity,
+        where: identity.user_id == ^user_id,
+        order_by: [asc: identity.provider, asc: identity.id]
+    )
+  end
 
   @type profile :: %{
           required(:id) => String.t(),

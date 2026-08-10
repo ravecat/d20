@@ -3,7 +3,6 @@ defmodule D20.Accounts.User do
   import Ecto.Changeset
 
   @primary_key {:id, TypeID, autogenerate: true, prefix: "user"}
-
   @type id :: TypeID.t()
 
   schema "users" do
@@ -12,6 +11,8 @@ defmodule D20.Accounts.User do
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
+
+    has_many :user_identities, D20.Accounts.UserIdentity
 
     timestamps type: :utc_datetime
   end

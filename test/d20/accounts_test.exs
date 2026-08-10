@@ -5,6 +5,7 @@ defmodule D20.AccountsTest do
 
   import D20.AccountsFixtures
   alias D20.Accounts.User
+  alias D20.Accounts.UserIdentity
   alias D20.Accounts.UserToken
 
   describe "get_user_by_email/1" do
@@ -69,6 +70,99 @@ defmodule D20.AccountsTest do
 
     test "raises for ids that cannot be cast to a user primary key" do
       assert_raise Ecto.Query.CastError, fn -> Accounts.get_user("not-a-typeid") end
+    end
+  end
+
+  describe "external provider identities" do
+    test "links an identity and resolves its exact owner" do
+      %{id: user_id} = user = user_fixture()
+
+      assert {:ok, %UserIdentity{} = identity} =
+               Accounts.link_user_identity(user, :google, "google-account-1")
+
+      assert identity.user_id == user.id
+      assert identity.provider == :google
+      assert identity.provider_uid == "google-account-1"
+      assert {:ok, identity_id} = identity.id |> to_string() |> TypeID.from_string()
+      assert TypeID.prefix(identity_id) == "identity"
+      assert %User{id: ^user_id} = Accounts.get_user_by_identity(:google, "google-account-1")
+
+      refute Accounts.get_user_by_identity(:google, "unknown")
+      refute Accounts.get_user_by_identity(:facebook, "google-account-1")
+    end
+
+    test "returns controlled errors for invalid link data" do
+      user = user_fixture()
+
+      assert {:error, changeset} = Accounts.link_user_identity(user, :github, "account-1")
+      assert %{provider: ["is invalid"]} = errors_on(changeset)
+
+      assert {:error, changeset} = Accounts.link_user_identity(user, :google, "")
+      assert %{provider_uid: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "lists only identities owned by the user" do
+      user = user_fixture()
+      other_user = user_fixture()
+
+      assert {:ok, google_identity} =
+               Accounts.link_user_identity(user, :google, "google-account-1")
+
+      assert {:ok, discord_identity} =
+               Accounts.link_user_identity(user, :discord, "discord-account-1")
+
+      assert {:ok, _other_identity} =
+               Accounts.link_user_identity(other_user, :apple, "apple-account-1")
+
+      identity_ids = user |> Accounts.list_user_identities() |> Enum.map(& &1.id) |> MapSet.new()
+
+      assert identity_ids == MapSet.new([google_identity.id, discord_identity.id])
+    end
+
+    test "prevents one provider identity from having multiple owners" do
+      user = user_fixture()
+      other_user = user_fixture()
+
+      assert {:ok, _identity} =
+               Accounts.link_user_identity(user, :google, "shared-google-account")
+
+      assert {:error, changeset} =
+               Accounts.link_user_identity(other_user, :google, "shared-google-account")
+
+      assert "has already been taken" in errors_on(changeset).provider_uid
+    end
+
+    test "prevents a user from linking two identities for one provider" do
+      user = user_fixture()
+
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :discord, "discord-account-1")
+
+      assert {:error, changeset} =
+               Accounts.link_user_identity(user, :discord, "discord-account-2")
+
+      assert "has already been taken" in errors_on(changeset).provider
+    end
+
+    test "treats equal UIDs from different providers as distinct identities" do
+      user = user_fixture()
+
+      assert {:ok, google_identity} =
+               Accounts.link_user_identity(user, :google, "provider-local-account")
+
+      assert {:ok, apple_identity} =
+               Accounts.link_user_identity(user, :apple, "provider-local-account")
+
+      assert google_identity.provider_uid == apple_identity.provider_uid
+      assert google_identity.provider != apple_identity.provider
+    end
+
+    test "deletes identities with their owning user" do
+      user = user_fixture()
+      assert {:ok, identity} = Accounts.link_user_identity(user, :facebook, "facebook-account-1")
+
+      Repo.delete!(user)
+
+      refute Repo.get(UserIdentity, identity.id)
     end
   end
 
