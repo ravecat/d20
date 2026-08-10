@@ -17,24 +17,12 @@ beforeEach(async () => {
       errors: {},
     },
   });
-
-  document.documentElement.style.setProperty("--color-base-100", "rgb(250 250 250)");
-  document.documentElement.style.setProperty("--color-base-200", "rgb(245 245 245)");
-  document.documentElement.style.setProperty("--color-base-content", "rgb(20 20 24)");
-  document.documentElement.style.setProperty("--color-primary", "rgb(210 90 30)");
-  document.documentElement.style.setProperty("--color-primary-content", "rgb(255 255 255)");
-  document.documentElement.style.setProperty("--color-success", "rgb(20 130 90)");
-  document.documentElement.style.setProperty("--color-error", "rgb(190 30 45)");
-  document.documentElement.style.setProperty("--radius-field", "4px");
-  document.documentElement.style.setProperty("--radius-box", "8px");
-  document.documentElement.style.setProperty("--border", "1px");
 });
 
 afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.body.innerHTML = "";
-  document.documentElement.removeAttribute("style");
 });
 
 describe("app header account dialog", () => {
@@ -49,9 +37,6 @@ describe("app header account dialog", () => {
     const registrationEmail = page.getByLabelText("Email address");
 
     await expect.element(registerDialog).toBeVisible();
-    expect(
-      getComputedStyle(page.getByText("Email address", { exact: true }).element()).clipPath,
-    ).toBe("inset(50%)");
     expect((registrationEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
     expect(registrationEmail.element().hasAttribute("autofocus")).toBe(true);
     await expect.poll(() => document.activeElement).toBe(registrationEmail.element());
@@ -341,181 +326,32 @@ describe("app header account dialog", () => {
     assertProvidersDisabled("Log in");
   });
 
-  it("uses one dialog inset and content-driven desktop sizes", async () => {
-    await page.viewport(1280, 1000);
-    renderHeader();
-    await page.getByRole("button", { name: "Register" }).click();
-
-    const dialog = page.getByRole("dialog", { name: "Create your free account" });
-    const dialogElement = dialog.element() as HTMLDialogElement;
-    const heading = page.getByRole("heading", { name: "Create your free account" });
-    const description = page.getByText("Save your game history and achievements.", {
-      exact: false,
-    });
-    const registrationEmail = page.getByLabelText("Email address");
-    const registrationBounds = dialogElement.getBoundingClientRect();
-    const registrationContent = dialogElement.querySelector<HTMLElement>(".auth-panel__content")!;
-    const registrationContentBounds = registrationContent.getBoundingClientRect();
-    const registrationContentStyle = getComputedStyle(registrationContent);
-    const titleRow = heading.element().closest("header") as HTMLElement;
-    const panel = heading.element().closest("section") as HTMLElement;
-    const dialogStyle = getComputedStyle(dialogElement);
-    const surfaceInlineStart =
-      registrationBounds.left + Number.parseFloat(dialogStyle.borderLeftWidth);
-    const surfaceInlineEnd =
-      registrationBounds.right - Number.parseFloat(dialogStyle.borderRightWidth);
-    const contentInlineStart =
-      surfaceInlineStart + Number.parseFloat(registrationContentStyle.paddingLeft);
-    const contentInlineEnd =
-      surfaceInlineEnd - Number.parseFloat(registrationContentStyle.paddingRight);
-    const registrationEmailBounds = registrationEmail.element().getBoundingClientRect();
-
-    expect(registrationContent.scrollHeight).toBeLessThanOrEqual(registrationContent.clientHeight);
-    expect(dialogStyle.paddingLeft).toBe("0px");
-    expect(dialogStyle.backgroundColor).toBe("rgb(250, 250, 250)");
-    expect(getComputedStyle(panel).paddingLeft).toBe("0px");
-    expect(getComputedStyle(titleRow).paddingLeft).toBe("24px");
-    expect(getComputedStyle(titleRow).paddingRight).toBe("24px");
-    expect(registrationContentStyle.paddingLeft).toBe("24px");
-    expect(registrationContentStyle.paddingRight).toBe("24px");
-    expect(registrationContentStyle.paddingBottom).toBe("24px");
-    expect(registrationContentBounds.left).toBeCloseTo(surfaceInlineStart, 0);
-    expect(registrationContentBounds.right).toBeCloseTo(surfaceInlineEnd, 0);
-    expect(heading.element().getBoundingClientRect().left).toBeCloseTo(contentInlineStart, 0);
-    expect(description.element().getBoundingClientRect().left).toBeCloseTo(contentInlineStart, 0);
-    expect(registrationEmailBounds.left).toBeCloseTo(contentInlineStart, 0);
-    expect(registrationEmailBounds.right).toBeCloseTo(contentInlineEnd, 0);
-    expect(getComputedStyle(registrationEmail.element()).outlineOffset).toBe("-3px");
-    expect(panel.style.blockSize).toBe("");
-    await dialog.click({ position: { x: 8, y: 8 } });
-    expect(dialogElement.open).toBe(true);
-
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
-
-    const loginContent = dialogElement.querySelector<HTMLElement>(".auth-panel__content")!;
-
-    await expect
-      .poll(() => loginContent.scrollHeight - loginContent.clientHeight)
-      .toBeLessThanOrEqual(0);
-
-    const loginBounds = dialogElement.getBoundingClientRect();
-
-    expect(loginBounds.width).toBeCloseTo(registrationBounds.width, 0);
-    expect(loginBounds.height).toBeGreaterThan(registrationBounds.height);
-    expect(panel.style.blockSize).toBe("");
-
-    await page.getByRole("button", { name: "Create account", exact: true }).click();
-
-    await expect
-      .poll(() => dialogElement.getBoundingClientRect().height)
-      .toBeCloseTo(registrationBounds.height, 0);
-    await page.getByLabelText("Email address").fill("player@example.com");
-    await page.getByRole("button", { name: "Create account", exact: true }).click();
-    inertiaMock.respondWithSuccess();
-
-    const result = page.getByRole("status").filter({ hasText: "Check your email" });
-
-    await expect.element(result).toBeVisible();
-
-    const successBounds = dialogElement.getBoundingClientRect();
-
-    expect(successBounds.width).toBeCloseTo(registrationBounds.width, 0);
-    expect(Math.abs(successBounds.height - registrationBounds.height)).toBeLessThanOrEqual(48);
-    expect(result.element().getBoundingClientRect().left).toBeCloseTo(contentInlineStart, 0);
-    expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
-    assertProvidersDisabled("Register");
-    expect(panel.style.blockSize).toBe("");
-  });
-
-  it("keeps an inset mobile surface and every login method reachable", async () => {
+  it("keeps every login method reachable at a narrow viewport", async () => {
     await page.viewport(280, 640);
     renderHeader();
     await page.getByRole("button", { name: "Register", exact: true }).click();
 
     const registrationDialog = page.getByRole("dialog", { name: "Create your free account" });
-    const registrationElement = registrationDialog.element() as HTMLDialogElement;
-    const registrationBounds = registrationElement.getBoundingClientRect();
-    const registrationStyle = getComputedStyle(registrationElement);
     const registrationHeading = page.getByRole("heading", { name: "Create your free account" });
-    const headingBounds = registrationHeading.element().getBoundingClientRect();
-    const closeBounds = page
-      .getByRole("button", { name: "Close", exact: true })
-      .element()
-      .getBoundingClientRect();
-    const registrationTitleRow = registrationHeading.element().closest("header") as HTMLElement;
-    const registrationTitleStyle = getComputedStyle(registrationTitleRow);
-    const registrationContent =
-      registrationElement.querySelector<HTMLElement>(".auth-panel__content")!;
-    const registrationContentBounds = registrationContent.getBoundingClientRect();
-    const registrationContentStyle = getComputedStyle(registrationContent);
-    const registrationSurfaceInlineStart =
-      registrationBounds.left + Number.parseFloat(registrationStyle.borderLeftWidth);
-    const registrationSurfaceInlineEnd =
-      registrationBounds.right - Number.parseFloat(registrationStyle.borderRightWidth);
 
-    expect(registrationBounds.left).toBeCloseTo(8, 0);
-    expect(registrationBounds.top).toBeCloseTo(8, 0);
-    expect(registrationBounds.right).toBeCloseTo(window.innerWidth - 8, 0);
-    expect(registrationBounds.bottom).toBeCloseTo(window.innerHeight - 8, 0);
-    expect(registrationStyle.borderLeftWidth).toBe("1px");
-    expect(registrationStyle.borderRadius).toBe("8px");
-    expect(registrationStyle.boxShadow).not.toBe("none");
-    expect(registrationStyle.paddingTop).toBe("0px");
-    expect(registrationStyle.paddingRight).toBe("0px");
-    expect(registrationStyle.paddingBottom).toBe("0px");
-    expect(registrationStyle.paddingLeft).toBe("0px");
-    expect(registrationTitleStyle.paddingTop).toBe("16px");
-    expect(registrationTitleStyle.paddingRight).toBe("16px");
-    expect(registrationTitleStyle.paddingLeft).toBe("16px");
-    expect(registrationContentStyle.paddingRight).toBe("16px");
-    expect(registrationContentStyle.paddingBottom).toBe("16px");
-    expect(registrationContentStyle.paddingLeft).toBe("16px");
-    expect(registrationContentBounds.left).toBeCloseTo(registrationSurfaceInlineStart, 0);
-    expect(registrationContentBounds.right).toBeCloseTo(registrationSurfaceInlineEnd, 0);
-    expect(headingBounds.left).toBeCloseTo(registrationSurfaceInlineStart + 16, 0);
-    expect(closeBounds.right).toBeCloseTo(registrationSurfaceInlineEnd - 16, 0);
-    expect(headingBounds.height).toBeGreaterThan(closeBounds.height);
-    expect(closeBounds.top).toBeCloseTo(headingBounds.top, 0);
+    await expect.element(registrationDialog).toBeVisible();
+    await expect.element(registrationHeading).toBeVisible();
+    await expect.element(page.getByLabelText("Email address")).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "Close", exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     const dialog = page.getByRole("dialog", { name: "Log in" });
-    const bounds = dialog.element().getBoundingClientRect();
-    const heading = page.getByRole("heading", { name: "Log in" });
-    const description = page.getByText("Save your game history and achievements.", {
-      exact: false,
-    });
     const modeSwitch = page.getByRole("button", { name: "Create account", exact: true });
-    const content = dialog.element().querySelector<HTMLElement>(".auth-panel__content")!;
-    const contentBounds = content.getBoundingClientRect();
-    const contentStyle = getComputedStyle(content);
-    const dialogStyle = getComputedStyle(dialog.element());
-    const surfaceInlineStart = bounds.left + Number.parseFloat(dialogStyle.borderLeftWidth);
-    const surfaceInlineEnd = bounds.right - Number.parseFloat(dialogStyle.borderRightWidth);
-    const headingTop = heading.element().getBoundingClientRect().top;
-    const contentTop = content.getBoundingClientRect().top;
 
-    expect(bounds.left).toBeCloseTo(8, 0);
-    expect(bounds.top).toBeCloseTo(8, 0);
-    expect(bounds.right).toBeCloseTo(window.innerWidth - 8, 0);
-    expect(bounds.bottom).toBeCloseTo(window.innerHeight - 8, 0);
-    expect(contentStyle.overflowY).toBe("auto");
-    expect(contentStyle.paddingLeft).toBe("16px");
-    expect(contentStyle.paddingRight).toBe("16px");
-    expect(contentBounds.left).toBeCloseTo(surfaceInlineStart, 0);
-    expect(contentBounds.right).toBeCloseTo(surfaceInlineEnd, 0);
-    expect(description.element().getBoundingClientRect().left).toBeCloseTo(
-      surfaceInlineStart + 16,
-      0,
-    );
-    expect(content.firstElementChild).toBe(description.element());
-    expect(content.contains(heading.element())).toBe(false);
-    expect(content.scrollHeight).toBeGreaterThan(content.clientHeight);
-    content.scrollTop = content.scrollHeight;
-    await expect.poll(() => content.scrollTop).toBeGreaterThan(0);
-    expect(heading.element().getBoundingClientRect().top).toBeCloseTo(headingTop, 0);
-    expect(description.element().getBoundingClientRect().bottom).toBeLessThanOrEqual(contentTop);
+    await expect.element(dialog).toBeVisible();
+    await expect.element(page.getByRole("heading", { name: "Log in" })).toBeVisible();
+    await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
+    assertProvidersDisabled("Log in");
     await expect.element(modeSwitch).toBeVisible();
+
+    await modeSwitch.click();
+    await expect.element(registrationDialog).toBeVisible();
   });
 
   it("replaces Register with Inertia account actions for authenticated users", async () => {
@@ -619,12 +455,14 @@ describe("app header account dialog", () => {
     expect(page.getByRole("button", { name: "Create account" }).elements()).toHaveLength(0);
   });
 
-  it("keeps Register interactive in the overlay header", () => {
+  it("opens registration from the overlay header", async () => {
     renderHeader({ overlay: true });
 
-    expect(
-      getComputedStyle(page.getByRole("button", { name: "Register" }).element()).pointerEvents,
-    ).toBe("auto");
+    await page.getByRole("button", { name: "Register" }).click();
+
+    await expect
+      .element(page.getByRole("dialog", { name: "Create your free account" }))
+      .toBeVisible();
   });
 });
 

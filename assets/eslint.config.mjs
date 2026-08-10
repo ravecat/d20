@@ -50,6 +50,25 @@ export default defineConfig(
     },
   },
   {
+    files: ["tests/**/*.test.ts"],
+    rules: {
+      "no-restricted-globals": ["error", "getComputedStyle"],
+      "no-restricted-properties": [
+        "error",
+        { property: "getComputedStyle" },
+        { property: "getBoundingClientRect" },
+        { property: "getClientRects" },
+        { property: "getBBox" },
+        { property: "offsetWidth" },
+        { property: "offsetHeight" },
+        { property: "clientWidth" },
+        { property: "clientHeight" },
+        { property: "scrollWidth" },
+        { property: "scrollHeight" },
+      ],
+    },
+  },
+  {
     files: ["**/*.d.ts"],
     rules: {
       "@typescript-eslint/no-unused-vars": "off",
