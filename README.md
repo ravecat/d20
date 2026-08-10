@@ -76,8 +76,6 @@ Manual setup:
 just serve
 ```
 
-Open [http://localhost:5000](http://localhost:5000).
-
 `just serve` runs full setup once before starting the watcher: dependency resolution, database creation and migration, seeds, asset installation, and asset build. Every initial or replacement watcher child then runs `mix serve`, which starts Phoenix without repeating setup. Changes under `envs/` or `config/` restart Phoenix, while changes under `priv/repo/migrations/` alone do not trigger a restart or execute a migration. Apply a pending migration immediately with `mix ecto.migrate`, or restart `just serve` to run full setup deliberately; neither command resets, drops, or rolls development data back. Restart `just serve` after changing Elixir or frontend dependencies so setup installs them before Phoenix starts.
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `STATIC_PORT` or defaults to `5174`.
@@ -91,7 +89,7 @@ Use this workflow when you want the D20 shell and one or more local iframe modul
 just up
 ```
 
-Open [http://localhost:5000](http://localhost:5000). `just up` starts the shared Traefik container and then runs the local Phoenix backend in the foreground.
+`just up` starts the shared Traefik container and then runs the local Phoenix backend in the foreground.
 
 Each local module project should start its own Compose service and join the shared external `d20` Docker network. D20 derives iframe hosts from module slugs and the shell request host: when D20 is opened at `localhost:5000`, a module with slug `<module-slug>` resolves to `http://<module-slug>.localhost`.
 
