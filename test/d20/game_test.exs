@@ -6,10 +6,14 @@ defmodule D20.GameTest do
   defmodule CustomServer do
   end
 
+  defmodule LensState do
+    defstruct phase: :setup, round: 1
+  end
+
   defmodule TestGame do
     use D20.Game
 
-    def view_phase(state), do: Pathex.view!(state, lens(:phase))
+    def view_field(state, field), do: Pathex.view!(state, lens(field))
 
     def ready_players(state) do
       Pathex.set!(state, lens(:players) ~> all() ~> path(:status), :ready)
@@ -84,7 +88,9 @@ defmodule D20.GameTest do
   end
 
   test "provides private field and collection lenses to game engines" do
-    assert TestGame.view_phase(%{phase: :setup}) == :setup
+    assert TestGame.view_field(%{phase: :setup, round: 3}, :phase) == :setup
+    assert TestGame.view_field(%{phase: :setup, round: 3}, :round) == 3
+    assert TestGame.view_field(%LensState{phase: :finished, round: 6}, :phase) == :finished
 
     assert %{
              players: %{
@@ -100,6 +106,8 @@ defmodule D20.GameTest do
              })
 
     refute function_exported?(TestGame, :lens, 1)
+
+    assert_raise Pathex.Error, fn -> TestGame.view_field(%{}, :missing) end
   end
 
   test "returns an empty attrs changeset for engines without creation fields" do

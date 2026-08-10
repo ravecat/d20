@@ -1,9 +1,4 @@
-# game-engine-lens-dsl Specification
-
-## Purpose
-Define the private Pathex lens vocabulary supplied by `D20.Game` so game aggregates share one field-path DSL without adding exported runtime APIs.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Game engines receive a shared private lens DSL
 `use D20.Game` SHALL configure Pathex map paths, import the supported `all/0` collection lens, and define a private runtime `lens/1` helper for arbitrary aggregate fields. The helper SHALL define the generic field path once per consuming module instead of macro-expanding a complete path closure at every call site. The DSL SHALL NOT expose a new exported runtime API or import reducer-specific helpers unrelated to path addressing.

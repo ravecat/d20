@@ -30,11 +30,7 @@ defmodule D20.Game do
 
       @behaviour D20.Game
 
-      defmacrop lens(field) do
-        quote do
-          path(unquote(field))
-        end
-      end
+      defp lens(field), do: path(field)
 
       @impl D20.Game
       def server, do: unquote(server)
