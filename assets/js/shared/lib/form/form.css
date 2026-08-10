@@ -9,6 +9,12 @@
   gap: 0.25rem;
 }
 
+.sjsf-layout[data-layout="field-content"]:has(> :is(.sjsf-checkboxes, .sjsf-radio)) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+}
+
 .sjsf-label {
   color: var(--color-base-content);
   font-size: 0.75rem;
@@ -67,11 +73,17 @@
 .sjsf-checkbox,
 .sjsf-checkboxes,
 .sjsf-radio {
-  min-block-size: 2.75rem;
+  min-block-size: 2.5rem;
   gap: 0.75rem;
   color: var(--color-base-content);
   cursor: pointer;
   text-transform: capitalize;
+}
+
+.sjsf-checkboxes,
+.sjsf-radio {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .sjsf-checkbox input,
@@ -80,7 +92,15 @@
   inline-size: 1.25rem;
   block-size: 1.25rem;
   flex: none;
+}
+
+.sjsf-checkbox input,
+.sjsf-checkboxes input {
   accent-color: var(--color-primary);
+}
+
+.sjsf-radio input {
+  accent-color: var(--color-base-content);
 }
 
 .sjsf-checkbox input:focus-visible,
@@ -88,6 +108,11 @@
 .sjsf-radio input:focus-visible {
   outline: 0.1875rem solid color-mix(in oklab, var(--color-primary) 42%, transparent);
   outline-offset: 0.125rem;
+}
+
+.sjsf-radio:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .sjsf-errors-list {

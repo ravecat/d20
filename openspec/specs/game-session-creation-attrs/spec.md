@@ -34,7 +34,8 @@ The system SHALL represent launchable game creation controls with JSON Schema ge
 #### Scenario: Enum creation field is described
 - **WHEN** a game changeset contains a supported `Ecto.Enum` field
 - **THEN** the form schema describes the field with its dumped enum values
-- **AND** SJSF renders one control for selecting an available value
+- **AND** SJSF renders the available values as native radio choices by default
+- **AND** the field submits the selected typed enum value
 
 #### Scenario: Boolean creation fields are described
 - **WHEN** a game changeset contains supported boolean fields
@@ -149,6 +150,12 @@ The client SHALL present SJSF-generated game creation controls with the shell's 
 #### Scenario: Launch form is displayed on a narrow viewport
 - **WHEN** the game page is displayed on a supported narrow viewport
 - **THEN** the generated form remains within the activation panel without horizontal overflow
+
+#### Scenario: Multiple-choice controls adapt to available space
+- **WHEN** SJSF renders a group of radio or checkbox choices
+- **THEN** each choice occupies a separate full-width row
+- **AND** each choice row uses the same minimum interaction height as the submit action
+- **AND** long choice labels wrap without causing horizontal overflow
 
 ### Requirement: Koala Rescue Club sheet is a creation attr
 The system SHALL select the Koala Rescue Club sheet during session creation.

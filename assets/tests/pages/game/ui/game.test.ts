@@ -321,7 +321,7 @@ describe("game detail page", () => {
   });
 
   it("posts a selected enum value from the creation form schema", async () => {
-    render(GamePage, {
+    const { getByRole } = render(GamePage, {
       auth,
       slug: "koala-rescue-club",
       game: gameMetadata({ name: "Koala Rescue Club" }),
@@ -329,21 +329,13 @@ describe("game detail page", () => {
       canLaunchGame: true,
     });
 
-    const sheet = selectByLabel("sheet");
-    const defaultOption = [...sheet.options].find((option) => option.textContent === "dharug");
-    const selectedOption = [...sheet.options].find((option) => option.textContent === "yugambeh");
+    const defaultSheet = getByRole("radio", { name: "dharug" }) as HTMLInputElement;
+    const selectedSheet = getByRole("radio", { name: "yugambeh" }) as HTMLInputElement;
 
-    if (!defaultOption) {
-      throw new Error("Expected Dharug option.");
-    }
+    expect(defaultSheet.checked).toBe(true);
+    expect(selectedSheet.checked).toBe(false);
 
-    if (!selectedOption) {
-      throw new Error("Expected Yugambeh option.");
-    }
-
-    expect(sheet.value).toBe(defaultOption.value);
-
-    await fireEvent.change(sheet, { target: { value: selectedOption.value } });
+    await fireEvent.click(selectedSheet);
     document.querySelector("button")?.click();
 
     await vi.waitFor(() => {
@@ -452,20 +444,6 @@ function inputByLabel(label: string) {
   }
 
   return input;
-}
-
-function selectByLabel(label: string) {
-  const select = [...document.getElementsByTagName("select")].find((candidate) =>
-    [...candidate.labels].some(
-      (element) => element.textContent?.replace(/\s/g, "") === `${label}*`,
-    ),
-  );
-
-  if (!select) {
-    throw new Error(`Expected select labelled ${label}.`);
-  }
-
-  return select;
 }
 
 function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {

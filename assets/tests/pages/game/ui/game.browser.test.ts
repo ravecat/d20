@@ -9,12 +9,22 @@ let cleanup: (() => Promise<void>) | undefined;
 
 beforeEach(async () => {
   await page.viewport(412, 915);
+  document.documentElement.style.setProperty("--color-base-100", "rgb(250 250 250)");
+  document.documentElement.style.setProperty("--color-base-300", "rgb(230 230 232)");
+  document.documentElement.style.setProperty("--color-base-content", "rgb(20 20 24)");
+  document.documentElement.style.setProperty("--color-primary", "rgb(210 90 30)");
+  document.documentElement.style.setProperty("--radius-sm", "4px");
 });
 
 afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.body.innerHTML = "";
+  document.documentElement.style.removeProperty("--color-base-100");
+  document.documentElement.style.removeProperty("--color-base-300");
+  document.documentElement.style.removeProperty("--color-base-content");
+  document.documentElement.style.removeProperty("--color-primary");
+  document.documentElement.style.removeProperty("--radius-sm");
 });
 
 describe("game detail responsive spacing", () => {
@@ -24,7 +34,8 @@ describe("game detail responsive spacing", () => {
     const activation = page.getByRole("complementary", { name: "Game activation" }).element();
     const description = page.getByRole("region", { name: "Description" }).element();
     const descriptionContent = page.getByText(/^Long game description\./).element();
-    const setupField = page.getByRole("combobox", { name: /sheet/i }).element();
+    const defaultSheet = page.getByRole("radio", { name: "dharug" }).element();
+    const alternateSheet = page.getByRole("radio", { name: "yugambeh" }).element();
     const action = page.getByRole("button", { name: "Play" }).element();
     const shell = requiredElement(".game-detail-shell");
     const preview = requiredElement(".game-detail-preview");
@@ -49,7 +60,13 @@ describe("game detail responsive spacing", () => {
       activation.getBoundingClientRect().right,
       3,
     );
-    expect(setupField.getBoundingClientRect().height).toBeCloseTo(36, 3);
+    expect(defaultSheet).toBeInstanceOf(HTMLInputElement);
+    expect(alternateSheet).toBeInstanceOf(HTMLInputElement);
+    expect((defaultSheet as HTMLInputElement).checked).toBe(true);
+    expect((alternateSheet as HTMLInputElement).checked).toBe(false);
+    expect(getComputedStyle(defaultSheet).accentColor).toBe(
+      getComputedStyle(labelFor(defaultSheet)).color,
+    );
     expect(action.getBoundingClientRect().height).toBeCloseTo(40, 3);
     expect(descriptionContent.getBoundingClientRect().top).toBeCloseTo(
       description.getBoundingClientRect().top,
@@ -119,6 +136,38 @@ describe("game detail responsive spacing", () => {
     expect(getComputedStyle(description).overflowY).toBe("auto");
     expect(description.scrollHeight).toBeGreaterThan(description.clientHeight);
   });
+
+  it("stacks launch choices in equal full-width rows", () => {
+    renderGame();
+
+    const defaultChoice = labelFor(page.getByRole("radio", { name: "dharug" }).element());
+    const alternateChoice = labelFor(page.getByRole("radio", { name: "yugambeh" }).element());
+    const action = page.getByRole("button", { name: "Play" }).element();
+
+    expect(defaultChoice.getBoundingClientRect().width).toBeCloseTo(
+      alternateChoice.getBoundingClientRect().width,
+      3,
+    );
+    expect(defaultChoice.getBoundingClientRect().left).toBeCloseTo(
+      alternateChoice.getBoundingClientRect().left,
+      3,
+    );
+    expect(defaultChoice.getBoundingClientRect().right).toBeCloseTo(
+      alternateChoice.getBoundingClientRect().right,
+      3,
+    );
+    expect(alternateChoice.getBoundingClientRect().top).toBeGreaterThan(
+      defaultChoice.getBoundingClientRect().top,
+    );
+    expect(defaultChoice.getBoundingClientRect().height).toBeCloseTo(
+      action.getBoundingClientRect().height,
+      3,
+    );
+    expect(alternateChoice.getBoundingClientRect().height).toBeCloseTo(
+      action.getBoundingClientRect().height,
+      3,
+    );
+  });
 });
 
 function renderGame() {
@@ -152,6 +201,20 @@ function requiredElement(selector: string) {
   }
 
   return element;
+}
+
+function labelFor(element: Element) {
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error("Expected an input choice.");
+  }
+
+  const label = element.labels?.item(0);
+
+  if (!label) {
+    throw new Error("Expected a labelled input choice.");
+  }
+
+  return label;
 }
 
 function gameSchema(): Schema {
