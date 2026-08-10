@@ -78,7 +78,7 @@ just serve
 
 Open [http://localhost:5000](http://localhost:5000).
 
-The development server restarts automatically when `envs/.env`, shared configuration, runtime configuration, or the active Mix environment configuration changes.
+`just serve` starts the watcher, and every initial or replacement child runs the full `mix serve` workflow: dependency resolution, database creation and migration, seeds, asset installation, asset build, and then Phoenix. The child restarts automatically when `envs/.env` or Elixir configuration changes, so those events rerun full setup and can apply an already pending migration. Changes under `priv/repo/migrations/` alone do not trigger a restart or execute a migration. Apply a pending migration immediately by running `mix ecto.migrate`, or run `just serve`, `mix serve`, or `mix start` for the complete server workflow; none of these commands reset, drop, or roll development data back.
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `STATIC_PORT` or defaults to `5174`.
 D20 automatically uses the first private IPv4 address for development asset URLs, so the application can also be opened from another device on the same network. Set `STATIC_URL_HOST` to override the detected address.
@@ -139,7 +139,7 @@ The project exposes four named `just` workflows. Use the `mix` and `assets` disp
 | `just`                           | List available project workflows and dispatchers.                          |
 | `just up`                        | Start shared Docker Compose routing and run the development server.        |
 | `just format`                    | Format Elixir and frontend assets.                                         |
-| `just serve`                     | Set up dependencies and start the development server.                      |
+| `just serve`                     | Set up once and start the watched development server.                       |
 | `just check`                     | Run formatting, asset, type, and test checks.                              |
 | `just mix <task> [args...]`      | Run a Mix task at the project level from the repository root.              |
 | `just assets <script> [args...]` | Run a Bun package script at the asset level from the `assets/` directory.  |

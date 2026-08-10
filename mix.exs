@@ -96,7 +96,7 @@ defmodule D20.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
-      serve: ["phx.server"],
+      serve: ["setup", "phx.server"],
       start: ["serve"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
