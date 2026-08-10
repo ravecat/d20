@@ -168,6 +168,18 @@ describe("game detail responsive spacing", () => {
       3,
     );
   });
+
+  it("uses regular description text sizing for launch choices", () => {
+    renderGame();
+
+    const description = page.getByText(/^Long game description\./).element();
+    const radioChoice = labelFor(page.getByRole("radio", { name: "dharug" }).element());
+    const checkboxChoice = labelFor(page.getByRole("checkbox", { name: "objectives" }).element());
+    const regularTextSize = getComputedStyle(description).fontSize;
+
+    expect(getComputedStyle(radioChoice).fontSize).toBe(regularTextSize);
+    expect(getComputedStyle(checkboxChoice).fontSize).toBe(regularTextSize);
+  });
 });
 
 function renderGame() {
@@ -222,9 +234,10 @@ function gameSchema(): Schema {
     type: "object",
     properties: {
       sheet: { type: "string", enum: ["dharug", "yugambeh"] },
+      objectives: { type: "boolean" },
     },
-    required: ["sheet"],
-    default: { sheet: "dharug" },
+    required: ["sheet", "objectives"],
+    default: { sheet: "dharug", objectives: false },
   };
 }
 

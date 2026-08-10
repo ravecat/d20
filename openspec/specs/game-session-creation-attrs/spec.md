@@ -155,6 +155,7 @@ The client SHALL present SJSF-generated game creation controls with the shell's 
 - **WHEN** SJSF renders a group of radio or checkbox choices
 - **THEN** each choice occupies a separate full-width row
 - **AND** each choice row uses the same minimum interaction height as the submit action
+- **AND** each choice label uses the same font size as regular game-description text
 - **AND** long choice labels wrap without causing horizontal overflow
 
 ### Requirement: Koala Rescue Club sheet is a creation attr
