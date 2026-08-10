@@ -11,28 +11,27 @@ Before deployment, record the following operational ownership in GitHub issue
 
 - the owner of the production Resend team;
 - the mailbox that receives Resend quota and security notifications;
-- the monitored destination behind `support@ravecat.io`;
+- the monitored destination behind the configured `Reply-To` address;
 - the reviewer and operator for the Terraform DNS apply.
 
-The checked-in application identities are:
-
-- `From`: `D20 <noreply@d20.ravecat.io>`;
-- `Reply-To`: `D20 Support <support@ravecat.io>`.
-
-`noreply@d20.ravecat.io` does not need a mailbox. Replies must reach the
-monitored destination configured for `support@ravecat.io`.
+The application reads its `From` and `Reply-To` identities from checked-in
+authentication email configuration. Do not duplicate their current addresses
+in this runbook. The sender does not need a mailbox. Replies must reach the
+monitored destination behind the configured `Reply-To` address.
 
 ## Resend account and domain
 
 1. Use one production Resend team and select the Free transactional plan while
    expected traffic remains within the operating guardrails below.
-2. Add `d20.ravecat.io` as a sending domain.
+2. Add the current sending domain managed by the `infra` repository. Do not
+   duplicate its value in D20 documentation.
 3. Copy every SPF, DKIM, and return-path record exactly as Resend generates it.
    Do not derive, shorten, or copy example values from documentation.
 4. After Resend verifies SPF and DKIM, add DMARC for the sending subdomain.
    Start with a monitored `p=none` policy, verify `dmarc=pass` for every sender,
    then deliberately move to `quarantine` or `reject`.
-5. Create an API key with Sending access restricted to `d20.ravecat.io`.
+5. Create an API key with Sending access restricted to the verified sending
+   domain.
    Resend displays a new key only once.
 
 Official references:
@@ -44,8 +43,9 @@ Official references:
 
 ## Cloudflare DNS through Terraform
 
-Cloudflare DNS for `ravecat.io` is managed in the separate `infra` repository.
-Do not add or edit these records manually in the Cloudflare dashboard.
+DNS for the current sending domain is managed in the separate `infra`
+repository. D20 documentation intentionally does not duplicate the domain
+value. Do not add or edit these records manually in the Cloudflare dashboard.
 Create the Resend team, domain, and restricted key in Resend itself. The initial
 production path does not add the community Resend Terraform provider; the
 official Cloudflare provider remains the Terraform boundary.
@@ -62,8 +62,8 @@ official Cloudflare provider remains the Terraform boundary.
    The checked-in `cloudflare_dns_record.d20_dmarc` resource starts with
    `p=none`.
 4. Inspect existing root-domain MX records before enabling Cloudflare Email
-   Routing for `support@ravecat.io`. If another provider owns those MX records,
-   configure the alias there instead.
+   Routing for the configured `Reply-To` address. If another provider owns
+   those MX records, configure the alias there instead.
 5. Run:
 
    ```sh
@@ -109,8 +109,8 @@ Use controlled Gmail and Outlook accounts. Exercise all three messages:
 
 For each message, verify:
 
-- visible sender is `D20 <noreply@d20.ravecat.io>`;
-- reply targets `D20 Support <support@ravecat.io>` and reaches its monitored
+- visible sender matches the checked-in `From` identity;
+- reply targets the checked-in `Reply-To` identity and reaches its monitored
   destination;
 - full headers show `spf=pass`, `dkim=pass`, and `dmarc=pass` with aligned
   domains;
