@@ -21,12 +21,6 @@ export default defineConfig({
     cors: true,
     allowedHosts: true,
   },
-  optimizeDeps: {
-    // https://vitejs.dev/guide/dep-pre-bundling#monorepos-and-linked-dependencies
-    include: isVitest
-      ? ["@inertiajs/core", "svelte"]
-      : ["@inertiajs/svelte", "phoenix", "phoenix_html", "phoenix_live_view", "svelte"],
-  },
   build: {
     target: browserTargets,
     manifest: true,
