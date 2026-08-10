@@ -16,6 +16,7 @@ assets +args:
 [arg("sname", long="sname")]
 [no-exit-message]
 serve sname="d20" erl="-proto_dist inet6_tcp":
+    mix setup
     watchexec --restart --shell=none --wrap-process=none --ignore-nothing \
         --watch envs --watch config -- \
         direnv exec . iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
