@@ -33,6 +33,9 @@ defmodule D20Web.UserSessionControllerTest do
                inertia_props(conn)
 
       assert email == user.email
+      assert %Accounts.User{confirmed_at: nil, username: nil} = Accounts.get_user!(user.id)
+      assert Accounts.get_user_by_magic_link_token(token)
+      refute get_session(conn, :user_token)
     end
 
     test "renders an Inertia login confirmation for a confirmed user", %{conn: conn, user: user} do
@@ -57,13 +60,16 @@ defmodule D20Web.UserSessionControllerTest do
     end
   end
 
-  describe "POST /users/log-in - email and password" do
-    test "logs the user in", %{conn: conn, user: user} do
+  describe "POST /users/log-in - username or email and password" do
+    test "logs the user in by username", %{conn: conn, user: user} do
       user = set_password(user)
 
       conn =
         post(conn, ~p"/users/log-in", %{
-          "user" => %{"email" => user.email, "password" => valid_user_password()}
+          "user" => %{
+            "identifier" => String.upcase(user.username),
+            "password" => valid_user_password()
+          }
         })
 
       assert get_session(conn, :user_token)
@@ -79,7 +85,7 @@ defmodule D20Web.UserSessionControllerTest do
       conn =
         post(conn, ~p"/users/log-in", %{
           "user" => %{
-            "email" => user.email,
+            "identifier" => user.email,
             "password" => valid_user_password(),
             "remember_me" => "true"
           }
@@ -96,7 +102,7 @@ defmodule D20Web.UserSessionControllerTest do
         conn
         |> init_test_session(return_to: "/foo/bar")
         |> post(~p"/users/log-in", %{
-          "user" => %{"email" => user.email, "password" => valid_user_password()}
+          "user" => %{"identifier" => user.email, "password" => valid_user_password()}
         })
 
       assert redirected_to(conn) == "/foo/bar"
@@ -113,7 +119,7 @@ defmodule D20Web.UserSessionControllerTest do
         conn
         |> inertia_request()
         |> post(~p"/users/log-in", %{
-          "user" => %{"email" => user.email, "password" => valid_user_password()},
+          "user" => %{"identifier" => user.email, "password" => valid_user_password()},
           "response_to" => "/games/qwinto?session=table-1",
           "return_to" => "/games/qwinto?session=table-1"
         })
@@ -129,7 +135,7 @@ defmodule D20Web.UserSessionControllerTest do
         conn
         |> inertia_request()
         |> post(~p"/users/log-in", %{
-          "user" => %{"email" => user.email, "password" => valid_user_password()},
+          "user" => %{"identifier" => user.email, "password" => valid_user_password()},
           "response_to" => "/",
           "return_to" => "//example.org/steal-session"
         })
@@ -143,7 +149,7 @@ defmodule D20Web.UserSessionControllerTest do
         conn
         |> inertia_request()
         |> post(~p"/users/log-in", %{
-          "user" => %{"email" => user.email, "password" => "invalid_password"},
+          "user" => %{"identifier" => user.username, "password" => "invalid_password"},
           "response_to" => "/",
           "return_to" => "/"
         })
@@ -152,7 +158,28 @@ defmodule D20Web.UserSessionControllerTest do
 
       response_conn = follow_inertia_redirect(conn)
 
-      assert inertia_errors(response_conn) == %{credentials: "Invalid email or password"}
+      assert inertia_errors(response_conn) == %{
+               credentials: "Invalid username, email, or password"
+             }
+
+      refute get_session(conn, :user_token)
+    end
+
+    test "returns the same generic error for a passwordless account", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> inertia_request()
+        |> post(~p"/users/log-in", %{
+          "user" => %{"identifier" => user.username, "password" => valid_user_password()},
+          "response_to" => "/",
+          "return_to" => "/"
+        })
+
+      response_conn = follow_inertia_redirect(conn)
+
+      assert inertia_errors(response_conn) == %{
+               credentials: "Invalid username, email, or password"
+             }
 
       refute get_session(conn, :user_token)
     end
@@ -241,16 +268,69 @@ defmodule D20Web.UserSessionControllerTest do
       refute user.confirmed_at
 
       conn =
-        post conn, ~p"/users/log-in", %{"user" => %{"token" => token}, "_action" => "confirmed"}
+        post conn, ~p"/users/log-in", %{
+          "user" => %{"token" => token, "username" => "table_master"},
+          "_action" => "confirmed"
+        }
 
       assert get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "User confirmed successfully."
 
-      assert Accounts.get_user!(user.id).confirmed_at
+      assert %Accounts.User{confirmed_at: confirmed_at, username: "table_master"} =
+               Accounts.get_user!(user.id)
+
+      assert confirmed_at
 
       conn = get(conn, ~p"/")
       assert_logged_in_inertia_home(conn, user)
+    end
+
+    test "keeps the confirmation token after a username validation error", %{
+      conn: conn,
+      unconfirmed_user: user
+    } do
+      {token, _hashed_token} = generate_user_magic_link_token(user)
+
+      conn =
+        conn
+        |> inertia_request()
+        |> post(~p"/users/log-in", %{
+          "user" => %{"token" => token, "username" => "invalid name"},
+          "_action" => "confirmed"
+        })
+
+      assert redirected_to(conn, 303) == ~p"/users/log-in/#{token}"
+      refute get_session(conn, :user_token)
+
+      response_conn = follow_inertia_redirect(conn)
+
+      assert %{username: _message} = inertia_errors(response_conn)
+      assert %Accounts.User{confirmed_at: nil, username: nil} = Accounts.get_user!(user.id)
+      assert Accounts.get_user_by_magic_link_token(token)
+    end
+
+    test "keeps the confirmation token when another user owns the username", %{
+      conn: conn,
+      unconfirmed_user: user
+    } do
+      existing_user = user_fixture(username: "table_master")
+      {token, _hashed_token} = generate_user_magic_link_token(user)
+
+      conn =
+        conn
+        |> inertia_request()
+        |> post(~p"/users/log-in", %{
+          "user" => %{"token" => token, "username" => "table_master"},
+          "_action" => "confirmed"
+        })
+
+      assert redirected_to(conn, 303) == ~p"/users/log-in/#{token}"
+      response_conn = follow_inertia_redirect(conn)
+      assert inertia_errors(response_conn).username == "has already been taken"
+      assert Accounts.get_user!(existing_user.id).username == "table_master"
+      assert %Accounts.User{confirmed_at: nil, username: nil} = Accounts.get_user!(user.id)
+      assert Accounts.get_user_by_magic_link_token(token)
     end
 
     test "redirects when a submitted magic link is invalid", %{conn: conn} do

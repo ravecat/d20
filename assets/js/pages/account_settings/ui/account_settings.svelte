@@ -6,9 +6,10 @@
 
   type Props = InertiaProps<{
     email: string;
+    username: string | null;
   }>;
 
-  const { email }: Props = $props();
+  const { email, username }: Props = $props();
 </script>
 
 <svelte:head>
@@ -18,8 +19,66 @@
 <div class="settings-page">
   <header class="settings-page__header">
     <h1>Account settings</h1>
-    <p>Manage the email address and password used by your D20 account.</p>
+    <p>Manage the username, email address, and password used by your D20 account.</p>
   </header>
+
+  <section class="settings-card" aria-labelledby="username-settings-title">
+    <div>
+      <h2 id="username-settings-title">Username</h2>
+      {#if username}
+        <p>Your username identifies you to other D20 players and cannot be changed.</p>
+      {:else}
+        <p>Choose the permanent username other D20 players will see.</p>
+      {/if}
+    </div>
+
+    {#if username}
+      <p class="settings-card__username">{username}</p>
+    {:else}
+      <Form class="settings-form" method="put" action="/users/settings" disableWhileProcessing>
+        {#snippet children({ errors, processing }: FormSlotProps)}
+          <input type="hidden" name="action" value="claim_username" />
+
+          <div class="settings-form__field">
+            <label for="settings-username">Username</label>
+            <p id="settings-username-hint" class="settings-form__hint">
+              Use 3-32 letters, numbers, underscores, or hyphens. Start and end with a letter or
+              number.
+            </p>
+            <input
+              id="settings-username"
+              name="user[username]"
+              type="text"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              minlength="3"
+              maxlength="32"
+              pattern="[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?"
+              enterkeyhint="done"
+              required
+              oninput={(event) => {
+                event.currentTarget.value = event.currentTarget.value.trim().toLowerCase();
+              }}
+              aria-invalid={errors.username ? "true" : undefined}
+              aria-describedby={errors.username
+                ? "settings-username-hint settings-username-error"
+                : "settings-username-hint"}
+            />
+            {#if errors.username}
+              <p id="settings-username-error" class="settings-form__error" role="alert">
+                {errors.username}
+              </p>
+            {/if}
+          </div>
+
+          <button type="submit" disabled={processing}>
+            {processing ? "Saving username..." : "Save username"}
+          </button>
+        {/snippet}
+      </Form>
+    {/if}
+  </section>
 
   <section class="settings-card" aria-labelledby="email-settings-title">
     <div>
@@ -169,6 +228,13 @@
     font-size: 1.15rem;
   }
 
+  .settings-card__username {
+    overflow-wrap: anywhere;
+    color: var(--color-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
   :global(.settings-form) {
     display: grid;
     gap: 0.85rem;
@@ -177,6 +243,16 @@
   .settings-form__field {
     display: grid;
     gap: 0.4rem;
+  }
+
+  .settings-form__field > label {
+    font-weight: 700;
+  }
+
+  .settings-form__hint {
+    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+    font-size: 0.8rem;
+    line-height: 1.45;
   }
 
   .settings-form__field input {

@@ -10,6 +10,7 @@ defmodule D20.AccountsFixtures do
   alias D20.Accounts.Scope
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
+  def unique_user_username, do: "player#{System.unique_integer([:positive])}"
   def valid_user_password, do: "hello world!"
 
   def valid_user_attributes(attrs \\ %{}) do
@@ -23,13 +24,24 @@ defmodule D20.AccountsFixtures do
   end
 
   def user_fixture(attrs \\ %{}) do
+    attrs = Map.new(attrs)
     user = unconfirmed_user_fixture(attrs)
+    username = Map.get(attrs, :username) || Map.get(attrs, "username") || unique_user_username()
 
     token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
-    {:ok, {user, _expired_tokens}} = Accounts.login_user_by_magic_link(token)
+    {:ok, {user, _expired_tokens}} =
+      Accounts.login_user_by_magic_link(token, %{username: username})
 
     user
+  end
+
+  def user_without_username_fixture(attrs \\ %{}) do
+    user = unconfirmed_user_fixture(attrs)
+
+    user
+    |> Accounts.User.confirm_changeset()
+    |> D20.Repo.update!()
   end
 
   def actor_scope_fixture do

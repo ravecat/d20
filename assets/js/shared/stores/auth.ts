@@ -6,6 +6,7 @@ type AuthContext = {
   open: boolean;
   mode: "register" | "login";
   email: string;
+  identifier: string;
   prompt: AuthPrompt | null;
   registrationCompleted: boolean;
   magicLinkCompleted: boolean;
@@ -17,6 +18,7 @@ export const auth = createStore<
     open: { prompt?: AuthPrompt };
     switchMode: { mode: AuthContext["mode"] };
     updateEmail: { email: string };
+    updateIdentifier: { identifier: string };
     registrationSucceeded: null;
     magicLinkSucceeded: null;
     close: null;
@@ -27,6 +29,7 @@ export const auth = createStore<
     open: false,
     mode: "register",
     email: "",
+    identifier: "",
     prompt: null,
     registrationCompleted: false,
     magicLinkCompleted: false,
@@ -36,6 +39,7 @@ export const auth = createStore<
       open: true,
       mode: event.prompt ? "login" : "register",
       email: event.prompt?.email ?? "",
+      identifier: event.prompt?.email ?? "",
       prompt: event.prompt ?? null,
       registrationCompleted: false,
       magicLinkCompleted: false,
@@ -49,6 +53,11 @@ export const auth = createStore<
     updateEmail: (context, event) => ({
       ...context,
       email: event.email,
+      identifier: context.identifier === context.email ? event.email : context.identifier,
+    }),
+    updateIdentifier: (context, event) => ({
+      ...context,
+      identifier: event.identifier,
     }),
     registrationSucceeded: (context) => ({
       ...context,
@@ -62,6 +71,7 @@ export const auth = createStore<
       open: false,
       mode: "register",
       email: "",
+      identifier: "",
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
@@ -70,6 +80,7 @@ export const auth = createStore<
       open: false,
       mode: "register",
       email: "",
+      identifier: "",
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,

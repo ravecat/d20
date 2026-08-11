@@ -23,6 +23,7 @@ describe("auth store", () => {
       open: true,
       mode: "register",
       email: "",
+      identifier: "",
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
@@ -36,6 +37,7 @@ describe("auth store", () => {
       open: true,
       mode: "login",
       email: "player@example.com",
+      identifier: "player@example.com",
       prompt,
       registrationCompleted: false,
       magicLinkCompleted: false,
@@ -53,6 +55,7 @@ describe("auth store", () => {
       open: true,
       mode: "register",
       email: "changed@example.com",
+      identifier: "changed@example.com",
       prompt,
       registrationCompleted: false,
       magicLinkCompleted: false,
@@ -68,9 +71,19 @@ describe("auth store", () => {
       open: false,
       mode: "register",
       email: "",
+      identifier: "",
       prompt: null,
       registrationCompleted: false,
       magicLinkCompleted: false,
     });
+  });
+
+  it("keeps a password username separate from the magic-link email", () => {
+    auth.trigger.open({ prompt });
+    auth.trigger.updateIdentifier({ identifier: "table_master" });
+    auth.trigger.updateEmail({ email: "next@example.com" });
+
+    expect(auth.get().context.email).toBe("next@example.com");
+    expect(auth.get().context.identifier).toBe("table_master");
   });
 });

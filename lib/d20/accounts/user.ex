@@ -7,6 +7,7 @@ defmodule D20.Accounts.User do
 
   schema "users" do
     field :email, :string
+    field :username, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
@@ -59,6 +60,37 @@ defmodule D20.Accounts.User do
     else
       changeset
     end
+  end
+
+  @doc """
+  A changeset for assigning a user's immutable username.
+  """
+  def username_changeset(%__MODULE__{username: nil} = user, attrs) do
+    user
+    |> cast(attrs, [:username])
+    |> validate_required([:username])
+    |> validate_length(:username, min: 3, max: 32)
+    |> validate_format(:username, ~r/\A[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?\z/,
+      message:
+        "must start and end with a letter or number and contain only letters, numbers, underscores, or hyphens"
+    )
+    |> unsafe_validate_unique(:username, D20.Repo)
+    |> unique_constraint(:username, name: :users_username_index)
+  end
+
+  def username_changeset(%__MODULE__{} = user, _attrs) do
+    user
+    |> change()
+    |> add_error(:username, "has already been set")
+  end
+
+  @doc """
+  Completes an email registration by assigning a username and confirming the account.
+  """
+  def registration_completion_changeset(%__MODULE__{} = user, attrs) do
+    user
+    |> username_changeset(attrs)
+    |> put_change(:confirmed_at, DateTime.utc_now(:second))
   end
 
   @doc """

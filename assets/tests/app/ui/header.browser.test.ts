@@ -45,21 +45,22 @@ describe("app header account dialog", () => {
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     const loginDialog = page.getByRole("dialog", { name: "Log in" });
-    const loginEmails = page.getByLabelText("Email address").elements() as HTMLInputElement[];
+    const loginEmail = page.getByLabelText("Email address");
+    const loginIdentifier = page.getByLabelText("Username or email");
 
     await expect.element(loginDialog).toBeVisible();
-    expect(loginEmails).toHaveLength(2);
     expect(page.getByRole("heading", { name: "Magic Link" }).elements()).toHaveLength(0);
-    expect(page.getByRole("heading", { name: "Email and password" }).elements()).toHaveLength(0);
-    expect(loginEmails.every((input) => input.placeholder === "Email address")).toBe(true);
+    expect(page.getByRole("heading", { name: "Password login" }).elements()).toHaveLength(0);
+    expect((loginEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
+    expect((loginIdentifier.element() as HTMLInputElement).placeholder).toBe("Username or email");
     expect(
       (page.getByLabelText("Password", { exact: true }).element() as HTMLInputElement).placeholder,
     ).toBe("Password");
-    expect(loginEmails[0]?.value).toBe("player@example.com");
-    expect(loginEmails[1]?.value).toBe("player@example.com");
-    expect(loginEmails[0]?.hasAttribute("autofocus")).toBe(true);
-    expect(loginEmails[1]?.hasAttribute("autofocus")).toBe(false);
-    await expect.poll(() => document.activeElement).toBe(loginEmails[0]);
+    expect((loginEmail.element() as HTMLInputElement).value).toBe("player@example.com");
+    expect((loginIdentifier.element() as HTMLInputElement).value).toBe("player@example.com");
+    expect(loginEmail.element().hasAttribute("autofocus")).toBe(true);
+    expect(loginIdentifier.element().hasAttribute("autofocus")).toBe(false);
+    await expect.poll(() => document.activeElement).toBe(loginEmail.element());
     expect(
       page.getByRole("button", { name: "Create account", exact: true }).elements(),
     ).toHaveLength(1);
@@ -260,8 +261,8 @@ describe("app header account dialog", () => {
     renderHeader();
     await openLoginMode();
 
-    const emailInputs = page.getByLabelText("Email address").elements() as HTMLInputElement[];
-    await userEvent.fill(emailInputs[1]!, "player@example.com");
+    const identifier = page.getByLabelText("Username or email");
+    await identifier.fill("table_master");
     const password = page.getByLabelText("Password", { exact: true });
     await password.fill("not-the-password");
     await page.getByLabelText("Keep me signed in").click();
@@ -278,7 +279,7 @@ describe("app header account dialog", () => {
         response_to: "/games/qwinto",
         return_to: "/games/qwinto",
         user: {
-          email: "player@example.com",
+          identifier: "table_master",
           password: "not-the-password",
           remember_me: "true",
         },
@@ -286,11 +287,14 @@ describe("app header account dialog", () => {
     });
 
     inertiaMock.respondWithErrors({
-      credentials: "Invalid email or password",
+      credentials: "Invalid username, email, or password",
     });
 
-    await expect.element(page.getByRole("alert")).toHaveTextContent("Invalid email or password");
-    expect(page.getByText("Invalid email or password").elements()).toHaveLength(1);
+    await expect
+      .element(page.getByRole("alert"))
+      .toHaveTextContent("Invalid username, email, or password");
+    expect(page.getByText("Invalid username, email, or password").elements()).toHaveLength(1);
+    expect(identifier.element().getAttribute("aria-invalid")).toBe("true");
     await expect.element(page.getByRole("button", { name: "Email me a login link" })).toBeVisible();
   });
 
@@ -445,11 +449,13 @@ describe("app header account dialog", () => {
       .element(page.getByRole("status").filter({ hasText: "You must re-authenticate" }))
       .toBeVisible();
 
-    const emails = page.getByLabelText("Email address").elements() as HTMLInputElement[];
+    const email = page.getByLabelText("Email address").element() as HTMLInputElement;
+    const identifier = page.getByLabelText("Username or email").element() as HTMLInputElement;
 
-    expect(emails).toHaveLength(2);
-    expect(emails.every((input) => input.value === "player@example.com")).toBe(true);
-    expect(emails.every((input) => input.readOnly)).toBe(true);
+    expect(email.value).toBe("player@example.com");
+    expect(identifier.value).toBe("player@example.com");
+    expect(email.readOnly).toBe(true);
+    expect(identifier.readOnly).toBe(true);
     expect(page.getByLabelText("Keep me signed in").elements()).toHaveLength(0);
     expect(page.getByLabelText("Other login methods").elements()).toHaveLength(0);
     expect(page.getByRole("button", { name: "Create account" }).elements()).toHaveLength(0);

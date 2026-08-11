@@ -12,9 +12,15 @@ defmodule D20Web.UserSessionController do
         _ -> "Welcome back!"
       end
 
-    case Accounts.login_user_by_magic_link(token) do
+    case Accounts.login_user_by_magic_link(token, user_params) do
       {:ok, {user, _expired_tokens}} ->
         conn |> put_flash(:info, info) |> UserAuth.log_in_user(user, user_params)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> assign_errors(changeset)
+        |> put_status(:see_other)
+        |> redirect(to: ~p"/users/log-in/#{token}")
 
       {:error, :not_found} ->
         conn
@@ -23,14 +29,14 @@ defmodule D20Web.UserSessionController do
     end
   end
 
-  # email + password login
+  # username or email + password login
   def create(
         conn,
-        %{"user" => %{"email" => email, "password" => password} = user_params} = params
+        %{"user" => %{"identifier" => identifier, "password" => password} = user_params} = params
       ) do
     conn = UserAuth.store_return_to(conn, params["return_to"])
 
-    if user = Accounts.get_user_by_email_and_password(email, password) do
+    if user = Accounts.get_user_by_identifier_and_password(identifier, password) do
       conn
       |> put_flash(:info, "Welcome back!")
       |> UserAuth.log_in_user(user, user_params)
@@ -77,9 +83,9 @@ defmodule D20Web.UserSessionController do
   end
 
   defp invalid_credentials(conn, params) do
-    # Do not disclose whether the email or password was incorrect.
+    # Do not disclose whether the identifier or password was incorrect.
     conn
-    |> assign_errors(%{credentials: "Invalid email or password"})
+    |> assign_errors(%{credentials: "Invalid username, email, or password"})
     |> redirect_to_response(params, ~p"/")
   end
 

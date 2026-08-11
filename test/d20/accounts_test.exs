@@ -19,21 +19,37 @@ defmodule D20.AccountsTest do
     end
   end
 
-  describe "get_user_by_email_and_password/2" do
-    test "does not return the user if the email does not exist" do
-      refute Accounts.get_user_by_email_and_password("unknown@example.com", "hello world!")
+  describe "get_user_by_identifier_and_password/2" do
+    test "does not return the user if the identifier does not exist" do
+      refute Accounts.get_user_by_identifier_and_password("unknown", "hello world!")
     end
 
     test "does not return the user if the password is not valid" do
       user = set_password(user_fixture())
-      refute Accounts.get_user_by_email_and_password(user.email, "invalid")
+      refute Accounts.get_user_by_identifier_and_password(user.email, "invalid")
+    end
+
+    test "does not return a passwordless user" do
+      user = user_fixture()
+
+      refute Accounts.get_user_by_identifier_and_password(user.username, valid_user_password())
     end
 
     test "returns the user if the email and password are valid" do
       %{id: id} = user = set_password(user_fixture())
 
       assert %User{id: ^id} =
-               Accounts.get_user_by_email_and_password(user.email, valid_user_password())
+               Accounts.get_user_by_identifier_and_password(
+                 String.upcase(user.email),
+                 valid_user_password()
+               )
+    end
+
+    test "returns the user if the username and password are valid" do
+      %{id: id} = set_password(user_fixture(username: "table_master"))
+
+      assert %User{id: ^id} =
+               Accounts.get_user_by_identifier_and_password("TABLE_MASTER", valid_user_password())
     end
   end
 
@@ -172,9 +188,16 @@ defmodule D20.AccountsTest do
 
       assert Accounts.get_user_or_anonymous(to_string(user.id)) == %{
                id: to_string(user.id),
-               display_name: user.email,
+               display_name: user.username,
                avatar: nil
              }
+    end
+
+    test "uses email as the display name for an account without a username" do
+      user = user_without_username_fixture()
+
+      assert %{display_name: display_name} = Accounts.get_user_or_anonymous(to_string(user.id))
+      assert display_name == user.email
     end
 
     test "returns deterministic anonymous profile data for unknown actor ids" do
@@ -225,6 +248,7 @@ defmodule D20.AccountsTest do
       assert user.email == email
       assert is_nil(user.hashed_password)
       assert is_nil(user.confirmed_at)
+      assert is_nil(user.username)
       assert is_nil(user.password)
     end
   end
@@ -251,9 +275,11 @@ defmodule D20.AccountsTest do
                         reply_to: {"D20 Support", "support@ravecat.io"}
                       }}
 
-      assert {:ok, {confirmed_user, _expired_tokens}} = Accounts.login_user_by_magic_link(token)
+      assert {:ok, {confirmed_user, _expired_tokens}} =
+               Accounts.login_user_by_magic_link(token, %{username: "table_master"})
 
       assert confirmed_user.id == user.id
+      assert confirmed_user.username == "table_master"
       assert D20.Accounts.Scope.for_actor(confirmed_user).actor.id == to_string(user.id)
     end
 
@@ -324,6 +350,79 @@ defmodule D20.AccountsTest do
       assert [{:error, changeset}] = Enum.filter(results, &match?({:error, _}, &1))
       assert "has already been taken" in errors_on(changeset).email
       assert Repo.aggregate(from(user in User, where: user.email == ^email), :count) == 1
+    end
+  end
+
+  describe "claim_username/2" do
+    test "assigns a canonical username once" do
+      user = user_without_username_fixture()
+
+      assert {:ok, %User{username: "table_master"}} =
+               Accounts.claim_username(user, %{username: "table_master"})
+
+      assert {:error, changeset} = Accounts.claim_username(user, %{username: "another_name"})
+      assert %{username: ["has already been set"]} = errors_on(changeset)
+      assert Repo.get!(User, user.id).username == "table_master"
+    end
+
+    test "validates username syntax" do
+      user = user_without_username_fixture()
+
+      for username <- [
+            "ab",
+            "-player",
+            "player-",
+            "player name",
+            "Table_Master",
+            " table_master ",
+            String.duplicate("a", 33)
+          ] do
+        assert {:error, changeset} = Accounts.claim_username(user, %{username: username})
+        assert Map.has_key?(errors_on(changeset), :username)
+      end
+
+      assert is_nil(Repo.get!(User, user.id).username)
+    end
+
+    test "rejects a duplicate canonical username" do
+      first_user = user_without_username_fixture()
+      second_user = user_without_username_fixture()
+
+      assert {:ok, %User{username: "table_master"}} =
+               Accounts.claim_username(first_user, %{username: "table_master"})
+
+      assert {:error, changeset} =
+               Accounts.claim_username(second_user, %{username: "table_master"})
+
+      assert "has already been taken" in errors_on(changeset).username
+      assert is_nil(Repo.get!(User, second_user.id).username)
+    end
+
+    test "database uniqueness converts a case-equivalent prepared claim into a controlled error" do
+      first_user = user_without_username_fixture()
+      second_user = user_without_username_fixture()
+
+      first_changeset = User.username_changeset(first_user, %{username: "shared_name"})
+
+      second_changeset =
+        second_user
+        |> Ecto.Changeset.change(username: "SHARED_NAME")
+        |> Ecto.Changeset.unique_constraint(:username, name: :users_username_index)
+
+      assert first_changeset.valid?
+      assert second_changeset.valid?
+      assert {:ok, %User{username: "shared_name"}} = Repo.update(first_changeset)
+      assert {:error, changeset} = Repo.update(second_changeset)
+      assert "has already been taken" in errors_on(changeset).username
+    end
+
+    test "keeps email and password authentication available without a username" do
+      user = set_password(user_without_username_fixture())
+
+      assert %User{id: user_id} =
+               Accounts.get_user_by_identifier_and_password(user.email, valid_user_password())
+
+      assert user_id == user.id
     end
   end
 
@@ -473,7 +572,7 @@ defmodule D20.AccountsTest do
 
       assert expired_tokens == []
       assert is_nil(user.password)
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+      assert Accounts.get_user_by_identifier_and_password(user.email, "new valid password")
     end
 
     test "deletes all tokens for the given user", %{user: user} do
@@ -562,16 +661,44 @@ defmodule D20.AccountsTest do
     end
   end
 
-  describe "login_user_by_magic_link/1" do
-    test "confirms user and expires tokens" do
+  describe "login_user_by_magic_link/2" do
+    test "assigns username, confirms user, and expires tokens" do
       user = unconfirmed_user_fixture()
       refute user.confirmed_at
       {encoded_token, hashed_token} = generate_user_magic_link_token(user)
 
       assert {:ok, {user, [%{token: ^hashed_token}]}} =
-               Accounts.login_user_by_magic_link(encoded_token)
+               Accounts.login_user_by_magic_link(encoded_token, %{username: "table_master"})
 
       assert user.confirmed_at
+      assert user.username == "table_master"
+    end
+
+    test "retains the token and unconfirmed user when username validation fails" do
+      user = unconfirmed_user_fixture()
+      {encoded_token, hashed_token} = generate_user_magic_link_token(user)
+
+      assert {:error, changeset} =
+               Accounts.login_user_by_magic_link(encoded_token, %{username: "invalid name"})
+
+      assert Map.has_key?(errors_on(changeset), :username)
+      assert %User{confirmed_at: nil, username: nil} = Repo.get!(User, user.id)
+      assert Repo.get_by(UserToken, token: hashed_token)
+      assert Accounts.get_user_by_magic_link_token(encoded_token)
+    end
+
+    test "retains the token when the username is already assigned" do
+      existing_user = user_fixture(username: "table_master")
+      user = unconfirmed_user_fixture()
+      {encoded_token, hashed_token} = generate_user_magic_link_token(user)
+
+      assert {:error, changeset} =
+               Accounts.login_user_by_magic_link(encoded_token, %{username: "table_master"})
+
+      assert "has already been taken" in errors_on(changeset).username
+      assert Repo.get!(User, existing_user.id).username == "table_master"
+      assert %User{confirmed_at: nil, username: nil} = Repo.get!(User, user.id)
+      assert Repo.get_by(UserToken, token: hashed_token)
     end
 
     test "returns user and (deleted) token for confirmed user" do

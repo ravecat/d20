@@ -268,7 +268,7 @@
 
         <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
 
-        <section class="auth-method" aria-label="Email and password login">
+        <section class="auth-method" aria-label="Password login">
           <Form class="auth-form" method="post" action="/users/log-in" disableWhileProcessing>
             {#snippet children({ errors, processing }: FormSlotProps)}
               <input
@@ -279,22 +279,25 @@
               <input type="hidden" name="response_to" value={page.url} />
 
               <div class="auth-form__field">
-                <label class="auth-panel__sr-only" for="auth-dialog-password-login-email">
-                  Email address
+                <label class="auth-panel__sr-only" for="auth-dialog-password-login-identifier">
+                  Username or email
                 </label>
                 <input
-                  value={$authState.email}
+                  value={$authState.identifier}
                   oninput={(event) =>
-                    auth.trigger.updateEmail({ email: event.currentTarget.value })}
-                  id="auth-dialog-password-login-email"
-                  name="user[email]"
-                  type="email"
-                  inputmode="email"
-                  placeholder="Email address"
+                    auth.trigger.updateIdentifier({ identifier: event.currentTarget.value })}
+                  id="auth-dialog-password-login-identifier"
+                  name="user[identifier]"
+                  type="text"
+                  placeholder="Username or email"
                   autocomplete="username"
                   spellcheck="false"
                   readonly={$authState.prompt?.reauthenticate ?? false}
                   required
+                  aria-invalid={errors.credentials ? "true" : undefined}
+                  aria-describedby={errors.credentials
+                    ? "auth-dialog-password-login-error"
+                    : undefined}
                 />
               </div>
 

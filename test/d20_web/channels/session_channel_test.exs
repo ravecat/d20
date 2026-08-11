@@ -88,7 +88,7 @@ defmodule D20Web.SessionChannelTest do
                members[actor.id]
 
       assert is_integer(online_at)
-      assert display_name == user.email
+      assert display_name == user.username
     end
 
     test "should reject missing sessions" do

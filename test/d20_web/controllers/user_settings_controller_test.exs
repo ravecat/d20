@@ -13,6 +13,15 @@ defmodule D20Web.UserSettingsControllerTest do
       assert html_response(conn, 200) =~ ~s(id="app")
       assert inertia_component(conn) == "account_settings"
       assert inertia_props(conn).email == user.email
+      assert inertia_props(conn).username == user.username
+    end
+
+    test "exposes a missing username for an existing account", %{conn: conn} do
+      user = user_without_username_fixture()
+      conn = conn |> log_in_user(user) |> get(~p"/users/settings")
+
+      assert inertia_component(conn) == "account_settings"
+      assert inertia_props(conn).username == nil
     end
 
     test "redirects if user is not logged in" do
@@ -29,6 +38,76 @@ defmodule D20Web.UserSettingsControllerTest do
       assert redirected_to(conn) == ~p"/"
       assert get_session(conn, :auth_prompt).reauthenticate == true
       assert get_session(conn, :auth_prompt).return_to == "/users/settings"
+    end
+  end
+
+  describe "PUT /users/settings (claim username form)" do
+    test "assigns a canonical username without rotating the session", %{conn: conn} do
+      user = user_without_username_fixture()
+      conn = log_in_user(conn, user)
+      session_token = get_session(conn, :user_token)
+
+      conn =
+        put(conn, ~p"/users/settings", %{
+          "action" => "claim_username",
+          "user" => %{"username" => "table_master"}
+        })
+
+      assert redirected_to(conn, 303) == ~p"/users/settings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Username saved successfully"
+      assert get_session(conn, :user_token) == session_token
+      assert Accounts.get_user!(user.id).username == "table_master"
+    end
+
+    test "returns flat username validation through the Inertia redirect", %{conn: conn} do
+      user = user_without_username_fixture()
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> inertia_request()
+        |> put(~p"/users/settings", %{
+          "action" => "claim_username",
+          "user" => %{"username" => "invalid name"}
+        })
+
+      assert redirected_to(conn, 303) == ~p"/users/settings"
+      response_conn = follow_inertia_redirect(conn)
+      assert %{username: _message} = inertia_errors(response_conn)
+      assert is_nil(Accounts.get_user!(user.id).username)
+    end
+
+    test "returns a controlled duplicate error", %{conn: conn} do
+      existing_user = user_fixture(username: "table_master")
+      user = user_without_username_fixture()
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> inertia_request()
+        |> put(~p"/users/settings", %{
+          "action" => "claim_username",
+          "user" => %{"username" => "table_master"}
+        })
+
+      response_conn = follow_inertia_redirect(conn)
+      assert inertia_errors(response_conn).username == "has already been taken"
+      assert Accounts.get_user!(existing_user.id).username == "table_master"
+      assert is_nil(Accounts.get_user!(user.id).username)
+    end
+
+    test "rejects replacing an assigned username", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> inertia_request()
+        |> put(~p"/users/settings", %{
+          "action" => "claim_username",
+          "user" => %{"username" => "another_name"}
+        })
+
+      response_conn = follow_inertia_redirect(conn)
+      assert inertia_errors(response_conn).username == "has already been set"
+      assert Accounts.get_user!(user.id).username == user.username
     end
   end
 
@@ -50,7 +129,7 @@ defmodule D20Web.UserSettingsControllerTest do
       assert Phoenix.Flash.get(new_password_conn.assigns.flash, :info) =~
                "Password updated successfully"
 
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+      assert Accounts.get_user_by_identifier_and_password(user.email, "new valid password")
     end
 
     test "returns flat password validation through the Inertia redirect", %{conn: conn} do

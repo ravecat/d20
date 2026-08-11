@@ -31,20 +31,23 @@ defmodule D20.Accounts do
   end
 
   @doc """
-  Gets a user by email and password.
+  Gets a user by username or email and password.
 
   ## Examples
 
-      iex> get_user_by_email_and_password("foo@example.com", "correct_password")
+      iex> get_user_by_identifier_and_password("player", "correct_password")
       %User{}
 
-      iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
+      iex> get_user_by_identifier_and_password("foo@example.com", "invalid_password")
       nil
 
   """
-  def get_user_by_email_and_password(email, password)
-      when is_binary(email) and is_binary(password) do
-    user = Repo.get_by(User, email: email)
+  def get_user_by_identifier_and_password(identifier, password) do
+    user =
+      Repo.one(
+        from user in User, where: user.email == ^identifier or user.username == ^identifier
+      )
+
     if User.valid_password?(user, password), do: user
   end
 
@@ -172,7 +175,7 @@ defmodule D20.Accounts do
   end
 
   defp user_profile(%User{} = user) do
-    %{id: to_string(user.id), display_name: user.email, avatar: nil}
+    %{id: to_string(user.id), display_name: user.username || user.email, avatar: nil}
   end
 
   defp user_profile(%Anonymous{} = anonymous) do
@@ -187,6 +190,20 @@ defmodule D20.Accounts do
   end
 
   ## Settings
+
+  @doc """
+  Assigns a username once, serializing claims for the same user.
+  """
+  def claim_username(%User{id: user_id}, attrs) do
+    Repo.transact(fn ->
+      user = Repo.one(from user in User, where: user.id == ^user_id, lock: "FOR UPDATE")
+
+      case user do
+        %User{} -> user |> User.username_changeset(attrs) |> Repo.update()
+        nil -> {:error, :not_found}
+      end
+    end)
+  end
 
   @doc """
   Checks whether the user is in sudo mode.
@@ -324,31 +341,42 @@ defmodule D20.Accounts do
      source of security pitfalls. See the "Mixing magic link and password registration" section of
      `mix help phx.gen.auth`.
   """
-  def login_user_by_magic_link(token) do
-    {:ok, query} = UserToken.verify_magic_link_token_query(token)
+  def login_user_by_magic_link(token, attrs \\ %{}) do
+    case UserToken.verify_magic_link_token_query(token) do
+      {:ok, query} ->
+        Repo.transact(fn ->
+          query |> lock("FOR UPDATE") |> Repo.one() |> complete_magic_link_auth(attrs)
+        end)
 
-    case Repo.one(query) do
-      # Prevent session fixation attacks by disallowing magic links for unconfirmed users with password
-      {%User{confirmed_at: nil, hashed_password: hash}, _token} when not is_nil(hash) ->
-        raise """
-        magic link log in is not allowed for unconfirmed users with a password set!
-
-        This cannot happen with the default implementation, which indicates that you
-        might have adapted the code to a different use case. Please make sure to read the
-        "Mixing magic link and password registration" section of `mix help phx.gen.auth`.
-        """
-
-      {%User{confirmed_at: nil} = user, _token} ->
-        user |> User.confirm_changeset() |> update_user_and_delete_all_tokens()
-
-      {user, token} ->
-        Repo.delete!(token)
-        {:ok, {user, []}}
-
-      nil ->
+      :error ->
         {:error, :not_found}
     end
   end
+
+  defp complete_magic_link_auth({%User{confirmed_at: nil, hashed_password: hash}, _token}, _attrs)
+       when not is_nil(hash) do
+    raise """
+    magic link log in is not allowed for unconfirmed users with a password set!
+
+    This cannot happen with the default implementation, which indicates that you
+    might have adapted the code to a different use case. Please make sure to read the
+    "Mixing magic link and password registration" section of `mix help phx.gen.auth`.
+    """
+  end
+
+  defp complete_magic_link_auth({%User{confirmed_at: nil} = user, _token}, attrs) do
+    user
+    |> User.registration_completion_changeset(attrs)
+    |> update_user_and_delete_all_tokens_in_transaction()
+  end
+
+  defp complete_magic_link_auth({%User{} = user, token}, _attrs) do
+    with {:ok, _token} <- Repo.delete(token) do
+      {:ok, {user, []}}
+    end
+  end
+
+  defp complete_magic_link_auth(nil, _attrs), do: {:error, :not_found}
 
   @doc ~S"""
   Delivers the update email instructions to the given user.
@@ -388,14 +416,18 @@ defmodule D20.Accounts do
   ## Token helper
 
   defp update_user_and_delete_all_tokens(changeset) do
-    Repo.transact(fn ->
-      with {:ok, user} <- Repo.update(changeset) do
-        tokens_to_expire = Repo.all_by(UserToken, user_id: user.id)
+    Repo.transact(fn -> update_user_and_delete_all_tokens_in_transaction(changeset) end)
+  end
 
-        Repo.delete_all(from t in UserToken, where: t.id in ^Enum.map(tokens_to_expire, & &1.id))
+  defp update_user_and_delete_all_tokens_in_transaction(changeset) do
+    with {:ok, user} <- Repo.update(changeset) do
+      tokens_to_expire = Repo.all_by(UserToken, user_id: user.id)
 
-        {:ok, {user, tokens_to_expire}}
-      end
-    end)
+      Repo.delete_all(
+        from token in UserToken, where: token.id in ^Enum.map(tokens_to_expire, & &1.id)
+      )
+
+      {:ok, {user, tokens_to_expire}}
+    end
   end
 end

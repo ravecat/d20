@@ -15,86 +15,118 @@
 </script>
 
 <svelte:head>
-  <title>{confirmed ? "Log in" : "Confirm account"} · D20</title>
+  <title>{confirmed ? "Log in" : "Finish registration"} · D20</title>
 </svelte:head>
 
 <div class="confirmation-page">
-  <section class="confirmation-card" aria-labelledby="confirmation-title">
-    <h1 id="confirmation-title">{confirmed ? "Log in" : "Confirm your account"}</h1>
-    <p class="confirmation-card__email">{email}</p>
-    <p>
-      {#if confirmed}
-        Use this magic link to continue to D20.
-      {:else}
-        Confirm this email address to finish creating your D20 account.
-      {/if}
-    </p>
-
-    <Form class="confirmation-form" method="post" action="/users/log-in" disableWhileProcessing>
-      {#snippet children({ errors, processing }: FormSlotProps)}
-        <input type="hidden" name="user[token]" value={token} />
-        {#if !confirmed}
-          <input type="hidden" name="_action" value="confirmed" />
-        {/if}
-
-        {#if !reauthenticate}
-          <label class="confirmation-form__remember">
-            <input type="checkbox" name="user[remember_me]" value="true" />
-            <span>Keep me signed in</span>
-          </label>
-        {/if}
-
-        {#if errors.token}
-          <p class="confirmation-form__error" role="alert">{errors.token}</p>
-        {/if}
-
-        <button type="submit" disabled={processing}>
-          {processing
-            ? confirmed
-              ? "Logging in..."
-              : "Confirming..."
-            : confirmed
-              ? "Log in"
-              : "Confirm account"}
-        </button>
-      {/snippet}
-    </Form>
-
-    {#if !confirmed}
-      <p class="confirmation-card__tip">You can add a password later from account settings.</p>
+  <h1 class="confirmation-page__title">
+    {confirmed ? "Log in" : "Finish creating your account"}
+  </h1>
+  <p class="confirmation-page__email">{email}</p>
+  <p class="confirmation-page__description">
+    {#if confirmed}
+      Use this magic link to continue to D20.
+    {:else}
+      Choose the username other players will see
     {/if}
-  </section>
+  </p>
+
+  <Form class="confirmation-form" method="post" action="/users/log-in" disableWhileProcessing>
+    {#snippet children({ errors, processing }: FormSlotProps)}
+      <input type="hidden" name="user[token]" value={token} />
+      {#if !confirmed}
+        <input type="hidden" name="_action" value="confirmed" />
+
+        <div class="confirmation-form__field">
+          <label for="registration-username">Username</label>
+          <p id="registration-username-hint" class="confirmation-form__hint">
+            Use 3-32 letters, numbers, underscores, or hyphens. Start and end with a letter or
+            number.
+          </p>
+          <!-- svelte-ignore a11y_autofocus (This is the only registration-completion field.) -->
+          <input
+            id="registration-username"
+            name="user[username]"
+            type="text"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            minlength="3"
+            maxlength="32"
+            pattern="[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?"
+            enterkeyhint="done"
+            required
+            autofocus
+            oninput={(event) => {
+              event.currentTarget.value = event.currentTarget.value.trim().toLowerCase();
+            }}
+            aria-invalid={errors.username ? "true" : undefined}
+            aria-describedby={errors.username
+              ? "registration-username-hint registration-username-error"
+              : "registration-username-hint"}
+          />
+          {#if errors.username}
+            <p id="registration-username-error" class="confirmation-form__error" role="alert">
+              {errors.username}
+            </p>
+          {/if}
+        </div>
+      {/if}
+
+      {#if !reauthenticate}
+        <label class="confirmation-form__remember">
+          <input type="checkbox" name="user[remember_me]" value="true" />
+          <span>Keep me signed in</span>
+        </label>
+      {/if}
+
+      {#if errors.token}
+        <p class="confirmation-form__error" role="alert">{errors.token}</p>
+      {/if}
+
+      <button type="submit" disabled={processing}>
+        {processing
+          ? confirmed
+            ? "Logging in..."
+            : "Finishing registration..."
+          : confirmed
+            ? "Log in"
+            : "Finish registration"}
+      </button>
+    {/snippet}
+  </Form>
+
+  {#if !confirmed}
+    <p class="confirmation-page__tip">You can add a password later from account settings.</p>
+  {/if}
 </div>
 
 <style>
   .confirmation-page {
     box-sizing: border-box;
-    inline-size: min(100%, 36rem);
+    display: grid;
+    inline-size: 100%;
+    max-inline-size: 46.25rem;
     min-block-size: 100%;
     margin-inline: auto;
-    padding: 2rem 1rem;
-  }
-
-  .confirmation-card {
-    display: grid;
+    padding: 2rem 1rem 3rem;
+    align-content: start;
     gap: 1rem;
-    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, transparent);
-    border-radius: var(--radius-box);
-    background: var(--color-base-100);
-    padding: 1.5rem;
-    box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.16);
+    color: var(--color-base-content);
   }
 
-  .confirmation-card h1,
-  .confirmation-card p {
+  .confirmation-page__title,
+  .confirmation-page__email,
+  .confirmation-page__description,
+  .confirmation-page__tip {
     margin: 0;
   }
 
-  .confirmation-card h1 {
+  .confirmation-page__title {
     font-size: clamp(1.35rem, 4vw, 1.85rem);
   }
 
-  .confirmation-card__email {
+  .confirmation-page__email {
     overflow-wrap: anywhere;
     color: var(--color-primary);
     font-weight: 700;
@@ -103,6 +135,38 @@
   :global(.confirmation-form) {
     display: grid;
     gap: 1rem;
+  }
+
+  .confirmation-form__field {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .confirmation-form__field label {
+    font-weight: 700;
+  }
+
+  .confirmation-form__hint {
+    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .confirmation-form__field input {
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-block-size: 3rem;
+    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 28%, transparent);
+    border-radius: var(--radius-field);
+    background: var(--color-base-200);
+    padding-inline: 0.9rem;
+    color: var(--color-base-content);
+    font: inherit;
+    font-size: 1rem;
+  }
+
+  .confirmation-form__field input[aria-invalid="true"] {
+    border-color: var(--color-error);
   }
 
   .confirmation-form__remember {
@@ -138,14 +202,13 @@
   }
 
   .confirmation-form__error {
+    margin: 0;
     color: var(--color-error);
     font-size: 0.8rem;
+    line-height: 1.45;
   }
 
-  .confirmation-card__tip {
-    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, transparent);
-    border-radius: var(--radius-field);
-    padding: 0.85rem;
+  .confirmation-page__tip {
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
     font-size: 0.85rem;
   }
@@ -157,11 +220,7 @@
 
   @media (max-width: 34rem) {
     .confirmation-page {
-      padding: 1rem 0.5rem;
-    }
-
-    .confirmation-card {
-      padding: 1rem;
+      padding-block: 1rem 2rem;
     }
   }
 </style>
