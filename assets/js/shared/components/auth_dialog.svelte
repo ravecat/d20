@@ -29,6 +29,10 @@
     await tick();
     activeEmailInput?.focus();
   }
+
+  const googleAuthUrl = $derived(
+    `/auth/google?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
+  );
 </script>
 
 <dialog
@@ -160,13 +164,22 @@
 
         <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
         <div class="auth-providers" aria-label="Other registration methods">
-          <button class="auth-providers__button" type="button" disabled>
-            <span class="auth-providers__identity">
-              <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
-              <span>Register with Google</span>
-            </span>
-            <span class="auth-providers__status">Coming soon</span>
-          </button>
+          {#if page.props.auth.providers.google.available}
+            <a class="auth-providers__button auth-providers__button--enabled" href={googleAuthUrl}>
+              <span class="auth-providers__identity">
+                <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
+                <span>Register with Google</span>
+              </span>
+            </a>
+          {:else}
+            <button class="auth-providers__button" type="button" disabled>
+              <span class="auth-providers__identity">
+                <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
+                <span>Register with Google</span>
+              </span>
+              <span class="auth-providers__status">Unavailable</span>
+            </button>
+          {/if}
 
           <button class="auth-providers__button" type="button" disabled>
             <span class="auth-providers__identity">
@@ -357,13 +370,25 @@
 
           <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
           <div class="auth-providers" aria-label="Other login methods">
-            <button class="auth-providers__button" type="button" disabled>
-              <span class="auth-providers__identity">
-                <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
-                <span>Log in with Google</span>
-              </span>
-              <span class="auth-providers__status">Coming soon</span>
-            </button>
+            {#if page.props.auth.providers.google.available}
+              <a
+                class="auth-providers__button auth-providers__button--enabled"
+                href={googleAuthUrl}
+              >
+                <span class="auth-providers__identity">
+                  <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
+                  <span>Log in with Google</span>
+                </span>
+              </a>
+            {:else}
+              <button class="auth-providers__button" type="button" disabled>
+                <span class="auth-providers__identity">
+                  <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
+                  <span>Log in with Google</span>
+                </span>
+                <span class="auth-providers__status">Unavailable</span>
+              </button>
+            {/if}
 
             <button class="auth-providers__button" type="button" disabled>
               <span class="auth-providers__identity">
@@ -667,6 +692,17 @@
     font-size: 0.85rem;
     text-align: start;
     cursor: not-allowed;
+  }
+
+  .auth-providers__button--enabled {
+    color: var(--color-base-content);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .auth-providers__button--enabled:hover {
+    border-color: color-mix(in oklab, var(--color-primary) 55%, transparent);
+    background: color-mix(in oklab, var(--color-primary) 10%, var(--color-base-200));
   }
 
   .auth-providers__identity {

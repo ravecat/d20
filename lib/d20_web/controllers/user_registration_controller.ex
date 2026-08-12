@@ -2,11 +2,11 @@ defmodule D20Web.UserRegistrationController do
   use D20Web, :controller
 
   alias D20.Accounts
+  alias D20Web.Auth
   alias D20Web.CoreComponents
-  alias D20Web.UserAuth
 
   def create(conn, %{"user" => user_params} = params) do
-    conn = UserAuth.store_return_to(conn, params["return_to"])
+    conn = Auth.store_return_to(conn, params["return_to"])
 
     case Accounts.register_user_with_magic_link(user_params, &url(~p"/users/log-in/#{&1}")) do
       {:ok, user} ->
@@ -35,7 +35,7 @@ defmodule D20Web.UserRegistrationController do
   defp redirect_to_response(conn, params, fallback) do
     conn
     |> put_status(:see_other)
-    |> redirect(to: UserAuth.safe_local_path(params["response_to"], fallback))
+    |> redirect(to: Auth.safe_local_path(params["response_to"], fallback))
   end
 
   defp registration_errors(changeset) do

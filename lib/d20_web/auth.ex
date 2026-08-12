@@ -1,4 +1,10 @@
-defmodule D20Web.UserAuth do
+defmodule D20Web.Auth do
+  @moduledoc """
+  Owns generic browser authentication and D20 session behavior.
+
+  Provider-specific OAuth adapters and controllers live below this namespace.
+  """
+
   use D20Web, :verified_routes
 
   import Plug.Conn
@@ -9,6 +15,7 @@ defmodule D20Web.UserAuth do
   alias D20.Accounts.Scope
   alias D20.Accounts.User
   alias D20.Actors.Actor
+  alias D20Web.Auth.Google
 
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
@@ -104,7 +111,8 @@ defmodule D20Web.UserAuth do
     |> Inertia.Controller.assign_shared_prop(:auth, %{
       authenticated: not is_nil(current_user),
       local: local_mailbox_available?(),
-      prompt: prompt
+      prompt: prompt,
+      providers: %{google: %{available: Google.available?()}}
     })
     |> then(fn conn -> if prompt, do: delete_session(conn, :auth_prompt), else: conn end)
   end

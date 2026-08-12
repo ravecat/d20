@@ -4,7 +4,9 @@ defmodule D20.Accounts do
   """
 
   import Ecto.Query, warn: false
+
   alias D20.Repo
+  alias Ecto.Multi
 
   alias D20.Accounts.Anonymous
   alias D20.Accounts.User
@@ -156,6 +158,35 @@ defmodule D20.Accounts do
     %User{}
     |> User.email_changeset(attrs)
     |> Repo.insert()
+  end
+
+  @doc """
+  Atomically registers a confirmed user and links one external identity.
+
+  The caller supplies only normalized identity fields, including an email already
+  verified by the provider boundary or D20. Provider payloads and credentials are
+  not accepted by this context boundary.
+  """
+  @spec register_user_with_identity(map(), UserIdentity.provider(), String.t()) ::
+          {:ok, %User{}}
+          | {:error, :user | :identity, Ecto.Changeset.t()}
+  def register_user_with_identity(attrs, provider, provider_uid) when is_map(attrs) do
+    Multi.new()
+    |> Multi.insert(:user, User.provider_registration_changeset(%User{}, attrs))
+    |> Multi.insert(:identity, fn %{user: user} ->
+      UserIdentity.changeset(%UserIdentity{user_id: user.id}, %{
+        provider: provider,
+        provider_uid: provider_uid
+      })
+    end)
+    |> Repo.transact()
+    |> case do
+      {:ok, %{user: user}} ->
+        {:ok, user}
+
+      {:error, operation, %Ecto.Changeset{} = changeset, _changes} ->
+        {:error, operation, changeset}
+    end
   end
 
   @doc """

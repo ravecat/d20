@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { HomePage } from "~/pages/home";
 import type { GameMetadata } from "~/shared/types";
 
-const auth = { authenticated: false, local: false, prompt: null };
+const auth = {
+  authenticated: false,
+  local: false,
+  prompt: null,
+  providers: { google: { available: true } },
+};
 
 describe("home page", () => {
   it("renders game tiles with preview images and slug links", () => {

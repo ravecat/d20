@@ -144,7 +144,7 @@ The magic-link login form SHALL submit the email through the existing Phoenix lo
 
 ### Requirement: Password login uses the existing Phoenix session security
 
-The password login form SHALL require a username-or-email identifier and current password, SHALL offer an unchecked Keep me signed in choice, and SHALL authenticate through Accounts password verification and the existing UserAuth session creation. Username and email comparison SHALL be case-insensitive. Successful authentication MUST rotate the browser session according to existing behavior. Selecting Keep me signed in SHALL use the existing remember-me cookie behavior.
+The password login form SHALL require a username-or-email identifier and current password, SHALL offer an unchecked Keep me signed in choice, and SHALL authenticate through Accounts password verification and the existing Auth session creation. Username and email comparison SHALL be case-insensitive. Successful authentication MUST rotate the browser session according to existing behavior. Selecting Keep me signed in SHALL use the existing remember-me cookie behavior.
 
 #### Scenario: Guest logs in with valid email and password
 
@@ -285,7 +285,7 @@ The Login mode magic-link form SHALL provide account recovery without requiring 
 
 ### Requirement: Direct account journeys use the Inertia presentation
 
-Magic-link confirmation and account settings SHALL remain directly accessible and SHALL render through the Inertia application shell. Registration, ordinary login, and sudo reauthentication SHALL use the shared account dialog and MUST NOT expose standalone GET pages. The existing registration and login POST actions SHALL remain available to the dialog, and all retained journeys SHALL preserve the existing Accounts and UserAuth semantics without parallel HEEx auth templates.
+Magic-link confirmation and account settings SHALL remain directly accessible and SHALL render through the Inertia application shell. Registration, ordinary login, and sudo reauthentication SHALL use the shared account dialog and MUST NOT expose standalone GET pages. The existing registration and login POST actions SHALL remain available to the dialog, and all retained journeys SHALL preserve the existing Accounts and Auth semantics without parallel HEEx auth templates.
 
 #### Scenario: Client requests the removed login page
 

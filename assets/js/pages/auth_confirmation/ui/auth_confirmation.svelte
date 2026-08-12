@@ -5,73 +5,26 @@
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;
 
   type Props = InertiaProps<{
-    confirmed: boolean;
     email: string;
     reauthenticate: boolean;
     token: string;
   }>;
 
-  const { confirmed, email, reauthenticate, token }: Props = $props();
+  const { email, reauthenticate, token }: Props = $props();
 </script>
 
 <svelte:head>
-  <title>{confirmed ? "Log in" : "Finish registration"} · D20</title>
+  <title>Log in · D20</title>
 </svelte:head>
 
 <div class="confirmation-page">
-  <h1 class="confirmation-page__title">
-    {confirmed ? "Log in" : "Finish creating your account"}
-  </h1>
+  <h1 class="confirmation-page__title">Log in</h1>
   <p class="confirmation-page__email">{email}</p>
-  <p class="confirmation-page__description">
-    {#if confirmed}
-      Use this magic link to continue to D20.
-    {:else}
-      Choose the username other players will see
-    {/if}
-  </p>
+  <p class="confirmation-page__description">Use this magic link to continue to D20.</p>
 
   <Form class="confirmation-form" method="post" action="/users/log-in" disableWhileProcessing>
     {#snippet children({ errors, processing }: FormSlotProps)}
       <input type="hidden" name="user[token]" value={token} />
-      {#if !confirmed}
-        <input type="hidden" name="_action" value="confirmed" />
-
-        <div class="confirmation-form__field">
-          <label for="registration-username">Username</label>
-          <p id="registration-username-hint" class="confirmation-form__hint">
-            Use 3-32 letters, numbers, underscores, or hyphens. Start and end with a letter or
-            number.
-          </p>
-          <!-- svelte-ignore a11y_autofocus (This is the only registration-completion field.) -->
-          <input
-            id="registration-username"
-            name="user[username]"
-            type="text"
-            autocomplete="username"
-            autocapitalize="none"
-            spellcheck="false"
-            minlength="3"
-            maxlength="32"
-            pattern="[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?"
-            enterkeyhint="done"
-            required
-            autofocus
-            oninput={(event) => {
-              event.currentTarget.value = event.currentTarget.value.trim().toLowerCase();
-            }}
-            aria-invalid={errors.username ? "true" : undefined}
-            aria-describedby={errors.username
-              ? "registration-username-hint registration-username-error"
-              : "registration-username-hint"}
-          />
-          {#if errors.username}
-            <p id="registration-username-error" class="confirmation-form__error" role="alert">
-              {errors.username}
-            </p>
-          {/if}
-        </div>
-      {/if}
 
       {#if !reauthenticate}
         <label class="confirmation-form__remember">
@@ -85,20 +38,10 @@
       {/if}
 
       <button type="submit" disabled={processing}>
-        {processing
-          ? confirmed
-            ? "Logging in..."
-            : "Finishing registration..."
-          : confirmed
-            ? "Log in"
-            : "Finish registration"}
+        {processing ? "Logging in..." : "Log in"}
       </button>
     {/snippet}
   </Form>
-
-  {#if !confirmed}
-    <p class="confirmation-page__tip">You can add a password later from account settings.</p>
-  {/if}
 </div>
 
 <style>
@@ -117,8 +60,7 @@
 
   .confirmation-page__title,
   .confirmation-page__email,
-  .confirmation-page__description,
-  .confirmation-page__tip {
+  .confirmation-page__description {
     margin: 0;
   }
 
@@ -135,38 +77,6 @@
   :global(.confirmation-form) {
     display: grid;
     gap: 1rem;
-  }
-
-  .confirmation-form__field {
-    display: grid;
-    gap: 0.4rem;
-  }
-
-  .confirmation-form__field label {
-    font-weight: 700;
-  }
-
-  .confirmation-form__hint {
-    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
-    font-size: 0.8rem;
-    line-height: 1.45;
-  }
-
-  .confirmation-form__field input {
-    box-sizing: border-box;
-    inline-size: 100%;
-    min-block-size: 3rem;
-    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 28%, transparent);
-    border-radius: var(--radius-field);
-    background: var(--color-base-200);
-    padding-inline: 0.9rem;
-    color: var(--color-base-content);
-    font: inherit;
-    font-size: 1rem;
-  }
-
-  .confirmation-form__field input[aria-invalid="true"] {
-    border-color: var(--color-error);
   }
 
   .confirmation-form__remember {
@@ -206,11 +116,6 @@
     color: var(--color-error);
     font-size: 0.8rem;
     line-height: 1.45;
-  }
-
-  .confirmation-page__tip {
-    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
-    font-size: 0.85rem;
   }
 
   :where(button, input):focus-visible {

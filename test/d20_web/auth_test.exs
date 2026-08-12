@@ -1,4 +1,4 @@
-defmodule D20Web.UserAuthTest do
+defmodule D20Web.AuthTest do
   use D20Web.ConnCase, async: true
 
   alias D20.Accounts
@@ -6,7 +6,7 @@ defmodule D20Web.UserAuthTest do
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
   alias D20.Actors.Token
-  alias D20Web.UserAuth
+  alias D20Web.Auth
 
   import D20.AccountsFixtures
 
@@ -24,7 +24,7 @@ defmodule D20Web.UserAuthTest do
 
   describe "actor channel tokens" do
     test "creates an anonymous actor when no user is authenticated", %{conn: conn} do
-      conn = conn |> UserAuth.fetch_scope_for_actor([]) |> UserAuth.put_actor_token([])
+      conn = conn |> Auth.fetch_scope_for_actor([]) |> Auth.put_actor_token([])
 
       assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.scope.actor
 
@@ -48,7 +48,7 @@ defmodule D20Web.UserAuthTest do
         conn
         |> assign(:current_user, user)
         |> assign(:scope, Scope.for_actor(user))
-        |> UserAuth.put_actor_token([])
+        |> Auth.put_actor_token([])
 
       assert conn.assigns.scope.actor == %Actor{id: to_string(user.id), type: :user}
       assert conn.assigns.current_user == user
@@ -61,13 +61,13 @@ defmodule D20Web.UserAuthTest do
     end
 
     test "reuses anonymous user id from session", %{conn: conn} do
-      conn = UserAuth.fetch_scope_for_actor(conn, [])
+      conn = Auth.fetch_scope_for_actor(conn, [])
 
       assert %Actor{id: anonymous_user_id, type: :anonymous} = conn.assigns.scope.actor
       assert get_session(conn, :anonymous_user_id) == anonymous_user_id
       assert conn.assigns.current_user == nil
 
-      conn = UserAuth.fetch_scope_for_actor(conn, [])
+      conn = Auth.fetch_scope_for_actor(conn, [])
 
       assert conn.assigns.scope.actor == %Actor{id: anonymous_user_id, type: :anonymous}
       assert Anonymous.from_id(anonymous_user_id).id == anonymous_user_id
@@ -76,7 +76,7 @@ defmodule D20Web.UserAuthTest do
 
   describe "store_return_to/2" do
     test "stores a local absolute path", %{conn: conn} do
-      conn = UserAuth.store_return_to(conn, "/games/qwinto?session=table-1")
+      conn = Auth.store_return_to(conn, "/games/qwinto?session=table-1")
 
       assert get_session(conn, :return_to) == "/games/qwinto?session=table-1"
     end
@@ -93,7 +93,7 @@ defmodule D20Web.UserAuthTest do
             "/games/qwinto\r\nlocation:https://example.org",
             "/games/qwinto%0d%0alocation:https://example.org"
           ] do
-        returned_conn = UserAuth.store_return_to(conn, path)
+        returned_conn = Auth.store_return_to(conn, path)
 
         refute get_session(returned_conn, :return_to)
       end
@@ -102,26 +102,26 @@ defmodule D20Web.UserAuthTest do
 
   describe "safe_local_path/2" do
     test "returns local paths and replaces unsafe paths with the fallback" do
-      assert UserAuth.safe_local_path("/users/log-in?next=settings", "/") ==
+      assert Auth.safe_local_path("/users/log-in?next=settings", "/") ==
                "/users/log-in?next=settings"
 
-      assert UserAuth.safe_local_path("//example.org/steal-session", "/users/log-in") ==
+      assert Auth.safe_local_path("//example.org/steal-session", "/users/log-in") ==
                "/users/log-in"
 
-      assert UserAuth.safe_local_path(nil, "/users/register") == "/users/register"
+      assert Auth.safe_local_path(nil, "/users/register") == "/users/register"
     end
   end
 
   describe "log_in_user/3" do
     test "stores the user token in the session", %{conn: conn, user: user} do
-      conn = UserAuth.log_in_user(conn, user)
+      conn = Auth.log_in_user(conn, user)
       assert token = get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
       assert Accounts.get_user_by_session_token(token)
     end
 
     test "clears everything previously stored in the session", %{conn: conn, user: user} do
-      conn = conn |> put_session(:to_be_removed, "value") |> UserAuth.log_in_user(user)
+      conn = conn |> put_session(:to_be_removed, "value") |> Auth.log_in_user(user)
       refute get_session(conn, :to_be_removed)
     end
 
@@ -131,7 +131,7 @@ defmodule D20Web.UserAuthTest do
         |> assign(:current_user, user)
         |> assign(:scope, Scope.for_actor(user))
         |> put_session(:to_be_removed, "value")
-        |> UserAuth.log_in_user(user)
+        |> Auth.log_in_user(user)
 
       assert get_session(conn, :to_be_removed)
     end
@@ -147,18 +147,18 @@ defmodule D20Web.UserAuthTest do
         |> assign(:current_user, other_user)
         |> assign(:scope, Scope.for_actor(other_user))
         |> put_session(:to_be_removed, "value")
-        |> UserAuth.log_in_user(user)
+        |> Auth.log_in_user(user)
 
       refute get_session(conn, :to_be_removed)
     end
 
     test "redirects to the configured path", %{conn: conn, user: user} do
-      conn = conn |> put_session(:return_to, "/hello") |> UserAuth.log_in_user(user)
+      conn = conn |> put_session(:return_to, "/hello") |> Auth.log_in_user(user)
       assert redirected_to(conn) == "/hello"
     end
 
     test "writes a cookie if remember_me is configured", %{conn: conn, user: user} do
-      conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+      conn = conn |> fetch_cookies() |> Auth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
       assert get_session(conn, :user_remember_me) == true
 
@@ -168,7 +168,7 @@ defmodule D20Web.UserAuthTest do
     end
 
     test "writes a cookie if remember_me was set in previous session", %{conn: conn, user: user} do
-      conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+      conn = conn |> fetch_cookies() |> Auth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
       assert get_session(conn, :user_remember_me) == true
 
@@ -182,7 +182,7 @@ defmodule D20Web.UserAuthTest do
       # the conn is already logged in and has the remember_me cookie set,
       # now we log in again and even without explicitly setting remember_me,
       # the cookie should be set again
-      conn = UserAuth.log_in_user(conn, user, %{})
+      conn = Auth.log_in_user(conn, user, %{})
       assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
       assert signed_token != get_session(conn, :user_token)
       assert max_age == @remember_me_cookie_max_age
@@ -199,7 +199,7 @@ defmodule D20Web.UserAuthTest do
         |> put_session(:user_token, user_token)
         |> put_req_cookie(@remember_me_cookie, user_token)
         |> fetch_cookies()
-        |> UserAuth.log_out_user()
+        |> Auth.log_out_user()
 
       refute get_session(conn, :user_token)
       refute conn.cookies[@remember_me_cookie]
@@ -209,7 +209,7 @@ defmodule D20Web.UserAuthTest do
     end
 
     test "works even if user is already logged out", %{conn: conn} do
-      conn = conn |> fetch_cookies() |> UserAuth.log_out_user()
+      conn = conn |> fetch_cookies() |> Auth.log_out_user()
       refute get_session(conn, :user_token)
       assert %{max_age: 0} = conn.resp_cookies[@remember_me_cookie]
       assert redirected_to(conn) == ~p"/"
@@ -220,7 +220,7 @@ defmodule D20Web.UserAuthTest do
     test "authenticates user from session", %{conn: conn, user: user} do
       user_token = Accounts.generate_user_session_token(user)
 
-      conn = conn |> put_session(:user_token, user_token) |> UserAuth.fetch_scope_for_actor([])
+      conn = conn |> put_session(:user_token, user_token) |> Auth.fetch_scope_for_actor([])
 
       assert conn.assigns.current_user.id == user.id
       assert conn.assigns.current_user.authenticated_at == user.authenticated_at
@@ -230,7 +230,7 @@ defmodule D20Web.UserAuthTest do
 
     test "authenticates user from cookies", %{conn: conn, user: user} do
       logged_in_conn =
-        conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+        conn |> fetch_cookies() |> Auth.log_in_user(user, %{"remember_me" => "true"})
 
       user_token = logged_in_conn.cookies[@remember_me_cookie]
       %{value: signed_token} = logged_in_conn.resp_cookies[@remember_me_cookie]
@@ -238,7 +238,7 @@ defmodule D20Web.UserAuthTest do
       conn =
         conn
         |> put_req_cookie(@remember_me_cookie, signed_token)
-        |> UserAuth.fetch_scope_for_actor([])
+        |> Auth.fetch_scope_for_actor([])
 
       assert conn.assigns.current_user.id == user.id
       assert conn.assigns.current_user.authenticated_at == user.authenticated_at
@@ -249,7 +249,7 @@ defmodule D20Web.UserAuthTest do
 
     test "does not authenticate if data is missing", %{conn: conn, user: user} do
       _ = Accounts.generate_user_session_token(user)
-      conn = UserAuth.fetch_scope_for_actor(conn, [])
+      conn = Auth.fetch_scope_for_actor(conn, [])
       refute get_session(conn, :user_token)
       assert conn.assigns.current_user == nil
       assert %Actor{type: :anonymous} = conn.assigns.scope.actor
@@ -257,7 +257,7 @@ defmodule D20Web.UserAuthTest do
 
     test "reissues a new token after a few days and refreshes cookie", %{conn: conn, user: user} do
       logged_in_conn =
-        conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+        conn |> fetch_cookies() |> Auth.log_in_user(user, %{"remember_me" => "true"})
 
       token = logged_in_conn.cookies[@remember_me_cookie]
       %{value: signed_token} = logged_in_conn.resp_cookies[@remember_me_cookie]
@@ -270,7 +270,7 @@ defmodule D20Web.UserAuthTest do
         |> put_session(:user_token, token)
         |> put_session(:user_remember_me, true)
         |> put_req_cookie(@remember_me_cookie, signed_token)
-        |> UserAuth.fetch_scope_for_actor([])
+        |> Auth.fetch_scope_for_actor([])
 
       assert conn.assigns.current_user.id == user.id
       assert conn.assigns.current_user.authenticated_at == user.authenticated_at
@@ -290,7 +290,7 @@ defmodule D20Web.UserAuthTest do
         |> fetch_flash()
         |> assign(:current_user, user)
         |> assign(:scope, Scope.for_actor(user))
-        |> UserAuth.require_sudo_mode([])
+        |> Auth.require_sudo_mode([])
 
       refute conn.halted
       refute conn.status
@@ -308,7 +308,7 @@ defmodule D20Web.UserAuthTest do
         |> fetch_flash()
         |> assign(:current_user, user)
         |> assign(:scope, Scope.for_actor(user))
-        |> UserAuth.require_sudo_mode([])
+        |> Auth.require_sudo_mode([])
 
       assert redirected_to(conn) == ~p"/"
 
@@ -325,7 +325,7 @@ defmodule D20Web.UserAuthTest do
 
   describe "redirect_if_user_is_authenticated/2" do
     setup %{conn: conn} do
-      %{conn: UserAuth.fetch_scope_for_actor(conn, [])}
+      %{conn: Auth.fetch_scope_for_actor(conn, [])}
     end
 
     test "redirects if user is authenticated", %{conn: conn, user: user} do
@@ -333,14 +333,14 @@ defmodule D20Web.UserAuthTest do
         conn
         |> assign(:current_user, user)
         |> assign(:scope, Scope.for_actor(user))
-        |> UserAuth.redirect_if_user_is_authenticated([])
+        |> Auth.redirect_if_user_is_authenticated([])
 
       assert conn.halted
       assert redirected_to(conn) == ~p"/"
     end
 
     test "does not redirect if user is not authenticated", %{conn: conn} do
-      conn = UserAuth.redirect_if_user_is_authenticated(conn, [])
+      conn = Auth.redirect_if_user_is_authenticated(conn, [])
       refute conn.halted
       refute conn.status
     end
@@ -348,11 +348,11 @@ defmodule D20Web.UserAuthTest do
 
   describe "require_authenticated_user/2" do
     setup %{conn: conn} do
-      %{conn: UserAuth.fetch_scope_for_actor(conn, [])}
+      %{conn: Auth.fetch_scope_for_actor(conn, [])}
     end
 
     test "redirects if user is not authenticated", %{conn: conn} do
-      conn = conn |> fetch_flash() |> UserAuth.require_authenticated_user([])
+      conn = conn |> fetch_flash() |> Auth.require_authenticated_user([])
       assert conn.halted
 
       assert redirected_to(conn) == ~p"/"
@@ -369,7 +369,7 @@ defmodule D20Web.UserAuthTest do
       halted_conn =
         %{conn | path_info: ["foo"], query_string: ""}
         |> fetch_flash()
-        |> UserAuth.require_authenticated_user([])
+        |> Auth.require_authenticated_user([])
 
       assert halted_conn.halted
       assert get_session(halted_conn, :return_to) == "/foo"
@@ -378,7 +378,7 @@ defmodule D20Web.UserAuthTest do
       halted_conn =
         %{conn | path_info: ["foo"], query_string: "bar=baz"}
         |> fetch_flash()
-        |> UserAuth.require_authenticated_user([])
+        |> Auth.require_authenticated_user([])
 
       assert halted_conn.halted
       assert get_session(halted_conn, :return_to) == "/foo?bar=baz"
@@ -387,7 +387,7 @@ defmodule D20Web.UserAuthTest do
       halted_conn =
         %{conn | path_info: ["foo"], query_string: "bar", method: "POST"}
         |> fetch_flash()
-        |> UserAuth.require_authenticated_user([])
+        |> Auth.require_authenticated_user([])
 
       assert halted_conn.halted
       refute get_session(halted_conn, :return_to)
@@ -398,7 +398,7 @@ defmodule D20Web.UserAuthTest do
         conn
         |> assign(:current_user, user)
         |> assign(:scope, Scope.for_actor(user))
-        |> UserAuth.require_authenticated_user([])
+        |> Auth.require_authenticated_user([])
 
       refute conn.halted
       refute conn.status

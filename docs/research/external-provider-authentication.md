@@ -10,7 +10,7 @@ Reviewed: 2026-08-10
 
 ## Decision
 
-D20 will use Ueberauth as the web-boundary framework for external provider authentication. D20 Accounts remains the identity system of record, and `D20Web.UserAuth` remains responsible for D20 sessions.
+D20 will use Ueberauth as the web-boundary framework for external provider authentication. D20 Accounts remains the identity system of record, and `D20Web.Auth` remains responsible for D20 sessions.
 
 This is a conditional selection, not a claim that every Ueberauth provider strategy is equally current. The Ueberauth core API is established and widely used, but the Google, Discord, Facebook, and Apple strategies have independent release and security histories. Each strategy must pass a compatibility and protocol-security spike before its provider is enabled.
 
@@ -27,7 +27,7 @@ Ueberauth does not replace the local account or session system. It performs the 
 1. Normalize the provider result into trusted, minimal primitives.
 2. Resolve the exact `(provider, provider_uid)` identity through `D20.Accounts`.
 3. Apply D20 account creation or linking policy when no identity exists.
-4. Create and rotate the normal D20 session through `D20Web.UserAuth.log_in_user/3`.
+4. Create and rotate the normal D20 session through `D20Web.Auth.log_in_user/3`.
 
 Local email/password and magic-link authentication remain peer authentication methods. They are not implemented through Ueberauth and continue to end in the same D20 user and session model.
 
@@ -36,7 +36,7 @@ Local email/password and magic-link authentication remain peer authentication me
 - [`D20.Accounts`](../../lib/d20/accounts.ex) owns user lookup, registration, authentication data, session tokens, and the new external identity operations.
 - [`D20.Accounts.User`](../../lib/d20/accounts/user.ex) is the local account and actor identity. Its email is currently required, so provider-only registration still depends on the username/account foundation in #192.
 - [`D20.Accounts.UserIdentity`](../../lib/d20/accounts/user_identity.ex) stores only the provider identity mapping introduced by this work.
-- [`D20Web.UserAuth`](../../lib/d20_web/user_auth.ex) owns local session renewal, fixation protection, redirects, and the current-user scope.
+- [`D20Web.Auth`](../../lib/d20_web/auth.ex) owns local session renewal, fixation protection, redirects, and the current-user scope.
 - [`D20Web.Router`](../../lib/d20_web/router.ex) has separate Inertia and browser pipelines. Provider redirects must be normal browser navigations, not Inertia requests.
 - [`D20Web.Endpoint`](../../lib/d20_web/endpoint.ex) configures the signed `_d20_key` session cookie with `SameSite=Lax`.
 
@@ -81,9 +81,9 @@ sequenceDiagram
     participant Controller as D20Web.ProviderAuthController
     participant Ueberauth
     participant Provider
-    participant Adapter as D20Web.ProviderAuth
+    participant Adapter as D20Web.Auth.Provider
     participant Accounts as D20.Accounts
-    participant Session as D20Web.UserAuth
+    participant Session as D20Web.Auth
 
     Browser->>Controller: GET /auth/:provider
     Controller->>Ueberauth: request phase with fixed provider config
@@ -103,10 +103,10 @@ sequenceDiagram
 
 | Boundary | Responsibility |
 | --- | --- |
-| `D20Web.ProviderAuthController` | Start provider navigation, receive callbacks, map outcomes to flash/prompt/redirect, and call `UserAuth` only after Accounts returns a D20 user. |
-| `D20Web.ProviderAuth` | Allowlist providers, normalize `Ueberauth.Auth`, extract the stable UID, interpret provider-specific email verification, and reject incomplete or unexpected payloads. |
+| `D20Web.Auth.<Provider>Controller` | Start provider navigation, receive callbacks, map outcomes to flash/prompt/redirect, and call `Auth` only after Accounts returns a D20 user. |
+| `D20Web.Auth.<Provider>` | Allowlist one provider, normalize `Ueberauth.Auth`, extract the stable UID, interpret provider-specific email verification, and reject incomplete or unexpected payloads. |
 | `D20.Accounts` | Resolve and link external identities, enforce account rules, and remain unaware of Ueberauth structs and provider tokens. |
-| `D20Web.UserAuth` | Create or renew the D20 session and preserve its existing fixation protection. |
+| `D20Web.Auth` | Create or renew the D20 session and preserve its existing fixation protection. |
 
 Do not add `Ueberauth.Auth` handling to `D20.Accounts`. Do not put provider decisions into Svelte. The browser UI only starts a full-page navigation and renders server-provided availability and errors.
 
@@ -118,7 +118,7 @@ Callback outcomes:
 
 | State | Outcome |
 | --- | --- |
-| Exact identity exists | Log in the owning D20 user through `UserAuth.log_in_user/3`. |
+| Exact identity exists | Log in the owning D20 user through `Auth.log_in_user/3`. |
 | Identity is unknown and visitor is signed out | Start an explicit account completion or provider-registration flow. Do not silently attach by matching email. |
 | Identity is unknown and an authenticated user explicitly started linking | Link only after the required recent-authentication proof and conflict checks. |
 | Identity belongs to another user | Return a generic conflict result without revealing the other account. |
@@ -188,8 +188,8 @@ Provider strategies can accept request parameters such as `scope`. The controlle
 - Fix scopes in server configuration and request the minimum needed for authentication and account completion.
 - Never persist access tokens, refresh tokens, ID tokens, or raw claims for login-only providers.
 - Never log or send full `Ueberauth.Auth`, `credentials`, or `extra.raw_info` structures to telemetry or error tracking. Log provider, outcome class, request ID, and internal error code only.
-- Use `UserAuth.safe_local_path/2` for post-auth destinations. Never redirect to an unvalidated callback parameter.
-- Rotate the D20 session through `UserAuth.log_in_user/3` after successful signed-out login.
+- Use `Auth.safe_local_path/2` for post-auth destinations. Never redirect to an unvalidated callback parameter.
+- Rotate the D20 session through `Auth.log_in_user/3` after successful signed-out login.
 - Return generic errors for unknown identity, provider rejection, duplicate ownership, and callback failure where detailed output could reveal accounts.
 - Rate-limit request and callback abuse at the web boundary before public rollout.
 - Run `mix hex.audit` and review transitive OAuth/JWT dependencies before each provider release.

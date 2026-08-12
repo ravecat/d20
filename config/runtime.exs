@@ -24,6 +24,10 @@ bgg_api_key = System.get_env("BGG_API_KEY")
 
 config :d20, D20.Games.Sources.BoardGameGeek, api_key: bgg_api_key
 
+config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+  client_id: System.get_env("GOOGLE_OAUTH_CLIENT_ID"),
+  client_secret: System.get_env("GOOGLE_OAUTH_CLIENT_SECRET")
+
 if config_env() == :prod do
   if is_nil(bgg_api_key) or String.trim(bgg_api_key) == "" do
     raise """

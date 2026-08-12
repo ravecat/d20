@@ -2,7 +2,7 @@ defmodule D20Web.Router do
   use D20Web, :router
 
   import D20Web.Module, only: [put_module_cors_headers: 2]
-  import D20Web.UserAuth
+  import D20Web.Auth
 
   pipeline :inertia do
     plug :accepts, ["html"]
@@ -78,6 +78,21 @@ defmodule D20Web.Router do
   ## Authentication routes
 
   scope "/", D20Web do
+    pipe_through [:inertia]
+
+    get "/auth/google", Auth.GoogleController, :request
+    get "/auth/google/callback", Auth.GoogleController, :callback
+  end
+
+  scope "/", D20Web do
+    pipe_through [:inertia, :redirect_if_user_is_authenticated]
+
+    get "/auth/google/register", Auth.GoogleController, :registration
+    post "/auth/google/register", Auth.GoogleController, :complete_registration
+    post "/auth/google/register/cancel", Auth.GoogleController, :cancel_registration
+  end
+
+  scope "/", D20Web do
     pipe_through [:inertia, :redirect_if_user_is_authenticated]
 
     post "/users/register", UserRegistrationController, :create
@@ -89,6 +104,7 @@ defmodule D20Web.Router do
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
     get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
+    get "/users/settings/auth/google", Auth.GoogleController, :link
   end
 
   scope "/", D20Web do

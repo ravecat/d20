@@ -6,10 +6,14 @@
 
   type Props = InertiaProps<{
     email: string;
+    google: {
+      available: boolean;
+      linked: boolean;
+    };
     username: string | null;
   }>;
 
-  const { email, username }: Props = $props();
+  const { email, google, username }: Props = $props();
 </script>
 
 <svelte:head>
@@ -21,6 +25,34 @@
     <h1>Account settings</h1>
     <p>Manage the username, email address, and password used by your D20 account.</p>
   </header>
+
+  <section class="settings-card" aria-labelledby="sign-in-methods-title">
+    <div>
+      <h2 id="sign-in-methods-title">Sign-in methods</h2>
+      <p>Choose how you securely access your D20 account.</p>
+    </div>
+
+    <div class="settings-method">
+      <div>
+        <p class="settings-method__name">Google</p>
+        <p class="settings-method__status">
+          {google.linked
+            ? google.available
+              ? "Linked"
+              : "Linked - unavailable"
+            : google.available
+              ? "Not linked"
+              : "Unavailable"}
+        </p>
+      </div>
+
+      {#if !google.linked && google.available}
+        <a class="settings-method__action" href="/users/settings/auth/google">Link Google</a>
+      {:else if !google.linked}
+        <button class="settings-method__action" type="button" disabled>Link Google</button>
+      {/if}
+    </div>
+  </section>
 
   <section class="settings-card" aria-labelledby="username-settings-title">
     <div>
@@ -235,6 +267,48 @@
     font-weight: 700;
   }
 
+  .settings-method {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .settings-method > div {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .settings-method__name {
+    font-weight: 700;
+  }
+
+  .settings-method__status {
+    color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+    font-size: 0.85rem;
+  }
+
+  .settings-method__action {
+    display: inline-grid;
+    min-block-size: 2.75rem;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-field);
+    background: var(--color-primary);
+    padding-inline: 1rem;
+    color: var(--color-primary-content);
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .settings-method__action:disabled {
+    background: var(--color-base-200);
+    color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+    cursor: not-allowed;
+  }
+
   :global(.settings-form) {
     display: grid;
     gap: 0.85rem;
@@ -305,7 +379,7 @@
     white-space: nowrap;
   }
 
-  :where(button, input):focus-visible {
+  :where(a, button, input):focus-visible {
     outline: 0.1875rem solid var(--color-primary);
     outline-offset: 0.1875rem;
   }

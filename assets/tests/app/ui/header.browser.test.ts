@@ -13,7 +13,12 @@ beforeEach(async () => {
   inertiaMock.setPage({
     url: "/games/qwinto",
     props: {
-      auth: { authenticated: false, local: false, prompt: null },
+      auth: {
+        authenticated: false,
+        local: false,
+        prompt: null,
+        providers: { google: { available: true } },
+      },
       errors: {},
     },
   });
@@ -156,7 +161,8 @@ describe("app header account dialog", () => {
       .toBeVisible();
     expect(page.getByLabelText("Email address").elements()).toHaveLength(0);
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
-    assertProvidersDisabled("Register");
+    await expect.element(page.getByRole("link", { name: "Register with Google" })).toBeVisible();
+    assertFutureProvidersDisabled("Register");
     await expect.element(page.getByRole("button", { name: "Log in", exact: true })).toBeVisible();
 
     await userEvent.keyboard("{Escape}");
@@ -229,7 +235,12 @@ describe("app header account dialog", () => {
   it("shows the local mailbox link when the server marks it available", async () => {
     inertiaMock.setPage({
       props: {
-        auth: { authenticated: false, local: true, prompt: null },
+        auth: {
+          authenticated: false,
+          local: true,
+          prompt: null,
+          providers: { google: { available: true } },
+        },
         errors: {},
       },
     });
@@ -317,17 +328,80 @@ describe("app header account dialog", () => {
       .toHaveAttribute("aria-pressed", "false");
   });
 
-  it("shows mode-specific provider choices without allowing provider actions", async () => {
+  it("shows Google links and keeps future providers disabled", async () => {
     renderHeader();
     await page.getByRole("button", { name: "Register" }).click();
 
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
-    assertProvidersDisabled("Register");
+    await expect.element(page.getByRole("link", { name: "Register with Google" })).toBeVisible();
+    assertFutureProvidersDisabled("Register");
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(2);
-    assertProvidersDisabled("Log in");
+    await expect.element(page.getByRole("link", { name: "Log in with Google" })).toBeVisible();
+    assertFutureProvidersDisabled("Log in");
+  });
+
+  it("keeps Google visible but disabled when its credentials are unavailable", async () => {
+    inertiaMock.setPage({
+      props: {
+        auth: {
+          authenticated: false,
+          local: false,
+          prompt: null,
+          providers: { google: { available: false } },
+        },
+        errors: {},
+      },
+    });
+    renderHeader();
+    await page.getByRole("button", { name: "Register" }).click();
+
+    expect(page.getByRole("link", { name: "Register with Google" }).elements()).toHaveLength(0);
+
+    const registrationButton = page.getByRole("button", {
+      name: "Register with Google Unavailable",
+    });
+    expect((registrationButton.element() as HTMLButtonElement).disabled).toBe(true);
+
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
+
+    expect(page.getByRole("link", { name: "Log in with Google" }).elements()).toHaveLength(0);
+
+    const loginButton = page.getByRole("button", { name: "Log in with Google Unavailable" });
+    expect((loginButton.element() as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("preserves the local return path in normal Google links", async () => {
+    inertiaMock.setPage({
+      url: "/games/qwinto?session=table-1",
+      props: {
+        auth: {
+          authenticated: false,
+          local: false,
+          prompt: null,
+          providers: { google: { available: true } },
+        },
+        errors: {},
+      },
+    });
+    renderHeader();
+    await page.getByRole("button", { name: "Register", exact: true }).click();
+
+    const registrationLink = page.getByRole("link", { name: "Register with Google" });
+    expect(registrationLink.element().getAttribute("href")).toBe(
+      "/auth/google?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1",
+    );
+    assertFutureProvidersDisabled("Register");
+
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
+
+    const loginLink = page.getByRole("link", { name: "Log in with Google" });
+    expect(loginLink.element().getAttribute("href")).toBe(
+      "/auth/google?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1",
+    );
+    assertFutureProvidersDisabled("Log in");
   });
 
   it("keeps every login method reachable at a narrow viewport", async () => {
@@ -351,7 +425,8 @@ describe("app header account dialog", () => {
     await expect.element(dialog).toBeVisible();
     await expect.element(page.getByRole("heading", { name: "Log in" })).toBeVisible();
     await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
-    assertProvidersDisabled("Log in");
+    await expect.element(page.getByRole("link", { name: "Log in with Google" })).toBeVisible();
+    assertFutureProvidersDisabled("Log in");
     await expect.element(modeSwitch).toBeVisible();
 
     await modeSwitch.click();
@@ -361,7 +436,12 @@ describe("app header account dialog", () => {
   it("replaces Register with Inertia account actions for authenticated users", async () => {
     inertiaMock.setPage({
       props: {
-        auth: { authenticated: true, local: false, prompt: null },
+        auth: {
+          authenticated: true,
+          local: false,
+          prompt: null,
+          providers: { google: { available: true } },
+        },
         errors: {},
       },
     });
@@ -388,6 +468,7 @@ describe("app header account dialog", () => {
         auth: {
           authenticated: false,
           local: false,
+          providers: { google: { available: true } },
           prompt: {
             email: "",
             message: "You must log in to access this page.",
@@ -431,6 +512,7 @@ describe("app header account dialog", () => {
         auth: {
           authenticated: true,
           local: false,
+          providers: { google: { available: true } },
           prompt: {
             email: "player@example.com",
             message: "You must re-authenticate to access this page.",
@@ -477,8 +559,8 @@ async function openLoginMode() {
   await page.getByRole("button", { name: "Log in", exact: true }).click();
 }
 
-function assertProvidersDisabled(prefix: "Register" | "Log in") {
-  for (const provider of ["Google", "Facebook", "Apple", "Discord"]) {
+function assertFutureProvidersDisabled(prefix: "Register" | "Log in") {
+  for (const provider of ["Facebook", "Apple", "Discord"]) {
     const button = page.getByRole("button", {
       name: `${prefix} with ${provider} Coming soon`,
     });

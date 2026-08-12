@@ -1,10 +1,23 @@
 defmodule D20Web.UserSettingsControllerTest do
-  use D20Web.ConnCase, async: true
+  use D20Web.ConnCase, async: false
 
   alias D20.Accounts
   import D20.AccountsFixtures
 
   setup :register_and_log_in_user
+
+  setup do
+    original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
+      client_id: "google-test-client-id",
+      client_secret: "google-test-client-secret"
+    )
+
+    on_exit(fn ->
+      restore_application_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, original_google_config)
+    end)
+  end
 
   describe "GET /users/settings" do
     test "renders settings as an Inertia page", %{conn: conn, user: user} do
@@ -14,6 +27,34 @@ defmodule D20Web.UserSettingsControllerTest do
       assert inertia_component(conn) == "account_settings"
       assert inertia_props(conn).email == user.email
       assert inertia_props(conn).username == user.username
+      assert inertia_props(conn).google == %{available: true, linked: false}
+    end
+
+    test "reports a linked Google method", %{conn: conn, user: user} do
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :google, "settings-subject")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert inertia_props(conn).google == %{available: true, linked: true}
+    end
+
+    test "reports Google as unavailable without hiding linked state", %{conn: conn, user: user} do
+      previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+
+      on_exit(fn ->
+        restore_application_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, previous_config)
+      end)
+
+      Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
+        client_id: nil,
+        client_secret: nil
+      )
+
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :google, "settings-subject")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert inertia_props(conn).google == %{available: false, linked: true}
     end
 
     test "exposes a missing username for an existing account", %{conn: conn} do
@@ -249,4 +290,10 @@ defmodule D20Web.UserSettingsControllerTest do
     |> inertia_request()
     |> get(redirect_path)
   end
+
+  defp restore_application_env(application, key, nil),
+    do: Application.delete_env(application, key)
+
+  defp restore_application_env(application, key, value),
+    do: Application.put_env(application, key, value)
 end

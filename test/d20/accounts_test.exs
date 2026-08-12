@@ -253,6 +253,117 @@ defmodule D20.AccountsTest do
     end
   end
 
+  describe "register_user_with_identity/3" do
+    test "atomically creates a confirmed user and provider identity" do
+      email = unique_user_email()
+
+      assert {:ok, %User{} = user} =
+               Accounts.register_user_with_identity(
+                 %{email: email, username: "google_player"},
+                 :google,
+                 "google-subject-1"
+               )
+
+      assert user.email == email
+      assert user.username == "google_player"
+      assert user.confirmed_at
+      assert is_nil(user.hashed_password)
+      assert %User{id: user_id} = Accounts.get_user_by_identity(:google, "google-subject-1")
+      assert user_id == user.id
+    end
+
+    test "rolls back the user when provider identity validation fails" do
+      email = unique_user_email()
+
+      assert {:error, :identity, changeset} =
+               Accounts.register_user_with_identity(
+                 %{email: email, username: "google_player"},
+                 :google,
+                 ""
+               )
+
+      assert %{provider_uid: ["can't be blank"]} = errors_on(changeset)
+      refute Accounts.get_user_by_email(email)
+    end
+
+    test "rejects duplicate email without creating an identity" do
+      user = user_fixture()
+
+      assert {:error, :user, changeset} =
+               Accounts.register_user_with_identity(
+                 %{email: String.upcase(user.email), username: "google_player"},
+                 :google,
+                 "google-subject-email-conflict"
+               )
+
+      assert "has already been taken" in errors_on(changeset).email
+      refute Accounts.get_user_by_identity(:google, "google-subject-email-conflict")
+    end
+
+    test "rejects duplicate username without creating an identity" do
+      user_fixture(username: "google_player")
+      email = unique_user_email()
+
+      assert {:error, :user, changeset} =
+               Accounts.register_user_with_identity(
+                 %{email: email, username: "google_player"},
+                 :google,
+                 "google-subject-username-conflict"
+               )
+
+      assert "has already been taken" in errors_on(changeset).username
+      refute Accounts.get_user_by_email(email)
+      refute Accounts.get_user_by_identity(:google, "google-subject-username-conflict")
+    end
+
+    test "rolls back a new user when the identity already has an owner" do
+      owner = user_fixture()
+      assert {:ok, _identity} = Accounts.link_user_identity(owner, :google, "owned-subject")
+      email = unique_user_email()
+
+      assert {:error, :identity, changeset} =
+               Accounts.register_user_with_identity(
+                 %{email: email, username: "google_player"},
+                 :google,
+                 "owned-subject"
+               )
+
+      assert "has already been taken" in errors_on(changeset).provider_uid
+      refute Accounts.get_user_by_email(email)
+      assert Accounts.get_user_by_identity(:google, "owned-subject").id == owner.id
+    end
+
+    test "allows at most one complete pair from concurrent duplicate attempts" do
+      email = unique_user_email()
+
+      results =
+        1..2
+        |> Task.async_stream(
+          fn _attempt ->
+            Accounts.register_user_with_identity(
+              %{email: email, username: "racing_player"},
+              :google,
+              "racing-subject"
+            )
+          end,
+          max_concurrency: 2,
+          ordered: false
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.count(results, &match?({:ok, %User{}}, &1)) == 1
+      assert Enum.count(results, &match?({:error, _, %Ecto.Changeset{}}, &1)) == 1
+      assert Repo.aggregate(from(user in User, where: user.email == ^email), :count) == 1
+
+      assert Repo.aggregate(
+               from(identity in UserIdentity,
+                 where: identity.provider == :google and identity.provider_uid == "racing-subject"
+               ),
+               :count
+             ) == 1
+    end
+  end
+
   describe "register_user_with_magic_link/2" do
     test "creates one passwordless account and confirms the same stable identity" do
       email = unique_user_email()

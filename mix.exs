@@ -34,6 +34,8 @@ defmodule D20.MixProject do
     [
       {:bcrypt_elixir, "~> 3.0"},
       {:inertia, "~> 3.0.0-rc"},
+      {:ueberauth, "~> 0.10.8"},
+      {:ueberauth_google, "~> 0.12.1"},
       {:phoenix_vite, "~> 0.4"},
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.5"},

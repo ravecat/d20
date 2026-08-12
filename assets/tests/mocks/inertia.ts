@@ -66,7 +66,12 @@ const defaultPage = (): Page<PageProps> => ({
   encryptHistory: false,
   flash: {},
   props: {
-    auth: { authenticated: false, local: false, prompt: null },
+    auth: {
+      authenticated: false,
+      local: false,
+      prompt: null,
+      providers: { google: { available: true } },
+    },
     errors: {},
   },
   rescuedProps: [],

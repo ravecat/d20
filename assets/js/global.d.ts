@@ -8,6 +8,11 @@ declare module "@inertiajs/core" {
       auth: {
         readonly authenticated: boolean;
         readonly local: boolean;
+        readonly providers: {
+          readonly google: {
+            readonly available: boolean;
+          };
+        };
         readonly prompt: {
           readonly email: string;
           readonly message: string;

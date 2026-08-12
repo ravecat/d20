@@ -37,7 +37,12 @@ beforeEach(async () => {
   await page.viewport(1280, 800);
   inertiaMock.setPage({
     props: {
-      auth: { authenticated: false, local: false, prompt: null },
+      auth: {
+        authenticated: false,
+        local: false,
+        prompt: null,
+        providers: { google: { available: true } },
+      },
       errors: {},
     },
   });
@@ -55,6 +60,7 @@ describe("app layout", () => {
         auth: {
           authenticated: false,
           local: false,
+          providers: { google: { available: true } },
           prompt: {
             email: "",
             message: "You must log in to access this page.",

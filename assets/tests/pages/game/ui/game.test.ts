@@ -12,7 +12,12 @@ const sessionMock = vi.hoisted(() => ({
   createSession: vi.fn(),
 }));
 
-const auth = { authenticated: false, local: false, prompt: null };
+const auth = {
+  authenticated: false,
+  local: false,
+  prompt: null,
+  providers: { google: { available: true } },
+};
 
 const emptySchema: Schema = {
   type: "object",

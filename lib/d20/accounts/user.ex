@@ -68,6 +68,30 @@ defmodule D20.Accounts.User do
   def username_changeset(%__MODULE__{username: nil} = user, attrs) do
     user
     |> cast(attrs, [:username])
+    |> validate_username()
+  end
+
+  def username_changeset(%__MODULE__{} = user, _attrs) do
+    user
+    |> change()
+    |> add_error(:username, "has already been set")
+  end
+
+  @doc """
+  Creates a confirmed user from trusted, provider-independent identity data.
+
+  The caller must supply an email already verified by the provider boundary or D20.
+  """
+  def provider_registration_changeset(%__MODULE__{} = user, attrs) do
+    user
+    |> cast(attrs, [:email, :username])
+    |> validate_email([])
+    |> validate_username()
+    |> put_change(:confirmed_at, DateTime.utc_now(:second))
+  end
+
+  defp validate_username(changeset) do
+    changeset
     |> validate_required([:username])
     |> validate_length(:username, min: 3, max: 32)
     |> validate_format(:username, ~r/\A[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?\z/,
@@ -76,12 +100,6 @@ defmodule D20.Accounts.User do
     )
     |> unsafe_validate_unique(:username, D20.Repo)
     |> unique_constraint(:username, name: :users_username_index)
-  end
-
-  def username_changeset(%__MODULE__{} = user, _attrs) do
-    user
-    |> change()
-    |> add_error(:username, "has already been set")
   end
 
   @doc """

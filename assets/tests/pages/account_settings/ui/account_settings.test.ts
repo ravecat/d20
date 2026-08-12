@@ -3,13 +3,20 @@ import { describe, expect, it } from "vitest";
 import { AccountSettingsPage } from "~/pages/account_settings";
 import inertiaMock from "../../../mocks/inertia";
 
-const auth = { authenticated: false, local: false, prompt: null };
+const auth = {
+  authenticated: false,
+  local: false,
+  prompt: null,
+  providers: { google: { available: true } },
+};
+const googleUnlinked = { available: true, linked: false };
 
 describe("account settings page", () => {
   it("submits email and password changes as independent Inertia forms", async () => {
     render(AccountSettingsPage, {
       auth,
       email: "player@example.com",
+      google: googleUnlinked,
       username: "table_master",
     });
 
@@ -52,6 +59,7 @@ describe("account settings page", () => {
     const { unmount } = render(AccountSettingsPage, {
       auth,
       email: "player@example.com",
+      google: googleUnlinked,
       username: null,
     });
 
@@ -74,10 +82,62 @@ describe("account settings page", () => {
     render(AccountSettingsPage, {
       auth,
       email: "player@example.com",
+      google: googleUnlinked,
       username: "table_master",
     });
 
     expect(screen.getByText("table_master")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Save username" })).toBeNull();
+  });
+
+  it("reports unlinked and linked Google states", () => {
+    const { unmount } = render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    expect(screen.getByRole("heading", { name: "Sign-in methods" })).not.toBeNull();
+    expect(screen.getByText("Not linked")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Link Google" })).not.toBeNull();
+
+    unmount();
+    render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      google: { available: true, linked: true },
+      username: "table_master",
+    });
+
+    expect(screen.getByText("Linked")).not.toBeNull();
+    expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
+  });
+
+  it("offers a normal Google linking anchor when unlinked", () => {
+    render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    const link = screen.getByRole("link", { name: "Link Google" });
+    expect(link.getAttribute("href")).toBe("/users/settings/auth/google");
+  });
+
+  it("disables Google linking while the provider is unavailable", () => {
+    render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      google: { available: false, linked: false },
+      username: "table_master",
+    });
+
+    expect(screen.getByText("Unavailable")).not.toBeNull();
+    expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "Link Google" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

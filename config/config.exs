@@ -38,6 +38,21 @@ config :d20,
   allow_launch_in_progress: config_env() != :prod,
   session_idle_timeout: :timer.minutes(30)
 
+# ueberauth_google 0.12.1 does not implement PKCE. D20 therefore uses it only as a
+# confidential server-side client with state validation and a client-secret exchange.
+config :ueberauth, Ueberauth,
+  providers: [
+    google:
+      {Ueberauth.Strategy.Google,
+       [
+         default_scope: "openid email",
+         userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo"
+       ]}
+  ]
+
+config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+  token_url: "https://oauth2.googleapis.com/token"
+
 config :d20, D20.Actors.Token,
   salt: "actor",
   max_age: 1_209_600

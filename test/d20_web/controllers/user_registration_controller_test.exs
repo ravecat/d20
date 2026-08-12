@@ -75,6 +75,36 @@ defmodule D20Web.UserRegistrationControllerTest do
       refute_receive {:email, _email}, 20
     end
 
+    test "does not duplicate a provider-created account by email", %{conn: conn} do
+      email = unique_user_email()
+
+      assert {:ok, provider_user} =
+               Accounts.register_user_with_identity(
+                 %{email: email, username: "provider_player"},
+                 :google,
+                 "provider-first-subject"
+               )
+
+      conn =
+        conn
+        |> inertia_request()
+        |> post(~p"/users/register", %{
+          "user" => %{"email" => String.upcase(email)},
+          "response_to" => "/",
+          "return_to" => "/"
+        })
+
+      response_conn = follow_inertia_redirect(conn)
+
+      assert inertia_errors(response_conn) == %{email: "has already been taken"}
+      assert D20.Repo.aggregate(User, :count) == 1
+
+      assert Accounts.get_user_by_identity(:google, "provider-first-subject").id ==
+               provider_user.id
+
+      refute_receive {:email, _email}, 20
+    end
+
     test "returns a flat recovery error through the Inertia redirect when delivery fails", %{
       conn: conn
     } do

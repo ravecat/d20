@@ -99,16 +99,28 @@ defmodule D20Web.PageControllerTest do
     original_bgg_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
     original_req_options = Req.default_options()
     original_registry_config = Application.fetch_env!(:d20, Registry)
+    original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
 
     original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
+      client_id: "google-test-client-id",
+      client_secret: "google-test-client-secret"
+    )
+
     Req.default_options(plug: {Req.Test, __MODULE__})
     Req.Test.stub(__MODULE__, fn conn -> Req.Test.text(conn, @qwinto_xml) end)
 
     on_exit(fn ->
       Req.default_options(original_req_options)
       Application.put_env(:d20, Registry, original_registry_config)
+
+      case original_google_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+        config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, config)
+      end
 
       case original_launch_config do
         :not_configured -> Application.delete_env(:d20, :allow_launch_in_progress)
@@ -233,11 +245,33 @@ defmodule D20Web.PageControllerTest do
   test "Inertia pages share guest authentication state", %{conn: conn} do
     conn = get(conn, ~p"/developers")
 
-    assert inertia_props(conn).auth == %{authenticated: false, local: false, prompt: nil}
+    assert inertia_props(conn).auth == %{
+             authenticated: false,
+             local: false,
+             prompt: nil,
+             providers: %{google: %{available: true}}
+           }
+
     assert "auth" in inertia_shared_props(conn)
     refute "authenticated" in inertia_shared_props(conn)
     refute "authPrompt" in inertia_shared_props(conn)
     refute "localMailboxAvailable" in inertia_shared_props(conn)
+  end
+
+  test "Inertia pages expose only derived Google availability", %{conn: conn} do
+    conn = get(conn, ~p"/developers")
+
+    assert inertia_props(conn).auth.providers == %{google: %{available: true}}
+    refute Map.has_key?(inertia_props(conn).auth, :client_id)
+    refute Map.has_key?(inertia_props(conn).auth, :client_secret)
+  end
+
+  test "Inertia pages report Google unavailable when a credential is missing", %{conn: conn} do
+    put_google_oauth_config(client_id: nil, client_secret: "google-client-secret")
+
+    conn = get(conn, ~p"/developers")
+
+    assert inertia_props(conn).auth.providers == %{google: %{available: false}}
   end
 
   test "Inertia pages expose the local mailbox when dev routes and the Local adapter are enabled",
@@ -614,6 +648,18 @@ defmodule D20Web.PageControllerTest do
       case original_dev_routes do
         :not_configured -> Application.delete_env(:d20, :dev_routes)
         configured -> Application.put_env(:d20, :dev_routes, configured)
+      end
+    end)
+  end
+
+  defp put_google_oauth_config(config) do
+    previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, config)
+
+    on_exit(fn ->
+      case previous_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+        value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, value)
       end
     end)
   end

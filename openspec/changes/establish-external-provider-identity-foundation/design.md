@@ -68,7 +68,7 @@ The lookup does not duplicate changeset validation with guards or fallback claus
 
 ### Do not change login or registration semantics
 
-This change only links identities to existing users and resolves them. It does not generate D20 session tokens, rotate sessions, confirm email addresses, or create accounts. Those behaviors belong in later provider flows and must call existing Accounts and `D20Web.UserAuth` boundaries explicitly.
+This change only links identities to existing users and resolves them. It does not generate D20 session tokens, rotate sessions, confirm email addresses, or create accounts. Those behaviors belong in later provider flows and must call existing Accounts and `D20Web.Auth` boundaries explicitly.
 
 ## Risks / Trade-offs
 

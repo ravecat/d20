@@ -27,10 +27,15 @@ defmodule D20Web.UserSessionControllerTest do
       conn = get(conn, ~p"/users/log-in/#{token}")
 
       assert html_response(conn, 200) =~ ~s(id="app")
-      assert inertia_component(conn) == "auth_confirmation"
+      assert inertia_component(conn) == "registration_completion"
 
-      assert %{confirmed: false, email: email, token: ^token, reauthenticate: false} =
-               inertia_props(conn)
+      assert %{
+               email: email,
+               submission: %{
+                 action: "/users/log-in",
+                 credential: %{type: "magic_link", token: ^token}
+               }
+             } = inertia_props(conn)
 
       assert email == user.email
       assert %Accounts.User{confirmed_at: nil, username: nil} = Accounts.get_user!(user.id)
@@ -44,7 +49,7 @@ defmodule D20Web.UserSessionControllerTest do
       conn = get(conn, ~p"/users/log-in/#{token}")
 
       assert inertia_component(conn) == "auth_confirmation"
-      assert %{confirmed: true, email: email, token: ^token} = inertia_props(conn)
+      assert %{email: email, token: ^token, reauthenticate: false} = inertia_props(conn)
       assert email == user.email
     end
 
@@ -261,6 +266,33 @@ defmodule D20Web.UserSessionControllerTest do
 
       conn = get(conn, ~p"/")
       assert_logged_in_inertia_home(conn, user)
+    end
+
+    test "logs a provider-created account in by Magic Link without duplicating it", %{conn: conn} do
+      email = unique_user_email()
+
+      assert {:ok, provider_user} =
+               Accounts.register_user_with_identity(
+                 %{email: email, username: "provider_magic_player"},
+                 :google,
+                 "provider-magic-subject"
+               )
+
+      token =
+        extract_user_token(fn url -> Accounts.deliver_login_instructions(provider_user, url) end)
+
+      user_count = D20.Repo.aggregate(Accounts.User, :count)
+      conn = post conn, ~p"/users/log-in", %{"user" => %{"token" => token}}
+
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/"
+      assert D20.Repo.aggregate(Accounts.User, :count) == user_count
+
+      assert Accounts.get_user_by_identity(:google, "provider-magic-subject").id ==
+               provider_user.id
+
+      conn = get(conn, ~p"/")
+      assert_logged_in_inertia_home(conn, provider_user)
     end
 
     test "confirms unconfirmed user", %{conn: conn, unconfirmed_user: user} do

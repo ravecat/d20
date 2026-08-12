@@ -2,15 +2,24 @@ defmodule D20Web.UserSettingsController do
   use D20Web, :controller
 
   alias D20.Accounts
-  alias D20Web.UserAuth
+  alias D20Web.Auth
+  alias D20Web.Auth.Google
 
-  import D20Web.UserAuth, only: [require_sudo_mode: 2]
+  import D20Web.Auth, only: [require_sudo_mode: 2]
 
   plug :require_sudo_mode
 
   def edit(conn, _params) do
     user = conn.assigns.current_user
-    render_inertia(conn, "account_settings", %{email: user.email, username: user.username})
+
+    google_linked =
+      user |> Accounts.list_user_identities() |> Enum.any?(&(&1.provider == :google))
+
+    render_inertia(conn, "account_settings", %{
+      email: user.email,
+      username: user.username,
+      google: %{available: Google.available?(), linked: google_linked}
+    })
   end
 
   def update(conn, %{"action" => "claim_username", "user" => user_params}) do
@@ -22,7 +31,7 @@ defmodule D20Web.UserSettingsController do
         conn |> assign_errors(changeset) |> redirect_to_settings()
 
       {:error, :not_found} ->
-        conn |> put_flash(:error, "Account no longer exists.") |> UserAuth.log_out_user()
+        conn |> put_flash(:error, "Account no longer exists.") |> Auth.log_out_user()
     end
   end
 
@@ -59,7 +68,7 @@ defmodule D20Web.UserSettingsController do
         conn
         |> put_flash(:info, "Password updated successfully.")
         |> put_session(:return_to, ~p"/users/settings")
-        |> UserAuth.log_in_user(user)
+        |> Auth.log_in_user(user)
 
       {:error, changeset} ->
         conn |> assign_errors(changeset) |> redirect_to_settings()

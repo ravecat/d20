@@ -2,7 +2,7 @@ defmodule D20Web.UserSessionController do
   use D20Web, :controller
 
   alias D20.Accounts
-  alias D20Web.UserAuth
+  alias D20Web.Auth
 
   # magic link login
   def create(conn, %{"user" => %{"token" => token} = user_params} = params) do
@@ -14,7 +14,7 @@ defmodule D20Web.UserSessionController do
 
     case Accounts.login_user_by_magic_link(token, user_params) do
       {:ok, {user, _expired_tokens}} ->
-        conn |> put_flash(:info, info) |> UserAuth.log_in_user(user, user_params)
+        conn |> put_flash(:info, info) |> Auth.log_in_user(user, user_params)
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
@@ -24,7 +24,7 @@ defmodule D20Web.UserSessionController do
 
       {:error, :not_found} ->
         conn
-        |> UserAuth.put_auth_prompt(message: "The link is invalid or it has expired.")
+        |> Auth.put_auth_prompt(message: "The link is invalid or it has expired.")
         |> redirect(to: ~p"/")
     end
   end
@@ -34,12 +34,12 @@ defmodule D20Web.UserSessionController do
         conn,
         %{"user" => %{"identifier" => identifier, "password" => password} = user_params} = params
       ) do
-    conn = UserAuth.store_return_to(conn, params["return_to"])
+    conn = Auth.store_return_to(conn, params["return_to"])
 
     if user = Accounts.get_user_by_identifier_and_password(identifier, password) do
       conn
       |> put_flash(:info, "Welcome back!")
-      |> UserAuth.log_in_user(user, user_params)
+      |> Auth.log_in_user(user, user_params)
     else
       invalid_credentials(conn, params)
     end
@@ -47,7 +47,7 @@ defmodule D20Web.UserSessionController do
 
   # magic link request
   def create(conn, %{"user" => %{"email" => email}} = params) do
-    conn = UserAuth.store_return_to(conn, params["return_to"])
+    conn = Auth.store_return_to(conn, params["return_to"])
 
     if user = Accounts.get_user_by_email(email) do
       Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}"))
@@ -63,15 +63,24 @@ defmodule D20Web.UserSessionController do
 
   def confirm(conn, %{"token" => token}) do
     if user = Accounts.get_user_by_magic_link_token(token) do
-      render_inertia(conn, "auth_confirmation", %{
-        confirmed: not is_nil(user.confirmed_at),
-        email: user.email,
-        reauthenticate: not is_nil(conn.assigns.current_user),
-        token: token
-      })
+      if user.confirmed_at do
+        render_inertia(conn, "auth_confirmation", %{
+          email: user.email,
+          reauthenticate: not is_nil(conn.assigns.current_user),
+          token: token
+        })
+      else
+        render_inertia(conn, "registration_completion", %{
+          email: user.email,
+          submission: %{
+            action: ~p"/users/log-in",
+            credential: %{type: "magic_link", token: token}
+          }
+        })
+      end
     else
       conn
-      |> UserAuth.put_auth_prompt(message: "Magic link is invalid or it has expired.")
+      |> Auth.put_auth_prompt(message: "Magic link is invalid or it has expired.")
       |> redirect(to: ~p"/")
     end
   end
@@ -79,7 +88,7 @@ defmodule D20Web.UserSessionController do
   def delete(conn, _params) do
     conn
     |> put_flash(:info, "Logged out successfully.")
-    |> UserAuth.log_out_user()
+    |> Auth.log_out_user()
   end
 
   defp invalid_credentials(conn, params) do
@@ -95,6 +104,6 @@ defmodule D20Web.UserSessionController do
   defp redirect_to_response(conn, params, fallback) do
     conn
     |> put_status(:see_other)
-    |> redirect(to: UserAuth.safe_local_path(params["response_to"], fallback))
+    |> redirect(to: Auth.safe_local_path(params["response_to"], fallback))
   end
 end
