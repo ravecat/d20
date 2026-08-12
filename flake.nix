@@ -33,6 +33,7 @@
           pkgs.direnv
           pkgs.git
           pkgs.just
+          pkgs.concurrently
           # Phoenix uses PostgreSQL locally by default.
           pkgs.postgresql
           pkgs.watchexec

@@ -27,7 +27,9 @@ restart-or-serve:
 
 up:
     docker compose up -d
-    just restart-or-serve
+    concurrently --kill-others-on-fail --names phoenix,storybook --prefix-colors cyan,magenta \
+        "just restart-or-serve" \
+        "just assets storybook"
 
 format:
     mix format
@@ -39,4 +41,5 @@ check:
     mix assets.lint
     mix assets.test
     mix typecheck
+    mix assets.storybook
     mix test

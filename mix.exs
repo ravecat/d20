@@ -107,6 +107,7 @@ defmodule D20.MixProject do
       "assets.format.check": ["bun assets run format.check"],
       "assets.lint": ["bun assets run lint"],
       "assets.test": ["bun assets run test"],
+      "assets.storybook": ["bun assets run storybook:build"],
       typecheck: ["bun assets run typecheck"],
       "assets.check": ["bun assets run check"],
       "assets.build": ["bun vite build"],

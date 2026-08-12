@@ -24,9 +24,11 @@
     }
   },
   "include": [
+    ".storybook/**/*.ts",
     "js/**/*.ts",
     "js/**/*.js",
     "js/**/*.svelte",
+    "stories/**/*.ts",
     "tests/**/*.ts",
     "tests/**/*.svelte",
     "vite.config.mjs"
