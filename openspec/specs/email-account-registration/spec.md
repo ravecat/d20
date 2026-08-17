@@ -28,15 +28,24 @@ The system SHALL show a Register action in the shared application header when `a
 
 ### Requirement: Registration dialog exposes the supported account choices
 
-The Register mode of the shared account dialog SHALL contain a persistently labelled email field, a Create account submit action, an `or` separator between email registration and provider choices, an action that switches the same dialog to Login mode, and visible Google, Facebook, Apple, and Discord choices marked as unavailable. Unavailable provider choices MUST NOT submit, navigate, or initiate authorization.
+The Register mode of the shared account dialog SHALL contain a persistently labelled email field, a Create account submit action, and an action that switches the same dialog to Login mode. Each configured external provider SHALL be a normal full-document link labelled `Sign up with <provider>` only when its runtime availability is true. Unavailable and unimplemented providers SHALL be omitted. An `or` separator and the provider group SHALL be present only when at least one provider link is available. Separators and the Register/Login mode switch SHALL use compact vertical spacing rather than reserving a separate large margin.
 
-#### Scenario: Guest reviews registration choices
+#### Scenario: Guest reviews registration choices with Google available
 
-- **WHEN** the registration dialog opens
-- **THEN** email account creation is the only enabled registration method
+- **WHEN** the registration dialog opens while Google is available
+- **THEN** the guest can create an account with email or start Google registration
 - **AND** an `or` separator distinguishes email registration from provider choices
-- **AND** Google, Facebook, Apple, and Discord are visible as disabled future methods
+- **AND** Google is a `Sign up with Google` full-document link
+- **AND** unavailable and unimplemented providers are not rendered
 - **AND** the existing-user login action switches the same dialog to Login mode without navigation
+
+#### Scenario: Guest reviews registration choices with every external provider unavailable
+
+- **WHEN** the registration dialog opens while every configured external provider is unavailable
+- **THEN** email account creation remains enabled
+- **AND** no provider choices or unavailable placeholders are rendered
+- **AND** the provider separator and group are omitted
+- **AND** the existing-user login action still switches the same dialog to Login mode
 
 ### Requirement: Registration dialog is keyboard and viewport accessible
 
@@ -81,7 +90,7 @@ The registration dialog SHALL use native modal dialog semantics, expose an acces
 
 ### Requirement: Valid email creates an unconfirmed account
 
-The system SHALL accept a syntactically valid unique email from an unauthenticated user, create one unconfirmed passwordless D20 user, create confirmation instructions through the existing magic-link mechanism, and report that the user must check their email. Registration MUST NOT authenticate the request before the magic link is consumed. A successful request SHALL replace only the completed email registration form with its check-email result while keeping the Register mode separator, unavailable provider choices, and Login mode switch available.
+The system SHALL accept a syntactically valid unique email from an unauthenticated user, create one unconfirmed passwordless D20 user, create confirmation instructions through the existing magic-link mechanism, and report that the user must check their email. Registration MUST NOT authenticate the request before the magic link is consumed. A successful request SHALL replace only the completed email registration form with its check-email result while keeping the Login mode switch available and keeping the provider separator and choices only when at least one configured provider remains available.
 
 #### Scenario: Guest creates an account with email
 
@@ -90,7 +99,7 @@ The system SHALL accept a syntactically valid unique email from an unauthenticat
 - **AND** the user has no password
 - **AND** one confirmation instruction is requested
 - **AND** the dialog replaces the email registration form with a check-email result
-- **AND** the Register mode separator, provider choices, and Login mode switch remain available
+- **AND** available provider choices, their separator, and the Login mode switch remain available
 - **AND** the guest request remains unauthenticated
 
 ### Requirement: Invalid and equivalent email submissions do not duplicate accounts

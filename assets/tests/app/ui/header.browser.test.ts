@@ -40,8 +40,12 @@ describe("app header account dialog", () => {
     const registerDialog = page.getByRole("dialog", { name: "Create your free account" });
     const dialogElement = registerDialog.element() as HTMLDialogElement;
     const registrationEmail = page.getByLabelText("Email address");
+    const sharedIntroduction = page.getByText(
+      "Save your game history and achievements. Share game sessions across devices and watch replays of completed games.",
+    );
 
     await expect.element(registerDialog).toBeVisible();
+    await expect.element(sharedIntroduction).toBeVisible();
     expect((registrationEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
     expect(registrationEmail.element().hasAttribute("autofocus")).toBe(true);
     await expect.poll(() => document.activeElement).toBe(registrationEmail.element());
@@ -54,6 +58,7 @@ describe("app header account dialog", () => {
     const loginIdentifier = page.getByLabelText("Username or email");
 
     await expect.element(loginDialog).toBeVisible();
+    await expect.element(sharedIntroduction).toBeVisible();
     expect(page.getByRole("heading", { name: "Magic Link" }).elements()).toHaveLength(0);
     expect(page.getByRole("heading", { name: "Password login" }).elements()).toHaveLength(0);
     expect((loginEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
@@ -161,8 +166,8 @@ describe("app header account dialog", () => {
       .toBeVisible();
     expect(page.getByLabelText("Email address").elements()).toHaveLength(0);
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
-    await expect.element(page.getByRole("link", { name: "Register with Google" })).toBeVisible();
-    assertFutureProvidersDisabled("Register");
+    await expect.element(page.getByRole("link", { name: "Sign up with Google" })).toBeVisible();
+    assertFutureProvidersHidden("Sign up");
     await expect.element(page.getByRole("button", { name: "Log in", exact: true })).toBeVisible();
 
     await userEvent.keyboard("{Escape}");
@@ -335,22 +340,22 @@ describe("app header account dialog", () => {
       .toHaveAttribute("aria-pressed", "false");
   });
 
-  it("shows Google links and keeps future providers disabled", async () => {
+  it("shows only available Google links", async () => {
     renderHeader();
     await page.getByRole("button", { name: "Register" }).click();
 
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
-    await expect.element(page.getByRole("link", { name: "Register with Google" })).toBeVisible();
-    assertFutureProvidersDisabled("Register");
+    await expect.element(page.getByRole("link", { name: "Sign up with Google" })).toBeVisible();
+    assertFutureProvidersHidden("Sign up");
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(2);
-    await expect.element(page.getByRole("link", { name: "Log in with Google" })).toBeVisible();
-    assertFutureProvidersDisabled("Log in");
+    await expect.element(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+    assertFutureProvidersHidden("Sign in");
   });
 
-  it("keeps Google visible but disabled when its credentials are unavailable", async () => {
+  it("hides unavailable providers and the empty provider group", async () => {
     inertiaMock.setPage({
       props: {
         auth: {
@@ -365,19 +370,17 @@ describe("app header account dialog", () => {
     renderHeader();
     await page.getByRole("button", { name: "Register" }).click();
 
-    expect(page.getByRole("link", { name: "Register with Google" }).elements()).toHaveLength(0);
-
-    const registrationButton = page.getByRole("button", {
-      name: "Register with Google Unavailable",
-    });
-    expect((registrationButton.element() as HTMLButtonElement).disabled).toBe(true);
+    expect(page.getByRole("link", { name: "Sign up with Google" }).elements()).toHaveLength(0);
+    expect(page.getByLabelText("Other registration methods").elements()).toHaveLength(0);
+    expect(page.getByText("or", { exact: true }).elements()).toHaveLength(0);
+    assertFutureProvidersHidden("Sign up");
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
-    expect(page.getByRole("link", { name: "Log in with Google" }).elements()).toHaveLength(0);
-
-    const loginButton = page.getByRole("button", { name: "Log in with Google Unavailable" });
-    expect((loginButton.element() as HTMLButtonElement).disabled).toBe(true);
+    expect(page.getByRole("link", { name: "Sign in with Google" }).elements()).toHaveLength(0);
+    expect(page.getByLabelText("Other login methods").elements()).toHaveLength(0);
+    expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
+    assertFutureProvidersHidden("Sign in");
   });
 
   it("preserves the local return path in normal Google links", async () => {
@@ -396,19 +399,19 @@ describe("app header account dialog", () => {
     renderHeader();
     await page.getByRole("button", { name: "Register", exact: true }).click();
 
-    const registrationLink = page.getByRole("link", { name: "Register with Google" });
+    const registrationLink = page.getByRole("link", { name: "Sign up with Google" });
     expect(registrationLink.element().getAttribute("href")).toBe(
       "/auth/google?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1",
     );
-    assertFutureProvidersDisabled("Register");
+    assertFutureProvidersHidden("Sign up");
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
-    const loginLink = page.getByRole("link", { name: "Log in with Google" });
+    const loginLink = page.getByRole("link", { name: "Sign in with Google" });
     expect(loginLink.element().getAttribute("href")).toBe(
       "/auth/google?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1",
     );
-    assertFutureProvidersDisabled("Log in");
+    assertFutureProvidersHidden("Sign in");
   });
 
   it("keeps every login method reachable at a narrow viewport", async () => {
@@ -432,8 +435,8 @@ describe("app header account dialog", () => {
     await expect.element(dialog).toBeVisible();
     await expect.element(page.getByRole("heading", { name: "Log in" })).toBeVisible();
     await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
-    await expect.element(page.getByRole("link", { name: "Log in with Google" })).toBeVisible();
-    assertFutureProvidersDisabled("Log in");
+    await expect.element(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+    assertFutureProvidersHidden("Sign in");
     await expect.element(modeSwitch).toBeVisible();
 
     await modeSwitch.click();
@@ -569,13 +572,11 @@ async function openLoginMode() {
   await page.getByRole("button", { name: "Log in", exact: true }).click();
 }
 
-function assertFutureProvidersDisabled(prefix: "Register" | "Log in") {
+function assertFutureProvidersHidden(prefix: "Sign up" | "Sign in") {
   for (const provider of ["Facebook", "Apple", "Discord"]) {
-    const button = page.getByRole("button", {
-      name: `${prefix} with ${provider} Coming soon`,
-    });
-
-    expect((button.element() as HTMLButtonElement).disabled).toBe(true);
+    expect(page.getByText(`${prefix} with ${provider}`, { exact: true }).elements()).toHaveLength(
+      0,
+    );
   }
 }
 

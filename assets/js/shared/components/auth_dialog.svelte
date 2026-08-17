@@ -3,9 +3,6 @@
   import { Form, usePage } from "@inertiajs/svelte";
   import { useSelector } from "@xstate/store-svelte";
   import { onMount, tick } from "svelte";
-  import appleIconSvg from "~/shared/icons/apple.svg?raw";
-  import discordIconSvg from "~/shared/icons/discord.svg?raw";
-  import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
   import InlineNotification from "./inline_notification.svelte";
   import { auth } from "~/shared/stores";
@@ -34,7 +31,29 @@
   const googleAuthUrl = $derived(
     `/auth/google?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
   );
+  const hasAvailableProvider = $derived(
+    Object.values(page.props.auth.providers).some(({ available }) => available),
+  );
 </script>
+
+<!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
+{#snippet provider(
+  action: "Sign up" | "Sign in",
+  name: string,
+  iconSvg: string,
+  available: boolean,
+  authUrl: string,
+)}
+  {#if available}
+    <a class="auth-providers__button" href={authUrl}>
+      <span class="auth-providers__identity">
+        <span class="provider-icon" aria-hidden="true">{@html iconSvg}</span>
+        <span>{action} with {name}</span>
+      </span>
+    </a>
+  {/if}
+{/snippet}
+<!-- eslint-enable svelte/no-at-html-tags -->
 
 <dialog
   bind:this={dialog}
@@ -72,7 +91,7 @@
         {#if $authState.prompt?.reauthenticate}
           Sign in again to continue to the protected account action.
         {:else}
-          Save your game history and achievements. Continue game sessions across devices and watch
+          Save your game history and achievements. Share game sessions across devices and watch
           replays of completed games.
         {/if}
       </p>
@@ -165,52 +184,21 @@
           </Form>
         {/if}
 
-        <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
+        {#if hasAvailableProvider}
+          <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
 
-        <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
-        <div class="auth-providers" aria-label="Other registration methods">
-          {#if page.props.auth.providers.google.available}
-            <a class="auth-providers__button auth-providers__button--enabled" href={googleAuthUrl}>
-              <span class="auth-providers__identity">
-                <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
-                <span>Register with Google</span>
-              </span>
-            </a>
-          {:else}
-            <button class="auth-providers__button" type="button" disabled>
-              <span class="auth-providers__identity">
-                <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
-                <span>Register with Google</span>
-              </span>
-              <span class="auth-providers__status">Unavailable</span>
-            </button>
-          {/if}
-
-          <button class="auth-providers__button" type="button" disabled>
-            <span class="auth-providers__identity">
-              <span class="provider-icon" aria-hidden="true">{@html facebookIconSvg}</span>
-              <span>Register with Facebook</span>
-            </span>
-            <span class="auth-providers__status">Coming soon</span>
-          </button>
-
-          <button class="auth-providers__button" type="button" disabled>
-            <span class="auth-providers__identity">
-              <span class="provider-icon" aria-hidden="true">{@html appleIconSvg}</span>
-              <span>Register with Apple</span>
-            </span>
-            <span class="auth-providers__status">Coming soon</span>
-          </button>
-
-          <button class="auth-providers__button" type="button" disabled>
-            <span class="auth-providers__identity">
-              <span class="provider-icon" aria-hidden="true">{@html discordIconSvg}</span>
-              <span>Register with Discord</span>
-            </span>
-            <span class="auth-providers__status">Coming soon</span>
-          </button>
-        </div>
-        <!-- eslint-enable svelte/no-at-html-tags -->
+          <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
+          <div class="auth-providers" aria-label="Other registration methods">
+            {@render provider(
+              "Sign up",
+              "Google",
+              googleIconSvg,
+              page.props.auth.providers.google.available,
+              googleAuthUrl,
+            )}
+          </div>
+          <!-- eslint-enable svelte/no-at-html-tags -->
+        {/if}
 
         <p class="auth-panel__mode-switch">
           Already have an account?
@@ -371,55 +359,21 @@
         </section>
 
         {#if !$authState.prompt?.reauthenticate}
-          <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
+          {#if hasAvailableProvider}
+            <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
 
-          <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
-          <div class="auth-providers" aria-label="Other login methods">
-            {#if page.props.auth.providers.google.available}
-              <a
-                class="auth-providers__button auth-providers__button--enabled"
-                href={googleAuthUrl}
-              >
-                <span class="auth-providers__identity">
-                  <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
-                  <span>Log in with Google</span>
-                </span>
-              </a>
-            {:else}
-              <button class="auth-providers__button" type="button" disabled>
-                <span class="auth-providers__identity">
-                  <span class="provider-icon" aria-hidden="true">{@html googleIconSvg}</span>
-                  <span>Log in with Google</span>
-                </span>
-                <span class="auth-providers__status">Unavailable</span>
-              </button>
-            {/if}
-
-            <button class="auth-providers__button" type="button" disabled>
-              <span class="auth-providers__identity">
-                <span class="provider-icon" aria-hidden="true">{@html facebookIconSvg}</span>
-                <span>Log in with Facebook</span>
-              </span>
-              <span class="auth-providers__status">Coming soon</span>
-            </button>
-
-            <button class="auth-providers__button" type="button" disabled>
-              <span class="auth-providers__identity">
-                <span class="provider-icon" aria-hidden="true">{@html appleIconSvg}</span>
-                <span>Log in with Apple</span>
-              </span>
-              <span class="auth-providers__status">Coming soon</span>
-            </button>
-
-            <button class="auth-providers__button" type="button" disabled>
-              <span class="auth-providers__identity">
-                <span class="provider-icon" aria-hidden="true">{@html discordIconSvg}</span>
-                <span>Log in with Discord</span>
-              </span>
-              <span class="auth-providers__status">Coming soon</span>
-            </button>
-          </div>
-          <!-- eslint-enable svelte/no-at-html-tags -->
+            <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
+            <div class="auth-providers" aria-label="Other login methods">
+              {@render provider(
+                "Sign in",
+                "Google",
+                googleIconSvg,
+                page.props.auth.providers.google.available,
+                googleAuthUrl,
+              )}
+            </div>
+            <!-- eslint-enable svelte/no-at-html-tags -->
+          {/if}
 
           <p class="auth-panel__mode-switch">
             New to D20?
@@ -466,7 +420,7 @@
     max-block-size: 100%;
     flex: 0 1 auto;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.625rem;
     overflow: hidden;
     border: 0;
     border-radius: 0;
@@ -525,7 +479,7 @@
     display: flex;
     flex: 0 1 auto;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.625rem;
     min-block-size: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -652,8 +606,8 @@
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    gap: 0.75rem;
-    margin-block: 1rem;
+    gap: 0.625rem;
+    margin-block: 0.25rem;
     color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -681,20 +635,15 @@
     border-radius: var(--radius-field);
     background: var(--color-base-200);
     padding-inline: 0.9rem;
-    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+    color: var(--color-base-content);
     font: inherit;
     font-size: 0.85rem;
     text-align: start;
-    cursor: not-allowed;
-  }
-
-  .auth-providers__button--enabled {
-    color: var(--color-base-content);
     text-decoration: none;
     cursor: pointer;
   }
 
-  .auth-providers__button--enabled:hover {
+  .auth-providers__button:hover {
     border-color: color-mix(in oklab, var(--color-primary) 55%, transparent);
     background: color-mix(in oklab, var(--color-primary) 10%, var(--color-base-200));
   }
@@ -713,15 +662,8 @@
     flex: none;
   }
 
-  .auth-providers__status {
-    flex: none;
-    font-size: 0.65rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   .auth-panel__mode-switch {
-    margin: 1.1rem 0 0;
+    margin: 0.375rem 0 0;
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
     font-size: 0.8rem;
     text-align: center;

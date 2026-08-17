@@ -119,6 +119,8 @@ Every Inertia page SHALL expose one required `auth` object through the shared re
 
 The shared authentication prompt SHALL include a server-owned severity kind of `info`, `warning`, or `error`. AuthDialog SHALL present prompt messages and local development guidance through the shared `InlineNotification` component as visually distinct inline blocks with readable text on the left, a severity-specific circular symbol on the right, a tinted surface, and a visible semantic border. Info, warning, and error variants and any links in their child content SHALL use the matching global semantic theme color rather than the primary action color. Severity MUST NOT be communicated by color or icon shape alone. Informational and warning notifications SHALL use polite status semantics, while error notifications SHALL use alert semantics. The client MUST NOT infer severity from message text.
 
+When the dialog is not requesting reauthentication, both Register and Login SHALL use the shared introduction `Save your game history and achievements. Share game sessions across devices and watch replays of completed games.`
+
 #### Scenario: Existing-account recovery requires an explicit link
 
 - **WHEN** an unknown external identity returns an email already owned by a D20 account
@@ -140,16 +142,30 @@ The shared authentication prompt SHALL include a server-owned severity kind of `
 - **THEN** the message is presented as an error notification with alert semantics
 - **AND** the message remains readable without relying on color alone
 
+#### Scenario: Guest opens either account mode
+
+- **WHEN** a guest opens Register or Login without a reauthentication prompt
+- **THEN** the shared introduction explains that game sessions can be shared across devices
+- **AND** Register and Login show the same introduction
+
 ### Requirement: Login mode exposes magic-link and password alternatives
 
-Login mode SHALL show a magic-link form, an `or` separator, a username-or-email and password form, another `or` separator, and visible Google, Facebook, Apple, and Discord sign-in choices marked unavailable. The magic-link form SHALL require an email address, the password form SHALL accept either username or email as its identifier, the two enabled forms SHALL submit independently, and unavailable provider choices MUST NOT submit, navigate, or initiate authorization.
+Login mode SHALL show a magic-link form, an `or` separator, and a username-or-email and password form. The magic-link form SHALL require an email address, the password form SHALL accept either username or email as its identifier, and the two local forms SHALL submit independently. Each configured external provider SHALL be a normal full-document link labelled `Sign in with <provider>` only when its runtime availability is true. Unavailable and unimplemented providers SHALL be omitted. A second `or` separator and the provider group SHALL be present only when at least one provider link is available. Separators and the Register/Login mode switch SHALL use compact vertical spacing rather than reserving a separate large margin.
 
-#### Scenario: Guest reviews login methods
+#### Scenario: Guest reviews login methods with Google available
 
-- **WHEN** Login mode opens
+- **WHEN** Login mode opens while Google is available
 - **THEN** the guest can request a magic link with an email address
 - **AND** the guest can submit either a username or email address with a password
-- **AND** Google, Facebook, Apple, and Discord are visible but disabled
+- **AND** the guest can start Google login through a `Sign in with Google` full-document link
+- **AND** unavailable and unimplemented providers are not rendered
+
+#### Scenario: Guest reviews login methods with every external provider unavailable
+
+- **WHEN** Login mode opens while every configured external provider is unavailable
+- **THEN** the magic-link and password forms remain enabled
+- **AND** no provider choices or unavailable placeholders are rendered
+- **AND** the external-provider separator and group are omitted
 
 ### Requirement: Magic-link login request uses the Inertia account flow
 
