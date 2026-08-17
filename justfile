@@ -16,20 +16,27 @@ assets +args:
 [arg("sname", long="sname")]
 [no-exit-message]
 serve sname="d20" erl="-proto_dist inet6_tcp":
+    if epmd -names | awk -v requested_name="{{ sname }}" '$1 == "name" && $2 == requested_name { found = 1 } END { exit !found }'; then touch "config/${MIX_ENV:-dev}.exs"; else exec just start --sname "{{ sname }}" --erl "{{ erl }}"; fi
+
+[arg("erl", long="erl")]
+[arg("sname", long="sname")]
+[no-exit-message]
+[private]
+start sname="d20" erl="-proto_dist inet6_tcp":
     mix setup
-    watchexec --restart --shell=none --wrap-process=none --ignore-nothing \
+    exec watchexec --restart --shell=none --wrap-process=none --ignore-nothing \
         --watch envs --watch config -- \
         direnv exec . iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
 
-[private]
-restart-or-serve:
-    if epmd -names | grep -q '[[:space:]]d20[[:space:]]'; then touch "config/${MIX_ENV:-dev}.exs"; else just serve; fi
+[no-exit-message]
+[positional-arguments]
+[working-directory('assets')]
+storybook *args:
+    @bun run storybook "$@"
 
 up:
     docker compose up -d
-    concurrently --kill-others-on-fail --names phoenix,storybook --prefix-colors cyan,magenta \
-        "just restart-or-serve" \
-        "just assets storybook"
+    just serve
 
 format:
     mix format

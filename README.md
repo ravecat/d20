@@ -15,7 +15,7 @@ Required dependencies:
 Recommended:
 
 - Docker Engine or Docker Desktop when using the Docker Compose module workflow.
-- Nix flake environment for local development tooling. The flake provides Elixir, Erlang/OTP, Just, Concurrently, Docker Compose tooling, and PostgreSQL.
+- Nix flake environment for local development tooling. The flake provides Elixir, Erlang/OTP, Just, Docker Compose tooling, and PostgreSQL.
 
 <details>
 <summary>Prepare Nix environment</summary>
@@ -76,7 +76,9 @@ Manual setup:
 just serve
 ```
 
-`just serve` runs full setup once before starting the watcher: dependency resolution, database creation and migration, seeds, asset installation, and asset build. Every initial or replacement watcher child then runs `mix serve`, which starts Phoenix without repeating setup. Changes under `envs/` or `config/` restart Phoenix, while changes under `priv/repo/migrations/` alone do not trigger a restart or execute a migration. Apply a pending migration immediately with `mix ecto.migrate`, or restart `just serve` to run full setup deliberately; neither command resets, drops, or rolls development data back. Restart `just serve` after changing Elixir or frontend dependencies so setup installs them before Phoenix starts.
+`just serve` checks EPMD for the requested Erlang short node name, `d20` by default. When that exact node is already registered, the command touches the active environment configuration so its existing Watchexec owner restarts IEx/Phoenix without starting a duplicate node. Otherwise it runs full setup once before starting the watcher: dependency resolution, database creation and migration, seeds, asset installation, and asset build. Every initial or replacement watcher child then runs `mix serve`, which starts Phoenix without repeating setup.
+
+Changes under `envs/` or `config/` restart Phoenix. Changes to `mix.exs`, `mix.lock`, or `priv/repo/migrations/` do not install dependencies, restart the runtime, or execute migrations automatically. Run `mix deps.get` after changing Elixir dependencies or `mix ecto.migrate` for pending migrations, then invoke `just serve` to restart the existing watcher when needed. Neither command resets, drops, or rolls development data back. After changing frontend dependencies, stop the active watcher and run `just serve` again so full setup installs them before Phoenix starts.
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `STATIC_PORT` or defaults to `5174`.
 D20 automatically uses the first private IPv4 address for development asset URLs, so the application can also be opened from another device on the same network. Set `STATIC_URL_HOST` to override the detected address.
@@ -86,10 +88,10 @@ D20 automatically uses the first private IPv4 address for development asset URLs
 Run the production-component catalog without Phoenix or other backend services:
 
 ```sh
-just assets storybook
+just storybook
 ```
 
-Storybook uses port 6006 when it is available and otherwise selects the nearest available port without prompting. It does not open a browser automatically, so use the local URL reported in the terminal. Arguments after the script name are forwarded unchanged to the Storybook development command, for example `just assets storybook --host 0.0.0.0 --port 6100`. Build the ignored static catalog into Phoenix's `priv/static/storybook` directory with:
+Storybook uses port 6006 when it is available and otherwise selects the nearest available port without prompting. It does not open a browser automatically, so use the local URL reported in the terminal. Arguments are forwarded unchanged to the Storybook development command, for example `just storybook --host 0.0.0.0 --port 6100`. Build the ignored static catalog into Phoenix's `priv/static/storybook` directory with:
 
 ```sh
 just assets storybook:build
@@ -99,7 +101,7 @@ When Phoenix is running after that build, it serves the generated entry point at
 
 Stories live under [`assets/stories/`](assets/stories/) and import production components from `assets/js/`. See the [story source conventions](assets/stories/README.md) for deterministic fixtures and connected-dependency mocks. Storybook supports isolated visual, viewport, controls, docs, and accessibility review; existing Vitest unit and browser suites remain the automated behavior boundary until Storybook browser testing is added explicitly.
 
-The routed `just up` workflow below starts Storybook together with Phoenix when both are needed.
+Storybook runs independently from the routed application workflow. Start `just up` and `just storybook` in separate terminals when both are needed.
 
 ## Local Module Development
 
@@ -109,9 +111,7 @@ Use this workflow when you want the D20 shell and one or more local iframe modul
 just up
 ```
 
-`just up` starts the shared Traefik container and then uses the Concurrently executable from the Nix development shell to supervise the local Phoenix backend and Storybook together in the foreground. The composite command belongs to the root `justfile`; the frontend package exposes only the atomic Storybook command. Their combined output uses `phoenix` and `storybook` prefixes. If the exact `d20` node is already running, the workflow triggers its existing watcher and keeps Storybook in the current terminal; that reused Phoenix process keeps writing logs to the terminal that originally started it.
-
-If either process started by the supervisor fails, the other is stopped so the command does not leave a partial foreground workflow. Pressing Ctrl-C stops the supervised Phoenix and Storybook processes, but the detached Compose services remain running until `docker compose down` is called.
+`just up` starts the shared Traefik container through detached Docker Compose and then invokes the public `serve` workflow. If the requested node is absent, the watched Phoenix workflow remains in the foreground and retains normal interactive IEx shutdown behavior. If the node is already registered, `serve` triggers its existing Watchexec owner and returns instead of starting a duplicate. `up` does not start Concurrently or Storybook. Detached Compose services remain running until `docker compose down` is called.
 
 Each local module project should start its own Compose service and join the shared external `d20` Docker network. D20 derives iframe hosts from module slugs and the shell request host: when D20 is opened at `localhost:5000`, a module with slug `<module-slug>` resolves to `http://<module-slug>.localhost`.
 
@@ -152,18 +152,18 @@ docker compose down
 
 ## Commands
 
-The project exposes four composite `just` workflows and two generic dispatchers. Use the `mix` and `assets` dispatchers for all other project and frontend commands.
+The project exposes four composite `just` workflows, a standalone Storybook entry point, and two generic dispatchers. Use the `mix` and `assets` dispatchers for all other project and frontend commands.
 
 | Command                          | Purpose                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------- |
 | `just`                           | List available project workflows and dispatchers.                          |
-| `just up`                        | Start Compose routing, Phoenix, and Storybook with prefixed combined logs. |
+| `just up`                        | Start Compose routing and the watched Phoenix server.                     |
 | `just format`                    | Format Elixir and frontend assets.                                         |
-| `just serve`                     | Set up once and start the watched development server.                       |
+| `just serve`                     | Restart the exact registered node through its watcher, or set up and start it. |
+| `just storybook [args...]`       | Start Storybook independently and forward its CLI arguments.                |
 | `just check`                     | Run formatting, asset, type, and test checks.                              |
 | `just mix <task> [args...]`      | Run a Mix task at the project level from the repository root.              |
 | `just assets <script> [args...]` | Run a Bun package script at the asset level from the `assets/` directory.  |
-| `just assets storybook [args...]` | Start Storybook on the nearest available port from 6006 and forward its development CLI arguments. |
 | `just assets storybook:build`    | Build the static Storybook catalog for validation.                         |
 
 ## License
