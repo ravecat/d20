@@ -3,6 +3,7 @@ import { auth } from "~/shared/stores";
 
 const prompt: NonNullable<InertiaProps["auth"]["prompt"]> = {
   email: "player@example.com",
+  kind: "warning",
   message: "You must log in to access this page.",
   reauthenticate: false,
   returnTo: "/users/settings",

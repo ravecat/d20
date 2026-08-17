@@ -58,6 +58,7 @@ defmodule D20Web.UserSessionControllerTest do
       assert redirected_to(conn) == ~p"/"
 
       assert %{
+               kind: :error,
                message: "Magic link is invalid or it has expired.",
                reauthenticate: false,
                return_to: "/"
@@ -371,6 +372,7 @@ defmodule D20Web.UserSessionControllerTest do
       assert redirected_to(conn) == ~p"/"
 
       assert %{
+               kind: :error,
                message: "The link is invalid or it has expired.",
                reauthenticate: false,
                return_to: "/"

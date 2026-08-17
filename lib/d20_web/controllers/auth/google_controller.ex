@@ -121,6 +121,7 @@ defmodule D20Web.Auth.GoogleController do
       not Accounts.sudo_mode?(user, -10) ->
         conn
         |> Auth.put_auth_prompt(
+          kind: :warning,
           message: "You must re-authenticate before linking Google.",
           reauthenticate: true
         )
@@ -141,6 +142,7 @@ defmodule D20Web.Auth.GoogleController do
       %Accounts.User{} ->
         conn
         |> Auth.put_auth_prompt(
+          kind: :warning,
           message:
             "That email already has a D20 account. Log in with an existing method, then link Google in Account Settings.",
           reauthenticate: false
@@ -212,6 +214,7 @@ defmodule D20Web.Auth.GoogleController do
     conn
     |> Google.clear_registration()
     |> Auth.put_auth_prompt(
+      kind: :error,
       message: "Google registration expired or could not be completed. Try again or use email.",
       reauthenticate: false
     )
@@ -257,6 +260,7 @@ defmodule D20Web.Auth.GoogleController do
   defp authentication_failure_response(conn) do
     conn
     |> Auth.put_auth_prompt(
+      kind: :error,
       message: "Google sign-in could not be completed. Try again or use email.",
       reauthenticate: false
     )
@@ -266,6 +270,7 @@ defmodule D20Web.Auth.GoogleController do
   defp google_unavailable_response(conn) do
     conn
     |> Auth.put_auth_prompt(
+      kind: :error,
       message: "Google sign-in is temporarily unavailable. Use email to continue.",
       reauthenticate: false
     )

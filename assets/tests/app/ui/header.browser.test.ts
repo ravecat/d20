@@ -196,10 +196,11 @@ describe("app header account dialog", () => {
     });
 
     await expect
-      .element(
-        page.getByText("Your account was created, but we could not send the confirmation email."),
-      )
-      .toBeVisible();
+      .element(page.getByRole("alert").filter({ hasText: "could not send" }))
+      .toHaveTextContent(
+        "Your account was created, but we could not send the confirmation email.",
+      );
+    await expect.element(page.getByLabelText("Error")).toBeVisible();
     await expect
       .element(page.getByRole("button", { name: "Log in to request another link" }))
       .toBeVisible();
@@ -248,13 +249,19 @@ describe("app header account dialog", () => {
     await page.getByRole("button", { name: "Register", exact: true }).click();
 
     const mailbox = page.getByRole("link", { name: "local mailbox" });
+    const information = page.getByRole("status").filter({ hasText: "Development emails" });
 
     await expect.element(mailbox).toBeVisible();
+    await expect
+      .element(information)
+      .toHaveTextContent("Development emails are available in the local mailbox.");
+    await expect.element(page.getByLabelText("Information")).toBeVisible();
     expect(mailbox.element().getAttribute("href")).toBe("/dev/mailbox");
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     await expect.element(mailbox).toBeVisible();
+    await expect.element(information).toBeVisible();
   });
 
   it("hides the local mailbox link when it is unavailable", async () => {
@@ -471,6 +478,7 @@ describe("app header account dialog", () => {
           providers: { google: { available: true } },
           prompt: {
             email: "",
+            kind: "warning",
             message: "You must log in to access this page.",
             reauthenticate: false,
             returnTo: "/users/settings",
@@ -485,7 +493,8 @@ describe("app header account dialog", () => {
     await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
     await expect
       .element(page.getByRole("status").filter({ hasText: "You must log in" }))
-      .toBeVisible();
+      .toHaveTextContent("You must log in to access this page.");
+    await expect.element(page.getByLabelText("Warning")).toBeVisible();
 
     const submit = page
       .getByRole("button", {
@@ -515,6 +524,7 @@ describe("app header account dialog", () => {
           providers: { google: { available: true } },
           prompt: {
             email: "player@example.com",
+            kind: "warning",
             message: "You must re-authenticate to access this page.",
             reauthenticate: true,
             returnTo: "/users/settings",

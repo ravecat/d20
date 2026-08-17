@@ -7,6 +7,7 @@
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
+  import InlineNotification from "./inline_notification.svelte";
   import { auth } from "~/shared/stores";
 
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;
@@ -77,13 +78,15 @@
       </p>
 
       {#if $authState.prompt?.message}
-        <aside class="auth-panel__notice" role="status">{$authState.prompt.message}</aside>
+        <InlineNotification kind={$authState.prompt.kind}>
+          {$authState.prompt.message}
+        </InlineNotification>
       {/if}
 
       {#if page.props.auth.local}
-        <aside class="auth-panel__notice" role="status">
-          Sent development emails are available in the <a href="/dev/mailbox">local mailbox</a>.
-        </aside>
+        <InlineNotification kind="info">
+          Development emails are available in the <a href="/dev/mailbox">local mailbox</a>.
+        </InlineNotification>
       {/if}
 
       {#if $authState.mode === "register"}
@@ -149,12 +152,14 @@
               </button>
 
               {#if errors.delivery}
-                <div class="auth-form__failure" role="alert">
-                  <p>{errors.delivery}</p>
-                  <button type="button" onclick={() => switchMode("login")}>
-                    Log in to request another link
-                  </button>
-                </div>
+                <InlineNotification kind="error">
+                  <div class="auth-form__failure">
+                    <p>{errors.delivery}</p>
+                    <button type="button" onclick={() => switchMode("login")}>
+                      Log in to request another link
+                    </button>
+                  </div>
+                </InlineNotification>
               {/if}
             {/snippet}
           </Form>
@@ -509,17 +514,11 @@
     stroke-width: 2.25;
   }
 
-  .auth-panel__description,
-  .auth-panel__notice {
+  .auth-panel__description {
     margin: 0;
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
     font-size: 0.9rem;
     line-height: 1.5;
-  }
-
-  .auth-panel__notice a {
-    color: var(--color-primary);
-    font-weight: 700;
   }
 
   .auth-panel__content {
@@ -601,8 +600,7 @@
     margin: 0;
   }
 
-  .auth-form__error,
-  .auth-form__failure {
+  .auth-form__error {
     margin: 0;
     color: var(--color-error);
     font-size: 0.8rem;
@@ -629,10 +627,6 @@
   .auth-form__failure {
     display: grid;
     gap: 0.65rem;
-    border: var(--border) solid color-mix(in oklab, var(--color-error) 55%, transparent);
-    border-radius: var(--radius-field);
-    background: color-mix(in oklab, var(--color-error) 9%, transparent);
-    padding: 0.85rem;
   }
 
   .auth-form__failure p {

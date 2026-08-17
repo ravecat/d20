@@ -24,7 +24,7 @@ defmodule D20Web.UserSessionController do
 
       {:error, :not_found} ->
         conn
-        |> Auth.put_auth_prompt(message: "The link is invalid or it has expired.")
+        |> Auth.put_auth_prompt(kind: :error, message: "The link is invalid or it has expired.")
         |> redirect(to: ~p"/")
     end
   end
@@ -80,7 +80,7 @@ defmodule D20Web.UserSessionController do
       end
     else
       conn
-      |> Auth.put_auth_prompt(message: "Magic link is invalid or it has expired.")
+      |> Auth.put_auth_prompt(kind: :error, message: "Magic link is invalid or it has expired.")
       |> redirect(to: ~p"/")
     end
   end

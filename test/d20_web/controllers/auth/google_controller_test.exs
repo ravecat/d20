@@ -39,6 +39,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
         end)
 
       assert redirected_to(conn) == "/games/qwinto"
+      assert get_session(conn, :auth_prompt).kind == :error
       assert get_session(conn, :auth_prompt).message =~ "temporarily unavailable"
       assert {:error, :missing_intent} = Google.fetch_intent(conn)
       refute redirected_to(conn) =~ "google.com"
@@ -112,6 +113,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
 
       assert redirected_to(conn) == "/games/qwinto"
       refute get_session(conn, :user_token)
+      assert get_session(conn, :auth_prompt).kind == :error
       assert get_session(conn, :auth_prompt).message =~ "could not be completed"
       refute log =~ "secret-authorization-code"
     end
@@ -170,6 +172,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
       assert redirected_to(conn) == ~p"/"
       refute get_session(conn, :user_token)
       refute Accounts.get_user_by_identity(:google, "unlinked-subject")
+      assert get_session(conn, :auth_prompt).kind == :warning
       assert get_session(conn, :auth_prompt).message =~ "already has a D20 account"
     end
 

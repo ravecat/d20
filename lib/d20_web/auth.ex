@@ -122,9 +122,15 @@ defmodule D20Web.Auth do
   """
   def put_auth_prompt(conn, opts) do
     current_user = conn.assigns[:current_user]
+    kind = Keyword.fetch!(opts, :kind)
+
+    unless kind in [:info, :warning, :error] do
+      raise ArgumentError, "unsupported authentication prompt kind: #{inspect(kind)}"
+    end
 
     prompt = %{
       email: if(current_user, do: current_user.email, else: ""),
+      kind: kind,
       message: Keyword.fetch!(opts, :message),
       reauthenticate: Keyword.get(opts, :reauthenticate, not is_nil(current_user)),
       return_to: safe_local_path(get_session(conn, :return_to), ~p"/")
@@ -271,6 +277,7 @@ defmodule D20Web.Auth do
       conn
       |> maybe_store_return_to()
       |> put_auth_prompt(
+        kind: :warning,
         message: "You must re-authenticate to access this page.",
         reauthenticate: true
       )
@@ -303,7 +310,11 @@ defmodule D20Web.Auth do
     else
       conn
       |> maybe_store_return_to()
-      |> put_auth_prompt(message: "You must log in to access this page.", reauthenticate: false)
+      |> put_auth_prompt(
+        kind: :warning,
+        message: "You must log in to access this page.",
+        reauthenticate: false
+      )
       |> redirect(to: ~p"/")
       |> halt()
     end

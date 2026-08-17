@@ -63,6 +63,7 @@ describe("app layout", () => {
           providers: { google: { available: true } },
           prompt: {
             email: "",
+            kind: "warning",
             message: "You must log in to access this page.",
             reauthenticate: false,
             returnTo: "/users/settings",

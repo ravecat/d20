@@ -92,7 +92,7 @@ At viewports wider than the supported mobile breakpoint and tall enough to conta
 
 ### Requirement: Inertia pages expose one global authentication object
 
-Every Inertia page SHALL expose one required `auth` object through the shared reactive Page props. The object SHALL contain required boolean `authenticated`, required nullable `prompt`, and required boolean `local` fields. `prompt` SHALL contain the existing authentication-prompt structure when the server requests Login or sudo reauthentication and SHALL be `null` otherwise. `local` SHALL identify whether the local development mailbox is available. The former top-level `authenticated`, `authPrompt`, and `localMailboxAvailable` props MUST NOT be exposed.
+Every Inertia page SHALL expose one required `auth` object through the shared reactive Page props. The object SHALL contain required boolean `authenticated`, required nullable `prompt`, and required boolean `local` fields. `prompt` SHALL contain the existing authentication-prompt structure plus a server-owned `kind` of `info`, `warning`, or `error` when the server requests Login or sudo reauthentication and SHALL be `null` otherwise. `local` SHALL identify whether the local development mailbox is available. The former top-level `authenticated`, `authPrompt`, and `localMailboxAvailable` props MUST NOT be exposed.
 
 #### Scenario: Guest page has no prompt or local mailbox
 
@@ -112,7 +112,33 @@ Every Inertia page SHALL expose one required `auth` object through the shared re
 
 - **WHEN** the server assigns a stored authentication prompt to an Inertia response
 - **THEN** the existing prompt structure is available at `auth.prompt`
+- **AND** its `kind` explicitly identifies the server-selected semantic severity
 - **AND** reactive Page consumers can open the requested account dialog from that nested value
+
+### Requirement: Account dialog messages expose semantic severity
+
+The shared authentication prompt SHALL include a server-owned severity kind of `info`, `warning`, or `error`. AuthDialog SHALL present prompt messages and local development guidance through the shared `InlineNotification` component as visually distinct inline blocks with readable text on the left, a severity-specific circular symbol on the right, a tinted surface, and a visible semantic border. Info, warning, and error variants and any links in their child content SHALL use the matching global semantic theme color rather than the primary action color. Severity MUST NOT be communicated by color or icon shape alone. Informational and warning notifications SHALL use polite status semantics, while error notifications SHALL use alert semantics. The client MUST NOT infer severity from message text.
+
+#### Scenario: Existing-account recovery requires an explicit link
+
+- **WHEN** an unknown external identity returns an email already owned by a D20 account
+- **THEN** the existing-method and explicit-link guidance is presented as a warning notification
+- **AND** the notification remains distinguishable from the surrounding account description and forms
+- **AND** assistive technology can determine that the message is a warning
+
+#### Scenario: Local mailbox guidance is available
+
+- **WHEN** the local development mailbox is available
+- **THEN** `Development emails are available in the local mailbox.` and its mailbox link are presented as an informational notification
+- **AND** the notification uses the global informational theme color
+- **AND** the mailbox link inherits the informational accent
+- **AND** assistive technology can determine that the message is informational
+
+#### Scenario: Authentication operation fails
+
+- **WHEN** an authentication prompt reports an expired, unavailable, or failed operation
+- **THEN** the message is presented as an error notification with alert semantics
+- **AND** the message remains readable without relying on color alone
 
 ### Requirement: Login mode exposes magic-link and password alternatives
 

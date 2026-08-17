@@ -309,6 +309,7 @@ defmodule D20Web.PageControllerTest do
   test "Inertia pages expose an authentication prompt once", %{conn: conn} do
     prompt = %{
       email: "player@example.com",
+      kind: :warning,
       message: "You must log in to access this page.",
       reauthenticate: false,
       return_to: "/users/settings"
@@ -318,6 +319,7 @@ defmodule D20Web.PageControllerTest do
 
     assert inertia_props(conn).auth.prompt == %{
              email: "player@example.com",
+             kind: :warning,
              message: "You must log in to access this page.",
              reauthenticate: false,
              returnTo: "/users/settings"

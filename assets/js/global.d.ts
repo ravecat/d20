@@ -15,6 +15,7 @@ declare module "@inertiajs/core" {
         };
         readonly prompt: {
           readonly email: string;
+          readonly kind: "info" | "warning" | "error";
           readonly message: string;
           readonly reauthenticate: boolean;
           readonly returnTo: string;

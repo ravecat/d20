@@ -314,6 +314,7 @@ defmodule D20Web.AuthTest do
 
       assert %{
                email: email,
+               kind: :warning,
                message: "You must re-authenticate to access this page.",
                reauthenticate: true,
                return_to: "/"
@@ -359,6 +360,7 @@ defmodule D20Web.AuthTest do
 
       assert %{
                email: "",
+               kind: :warning,
                message: "You must log in to access this page.",
                reauthenticate: false,
                return_to: "/"
