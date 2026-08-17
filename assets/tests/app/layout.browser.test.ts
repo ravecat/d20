@@ -41,7 +41,10 @@ beforeEach(async () => {
         authenticated: false,
         local: false,
         prompt: null,
-        providers: { google: { available: true } },
+        providers: {
+          discord: { available: true },
+          google: { available: true },
+        },
       },
       errors: {},
     },
@@ -60,7 +63,10 @@ describe("app layout", () => {
         auth: {
           authenticated: false,
           local: false,
-          providers: { google: { available: true } },
+          providers: {
+            discord: { available: true },
+            google: { available: true },
+          },
           prompt: {
             email: "",
             kind: "warning",

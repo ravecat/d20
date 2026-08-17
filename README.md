@@ -144,11 +144,25 @@ docker compose down
 | `STATIC_URL_HOST`   | No                   | Development asset host. Defaults to an automatically detected LAN IP. |
 | `BGG_API_KEY`       | Production           | BoardGameGeek enrichment key. Optional for local development, with fallback metadata when absent. |
 | `RESEND_API_KEY`    | Yes                  | Send-only Resend API key restricted to the current sending domain managed by infrastructure. Sender addresses are checked-in config. |
+| `DISCORD_OAUTH_CLIENT_ID` | When Discord is available | Discord application OAuth2 client ID. Both Discord credentials are optional, but required together for the provider to be available. |
+| `DISCORD_OAUTH_CLIENT_SECRET` | When Discord is available | Discord application OAuth2 client secret. Never expose it to frontend code. |
 | `PHX_HOST`          | No                   | Public host used by the Phoenix endpoint. Defaults to `example.com`.   |
 | `PHX_SERVER`        | No                   | Enables the endpoint server when running a release.                    |
 | `POOL_SIZE`         | No                   | Ecto pool size. Defaults to `10`.                                      |
 | `ECTO_IPV6`         | No                   | Enables IPv6 socket options when set to `true` or `1`.                 |
 | `DNS_CLUSTER_QUERY` | No                   | DNS cluster query for distributed deployment discovery.                |
+
+### Discord authentication
+
+Create a Discord application and register the exact callback URL for each deployed D20 origin:
+
+```text
+https://<d20-host>/auth/discord/callback
+```
+
+Set both `DISCORD_OAUTH_CLIENT_ID` and `DISCORD_OAUTH_CLIENT_SECRET` to make Discord registration, login, and Account Settings linking available. If either value is missing or blank, D20 starts normally and rejects direct Discord routes before contacting the provider. Remove either credential to roll back the integration while preserving existing users and identity mappings.
+
+Before configuring production credentials, verify registration, returning login, explicit linking, cancellation, invalid state, missing or unverified email, matching-email rejection, safe returns, and session rotation in staging. D20 never merges accounts from a matching Discord email and never stores Discord access credentials or profile data.
 
 ## Commands
 

@@ -80,6 +80,8 @@ defmodule D20Web.Router do
   scope "/", D20Web do
     pipe_through [:inertia]
 
+    get "/auth/discord", Auth.DiscordController, :request
+    get "/auth/discord/callback", Auth.DiscordController, :callback
     get "/auth/google", Auth.GoogleController, :request
     get "/auth/google/callback", Auth.GoogleController, :callback
   end
@@ -87,6 +89,9 @@ defmodule D20Web.Router do
   scope "/", D20Web do
     pipe_through [:inertia, :redirect_if_user_is_authenticated]
 
+    get "/auth/discord/register", Auth.DiscordController, :registration
+    post "/auth/discord/register", Auth.DiscordController, :complete_registration
+    post "/auth/discord/register/cancel", Auth.DiscordController, :cancel_registration
     get "/auth/google/register", Auth.GoogleController, :registration
     post "/auth/google/register", Auth.GoogleController, :complete_registration
     post "/auth/google/register/cancel", Auth.GoogleController, :cancel_registration
@@ -99,11 +104,12 @@ defmodule D20Web.Router do
   end
 
   scope "/", D20Web do
-    pipe_through [:inertia, :require_authenticated_user]
+    pipe_through [:inertia, :require_authenticated_user, :require_sudo_mode]
 
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
     get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
+    get "/users/settings/auth/discord", Auth.DiscordController, :link
     get "/users/settings/auth/google", Auth.GoogleController, :link
   end
 

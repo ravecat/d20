@@ -7,7 +7,14 @@ defmodule D20Web.UserSettingsControllerTest do
   setup :register_and_log_in_user
 
   setup do
+    original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
+
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
+      client_id: "discord-test-client-id",
+      client_secret: "discord-test-client-secret"
+    )
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
       client_id: "google-test-client-id",
@@ -15,6 +22,12 @@ defmodule D20Web.UserSettingsControllerTest do
     )
 
     on_exit(fn ->
+      restore_application_env(
+        :ueberauth,
+        Ueberauth.Strategy.Discord.OAuth,
+        original_discord_config
+      )
+
       restore_application_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, original_google_config)
     end)
   end
@@ -27,7 +40,35 @@ defmodule D20Web.UserSettingsControllerTest do
       assert inertia_component(conn) == "account_settings"
       assert inertia_props(conn).email == user.email
       assert inertia_props(conn).username == user.username
+      assert inertia_props(conn).discord == %{available: true, linked: false}
       assert inertia_props(conn).google == %{available: true, linked: false}
+    end
+
+    test "reports a linked Discord method", %{conn: conn, user: user} do
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :discord, "settings-subject")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert inertia_props(conn).discord == %{available: true, linked: true}
+    end
+
+    test "reports Discord as unavailable without hiding linked state", %{conn: conn, user: user} do
+      previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
+
+      on_exit(fn ->
+        restore_application_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth, previous_config)
+      end)
+
+      Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
+        client_id: nil,
+        client_secret: nil
+      )
+
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :discord, "settings-subject")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert inertia_props(conn).discord == %{available: false, linked: true}
     end
 
     test "reports a linked Google method", %{conn: conn, user: user} do

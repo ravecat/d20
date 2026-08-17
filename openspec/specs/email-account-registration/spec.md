@@ -28,24 +28,25 @@ The system SHALL show a Register action in the shared application header when `a
 
 ### Requirement: Registration dialog exposes the supported account choices
 
-The Register mode of the shared account dialog SHALL contain a persistently labelled email field, a Create account submit action, and an action that switches the same dialog to Login mode. Each configured external provider SHALL be a normal full-document link labelled `Sign up with <provider>` only when its runtime availability is true. Unavailable and unimplemented providers SHALL be omitted. An `or` separator and the provider group SHALL be present only when at least one provider link is available. Separators and the Register/Login mode switch SHALL use compact vertical spacing rather than reserving a separate large margin.
+The Register mode of the shared account dialog SHALL contain a persistently labelled email field, a Create account submit action, and an action that switches the same dialog to Login mode. Google and Discord SHALL each be a normal full-document provider link labelled `Sign up with <provider>` only when its own runtime configuration reports it available. Unavailable providers and Facebook SHALL be omitted. An `or` separator and the provider group SHALL be present only when at least one provider link is available. Separators and the Register/Login mode switch SHALL use compact vertical spacing rather than reserving a separate large margin.
 
-#### Scenario: Guest reviews registration choices with Google available
+#### Scenario: Guest reviews registration choices with Discord available
 
-- **WHEN** the registration dialog opens while Google is available
-- **THEN** the guest can create an account with email or start Google registration
+- **WHEN** the registration dialog opens while Discord is available
+- **THEN** the guest can create an account with email or start Discord registration
 - **AND** an `or` separator distinguishes email registration from provider choices
-- **AND** Google is a `Sign up with Google` full-document link
-- **AND** unavailable and unimplemented providers are not rendered
+- **AND** the Discord action uses normal full-document navigation
+- **AND** available Google links remain independently derived from their own credentials
+- **AND** unavailable providers and Facebook are not rendered
 - **AND** the existing-user login action switches the same dialog to Login mode without navigation
 
-#### Scenario: Guest reviews registration choices with every external provider unavailable
+#### Scenario: Guest reviews registration choices with Discord unavailable
 
-- **WHEN** the registration dialog opens while every configured external provider is unavailable
-- **THEN** email account creation remains enabled
-- **AND** no provider choices or unavailable placeholders are rendered
-- **AND** the provider separator and group are omitted
-- **AND** the existing-user login action still switches the same dialog to Login mode
+- **WHEN** the registration dialog opens while Discord is unavailable
+- **THEN** email account creation and any independently available Google methods remain enabled
+- **AND** Discord is not rendered while available Google links remain independent
+- **AND** no unavailable provider choice or empty provider placeholder is rendered
+- **AND** the provider separator and group are omitted when every provider is unavailable
 
 ### Requirement: Registration dialog is keyboard and viewport accessible
 

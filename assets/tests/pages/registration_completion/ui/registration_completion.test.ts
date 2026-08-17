@@ -7,7 +7,10 @@ const auth = {
   authenticated: false,
   local: false,
   prompt: null,
-  providers: { google: { available: true } },
+  providers: {
+    discord: { available: true },
+    google: { available: true },
+  },
 };
 
 describe("registration completion page", () => {
@@ -64,6 +67,27 @@ describe("registration completion page", () => {
       action: "/auth/google/register",
       method: "post",
       data: { user: { username: "oauth_player" } },
+    });
+    expect(document.querySelectorAll('input[type="hidden"]')).toHaveLength(0);
+  });
+
+  it("uses the same server-session completion contract for Discord", async () => {
+    render(RegistrationCompletionPage, {
+      auth,
+      email: "player@example.com",
+      submission: { action: "/auth/discord/register", credential: { type: "server_session" } },
+      cancelAction: "/auth/discord/register/cancel",
+    });
+
+    await fireEvent.input(screen.getByRole("textbox", { name: "Username" }), {
+      target: { value: "discord_player" },
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "Finish registration" }));
+
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
+      action: "/auth/discord/register",
+      method: "post",
+      data: { user: { username: "discord_player" } },
     });
     expect(document.querySelectorAll('input[type="hidden"]')).toHaveLength(0);
   });

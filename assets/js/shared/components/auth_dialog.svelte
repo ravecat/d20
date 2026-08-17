@@ -3,6 +3,7 @@
   import { Form, usePage } from "@inertiajs/svelte";
   import { useSelector } from "@xstate/store-svelte";
   import { onMount, tick } from "svelte";
+  import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
   import InlineNotification from "./inline_notification.svelte";
   import { auth } from "~/shared/stores";
@@ -30,6 +31,9 @@
 
   const googleAuthUrl = $derived(
     `/auth/google?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
+  );
+  const discordAuthUrl = $derived(
+    `/auth/discord?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
   );
   const hasAvailableProvider = $derived(
     Object.values(page.props.auth.providers).some(({ available }) => available),
@@ -195,6 +199,13 @@
               googleIconSvg,
               page.props.auth.providers.google.available,
               googleAuthUrl,
+            )}
+            {@render provider(
+              "Sign up",
+              "Discord",
+              discordIconSvg,
+              page.props.auth.providers.discord.available,
+              discordAuthUrl,
             )}
           </div>
           <!-- eslint-enable svelte/no-at-html-tags -->
@@ -370,6 +381,13 @@
                 googleIconSvg,
                 page.props.auth.providers.google.available,
                 googleAuthUrl,
+              )}
+              {@render provider(
+                "Sign in",
+                "Discord",
+                discordIconSvg,
+                page.props.auth.providers.discord.available,
+                discordAuthUrl,
               )}
             </div>
             <!-- eslint-enable svelte/no-at-html-tags -->

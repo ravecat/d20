@@ -24,9 +24,18 @@ bgg_api_key = System.get_env("BGG_API_KEY")
 
 config :d20, D20.Games.Sources.BoardGameGeek, api_key: bgg_api_key
 
+normalize_oauth_credential = fn
+  value when is_binary(value) -> if String.trim(value) == "", do: nil, else: value
+  _value -> nil
+end
+
+config :ueberauth, Ueberauth.Strategy.Discord.OAuth,
+  client_id: normalize_oauth_credential.(System.get_env("DISCORD_OAUTH_CLIENT_ID")),
+  client_secret: normalize_oauth_credential.(System.get_env("DISCORD_OAUTH_CLIENT_SECRET"))
+
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
-  client_id: System.get_env("GOOGLE_OAUTH_CLIENT_ID"),
-  client_secret: System.get_env("GOOGLE_OAUTH_CLIENT_SECRET")
+  client_id: normalize_oauth_credential.(System.get_env("GOOGLE_OAUTH_CLIENT_ID")),
+  client_secret: normalize_oauth_credential.(System.get_env("GOOGLE_OAUTH_CLIENT_SECRET"))
 
 if config_env() == :prod do
   if is_nil(bgg_api_key) or String.trim(bgg_api_key) == "" do

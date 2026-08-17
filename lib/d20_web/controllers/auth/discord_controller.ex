@@ -1,37 +1,42 @@
-defmodule D20Web.Auth.GoogleController do
+defmodule D20Web.Auth.DiscordController do
   use D20Web, :controller
 
   require Logger
 
   alias D20.Accounts
   alias D20Web.Auth
-  alias D20Web.Auth.Google
+  alias D20Web.Auth.Discord
 
   @provider_request_params ~w(
     scope
     prompt
-    access_type
-    include_granted_scopes
-    login_hint
-    hd
-    hl
+    permissions
+    guild_id
+    disable_guild_select
+    integration_type
+    bot
+    redirect_uri
+    locale
+    response_type
+    client_id
+    state
   )
 
-  plug :prepare_google_request when action == :request
-  plug :require_google_available when action in [:request, :callback]
-  plug Ueberauth, providers: [:google]
+  plug :prepare_discord_request when action == :request
+  plug :require_discord_available when action in [:request, :callback]
+  plug Ueberauth, providers: [:discord]
 
   def request(conn, _params), do: conn
 
   def callback(%{assigns: %{ueberauth_failure: failure}} = conn, _params) do
-    {intent, conn} = Google.take_intent(conn)
-    failure_response(conn, intent, Google.failure_reason(failure))
+    {intent, conn} = Discord.take_intent(conn)
+    failure_response(conn, intent, Discord.failure_reason(failure))
   end
 
   def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
-    {intent, conn} = Google.take_intent(conn)
+    {intent, conn} = Discord.take_intent(conn)
 
-    with {:ok, identity} <- Google.normalize(auth),
+    with {:ok, identity} <- Discord.normalize(auth),
          {:ok, action} <- intent do
       handle_callback(conn, action, identity)
     else
@@ -40,17 +45,17 @@ defmodule D20Web.Auth.GoogleController do
   end
 
   def callback(conn, _params) do
-    {intent, conn} = Google.take_intent(conn)
+    {intent, conn} = Discord.take_intent(conn)
     failure_response(conn, intent, :missing_provider_result)
   end
 
   def registration(conn, _params) do
-    case Google.fetch_registration(conn) do
+    case Discord.fetch_registration(conn) do
       {:ok, %{email: email}} ->
         render_inertia(conn, "registration_completion", %{
           email: email,
-          submission: %{action: ~p"/auth/google/register", credential: %{type: "server_session"}},
-          cancel_action: ~p"/auth/google/register/cancel"
+          submission: %{action: ~p"/auth/discord/register", credential: %{type: "server_session"}},
+          cancel_action: ~p"/auth/discord/register/cancel"
         })
 
       {:error, reason} ->
@@ -59,19 +64,19 @@ defmodule D20Web.Auth.GoogleController do
   end
 
   def complete_registration(conn, %{"user" => user_params}) when is_map(user_params) do
-    case Google.fetch_registration(conn) do
+    case Discord.fetch_registration(conn) do
       {:ok, registration} -> complete_registration(conn, registration, user_params)
       {:error, reason} -> completion_failure(conn, reason)
     end
   end
 
   def complete_registration(conn, _params) do
-    case Google.fetch_registration(conn) do
+    case Discord.fetch_registration(conn) do
       {:ok, _registration} ->
         conn
         |> assign_errors(%{username: "can't be blank"})
         |> put_status(:see_other)
-        |> redirect(to: ~p"/auth/google/register")
+        |> redirect(to: ~p"/auth/discord/register")
 
       {:error, reason} ->
         completion_failure(conn, reason)
@@ -80,7 +85,7 @@ defmodule D20Web.Auth.GoogleController do
 
   def cancel_registration(conn, _params) do
     conn
-    |> Google.clear_registration()
+    |> Discord.clear_registration()
     |> put_flash(:info, "Registration cancelled. Choose another method to create your account.")
     |> redirect(to: ~p"/")
   end
@@ -88,19 +93,19 @@ defmodule D20Web.Auth.GoogleController do
   def link(conn, _params) do
     user = conn.assigns.current_user
 
-    if google_linked?(user) do
+    if discord_linked?(user) do
       conn
-      |> put_flash(:info, "Google is already linked to your account.")
+      |> put_flash(:info, "Discord is already linked to your account.")
       |> redirect(to: ~p"/users/settings")
     else
       conn
-      |> Google.put_link_intent(user)
-      |> redirect(to: ~p"/auth/google")
+      |> Discord.put_link_intent(user)
+      |> redirect(to: ~p"/auth/discord")
     end
   end
 
   defp handle_callback(conn, :authenticate, identity) do
-    case Accounts.get_user_by_identity(:google, identity.provider_uid) do
+    case Accounts.get_user_by_identity(:discord, identity.provider_uid) do
       nil -> start_registration(conn, identity)
       user -> conn |> put_flash(:info, "Welcome back!") |> Auth.log_in_user(user)
     end
@@ -117,7 +122,7 @@ defmodule D20Web.Auth.GoogleController do
         conn
         |> Auth.put_auth_prompt(
           kind: :warning,
-          message: "You must re-authenticate before linking Google.",
+          message: "You must re-authenticate before linking Discord.",
           reauthenticate: true
         )
         |> redirect(to: ~p"/")
@@ -128,18 +133,18 @@ defmodule D20Web.Auth.GoogleController do
   end
 
   defp start_registration(conn, identity) do
-    with {:ok, registration} <- Google.registration_data(identity),
+    with {:ok, registration} <- Discord.registration_data(identity),
          nil <- Accounts.get_user_by_email(registration.email) do
       conn
-      |> Google.put_registration(registration)
-      |> redirect(to: ~p"/auth/google/register")
+      |> Discord.put_registration(registration)
+      |> redirect(to: ~p"/auth/discord/register")
     else
       %Accounts.User{} ->
         conn
         |> Auth.put_auth_prompt(
           kind: :warning,
           message:
-            "That email already has a D20 account. Log in with an existing method, then link Google in Account Settings.",
+            "That email already has a D20 account. Log in with an existing method, then link Discord in Account Settings.",
           reauthenticate: false
         )
         |> redirect(to: failure_path(conn))
@@ -152,10 +157,10 @@ defmodule D20Web.Auth.GoogleController do
   defp complete_registration(conn, registration, user_params) do
     attrs = Map.put(user_params, "email", registration.email)
 
-    case Accounts.register_user_with_identity(attrs, :google, registration.provider_uid) do
+    case Accounts.register_user_with_identity(attrs, :discord, registration.provider_uid) do
       {:ok, user} ->
         conn
-        |> Google.clear_registration()
+        |> Discord.clear_registration()
         |> put_flash(:info, "Account created successfully.")
         |> Auth.log_in_user(user, user_params)
 
@@ -165,7 +170,7 @@ defmodule D20Web.Auth.GoogleController do
           conn
           |> assign_errors(changeset)
           |> put_status(:see_other)
-          |> redirect(to: ~p"/auth/google/register")
+          |> redirect(to: ~p"/auth/discord/register")
         else
           completion_failure(conn, :account_conflict)
         end
@@ -176,12 +181,12 @@ defmodule D20Web.Auth.GoogleController do
   end
 
   defp link_identity(conn, user, provider_uid) do
-    case Accounts.get_user_by_identity(:google, provider_uid) do
+    case Accounts.get_user_by_identity(:discord, provider_uid) do
       %{id: owner_id} when owner_id == user.id ->
         linked_response(conn)
 
       nil ->
-        case Accounts.link_user_identity(user, :google, provider_uid) do
+        case Accounts.link_user_identity(user, :discord, provider_uid) do
           {:ok, _identity} -> linked_response(conn)
           {:error, %Ecto.Changeset{}} -> link_conflict_response(conn)
         end
@@ -193,13 +198,13 @@ defmodule D20Web.Auth.GoogleController do
 
   defp linked_response(conn) do
     conn
-    |> put_flash(:info, "Google linked successfully.")
+    |> put_flash(:info, "Discord linked successfully.")
     |> redirect(to: ~p"/users/settings")
   end
 
   defp link_conflict_response(conn) do
     conn
-    |> put_flash(:error, "Google could not be linked to this account.")
+    |> put_flash(:error, "Discord could not be linked to this account.")
     |> redirect(to: ~p"/users/settings")
   end
 
@@ -207,10 +212,10 @@ defmodule D20Web.Auth.GoogleController do
     log_failure(conn, :registration_completion, reason)
 
     conn
-    |> Google.clear_registration()
+    |> Discord.clear_registration()
     |> Auth.put_auth_prompt(
       kind: :error,
-      message: "Google registration expired or could not be completed. Try again or use email.",
+      message: "Discord registration expired or could not be completed. Try again or use email.",
       reauthenticate: false
     )
     |> redirect(to: failure_path(conn))
@@ -223,15 +228,29 @@ defmodule D20Web.Auth.GoogleController do
       {{:ok, {:link, user_id}}, current_user} when not is_nil(current_user) ->
         if to_string(current_user.id) == user_id do
           conn
-          |> put_flash(:error, "Google is temporarily unavailable. Try again later.")
+          |> put_flash(:error, "Discord is temporarily unavailable. Try again later.")
           |> redirect(to: ~p"/users/settings")
         else
-          google_unavailable_response(conn)
+          discord_unavailable_response(conn)
         end
 
       _other ->
-        google_unavailable_response(conn)
+        discord_unavailable_response(conn)
     end
+  end
+
+  defp failure_response(conn, {:ok, :authenticate}, reason)
+       when reason in [:unverified_email, :invalid_email] do
+    log_failure(conn, :callback, reason)
+
+    conn
+    |> Auth.put_auth_prompt(
+      kind: :warning,
+      message:
+        "Discord did not provide a usable verified email. Continue with email, then link Discord in Account Settings.",
+      reauthenticate: false
+    )
+    |> redirect(to: failure_path(conn))
   end
 
   defp failure_response(conn, intent, reason) do
@@ -241,7 +260,7 @@ defmodule D20Web.Auth.GoogleController do
       {{:ok, {:link, user_id}}, current_user} when not is_nil(current_user) ->
         if to_string(current_user.id) == user_id do
           conn
-          |> put_flash(:error, "Google could not be linked to this account.")
+          |> put_flash(:error, "Discord could not be linked to this account.")
           |> redirect(to: ~p"/users/settings")
         else
           authentication_failure_response(conn)
@@ -256,29 +275,29 @@ defmodule D20Web.Auth.GoogleController do
     conn
     |> Auth.put_auth_prompt(
       kind: :error,
-      message: "Google sign-in could not be completed. Try again or use email.",
+      message: "Discord sign-in could not be completed. Try again or use email.",
       reauthenticate: false
     )
     |> redirect(to: failure_path(conn))
   end
 
-  defp google_unavailable_response(conn) do
+  defp discord_unavailable_response(conn) do
     conn
     |> Auth.put_auth_prompt(
       kind: :error,
-      message: "Google sign-in is temporarily unavailable. Use email to continue.",
+      message: "Discord sign-in is temporarily unavailable. Use email to continue.",
       reauthenticate: false
     )
     |> redirect(to: failure_path(conn))
   end
 
-  defp prepare_google_request(conn, _opts) do
+  defp prepare_discord_request(conn, _opts) do
     conn = Auth.store_return_to(conn, conn.params["return_to"])
 
     conn =
-      case Google.fetch_intent(conn) do
+      case Discord.fetch_intent(conn) do
         {:ok, {:link, _user_id}} -> conn
-        _other -> Google.put_authenticate_intent(conn)
+        _other -> Discord.put_authenticate_intent(conn)
       end
 
     %{
@@ -288,11 +307,11 @@ defmodule D20Web.Auth.GoogleController do
     }
   end
 
-  defp require_google_available(conn, _opts) do
-    if Google.available?() do
+  defp require_discord_available(conn, _opts) do
+    if Discord.available?() do
       conn
     else
-      {intent, conn} = Google.take_intent(conn)
+      {intent, conn} = Discord.take_intent(conn)
 
       conn
       |> failure_response(intent, :provider_unavailable)
@@ -300,10 +319,10 @@ defmodule D20Web.Auth.GoogleController do
     end
   end
 
-  defp google_linked?(user) do
+  defp discord_linked?(user) do
     user
     |> Accounts.list_user_identities()
-    |> Enum.any?(&(&1.provider == :google))
+    |> Enum.any?(&(&1.provider == :discord))
   end
 
   defp failure_path(conn) do
@@ -315,11 +334,11 @@ defmodule D20Web.Auth.GoogleController do
   defp log_failure(_conn, outcome_class, reason) do
     metadata =
       maybe_put_request_id(
-        [provider: :google, outcome_class: outcome_class, reason: reason],
+        [provider: :discord, outcome_class: outcome_class, reason: reason],
         Logger.metadata()[:request_id]
       )
 
-    Logger.warning("Google OAuth flow failed", metadata)
+    Logger.warning("Discord OAuth flow failed", metadata)
   end
 
   defp maybe_put_request_id(metadata, nil), do: metadata

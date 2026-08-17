@@ -9,6 +9,9 @@ declare module "@inertiajs/core" {
         readonly authenticated: boolean;
         readonly local: boolean;
         readonly providers: {
+          readonly discord: {
+            readonly available: boolean;
+          };
           readonly google: {
             readonly available: boolean;
           };

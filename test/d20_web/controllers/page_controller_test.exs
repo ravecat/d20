@@ -99,11 +99,18 @@ defmodule D20Web.PageControllerTest do
     original_bgg_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
     original_req_options = Req.default_options()
     original_registry_config = Application.fetch_env!(:d20, Registry)
+    original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
+
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
 
     original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
+      client_id: "discord-test-client-id",
+      client_secret: "discord-test-client-secret"
+    )
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
       client_id: "google-test-client-id",
@@ -116,6 +123,11 @@ defmodule D20Web.PageControllerTest do
     on_exit(fn ->
       Req.default_options(original_req_options)
       Application.put_env(:d20, Registry, original_registry_config)
+
+      case original_discord_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
+        config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth, config)
+      end
 
       case original_google_config do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
@@ -249,7 +261,7 @@ defmodule D20Web.PageControllerTest do
              authenticated: false,
              local: false,
              prompt: nil,
-             providers: %{google: %{available: true}}
+             providers: %{discord: %{available: true}, google: %{available: true}}
            }
 
     assert "auth" in inertia_shared_props(conn)
@@ -258,20 +270,28 @@ defmodule D20Web.PageControllerTest do
     refute "localMailboxAvailable" in inertia_shared_props(conn)
   end
 
-  test "Inertia pages expose only derived Google availability", %{conn: conn} do
+  test "Inertia pages expose only derived provider availability", %{conn: conn} do
     conn = get(conn, ~p"/developers")
 
-    assert inertia_props(conn).auth.providers == %{google: %{available: true}}
+    assert inertia_props(conn).auth.providers == %{
+             discord: %{available: true},
+             google: %{available: true}
+           }
+
     refute Map.has_key?(inertia_props(conn).auth, :client_id)
     refute Map.has_key?(inertia_props(conn).auth, :client_secret)
   end
 
-  test "Inertia pages report Google unavailable when a credential is missing", %{conn: conn} do
+  test "Inertia pages derive provider availability independently", %{conn: conn} do
+    put_discord_oauth_config(client_id: "discord-client-id", client_secret: nil)
     put_google_oauth_config(client_id: nil, client_secret: "google-client-secret")
 
     conn = get(conn, ~p"/developers")
 
-    assert inertia_props(conn).auth.providers == %{google: %{available: false}}
+    assert inertia_props(conn).auth.providers == %{
+             discord: %{available: false},
+             google: %{available: false}
+           }
   end
 
   test "Inertia pages expose the local mailbox when dev routes and the Local adapter are enabled",
@@ -662,6 +682,18 @@ defmodule D20Web.PageControllerTest do
       case previous_config do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
         value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, value)
+      end
+    end)
+  end
+
+  defp put_discord_oauth_config(config) do
+    previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth, config)
+
+    on_exit(fn ->
+      case previous_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
+        value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth, value)
       end
     end)
   end

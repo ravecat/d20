@@ -42,6 +42,13 @@ config :d20,
 # confidential server-side client with state validation and a client-secret exchange.
 config :ueberauth, Ueberauth,
   providers: [
+    discord:
+      {Ueberauth.Strategy.Discord,
+       [
+         default_scope: "identify email",
+         request_path: "/auth/discord",
+         callback_path: "/auth/discord/callback"
+       ]},
     google:
       {Ueberauth.Strategy.Google,
        [
@@ -52,6 +59,11 @@ config :ueberauth, Ueberauth,
 
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   token_url: "https://oauth2.googleapis.com/token"
+
+config :ueberauth, Ueberauth.Strategy.Discord.OAuth,
+  site: "https://discord.com/api",
+  authorize_url: "https://discord.com/oauth2/authorize",
+  token_url: "https://discord.com/api/oauth2/token"
 
 config :d20, D20.Actors.Token,
   salt: "actor",

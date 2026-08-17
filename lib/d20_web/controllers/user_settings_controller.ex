@@ -3,19 +3,18 @@ defmodule D20Web.UserSettingsController do
 
   alias D20.Accounts
   alias D20Web.Auth
+  alias D20Web.Auth.Discord
   alias D20Web.Auth.Google
-
-  import D20Web.Auth, only: [require_sudo_mode: 2]
-
-  plug :require_sudo_mode
 
   def edit(conn, _params) do
     user = conn.assigns.current_user
 
-    google_linked =
-      user |> Accounts.list_user_identities() |> Enum.any?(&(&1.provider == :google))
+    linked_providers = user |> Accounts.list_user_identities() |> MapSet.new(& &1.provider)
+    discord_linked = MapSet.member?(linked_providers, :discord)
+    google_linked = MapSet.member?(linked_providers, :google)
 
     render_inertia(conn, "account_settings", %{
+      discord: %{available: Discord.available?(), linked: discord_linked},
       email: user.email,
       username: user.username,
       google: %{available: Google.available?(), linked: google_linked}

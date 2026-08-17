@@ -7,14 +7,19 @@ const auth = {
   authenticated: false,
   local: false,
   prompt: null,
-  providers: { google: { available: true } },
+  providers: {
+    discord: { available: true },
+    google: { available: true },
+  },
 };
+const discordUnlinked = { available: true, linked: false };
 const googleUnlinked = { available: true, linked: false };
 
 describe("account settings page", () => {
   it("submits email and password changes as independent Inertia forms", async () => {
     render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: googleUnlinked,
       username: "table_master",
@@ -58,6 +63,7 @@ describe("account settings page", () => {
   it("lets an existing account claim a username once", async () => {
     const { unmount } = render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: googleUnlinked,
       username: null,
@@ -81,6 +87,7 @@ describe("account settings page", () => {
     unmount();
     render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: googleUnlinked,
       username: "table_master",
@@ -93,18 +100,20 @@ describe("account settings page", () => {
   it("reports unlinked and linked Google states", () => {
     const { unmount } = render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: googleUnlinked,
       username: "table_master",
     });
 
     expect(screen.getByRole("heading", { name: "Sign-in methods" })).not.toBeNull();
-    expect(screen.getByText("Not linked")).not.toBeNull();
+    expect(screen.getAllByText("Not linked")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Link Google" })).not.toBeNull();
 
     unmount();
     render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: { available: true, linked: true },
       username: "table_master",
@@ -117,6 +126,7 @@ describe("account settings page", () => {
   it("offers a normal Google linking anchor when unlinked", () => {
     render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: googleUnlinked,
       username: "table_master",
@@ -129,6 +139,7 @@ describe("account settings page", () => {
   it("disables Google linking while the provider is unavailable", () => {
     render(AccountSettingsPage, {
       auth,
+      discord: discordUnlinked,
       email: "player@example.com",
       google: { available: false, linked: false },
       username: "table_master",
@@ -138,6 +149,45 @@ describe("account settings page", () => {
     expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
     expect(
       (screen.getByRole("button", { name: "Link Google" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("reports Discord linking states and uses a normal full-document anchor", () => {
+    const { unmount } = render(AccountSettingsPage, {
+      auth,
+      discord: discordUnlinked,
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    const link = screen.getByRole("link", { name: "Link Discord" });
+    expect(link.getAttribute("href")).toBe("/users/settings/auth/discord");
+
+    unmount();
+    render(AccountSettingsPage, {
+      auth,
+      discord: { available: true, linked: true },
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    expect(screen.queryByRole("link", { name: "Link Discord" })).toBeNull();
+  });
+
+  it("disables Discord linking while the provider is unavailable", () => {
+    render(AccountSettingsPage, {
+      auth,
+      discord: { available: false, linked: false },
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    expect(screen.queryByRole("link", { name: "Link Discord" })).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "Link Discord" }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
 });

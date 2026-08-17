@@ -15,6 +15,7 @@ defmodule D20Web.Auth do
   alias D20.Accounts.Scope
   alias D20.Accounts.User
   alias D20.Actors.Actor
+  alias D20Web.Auth.Discord
   alias D20Web.Auth.Google
 
   # Make the remember me cookie valid for 14 days. This should match
@@ -112,7 +113,10 @@ defmodule D20Web.Auth do
       authenticated: not is_nil(current_user),
       local: local_mailbox_available?(),
       prompt: prompt,
-      providers: %{google: %{available: Google.available?()}}
+      providers: %{
+        discord: %{available: Discord.available?()},
+        google: %{available: Google.available?()}
+      }
     })
     |> then(fn conn -> if prompt, do: delete_session(conn, :auth_prompt), else: conn end)
   end

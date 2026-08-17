@@ -5,6 +5,10 @@
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;
 
   type Props = InertiaProps<{
+    discord: {
+      available: boolean;
+      linked: boolean;
+    };
     email: string;
     google: {
       available: boolean;
@@ -13,7 +17,7 @@
     username: string | null;
   }>;
 
-  const { email, google, username }: Props = $props();
+  const { discord, email, google, username }: Props = $props();
 </script>
 
 <svelte:head>
@@ -50,6 +54,27 @@
         <a class="settings-method__action" href="/users/settings/auth/google">Link Google</a>
       {:else if !google.linked}
         <button class="settings-method__action" type="button" disabled>Link Google</button>
+      {/if}
+    </div>
+
+    <div class="settings-method">
+      <div>
+        <p class="settings-method__name">Discord</p>
+        <p class="settings-method__status">
+          {discord.linked
+            ? discord.available
+              ? "Linked"
+              : "Linked - unavailable"
+            : discord.available
+              ? "Not linked"
+              : "Unavailable"}
+        </p>
+      </div>
+
+      {#if !discord.linked && discord.available}
+        <a class="settings-method__action" href="/users/settings/auth/discord">Link Discord</a>
+      {:else if !discord.linked}
+        <button class="settings-method__action" type="button" disabled>Link Discord</button>
       {/if}
     </div>
   </section>

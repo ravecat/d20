@@ -4,16 +4,20 @@ defmodule D20.RuntimeConfigTest do
   @runtime_env %{
     "BGG_API_KEY" => "bgg_test_key",
     "DATABASE_URL" => "ecto://postgres:postgres@localhost/d20_test",
+    "DISCORD_OAUTH_CLIENT_ID" => "discord-client-id",
+    "DISCORD_OAUTH_CLIENT_SECRET" => "discord-client-secret",
     "GOOGLE_OAUTH_CLIENT_ID" => "google-client-id",
     "GOOGLE_OAUTH_CLIENT_SECRET" => "google-client-secret",
     "RESEND_API_KEY" => "resend_test_key",
     "SECRET_KEY_BASE" => String.duplicate("s", 64)
   }
+  @discord_env ~w(DISCORD_OAUTH_CLIENT_ID DISCORD_OAUTH_CLIENT_SECRET)
   @google_env ~w(GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET)
 
   setup do
     previous_env =
-      (@google_env ++ Map.keys(@runtime_env))
+      (@discord_env ++ @google_env ++ Map.keys(@runtime_env))
+      |> Enum.uniq()
       |> Map.new(fn name -> {name, System.get_env(name)} end)
 
     System.put_env(@runtime_env)
@@ -69,6 +73,48 @@ defmodule D20.RuntimeConfigTest do
            ) == [client_id: nil, client_secret: nil]
   end
 
+  test "test runtime does not inject Discord credential stand-ins" do
+    Enum.each(@discord_env, &System.delete_env/1)
+
+    runtime_config = read_runtime_config(:test)
+
+    assert Keyword.fetch!(
+             application_config(runtime_config, :ueberauth),
+             Ueberauth.Strategy.Discord.OAuth
+           ) == [client_id: nil, client_secret: nil]
+  end
+
+  test "Discord OAuth configures normalized runtime credentials without an enable flag" do
+    runtime_config = read_runtime_config(:test)
+
+    assert Keyword.fetch!(
+             application_config(runtime_config, :ueberauth),
+             Ueberauth.Strategy.Discord.OAuth
+           ) == [client_id: "discord-client-id", client_secret: "discord-client-secret"]
+  end
+
+  test "production starts with Discord unavailable when the client ID is missing" do
+    System.delete_env("DISCORD_OAUTH_CLIENT_ID")
+
+    runtime_config = read_runtime_config()
+
+    assert Keyword.fetch!(
+             application_config(runtime_config, :ueberauth),
+             Ueberauth.Strategy.Discord.OAuth
+           ) == [client_id: nil, client_secret: "discord-client-secret"]
+  end
+
+  test "production normalizes a blank Discord client secret without failing startup" do
+    System.put_env("DISCORD_OAUTH_CLIENT_SECRET", "   ")
+
+    runtime_config = read_runtime_config()
+
+    assert Keyword.fetch!(
+             application_config(runtime_config, :ueberauth),
+             Ueberauth.Strategy.Discord.OAuth
+           ) == [client_id: "discord-client-id", client_secret: nil]
+  end
+
   test "Google OAuth configures runtime credentials without an enable flag" do
     runtime_config = read_runtime_config(:test)
 
@@ -89,7 +135,7 @@ defmodule D20.RuntimeConfigTest do
            ) == [client_id: nil, client_secret: "google-client-secret"]
   end
 
-  test "production passes a blank Google client secret through unchanged" do
+  test "production normalizes a blank Google client secret without failing startup" do
     System.put_env("GOOGLE_OAUTH_CLIENT_SECRET", "   ")
 
     runtime_config = read_runtime_config()
@@ -97,7 +143,7 @@ defmodule D20.RuntimeConfigTest do
     assert Keyword.fetch!(
              application_config(runtime_config, :ueberauth),
              Ueberauth.Strategy.Google.OAuth
-           ) == [client_id: "google-client-id", client_secret: "   "]
+           ) == [client_id: "google-client-id", client_secret: nil]
   end
 
   defp read_runtime_config(env \\ :prod) do

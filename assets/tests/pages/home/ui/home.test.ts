@@ -7,7 +7,10 @@ const auth = {
   authenticated: false,
   local: false,
   prompt: null,
-  providers: { google: { available: true } },
+  providers: {
+    discord: { available: true },
+    google: { available: true },
+  },
 };
 
 describe("home page", () => {
