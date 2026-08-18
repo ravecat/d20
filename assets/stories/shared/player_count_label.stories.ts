@@ -4,7 +4,6 @@ import { PlayerCountLabel } from "~/shared/components";
 const meta = {
   title: "Shared/Player Count Label",
   component: PlayerCountLabel,
-  tags: ["autodocs"],
   parameters: {
     layout: "centered",
   },
