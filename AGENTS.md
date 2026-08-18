@@ -34,6 +34,7 @@
 | Frontend formatting and linting | [`assets/.oxfmtrc.json`](assets/.oxfmtrc.json), [`assets/eslint.config.mjs`](assets/eslint.config.mjs) |
 | OpenSpec workflow configuration | [`openspec/config.yaml`](openspec/config.yaml) |
 | Dependency-managed agent skills | [`mix.exs`](mix.exs), [`.agents/skills/`](.agents/skills/) |
+| Official game rules | Publisher or designer rulebooks, errata, player aids, and the canonical download or support links recorded in the matching issue or OpenSpec change |
 
 - Use the Nix or direnv environment when the required toolchain is unavailable.
 - Treat versions in manifests and lockfiles as authoritative when prose documentation differs.
@@ -48,6 +49,14 @@
 - `priv/repo/migrations/` contains Ecto migrations.
 - `priv/specs/` contains public AsyncAPI contracts.
 - `openspec/changes/` contains task-specific proposals, designs, delta specifications, and tasks.
+
+## Official Game Sources
+
+- Before implementing or changing a playable game, locate and cite the current official rules available from an openly accessible publisher or designer source. Prefer the canonical publisher download or support page over mirrors, community summaries, videos, or uncited recollection.
+- Treat official rulebooks, published errata, FAQs, player aids, and relevant publisher-hosted rules support links as required source inputs. Record the exact URLs in the owning issue, OpenSpec artifacts, or another durable game-specific source record.
+- When the repository stores a rulebook copy, preserve the external canonical source alongside the repository path. For example, Next Station: London uses the [publisher rulebook](https://blueorangegames.eu/wp-content/uploads/2023/05/NextStationLondon-Rules-EN.pdf) and [`assets/public/rules/next_station_london.pdf`](assets/public/rules/next_station_london.pdf).
+- Use secondary sources only to identify questions or corroborate interpretation. Do not let them override official rules without an explicit documented decision.
+- If official sources conflict, omit a required case, or cannot be verified, record the ambiguity and resolve it before implementing dependent rules, contracts, or client behavior.
 
 ## Task Routing
 

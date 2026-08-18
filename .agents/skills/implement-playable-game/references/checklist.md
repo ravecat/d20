@@ -4,7 +4,9 @@
 
 - [ ] Record namespace, slug, launch metadata, and creation inputs.
 - [ ] Record every start-time input separately from session creation inputs.
-- [ ] Identify every authoritative source in the supplied specification.
+- [ ] Record the exact current official publisher or designer rulebook, errata, player-aid, and relevant support URLs.
+- [ ] Prefer canonical official sources over mirrors and secondary summaries, and keep missing or conflicting official guidance as a blocking rule gap.
+- [ ] Identify every authoritative source in the supplied specification and any repository rulebook copy.
 - [ ] Separate immutable configuration, mutable committed facts, and derived values.
 - [ ] List participants, identities, roles, and membership behavior.
 - [ ] Define which participant set or snapshot each progress and completion predicate uses.
@@ -21,6 +23,7 @@
 - [ ] List the complete permitted facts, statuses, permissions, choices, constraints, progress, outcomes, and rule-derived guidance required by every supported client workflow.
 - [ ] For an in-scope client, define the hybrid XState model, including projection synchronization, local interaction states, commands, guards, pending behavior, rejection, disconnect, and rejoin.
 - [ ] For an in-scope client, define mobile-first information priority, narrow portrait and desktop layouts, touch behavior, and typography hierarchy.
+- [ ] For an in-scope client, identify the repository-native asset and color-scheme preview surface and whether official separate static assets require an asset ledger.
 - [ ] Trace every projected field to committed game state, immutable rules, or explicit caller and session context.
 - [ ] Confirm the proposed aggregate contains the minimal authoritative game facts needed to derive every projection without prior renders or client-held history.
 - [ ] Define randomness ownership, sampling point, persistence, test control, retries, and idempotency.
@@ -203,7 +206,15 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 - [ ] Prefer a minimal but informative composition and progressively disclose secondary history or explanation.
 - [ ] Use a readable, consistent type scale, line height, hierarchy, line length, and tabular numerals for changing scores, counters, and timers.
 - [ ] Size controls for touch, account for safe areas and on-screen keyboards, and preserve keyboard and pointer access.
-- [ ] Reuse the color schemes and presentation tokens supplied by the game assets for the client interface, overlays, and gameplay-related controls before introducing new tokens.
+- [ ] Inventory the official rulebook, supplied official visual references, and relevant publisher-hosted assets with exact source URLs.
+- [ ] Trace the game-specific palette, symbols, shapes, component appearance, terminology, and relative emphasis to approved official visual sources.
+- [ ] Distinguish visual source authority from reuse permission, record authorized asset provenance and constraints, and do not copy scans or extracted production artwork without an applicable license or explicit permission.
+- [ ] Inspect separately published official static asset packs before creating replacements.
+- [ ] For every permitted external static asset, keep an approved local copy instead of a runtime hotlink and record source URL, owner, version or retrieval date, reuse basis or license, source hash, local path, transformations, and consumers in an asset ledger.
+- [ ] Create fit-for-purpose local assets from permitted visual references when production artwork cannot be reused.
+- [ ] Create or update a repository-native preview that shows the approved source palette, every reusable local asset, derived variants, meaningful interaction states, and representative minimum and desktop sizes.
+- [ ] Compare the preview with official visual sources and verify loading, intended colors, recognizable symbols, geometry, clipping, contrast, non-color cues, and consistency with production consumers.
+- [ ] Map the approved source palette and existing game assets to semantic presentation tokens before introducing new colors, adapting inaccessible print values when needed.
 - [ ] Inventory every interaction, projection, informational, disabled, error, and focus state before choosing colors.
 - [ ] Map semantic state roles to shared presentation tokens instead of repeating color literals.
 - [ ] Verify WCAG 2.2 AA contrast against actual adjacent colors: 4.5:1 for normal text, 3:1 for large text, and 3:1 for required controls, states, and meaningful graphics.
@@ -232,7 +243,7 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 | Channel | Replies, accepted broadcasts, rejected non-broadcasts, caller-specific rendering |
 | Custom server | Selected module, scheduling, exactly-once action, actor rejection, nondeterministic-value idempotency, error behavior, idle coexistence |
 | Registry and contract | Engine discovery, contract serving, developer index |
-| In-scope client | Game-session projection synchronization, hierarchical XState paths and transition ownership, guarded-candidate priority, targetless preservation, intentional resets, `snapshot.can(event)` affordances, mobile-first and desktop layouts, typography, semantic states, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
+| In-scope client | Game-session projection synchronization, hierarchical XState paths and transition ownership, guarded-candidate priority, targetless preservation, intentional resets, `snapshot.can(event)` affordances, mobile-first and desktop layouts, typography, semantic states, asset and palette preview, external-static ledger, contrast, non-color cues, focus, accessible interaction, responsive real-asset rendering |
 
 ## Validation Commands
 
@@ -259,6 +270,7 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 ## Completion Gate
 
 - [ ] The authoritative state model was completed before implementation and has no unresolved material combinations or invariants.
+- [ ] Exact official rule sources, source priority, repository copies, and unresolved source conflicts are recorded.
 - [ ] Every reachable modeled state has tested entry, allowed behavior, rejection preservation, and exit or terminal coverage.
 - [ ] Every command, transition, aggregate field, predicate, permission, and projected field traces to the authoritative state model.
 - [ ] Every rule has one clear owner.
@@ -277,4 +289,6 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 - [ ] Every game follows the same shell-owned session launch lifecycle without registry or slug-specific bypasses.
 - [ ] Code, tests, AsyncAPI, and any in-scope client agree.
 - [ ] Every in-scope client meets the mobile-first layout, typography, contrast, non-color-cue, focus, accessible-interaction, and real-asset validation requirements at narrow mobile and supported desktop sizes.
+- [ ] Every in-scope client traces its palette, symbols, component appearance, and reusable assets to approved official sources with provenance and licensing constraints recorded.
+- [ ] Every in-scope client provides a verified repository-native asset and color-scheme preview, plus a complete ledger for any permitted external static asset pack.
 - [ ] Validation commands and remaining rule gaps are reported.
