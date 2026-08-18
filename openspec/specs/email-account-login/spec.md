@@ -282,7 +282,7 @@ The password login form SHALL require a username-or-email identifier and current
 
 ### Requirement: Account forms keep independent Inertia state
 
-Registration, magic-link login, password login, magic-link confirmation, username settings, email settings, and password settings SHALL use distinct Inertia form instances and SHALL expose flat field errors, processing, success, and failure only in the form that initiated the request. The forms MUST NOT require explicit error bags to isolate their local state. While a form is processing, its submit action MUST prevent repeated submission without disabling unrelated alternatives.
+Registration, magic-link login, password login, magic-link confirmation, email settings, and password settings SHALL use distinct Inertia form instances and SHALL expose flat field errors, processing, success, and failure only in the form that initiated the request. The forms MUST NOT require explicit error bags to isolate their local state. While a form is processing, its submit action MUST prevent repeated submission without disabling unrelated alternatives.
 
 #### Scenario: Password validation fails while other login methods are visible
 
@@ -299,9 +299,9 @@ Registration, magic-link login, password login, magic-link confirmation, usernam
 
 #### Scenario: Account-settings validation fails
 
-- **WHEN** the username, email, or password settings form returns a validation error through the complete Inertia redirect
+- **WHEN** the email or password settings form returns a validation error through the complete Inertia redirect
 - **THEN** the flat field error appears only in the settings form that submitted
-- **AND** the sibling settings forms remain available
+- **AND** the sibling settings form remains available
 
 ### Requirement: Successful authentication returns only to a safe local page
 

@@ -193,13 +193,6 @@ defmodule D20.AccountsTest do
              }
     end
 
-    test "uses email as the display name for an account without a username" do
-      user = user_without_username_fixture()
-
-      assert %{display_name: display_name} = Accounts.get_user_or_anonymous(to_string(user.id))
-      assert display_name == user.email
-    end
-
     test "returns deterministic anonymous profile data for unknown actor ids" do
       id = "anon_profile_test"
 
@@ -461,79 +454,6 @@ defmodule D20.AccountsTest do
       assert [{:error, changeset}] = Enum.filter(results, &match?({:error, _}, &1))
       assert "has already been taken" in errors_on(changeset).email
       assert Repo.aggregate(from(user in User, where: user.email == ^email), :count) == 1
-    end
-  end
-
-  describe "claim_username/2" do
-    test "assigns a canonical username once" do
-      user = user_without_username_fixture()
-
-      assert {:ok, %User{username: "table_master"}} =
-               Accounts.claim_username(user, %{username: "table_master"})
-
-      assert {:error, changeset} = Accounts.claim_username(user, %{username: "another_name"})
-      assert %{username: ["has already been set"]} = errors_on(changeset)
-      assert Repo.get!(User, user.id).username == "table_master"
-    end
-
-    test "validates username syntax" do
-      user = user_without_username_fixture()
-
-      for username <- [
-            "ab",
-            "-player",
-            "player-",
-            "player name",
-            "Table_Master",
-            " table_master ",
-            String.duplicate("a", 33)
-          ] do
-        assert {:error, changeset} = Accounts.claim_username(user, %{username: username})
-        assert Map.has_key?(errors_on(changeset), :username)
-      end
-
-      assert is_nil(Repo.get!(User, user.id).username)
-    end
-
-    test "rejects a duplicate canonical username" do
-      first_user = user_without_username_fixture()
-      second_user = user_without_username_fixture()
-
-      assert {:ok, %User{username: "table_master"}} =
-               Accounts.claim_username(first_user, %{username: "table_master"})
-
-      assert {:error, changeset} =
-               Accounts.claim_username(second_user, %{username: "table_master"})
-
-      assert "has already been taken" in errors_on(changeset).username
-      assert is_nil(Repo.get!(User, second_user.id).username)
-    end
-
-    test "database uniqueness converts a case-equivalent prepared claim into a controlled error" do
-      first_user = user_without_username_fixture()
-      second_user = user_without_username_fixture()
-
-      first_changeset = User.username_changeset(first_user, %{username: "shared_name"})
-
-      second_changeset =
-        second_user
-        |> Ecto.Changeset.change(username: "SHARED_NAME")
-        |> Ecto.Changeset.unique_constraint(:username, name: :users_username_index)
-
-      assert first_changeset.valid?
-      assert second_changeset.valid?
-      assert {:ok, %User{username: "shared_name"}} = Repo.update(first_changeset)
-      assert {:error, changeset} = Repo.update(second_changeset)
-      assert "has already been taken" in errors_on(changeset).username
-    end
-
-    test "keeps email and password authentication available without a username" do
-      user = set_password(user_without_username_fixture())
-
-      assert %User{id: user_id} =
-               Accounts.get_user_by_identifier_and_password(user.email, valid_user_password())
-
-      assert user_id == user.id
     end
   end
 

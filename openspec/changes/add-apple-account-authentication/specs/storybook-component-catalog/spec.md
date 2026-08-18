@@ -7,7 +7,7 @@ The Storybook catalog SHALL expose the production Account Settings, Registration
 #### Scenario: Inspect Account Settings states
 
 - **WHEN** a contributor opens the Account Settings stories
-- **THEN** the production page can be inspected with an established username and with username claiming available
+- **THEN** the production page can be inspected with its required established username
 - **AND** provider linked, unlinked, available, and unavailable states are represented by deterministic props
 
 #### Scenario: Inspect registration completion states

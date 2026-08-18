@@ -31,25 +31,6 @@ type Story = StoryObj<typeof meta>;
 
 export const EstablishedAccount: Story = {};
 
-export const ClaimUsername: Story = {
-  args: {
-    auth: {
-      authenticated: true,
-      local: false,
-      prompt: null,
-      providers: {
-        apple: { available: true },
-        discord: { available: true },
-        google: { available: true },
-      },
-    },
-    apple: { available: true, linked: false },
-    discord: { available: true, linked: true },
-    google: { available: true, linked: false },
-    username: null,
-  },
-};
-
 export const NoAvailableProviders: Story = {
   args: {
     auth: {

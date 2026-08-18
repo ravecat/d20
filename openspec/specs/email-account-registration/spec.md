@@ -170,7 +170,7 @@ If confirmation delivery reports failure after the user has been created, the sy
 
 ### Requirement: Magic-link confirmation preserves the created D20 identity
 
-The existing valid confirmation magic link SHALL display a non-mutating registration-completion page for the exact unconfirmed user created by registration. The completion view SHALL render directly as page content in the existing application layout and MUST NOT wrap that content in a dialog-like card surface. The completion page SHALL require a username, and its POST SHALL atomically assign that username, confirm the same user, consume the confirmation tokens, and make the user eligible for the existing rotated browser authentication session. Username validation or uniqueness failure MUST NOT confirm the user, consume the token, or authenticate the request. A confirmed user consuming a valid login magic link SHALL continue to authenticate without a username requirement. Later authenticated requests SHALL expose the same stable TypeID-backed actor identity created during email registration.
+The existing valid confirmation magic link SHALL display a non-mutating registration-completion page for the exact unconfirmed user created by registration. The completion view SHALL render directly as page content in the existing application layout and MUST NOT wrap that content in a dialog-like card surface. The completion page SHALL require a username, and its POST SHALL atomically assign that username, confirm the same user, consume the confirmation tokens, and create the existing rotated browser authentication session. Username validation or uniqueness failure MUST NOT confirm the user, consume the token, or authenticate the request. Later authenticated requests SHALL expose the same stable TypeID-backed actor identity created during email registration.
 
 #### Scenario: Registered user completes confirmation with an available username
 
@@ -203,8 +203,8 @@ The existing valid confirmation magic link SHALL display a non-mutating registra
 
 #### Scenario: Confirmed user consumes a login magic link
 
-- **WHEN** a confirmed user consumes a valid login magic link
-- **THEN** the user is authenticated through the existing flow without being required to claim a username
+- **WHEN** a user who completed registration consumes a valid login magic link
+- **THEN** the user is authenticated through the existing flow with the username assigned during registration completion
 
 ### Requirement: Local mailbox guidance matches development availability
 

@@ -23,19 +23,6 @@ defmodule D20Web.UserSettingsController do
     })
   end
 
-  def update(conn, %{"action" => "claim_username", "user" => user_params}) do
-    case Accounts.claim_username(conn.assigns.current_user, user_params) do
-      {:ok, _user} ->
-        conn |> put_flash(:info, "Username saved successfully.") |> redirect_to_settings()
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        conn |> assign_errors(changeset) |> redirect_to_settings()
-
-      {:error, :not_found} ->
-        conn |> put_flash(:error, "Account no longer exists.") |> Auth.log_out_user()
-    end
-  end
-
   def update(conn, %{"action" => "update_email"} = params) do
     %{"user" => user_params} = params
     user = conn.assigns.current_user

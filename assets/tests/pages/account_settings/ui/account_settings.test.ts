@@ -63,32 +63,7 @@ describe("account settings page", () => {
     });
   });
 
-  it("lets an existing account claim a username once", async () => {
-    const { unmount } = render(AccountSettingsPage, {
-      apple: appleUnlinked,
-      auth,
-      discord: discordUnlinked,
-      email: "player@example.com",
-      google: googleUnlinked,
-      username: null,
-    });
-
-    const username = screen.getByRole("textbox", { name: "Username" });
-    expect(username.getAttribute("autocomplete")).toBe("username");
-    expect(username.getAttribute("minlength")).toBe("3");
-    expect(username.getAttribute("maxlength")).toBe("32");
-
-    await fireEvent.input(username, { target: { value: "  Table_Master  " } });
-    expect((username as HTMLInputElement).value).toBe("table_master");
-    await fireEvent.click(screen.getByRole("button", { name: "Save username" }));
-
-    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
-      action: "/users/settings",
-      method: "put",
-      data: { action: "claim_username", user: { username: "table_master" } },
-    });
-
-    unmount();
+  it("displays the account username without an edit action", () => {
     render(AccountSettingsPage, {
       apple: appleUnlinked,
       auth,
@@ -100,7 +75,7 @@ describe("account settings page", () => {
 
     expect(screen.getByText("table_master")).not.toBeNull();
     expect(screen.getByText("Your username identifies you to other D20 players.")).not.toBeNull();
-    expect(screen.queryByText(/cannot be changed/i)).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Username" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save username" })).toBeNull();
   });
 

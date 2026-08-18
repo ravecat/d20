@@ -205,8 +205,8 @@ defmodule D20.Accounts do
     end
   end
 
-  defp user_profile(%User{} = user) do
-    %{id: to_string(user.id), display_name: user.username || user.email, avatar: nil}
+  defp user_profile(%User{username: username} = user) when is_binary(username) do
+    %{id: to_string(user.id), display_name: username, avatar: nil}
   end
 
   defp user_profile(%Anonymous{} = anonymous) do
@@ -218,22 +218,6 @@ defmodule D20.Accounts do
     |> to_string()
     |> Anonymous.from_id()
     |> user_profile()
-  end
-
-  ## Settings
-
-  @doc """
-  Assigns a username once, serializing claims for the same user.
-  """
-  def claim_username(%User{id: user_id}, attrs) do
-    Repo.transact(fn ->
-      user = Repo.one(from user in User, where: user.id == ^user_id, lock: "FOR UPDATE")
-
-      case user do
-        %User{} -> user |> User.username_changeset(attrs) |> Repo.update()
-        nil -> {:error, :not_found}
-      end
-    end)
   end
 
   @doc """

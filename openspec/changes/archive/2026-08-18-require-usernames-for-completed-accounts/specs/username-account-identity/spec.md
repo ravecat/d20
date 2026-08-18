@@ -1,10 +1,4 @@
-# Username Account Identity Specification
-
-## Purpose
-
-Define canonical username format, global uniqueness, registration-completion assignment, immutability, and shared account presentation.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Username has one canonical format
 
@@ -60,6 +54,8 @@ The shared authenticated account profile SHALL use the username assigned during 
 - **THEN** the profile display name equals that user's username
 - **AND** the account email is not used as a display-name fallback
 
+## ADDED Requirements
+
 ### Requirement: Registration completion assigns username before authentication
 
 An email registration MAY persist temporarily without a username while it remains unconfirmed and unauthenticated. Magic Link and provider registration completion SHALL require a valid unique username before creating an authenticated session. Account Settings SHALL display the username established by registration completion without offering a claim form.
@@ -81,3 +77,11 @@ An email registration MAY persist temporarily without a username while it remain
 - **WHEN** a user authenticated through a supported registration flow opens Account Settings
 - **THEN** the page receives and displays the assigned username
 - **AND** no username claim form or claim operation is available
+
+## REMOVED Requirements
+
+### Requirement: Every completed account has a username
+
+**Reason**: Current product flows already assign username during registration completion before authentication. A database constraint and repeated authentication guards would defend a malformed state that no supported page flow can create.
+
+**Migration**: Remove the experimental relational constraint and redundant authentication guards. Keep username validation and atomic assignment in Magic Link and provider registration completion.

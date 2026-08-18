@@ -36,14 +36,6 @@ defmodule D20.AccountsFixtures do
     user
   end
 
-  def user_without_username_fixture(attrs \\ %{}) do
-    user = unconfirmed_user_fixture(attrs)
-
-    user
-    |> Accounts.User.confirm_changeset()
-    |> D20.Repo.update!()
-  end
-
   def actor_scope_fixture do
     user = user_fixture()
     actor_scope_fixture(user)
