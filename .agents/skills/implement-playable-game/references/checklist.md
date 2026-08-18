@@ -4,9 +4,15 @@
 
 - [ ] Record namespace, slug, launch metadata, and creation inputs.
 - [ ] Record every start-time input separately from session creation inputs.
-- [ ] Record the exact current official publisher or designer rulebook, errata, player-aid, and relevant support URLs.
-- [ ] Prefer canonical official sources over mirrors and secondary summaries, and keep missing or conflicting official guidance as a blocking rule gap.
-- [ ] Identify every authoritative source in the supplied specification and any repository rulebook copy.
+- [ ] Locate the exact current official publisher or designer rulebook, errata, player aid, and relevant support URLs.
+- [ ] Prefer canonical official sources over mirrors and secondary summaries, and do not silently substitute an unofficial mirror or translation.
+- [ ] Before rule inventory or state design, download the permitted openly available official rulebook into `assets/public/rules/`.
+- [ ] Verify that the downloaded rulebook opens successfully and matches its recorded checksum.
+- [ ] Record its canonical URL, language, edition or version, retrieval date, checksum, repository path, and reuse constraints in the owning issue, OpenSpec change, or another durable game-specific source record.
+- [ ] Use the downloaded repository copy as the stable rules and visual reference while retaining the canonical URL and current official supporting material for provenance, freshness checks, and rule resolution.
+- [ ] When no official English edition is available, use the most authoritative official edition in another available language, record its language, and keep traceable working translation notes tied to source pages or sections.
+- [ ] Treat the missing localization as non-blocking, but keep dependent implementation blocked when no official source can be obtained or verified, official guidance conflicts or is incomplete, or translation ambiguity materially changes rules, contracts, or client behavior.
+- [ ] Identify every other authoritative source in the supplied specification.
 - [ ] Separate immutable configuration, mutable committed facts, and derived values.
 - [ ] List participants, identities, roles, and membership behavior.
 - [ ] Define which participant set or snapshot each progress and completion predicate uses.
@@ -206,7 +212,7 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 - [ ] Prefer a minimal but informative composition and progressively disclose secondary history or explanation.
 - [ ] Use a readable, consistent type scale, line height, hierarchy, line length, and tabular numerals for changing scores, counters, and timers.
 - [ ] Size controls for touch, account for safe areas and on-screen keyboards, and preserve keyboard and pointer access.
-- [ ] Inventory the official rulebook, supplied official visual references, and relevant publisher-hosted assets with exact source URLs.
+- [ ] Inventory the downloaded local official rulebook, supplied official visual references, and relevant publisher-hosted assets with exact source URLs.
 - [ ] Trace the game-specific palette, symbols, shapes, component appearance, terminology, and relative emphasis to approved official visual sources.
 - [ ] Distinguish visual source authority from reuse permission, record authorized asset provenance and constraints, and do not copy scans or extracted production artwork without an applicable license or explicit permission.
 - [ ] Inspect separately published official static asset packs before creating replacements.
@@ -231,6 +237,7 @@ Complete this section whenever the shell UI or a separate iframe client is in sc
 
 | Layer | Minimum behavior |
 | --- | --- |
+| Rule sources | Verified local official rulebook copy, canonical URL, language, edition or version, retrieval date, checksum, repository path, reuse constraints, supporting official sources, and blocking gaps |
 | State model | State dimensions, reachable and justified unreachable combinations, invariants, entry and exit coverage, transition traceability |
 | Ruleset | Static invariants, each rulesheet, lookups, references, boundaries |
 | Command | Valid normalization, malformed containers and fields, bounded values, unsupported events |
@@ -270,7 +277,8 @@ Run `just check` for broad, cross-stack, or release-relevant changes. It does no
 ## Completion Gate
 
 - [ ] The authoritative state model was completed before implementation and has no unresolved material combinations or invariants.
-- [ ] Exact official rule sources, source priority, repository copies, and unresolved source conflicts are recorded.
+- [ ] A verified official rulebook is stored under `assets/public/rules/` before implementation, with its canonical URL, language, edition or version, retrieval date, checksum, local path, and reuse constraints recorded.
+- [ ] The local rulebook copy is used as the stable rules and visual reference, and current official supporting sources and unresolved source gaps or conflicts are recorded.
 - [ ] Every reachable modeled state has tested entry, allowed behavior, rejection preservation, and exit or terminal coverage.
 - [ ] Every command, transition, aggregate field, predicate, permission, and projected field traces to the authoritative state model.
 - [ ] Every rule has one clear owner.

@@ -53,10 +53,11 @@
 ## Official Game Sources
 
 - Before implementing or changing a playable game, locate and cite the current official rules available from an openly accessible publisher or designer source. Prefer the canonical publisher download or support page over mirrors, community summaries, videos, or uncited recollection.
-- Treat official rulebooks, published errata, FAQs, player aids, and relevant publisher-hosted rules support links as required source inputs. Record the exact URLs in the owning issue, OpenSpec artifacts, or another durable game-specific source record.
-- When the repository stores a rulebook copy, preserve the external canonical source alongside the repository path. For example, Next Station: London uses the [publisher rulebook](https://blueorangegames.eu/wp-content/uploads/2023/05/NextStationLondon-Rules-EN.pdf) and [`assets/public/rules/next_station_london.pdf`](assets/public/rules/next_station_london.pdf).
+- When the publisher or designer provides a permitted openly downloadable official rulebook, download it into [`assets/public/rules/`](assets/public/rules/) before rule inventory, state design, or implementation begins. Verify that the stored file opens successfully and matches its recorded checksum.
+- Record the canonical URL, language, edition or version, retrieval date, checksum, repository path, and reuse constraints in the owning issue, OpenSpec artifacts, or another durable game-specific source record.
+- Use the downloaded repository copy as the stable rules and visual reference throughout implementation. Keep the canonical source URL and current official errata, FAQs, player aids, and support links alongside it for provenance, freshness checks, and rule resolution.
 - Use secondary sources only to identify questions or corroborate interpretation. Do not let them override official rules without an explicit documented decision.
-- If official sources conflict, omit a required case, or cannot be verified, record the ambiguity and resolve it before implementing dependent rules, contracts, or client behavior.
+- If no official English rulebook is available, use the most authoritative official edition in another available language, record its language, and keep traceable working translation notes tied to source pages or sections. Missing that localization alone is not a blocker. Block dependent rules, contracts, or client behavior only when no official source can be obtained or verified, official sources conflict or are incomplete, or translation ambiguity materially changes the implementation. Do not silently substitute an unofficial mirror or untraceable translation.
 
 ## Task Routing
 

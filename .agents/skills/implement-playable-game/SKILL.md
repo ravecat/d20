@@ -12,18 +12,20 @@ Turn an arbitrary game specification into one server-authoritative D20 game with
 ## Load Context
 
 1. Read the repository `AGENTS.md` and every supplied source of game rules.
-2. Locate and cite the current official publisher or designer rulebook, errata, player aids, and relevant official support links. Prefer canonical openly accessible sources over mirrors, community summaries, videos, or recollection. Record conflicting or missing official guidance as a blocking rule gap.
-3. Read any active OpenSpec change named by the task. Treat unrelated `openspec/changes/` directories as historical context.
-4. Read [references/architecture.md](references/architecture.md) before designing modules, predicates, or event paths.
-5. Use [references/checklist.md](references/checklist.md) during implementation and validation.
-6. Inspect the shared contracts:
+2. Locate and cite the current official publisher or designer rulebook, errata, player aids, and relevant official support links. Prefer canonical openly accessible sources over mirrors, community summaries, videos, or recollection.
+3. Before rule inventory, state design, or implementation, download a permitted openly available official rulebook into `assets/public/rules/`. Verify that the stored file opens successfully, compute its checksum, and record its canonical URL, language, edition or version, retrieval date, local path, and reuse constraints in the owning issue, OpenSpec change, or another durable game-specific source record.
+4. Use the downloaded repository copy as the stable rules and visual reference throughout implementation while retaining the canonical URL and current official supporting material for provenance, freshness checks, and rule resolution. When no official English edition is available, use the most authoritative official edition in another available language, record its language, and keep traceable working translation notes tied to source pages or sections. Missing that localization alone is not a blocker. Treat the absence of a verifiable official source, conflicting or incomplete official guidance, or a translation ambiguity that materially changes rules, contracts, or client behavior as a blocking rule gap. Do not silently substitute an unofficial mirror or untraceable translation.
+5. Read any active OpenSpec change named by the task. Treat unrelated `openspec/changes/` directories as historical context.
+6. Read [references/architecture.md](references/architecture.md) before designing modules, predicates, or event paths.
+7. Use [references/checklist.md](references/checklist.md) during implementation and validation.
+8. Inspect the shared contracts:
    - `lib/d20/game.ex`
    - `lib/d20/game/server.ex`
    - `lib/d20/sessions.ex`
    - `lib/d20/sessions/session.ex`
    - `lib/d20/command.ex`
    - `lib/d20/permission.ex`
-7. Inspect complete existing game namespaces and their tests only to learn repository conventions. Do not import their domain assumptions into the new game.
+9. Inspect complete existing game namespaces and their tests only to learn repository conventions. Do not import their domain assumptions into the new game.
 
 ## Workflow
 
@@ -44,9 +46,9 @@ Translate prose, tables, diagrams, and rulesheets into explicit decisions before
 - caller visibility and derived guidance
 - the minimal authoritative game facts needed to derive every caller projection from the current state, immutable rules, and caller and session context
 - the complete permitted facts and rule-derived guidance each supported client workflow needs without reimplementing domain logic or reconstructing state from event history
-- the exact official rule URLs, source priority, unresolved source conflicts, and any repository rulebook copies
+- the downloaded official rulebook's canonical URL, language, edition or version, retrieval date, checksum, repository path under `assets/public/rules/`, reuse constraints, source priority, supporting official URLs, and unresolved source gaps or conflicts
 - when a game client is in scope, every visible interaction, projection, informational, disabled, error, and focus state, including its semantic color role and non-color cue
-- when a game client is in scope, the official visual-source inventory: palette, symbols, shapes, component appearance, terminology, publisher-hosted assets, provenance, and reuse constraints
+- when a game client is in scope, the official visual-source inventory derived first from the downloaded local rulebook and then from other approved official references: palette, symbols, shapes, component appearance, terminology, publisher-hosted assets, provenance, and reuse constraints
 - when a game client is in scope, the repository-native asset and color-scheme preview surface, plus an asset provenance ledger when a publisher or designer provides a separate static asset pack
 - when a game client is in scope, the hybrid client state machine that combines the latest server projection with explicit local interaction, connection, pending, and recovery states
 - when a game client is in scope, the narrow mobile and desktop layout behavior, information priority, touch interaction, and typography hierarchy
@@ -60,7 +62,7 @@ Before designing modules or finalizing events, derive an authoritative state mod
 - Distinguish modeled composite states from runtime `Game.phase` values. Several modeled states may share one phase and differ through participant status or another authoritative substate.
 - Distinguish committed authoritative facts from values derived through immutable rules, caller and session context, predicates, permissions, or Projection.
 
-Treat this as a blocking discovery gate. Do not begin `Command`, `Rules`, `Game`, `Permission`, or `Projection` implementation while a reachable state, invariant, transition, authoritative fact, or visibility source is unresolved. Do not silently omit a theoretical state combination: prove it unreachable from the rules or keep it as a blocking gap.
+Treat source acquisition and rule discovery as blocking gates. Do not begin the rule inventory or state design until the required local rulebook copy has been downloaded and verified, or its absence has been recorded as a blocking source gap. Do not begin `Command`, `Rules`, `Game`, `Permission`, `Projection`, or client implementation while a source gap, reachable state, invariant, transition, authoritative fact, or visibility source is unresolved. Do not silently omit a theoretical state combination: prove it unreachable from the rules or keep it as a blocking gap.
 
 Produce five compact working artifacts in the plan or task notes:
 
@@ -241,12 +243,12 @@ Treat accessible presentation as a completion requirement whenever the task expl
 - Prefer the smallest interface that remains complete and informative. Prioritize current phase, active player or turn, required choice, primary action, and actionable error; progressively disclose secondary history or explanation without hiding information needed to play correctly.
 - Apply typography best practices as a design recommendation: use a small consistent type scale, readable body size and line height, clear heading and label hierarchy, concise copy, controlled line length, and tabular numerals for changing scores, counters, and timers. Do not shrink essential text to force a desktop composition into a mobile viewport.
 - Size and space controls for touch, account for safe areas and on-screen keyboards, and preserve the same actions through keyboard and pointer input.
-- Build a visual-source inventory from the official rulebook, supplied official references, and relevant publisher-hosted assets linked by those sources. Record exact URLs and distinguish source authority from permission to reuse artwork.
+- Build a visual-source inventory from the downloaded local official rulebook, supplied official references, and relevant publisher-hosted assets linked by those sources. Record exact URLs and distinguish source authority from permission to reuse artwork.
 - Derive the game-specific palette, symbols, shapes, component appearance, terminology, and relative emphasis from approved official visual sources instead of inventing an unrelated visual language.
 - Open access to a rulebook does not establish reuse rights for its artwork. Do not copy scans, logos, illustrations, card faces, board images, or extracted production assets unless their license or explicit permission allows it. Record provenance and reuse constraints for authorized assets; otherwise create fit-for-purpose local assets from the permitted visual reference.
 - Inspect any separately published official static asset pack before creating replacements. When reuse is permitted, keep an approved local copy instead of adding a runtime hotlink and create an asset ledger recording source URL, publisher or owner, version or retrieval date, reuse basis or license, source hash when downloaded, local path, transformations, and known consumers.
 - Create or update the repository-native asset preview surface, such as a Storybook asset story or equivalent catalog. Show the approved source palette, every reusable local asset, derived variants, meaningful interaction states, and representative minimum and desktop sizes without embedding unlicensed source artwork.
-- Compare the preview against the official visual sources before accepting the assets. Verify asset loading, intended color use, recognizable symbols, geometry, clipping, contrast, non-color cues, and consistency between the preview and production consumers.
+- Compare the preview against the downloaded local rulebook and other approved official visual sources before accepting the assets. Verify asset loading, intended color use, recognizable symbols, geometry, clipping, contrast, non-color cues, and consistency between the preview and production consumers.
 - Map the approved source palette and existing game assets onto semantic presentation tokens before introducing new colors. Adapt print values for responsive interaction and accessibility when literal reproduction cannot express a required state accessibly.
 - Inventory semantic roles such as available, preview, temporary, committed, bonus, danger, disabled, informational, and focus before choosing colors. Expose them through shared presentation tokens instead of repeating literals.
 - Meet WCAG 2.2 AA contrast in the actual rendered context: at least 4.5:1 for normal text, 3:1 for large text, and 3:1 for visual information required to identify controls, states, and meaningful graphics against adjacent colors. Test every state over the least-contrasting expected board or artwork region, and leave extra margin for thin SVG strokes and anti-aliasing.
@@ -282,7 +284,7 @@ Report:
 - the state machine and event-path decisions
 - default or custom server choice
 - public contract and integration points changed
-- official rule sources, unresolved source conflicts, and any repository rulebook copies
+- the downloaded official rulebook's canonical URL, language, local repository path, edition or version, retrieval date, checksum, reuse constraints, supporting official sources, and unresolved source gaps or conflicts
 - client projection transport, XState synchronization, responsive layout, typography, visual-source, asset-preview, external-static, and asset-provenance decisions when a client is in scope
 - commands run and behavior verified
 - unresolved rule gaps, external coordination, and remaining risks
