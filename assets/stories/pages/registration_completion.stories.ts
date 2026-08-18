@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { RegistrationCompletionPage } from "~/pages/registration_completion";
 
 const meta = {
-  title: "Pages/Registration Completion",
+  title: "Pages/Sign Up/Registration Completion",
   component: RegistrationCompletionPage,
   parameters: {
     layout: "fullscreen",
@@ -31,13 +31,12 @@ type Story = StoryObj<typeof meta>;
 
 export const MagicLink: Story = {};
 
-export const Apple: Story = {
+export const AuthProvider: Story = {
   args: {
-    cancelAction: "/auth/apple/register/cancel",
-    email: "player@privaterelay.appleid.com",
+    cancelAction: "/auth/google/register/cancel",
     submission: {
-      action: "/auth/apple/register",
-      credential: { type: "server_cookie" },
+      action: "/auth/google/register",
+      credential: { type: "server_session" },
     },
   },
 };

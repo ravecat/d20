@@ -1,8 +1,14 @@
 ## ADDED Requirements
 
-### Requirement: Authentication pages are inspectable in isolation
+### Requirement: Authentication workflows are inspectable in isolation
 
-The Storybook catalog SHALL expose the production Account Settings, Registration Completion, and Auth Confirmation page components through typed deterministic page stories. The stories SHALL render without Phoenix or a live Inertia submission boundary and MUST prevent form interaction from contacting an application server.
+The Storybook catalog SHALL organize production authentication surfaces under `Sign In` and `Sign Up` workflow groups. It SHALL expose the production AuthDialog, Account Settings, Registration Completion, and Auth Confirmation components through typed deterministic stories. The stories SHALL render without Phoenix or a live Inertia submission boundary and MUST prevent form interaction from contacting an application server.
+
+#### Scenario: Inspect authentication dialog states
+
+- **WHEN** a contributor browses the `Sign In` and `Sign Up` workflow groups
+- **THEN** the production authentication dialog can be inspected for initial sign-in, initial registration, email request completion, Magic Link request completion, and sudo reauthentication
+- **AND** each state uses deterministic page and authentication-store state without a live backend
 
 #### Scenario: Inspect Account Settings states
 
@@ -13,13 +19,15 @@ The Storybook catalog SHALL expose the production Account Settings, Registration
 #### Scenario: Inspect registration completion states
 
 - **WHEN** a contributor opens the Registration Completion stories
-- **THEN** the production page can be inspected for Magic Link completion and provider completion with a cancel action
+- **THEN** the production page can be inspected for the distinct Magic Link and Auth Provider completion states
+- **AND** the Auth Provider state exposes the production action for choosing another registration method
+- **AND** the Auth Provider state represents every provider-backed completion that has the same user-visible behavior
 - **AND** no provider credential, callback payload, or live form submission is required
 
-#### Scenario: Inspect authentication confirmation states
+#### Scenario: Inspect Magic Link login confirmation states
 
-- **WHEN** a contributor opens the Auth Confirmation stories
-- **THEN** the production page can be inspected for regular sign-in and sudo reauthentication
+- **WHEN** a contributor opens the Magic Link Login Confirmation stories under `Sign In`
+- **THEN** the production page can be inspected for signed-out login and sudo reauthentication
 - **AND** the remember-me choice follows the production page state
 
 #### Scenario: Interact with a catalog form

@@ -7,7 +7,7 @@
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
   import InlineNotification from "./inline_notification.svelte";
-  import { auth } from "~/shared/stores";
+  import { auth } from "~/shared/stores/auth";
 
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;
   type Mode = Parameters<typeof auth.trigger.switchMode>[0]["mode"];

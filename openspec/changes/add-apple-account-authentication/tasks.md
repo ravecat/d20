@@ -143,7 +143,9 @@
 ## 19. Storybook Addon Panel Layout
 
 - [x] 19.1 Configure the native Storybook manager to keep the addon panel visible to the right of the story canvas in the desktop layout.
-- [ ] 19.2 Run focused formatting, lint, typecheck, Storybook static build, desktop manager verification, and strict OpenSpec validation.
+- [x] 19.2 Run focused formatting, lint, typecheck, Storybook static build, desktop manager verification, and strict OpenSpec validation.
+
+  Validation note: formatting, ESLint, TypeScript, and Svelte diagnostics passed without warnings, and the static Storybook build passed. Chrome DevTools verified the desktop addon panel on the right at 400 px with Controls, Actions, Interactions, and Accessibility available; the narrow manager layout had no horizontal overflow and retained its responsive panel behavior.
 
 ## 20. Provider-owned Apple Link Feedback
 
@@ -152,3 +154,18 @@
 - [x] 20.3 Update focused behavioral tests and run backend formatting, compilation, controller tests, and strict OpenSpec validation.
 
   Validation note: focused Apple adapter, callback, and Account Settings coverage passed with 46 tests; the complete backend suite passed with 637 tests. Focused formatting, warnings-as-errors compilation, diff checks, and strict OpenSpec validation passed.
+
+## 21. Storybook Authentication Workflow Navigation
+
+- [x] 21.1 Group authentication stories under transparent `Sign In` and `Sign Up` workflow titles, with Magic Link confirmation and registration completion named by purpose.
+- [x] 21.2 Add deterministic production AuthDialog states and the distinct Magic Link and auth-provider registration-completion UI states without enabling live navigation or form submission.
+- [x] 21.3 Run focused formatting, lint, typecheck, frontend tests, Storybook static build and rendered-story verification, then run strict OpenSpec validation.
+
+  Validation note: six focused page tests and 42 AuthDialog browser tests passed. Chrome DevTools rendered all 11 `Sign In` and `Sign Up` scenarios without console errors and confirmed Storybook prevents provider navigation and form submission. The static index contains the intended workflow hierarchy with no Docs entries, and the built catalog contains no Phoenix socket client or `/socket` endpoint. After two known transient workspace browser-test races and an isolated 12-test passing rerun, `just check` passed with 124 frontend and 626 backend tests, zero type or Svelte warnings, and a successful Storybook build.
+
+## 22. Provider-neutral Registration Completion Story
+
+- [x] 22.1 Replace the provider-specific registration-completion stories with one `Auth Provider` state that represents their shared UI and update the Storybook specification.
+- [x] 22.2 Run focused formatting, lint, typecheck, page tests, Storybook static-index verification, rendered-story verification, and strict OpenSpec validation.
+
+  Validation note: focused formatting and ESLint passed, all 4 Registration Completion unit tests passed, and TypeScript plus Svelte diagnostics reported no errors or warnings. The static Storybook build passed and its index contains exactly the `Magic Link` and `Auth Provider` completion stories. Chrome DevTools rendered `Auth Provider` without console errors, exposed the action for choosing another registration method, and confirmed that activating it remains inside Storybook. Strict OpenSpec validation passed all 66 items and git diff checks passed.

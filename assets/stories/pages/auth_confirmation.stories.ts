@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { AuthConfirmationPage } from "~/pages/auth_confirmation";
 
 const meta = {
-  title: "Pages/Auth Confirmation",
+  title: "Pages/Sign In/Magic Link Confirmation",
   component: AuthConfirmationPage,
   parameters: {
     layout: "fullscreen",
@@ -27,7 +27,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const SignIn: Story = {};
+export const Login: Story = {};
 
 export const Reauthentication: Story = {
   args: {

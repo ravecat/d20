@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
-import { PlayerCountLabel } from "~/shared/components";
+import PlayerCountLabel from "~/shared/components/player_count_label.svelte";
 
 const meta = {
   title: "Shared/Player Count Label",

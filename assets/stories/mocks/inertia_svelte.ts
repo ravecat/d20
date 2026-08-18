@@ -1,6 +1,14 @@
 export { default as Form } from "./inertia_form.svelte";
 
-const page = {
+type StoryPage = {
+  url: string;
+  props: {
+    auth: InertiaProps["auth"];
+    errors: Record<string, string>;
+  };
+};
+
+const defaultPage = (): StoryPage => ({
   url: "/",
   props: {
     auth: {
@@ -15,7 +23,17 @@ const page = {
     },
     errors: {},
   },
-};
+});
+
+const page = defaultPage();
+
+export function setStoryPage(nextPage: StoryPage) {
+  Object.assign(page, nextPage);
+}
+
+export function resetStoryPage() {
+  Object.assign(page, defaultPage());
+}
 
 const preventVisit = () => undefined;
 
