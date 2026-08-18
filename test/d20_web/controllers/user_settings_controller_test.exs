@@ -2,14 +2,18 @@ defmodule D20Web.UserSettingsControllerTest do
   use D20Web.ConnCase, async: false
 
   alias D20.Accounts
+  alias D20Web.Auth.Apple
   import D20.AccountsFixtures
 
   setup :register_and_log_in_user
 
   setup do
+    original_apple_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Apple)
     original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
 
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, [])
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
       client_id: "discord-test-client-id",
@@ -22,6 +26,8 @@ defmodule D20Web.UserSettingsControllerTest do
     )
 
     on_exit(fn ->
+      restore_application_env(:ueberauth, Ueberauth.Strategy.Apple, original_apple_config)
+
       restore_application_env(
         :ueberauth,
         Ueberauth.Strategy.Discord.OAuth,
@@ -40,8 +46,63 @@ defmodule D20Web.UserSettingsControllerTest do
       assert inertia_component(conn) == "account_settings"
       assert inertia_props(conn).email == user.email
       assert inertia_props(conn).username == user.username
+      assert inertia_props(conn).apple == %{available: false, linked: false}
       assert inertia_props(conn).discord == %{available: true, linked: false}
       assert inertia_props(conn).google == %{available: true, linked: false}
+    end
+
+    test "reports a linked Apple method", %{conn: conn, user: user} do
+      put_apple_auth_config()
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :apple, "settings-subject")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert inertia_props(conn).apple == %{available: true, linked: true}
+    end
+
+    test "converts a verified Apple link cookie to flash", %{conn: conn, user: user} do
+      put_apple_auth_config()
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :apple, "settings-subject")
+
+      conn = get_settings_with_apple_result(conn, :linked)
+
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert conn.resp_cookies[Apple.link_result_cookie()].max_age == 0
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Apple was linked to this account."
+    end
+
+    test "does not trust an Apple result query parameter", %{conn: conn} do
+      put_apple_auth_config()
+
+      conn = get(conn, ~p"/users/settings?apple=linked")
+
+      assert html_response(conn, 200) =~ ~s(id="app")
+      assert inertia_component(conn) == "account_settings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) == nil
+    end
+
+    test "keeps provider-owned Apple failures generic", %{conn: conn} do
+      conflict_conn = get_settings_with_apple_result(conn, :conflict)
+
+      assert redirected_to(conflict_conn) == ~p"/users/settings"
+
+      assert Phoenix.Flash.get(conflict_conn.assigns.flash, :error) ==
+               "Apple could not be linked because that identity is unavailable."
+
+      failed_conn = get_settings_with_apple_result(conn, :failed)
+
+      assert redirected_to(failed_conn) == ~p"/users/settings"
+
+      assert Phoenix.Flash.get(failed_conn.assigns.flash, :error) ==
+               "Apple could not be linked. Try again."
+    end
+
+    test "rejects a signed linked result when Apple is not durably linked", %{conn: conn} do
+      conn = get_settings_with_apple_result(conn, :linked)
+
+      assert html_response(conn, 200) =~ ~s(id="app")
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) == nil
+      assert conn.resp_cookies[Apple.link_result_cookie()].max_age == 0
     end
 
     test "reports a linked Discord method", %{conn: conn, user: user} do
@@ -330,6 +391,33 @@ defmodule D20Web.UserSettingsControllerTest do
     |> recycle()
     |> inertia_request()
     |> get(redirect_path)
+  end
+
+  defp put_apple_auth_config do
+    previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Apple)
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Apple,
+      client_id: "com.example.d20.web",
+      team_id: "TEAM123456",
+      key_id: "KEY1234567",
+      private_key_base64: "test-private-key",
+      callback_url: "https://accounts.example.com/auth/apple/callback"
+    )
+
+    on_exit(fn ->
+      restore_application_env(:ueberauth, Ueberauth.Strategy.Apple, previous_config)
+    end)
+  end
+
+  defp get_settings_with_apple_result(conn, result) do
+    cookie =
+      build_conn()
+      |> Apple.put_link_result(result)
+      |> then(& &1.resp_cookies[Apple.link_result_cookie()].value)
+
+    conn
+    |> put_req_cookie(Apple.link_result_cookie(), cookie)
+    |> get(~p"/users/settings")
   end
 
   defp restore_application_env(application, key, nil),

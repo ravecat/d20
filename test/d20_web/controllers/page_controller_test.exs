@@ -99,6 +99,7 @@ defmodule D20Web.PageControllerTest do
     original_bgg_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
     original_req_options = Req.default_options()
     original_registry_config = Application.fetch_env!(:d20, Registry)
+    original_apple_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Apple)
     original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
 
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
@@ -106,6 +107,8 @@ defmodule D20Web.PageControllerTest do
     original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
 
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, [])
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
       client_id: "discord-test-client-id",
@@ -123,6 +126,11 @@ defmodule D20Web.PageControllerTest do
     on_exit(fn ->
       Req.default_options(original_req_options)
       Application.put_env(:d20, Registry, original_registry_config)
+
+      case original_apple_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Apple)
+        config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, config)
+      end
 
       case original_discord_config do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
@@ -261,7 +269,11 @@ defmodule D20Web.PageControllerTest do
              authenticated: false,
              local: false,
              prompt: nil,
-             providers: %{discord: %{available: true}, google: %{available: true}}
+             providers: %{
+               apple: %{available: false},
+               discord: %{available: true},
+               google: %{available: true}
+             }
            }
 
     assert "auth" in inertia_shared_props(conn)
@@ -274,6 +286,7 @@ defmodule D20Web.PageControllerTest do
     conn = get(conn, ~p"/developers")
 
     assert inertia_props(conn).auth.providers == %{
+             apple: %{available: false},
              discord: %{available: true},
              google: %{available: true}
            }
@@ -283,12 +296,14 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "Inertia pages derive provider availability independently", %{conn: conn} do
+    put_apple_auth_config()
     put_discord_oauth_config(client_id: "discord-client-id", client_secret: nil)
     put_google_oauth_config(client_id: nil, client_secret: "google-client-secret")
 
     conn = get(conn, ~p"/developers")
 
     assert inertia_props(conn).auth.providers == %{
+             apple: %{available: true},
              discord: %{available: false},
              google: %{available: false}
            }
@@ -694,6 +709,25 @@ defmodule D20Web.PageControllerTest do
       case previous_config do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
         value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth, value)
+      end
+    end)
+  end
+
+  defp put_apple_auth_config do
+    previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Apple)
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Apple,
+      client_id: "com.example.d20.web",
+      team_id: "TEAM123456",
+      key_id: "KEY1234567",
+      private_key_base64: "test-private-key",
+      callback_url: "https://accounts.example.com/auth/apple/callback"
+    )
+
+    on_exit(fn ->
+      case previous_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Apple)
+        value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, value)
       end
     end)
   end

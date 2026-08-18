@@ -37,6 +37,13 @@ config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: normalize_oauth_credential.(System.get_env("GOOGLE_OAUTH_CLIENT_ID")),
   client_secret: normalize_oauth_credential.(System.get_env("GOOGLE_OAUTH_CLIENT_SECRET"))
 
+config :ueberauth, Ueberauth.Strategy.Apple,
+  client_id: System.get_env("APPLE_CLIENT_ID"),
+  team_id: System.get_env("APPLE_TEAM_ID"),
+  key_id: System.get_env("APPLE_KEY_ID"),
+  private_key_base64: System.get_env("APPLE_PRIVATE_KEY_BASE64"),
+  callback_url: System.get_env("APPLE_CALLBACK_URL")
+
 if config_env() == :prod do
   if is_nil(bgg_api_key) or String.trim(bgg_api_key) == "" do
     raise """

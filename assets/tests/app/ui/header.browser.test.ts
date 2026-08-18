@@ -18,6 +18,7 @@ beforeEach(async () => {
         local: false,
         prompt: null,
         providers: {
+          apple: { available: false },
           discord: { available: true },
           google: { available: true },
         },
@@ -161,12 +162,15 @@ describe("app header account dialog", () => {
 
     inertiaMock.respondWithSuccess();
 
-    await expect.element(page.getByText("Check your email", { exact: true })).toBeVisible();
+    const result = page.getByRole("status").filter({ hasText: "Open the confirmation link" });
+
+    await expect.element(result).toBeVisible();
+    await expect.element(result).toHaveTextContent("Check your email");
     await expect
-      .element(
-        page.getByText("Open the confirmation link to finish creating your account and log in."),
-      )
-      .toBeVisible();
+      .element(result)
+      .toHaveTextContent("Open the confirmation link to finish creating your account and log in.");
+    await expect.element(page.getByLabelText("Information")).toBeVisible();
+    expect(page.getByRole("link", { name: "local mailbox" }).elements()).toHaveLength(0);
     expect(page.getByLabelText("Email address").elements()).toHaveLength(0);
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
     await expect.element(page.getByRole("link", { name: "Sign up with Google" })).toBeVisible();
@@ -206,9 +210,7 @@ describe("app header account dialog", () => {
 
     await expect
       .element(page.getByRole("alert").filter({ hasText: "could not send" }))
-      .toHaveTextContent(
-        "Your account was created, but we could not send the confirmation email.",
-      );
+      .toHaveTextContent("Your account was created, but we could not send the confirmation email.");
     await expect.element(page.getByLabelText("Error")).toBeVisible();
     await expect
       .element(page.getByRole("button", { name: "Log in to request another link" }))
@@ -235,14 +237,18 @@ describe("app header account dialog", () => {
 
     inertiaMock.respondWithSuccess();
 
+    const result = page.getByRole("status").filter({ hasText: "login link will arrive" });
+
     await expect
-      .element(page.getByText("If your email is in our system, a login link will arrive shortly."))
-      .toBeVisible();
+      .element(result)
+      .toHaveTextContent("If your email is in our system, a login link will arrive shortly.");
+    await expect.element(page.getByLabelText("Information")).toBeVisible();
+    expect(page.getByRole("link", { name: "local mailbox" }).elements()).toHaveLength(0);
     await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
     await expect.element(page.getByRole("button", { name: "Log in", exact: true })).toBeVisible();
   });
 
-  it("shows the local mailbox link when the server marks it available", async () => {
+  it("shows the local mailbox only in successful email notices", async () => {
     inertiaMock.setPage({
       props: {
         auth: {
@@ -250,6 +256,7 @@ describe("app header account dialog", () => {
           local: true,
           prompt: null,
           providers: {
+            apple: { available: false },
             discord: { available: true },
             google: { available: true },
           },
@@ -261,19 +268,36 @@ describe("app header account dialog", () => {
     await page.getByRole("button", { name: "Register", exact: true }).click();
 
     const mailbox = page.getByRole("link", { name: "local mailbox" });
-    const information = page.getByRole("status").filter({ hasText: "Development emails" });
+
+    expect(mailbox.elements()).toHaveLength(0);
+
+    await page.getByLabelText("Email address").fill("player@example.com");
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
+    inertiaMock.respondWithSuccess();
+
+    const registrationResult = page
+      .getByRole("status")
+      .filter({ hasText: "Open the confirmation link" });
 
     await expect.element(mailbox).toBeVisible();
-    await expect
-      .element(information)
-      .toHaveTextContent("Development emails are available in the local mailbox.");
+    await expect.element(registrationResult).toHaveTextContent("Open the local mailbox.");
     await expect.element(page.getByLabelText("Information")).toBeVisible();
     expect(mailbox.element().getAttribute("href")).toBe("/dev/mailbox");
 
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
+    expect(mailbox.elements()).toHaveLength(0);
+
+    await page.getByLabelText("Email address").fill("player@example.com");
+    await page.getByRole("button", { name: "Email me a login link" }).click();
+    inertiaMock.respondWithSuccess();
+
+    const magicLinkResult = page.getByRole("status").filter({ hasText: "login link will arrive" });
+
     await expect.element(mailbox).toBeVisible();
-    await expect.element(information).toBeVisible();
+    await expect.element(magicLinkResult).toHaveTextContent("Open the local mailbox.");
+    await expect.element(page.getByLabelText("Information")).toBeVisible();
+    expect(mailbox.element().getAttribute("href")).toBe("/dev/mailbox");
   });
 
   it("hides the local mailbox link when it is unavailable", async () => {
@@ -347,7 +371,7 @@ describe("app header account dialog", () => {
       .toHaveAttribute("aria-pressed", "false");
   });
 
-  it("shows available Google and Discord links", async () => {
+  it("shows Google and Discord links while Apple is unavailable", async () => {
     renderHeader();
     await page.getByRole("button", { name: "Register" }).click();
 
@@ -366,6 +390,49 @@ describe("app header account dialog", () => {
     assertProviderHidden("Sign in", "Facebook");
   });
 
+  it("shows Apple, Discord, and Google links independently", async () => {
+    inertiaMock.setPage({
+      url: "/games/qwinto?session=table-1",
+      props: {
+        auth: {
+          authenticated: false,
+          local: false,
+          prompt: null,
+          providers: {
+            apple: { available: true },
+            discord: { available: true },
+            google: { available: true },
+          },
+        },
+        errors: {},
+      },
+    });
+    renderHeader();
+    await page.getByRole("button", { name: "Register", exact: true }).click();
+
+    const registrationAppleLink = page.getByRole("link", { name: "Sign up with Apple" });
+    expect(registrationAppleLink.element().getAttribute("href")).toBe(
+      "/auth/apple?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1",
+    );
+    await expect.element(page.getByRole("link", { name: "Sign up with Google" })).toBeVisible();
+    expect(
+      page.getByRole("link", { name: "Sign up with Discord" }).element().getAttribute("href"),
+    ).toBe("/auth/discord?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
+    assertProviderHidden("Sign up", "Facebook");
+
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
+
+    const loginAppleLink = page.getByRole("link", { name: "Sign in with Apple" });
+    expect(loginAppleLink.element().getAttribute("href")).toBe(
+      "/auth/apple?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1",
+    );
+    await expect.element(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+    expect(
+      page.getByRole("link", { name: "Sign in with Discord" }).element().getAttribute("href"),
+    ).toBe("/auth/discord?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
+    assertProviderHidden("Sign in", "Facebook");
+  });
+
   it("hides Google when its credentials are unavailable", async () => {
     inertiaMock.setPage({
       props: {
@@ -374,6 +441,7 @@ describe("app header account dialog", () => {
           local: false,
           prompt: null,
           providers: {
+            apple: { available: false },
             discord: { available: true },
             google: { available: false },
           },
@@ -400,6 +468,7 @@ describe("app header account dialog", () => {
           local: false,
           prompt: null,
           providers: {
+            apple: { available: true },
             discord: { available: false },
             google: { available: true },
           },
@@ -415,6 +484,7 @@ describe("app header account dialog", () => {
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 
     assertProviderHidden("Sign in", "Discord");
+    await expect.element(page.getByRole("link", { name: "Sign in with Apple" })).toBeVisible();
     await expect.element(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
   });
 
@@ -426,6 +496,7 @@ describe("app header account dialog", () => {
           local: false,
           prompt: null,
           providers: {
+            apple: { available: false },
             discord: { available: false },
             google: { available: false },
           },
@@ -454,6 +525,7 @@ describe("app header account dialog", () => {
           local: false,
           prompt: null,
           providers: {
+            apple: { available: false },
             discord: { available: true },
             google: { available: true },
           },
@@ -526,6 +598,7 @@ describe("app header account dialog", () => {
           local: false,
           prompt: null,
           providers: {
+            apple: { available: false },
             discord: { available: true },
             google: { available: true },
           },
@@ -557,6 +630,7 @@ describe("app header account dialog", () => {
           authenticated: false,
           local: false,
           providers: {
+            apple: { available: false },
             discord: { available: true },
             google: { available: true },
           },
@@ -609,6 +683,7 @@ describe("app header account dialog", () => {
           authenticated: true,
           local: false,
           providers: {
+            apple: { available: false },
             discord: { available: true },
             google: { available: true },
           },

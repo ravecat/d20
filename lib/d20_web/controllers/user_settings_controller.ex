@@ -3,17 +3,19 @@ defmodule D20Web.UserSettingsController do
 
   alias D20.Accounts
   alias D20Web.Auth
+  alias D20Web.Auth.Apple
   alias D20Web.Auth.Discord
   alias D20Web.Auth.Google
 
   def edit(conn, _params) do
     user = conn.assigns.current_user
-
     linked_providers = user |> Accounts.list_user_identities() |> MapSet.new(& &1.provider)
+    apple_linked = MapSet.member?(linked_providers, :apple)
     discord_linked = MapSet.member?(linked_providers, :discord)
     google_linked = MapSet.member?(linked_providers, :google)
 
     render_inertia(conn, "account_settings", %{
+      apple: %{available: Apple.available?(), linked: apple_linked},
       discord: %{available: Discord.available?(), linked: discord_linked},
       email: user.email,
       username: user.username,

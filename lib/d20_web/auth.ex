@@ -15,6 +15,7 @@ defmodule D20Web.Auth do
   alias D20.Accounts.Scope
   alias D20.Accounts.User
   alias D20.Actors.Actor
+  alias D20Web.Auth.Apple
   alias D20Web.Auth.Discord
   alias D20Web.Auth.Google
 
@@ -36,6 +37,8 @@ defmodule D20Web.Auth do
   # token. This can be set to a value greater than `@max_cookie_age_in_days` to disable
   # the reissuing of tokens completely.
   @session_reissue_age_in_days 7
+
+  @type prompt_kind :: :info | :warning | :error
 
   @doc """
   Logs the user in.
@@ -114,6 +117,7 @@ defmodule D20Web.Auth do
       local: local_mailbox_available?(),
       prompt: prompt,
       providers: %{
+        apple: %{available: Apple.available?()},
         discord: %{available: Discord.available?()},
         google: %{available: Google.available?()}
       }

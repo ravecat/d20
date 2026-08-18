@@ -8,16 +8,19 @@ const auth = {
   local: false,
   prompt: null,
   providers: {
+    apple: { available: false },
     discord: { available: true },
     google: { available: true },
   },
 };
 const discordUnlinked = { available: true, linked: false };
 const googleUnlinked = { available: true, linked: false };
+const appleUnlinked = { available: true, linked: false };
 
 describe("account settings page", () => {
   it("submits email and password changes as independent Inertia forms", async () => {
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -62,6 +65,7 @@ describe("account settings page", () => {
 
   it("lets an existing account claim a username once", async () => {
     const { unmount } = render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -86,6 +90,7 @@ describe("account settings page", () => {
 
     unmount();
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -99,6 +104,7 @@ describe("account settings page", () => {
 
   it("reports unlinked and linked Google states", () => {
     const { unmount } = render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -107,11 +113,12 @@ describe("account settings page", () => {
     });
 
     expect(screen.getByRole("heading", { name: "Sign-in methods" })).not.toBeNull();
-    expect(screen.getAllByText("Not linked")).toHaveLength(2);
+    expect(screen.getAllByText("Not linked")).toHaveLength(3);
     expect(screen.getByRole("link", { name: "Link Google" })).not.toBeNull();
 
     unmount();
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -125,6 +132,7 @@ describe("account settings page", () => {
 
   it("offers a normal Google linking anchor when unlinked", () => {
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -138,6 +146,7 @@ describe("account settings page", () => {
 
   it("disables Google linking while the provider is unavailable", () => {
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -152,8 +161,35 @@ describe("account settings page", () => {
     ).toBe(true);
   });
 
+  it("reports Apple linking states and uses a normal full-document anchor", () => {
+    const { unmount } = render(AccountSettingsPage, {
+      apple: appleUnlinked,
+      auth,
+      discord: discordUnlinked,
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    const link = screen.getByRole("link", { name: "Link Apple" });
+    expect(link.getAttribute("href")).toBe("/users/settings/auth/apple");
+
+    unmount();
+    render(AccountSettingsPage, {
+      apple: { available: true, linked: true },
+      auth,
+      discord: discordUnlinked,
+      email: "player@example.com",
+      google: googleUnlinked,
+      username: "table_master",
+    });
+
+    expect(screen.queryByRole("link", { name: "Link Apple" })).toBeNull();
+  });
+
   it("reports Discord linking states and uses a normal full-document anchor", () => {
     const { unmount } = render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
@@ -166,6 +202,7 @@ describe("account settings page", () => {
 
     unmount();
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: { available: true, linked: true },
       email: "player@example.com",
@@ -178,6 +215,7 @@ describe("account settings page", () => {
 
   it("disables Discord linking while the provider is unavailable", () => {
     render(AccountSettingsPage, {
+      apple: appleUnlinked,
       auth,
       discord: { available: false, linked: false },
       email: "player@example.com",

@@ -6,7 +6,7 @@
 
   type Submission =
     | { action: string; credential: { type: "magic_link"; token: string } }
-    | { action: string; credential: { type: "server_session" } };
+    | { action: string; credential: { type: "server_session" | "server_cookie" } };
 
   type Props = InertiaProps<{
     cancelAction?: string;

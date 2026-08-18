@@ -37,6 +37,7 @@ defmodule D20.MixProject do
       {:ueberauth, "~> 0.10.8"},
       {:ueberauth_discord, "~> 0.7.0"},
       {:ueberauth_google, "~> 0.12.1"},
+      {:ueberauth_apple, "~> 0.7.0"},
       {:phoenix_vite, "~> 0.4"},
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.5"},

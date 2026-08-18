@@ -3,6 +3,7 @@
   import { Form, usePage } from "@inertiajs/svelte";
   import { useSelector } from "@xstate/store-svelte";
   import { onMount, tick } from "svelte";
+  import appleIconSvg from "~/shared/icons/apple.svg?raw";
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
   import InlineNotification from "./inline_notification.svelte";
@@ -31,6 +32,9 @@
 
   const googleAuthUrl = $derived(
     `/auth/google?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
+  );
+  const appleAuthUrl = $derived(
+    `/auth/apple?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
   );
   const discordAuthUrl = $derived(
     `/auth/discord?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
@@ -106,18 +110,14 @@
         </InlineNotification>
       {/if}
 
-      {#if page.props.auth.local}
-        <InlineNotification kind="info">
-          Development emails are available in the <a href="/dev/mailbox">local mailbox</a>.
-        </InlineNotification>
-      {/if}
-
       {#if $authState.mode === "register"}
         {#if $authState.registrationCompleted}
-          <div class="auth-panel__result" role="status" aria-live="polite">
-            <p class="auth-panel__result-title">Check your email</p>
-            <p>Open the confirmation link to finish creating your account and log in.</p>
-          </div>
+          <InlineNotification kind="info">
+            Check your email. Open the confirmation link to finish creating your account and log in.
+            {#if page.props.auth.local}
+              Open the <a href="/dev/mailbox">local mailbox</a>.
+            {/if}
+          </InlineNotification>
         {:else}
           <Form
             class="auth-form"
@@ -144,7 +144,9 @@
                   autofocus
                   value={$authState.email}
                   oninput={(event) =>
-                    auth.trigger.updateEmail({ email: event.currentTarget.value })}
+                    auth.trigger.updateEmail({
+                      email: event.currentTarget.value,
+                    })}
                   id="auth-dialog-registration-email"
                   name="user[email]"
                   type="email"
@@ -189,7 +191,9 @@
         {/if}
 
         {#if hasAvailableProvider}
-          <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
+          <div class="auth-panel__separator" aria-hidden="true">
+            <span>or</span>
+          </div>
 
           <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
           <div class="auth-providers" aria-label="Other registration methods">
@@ -199,6 +203,13 @@
               googleIconSvg,
               page.props.auth.providers.google.available,
               googleAuthUrl,
+            )}
+            {@render provider(
+              "Sign up",
+              "Apple",
+              appleIconSvg,
+              page.props.auth.providers.apple.available,
+              appleAuthUrl,
             )}
             {@render provider(
               "Sign up",
@@ -218,10 +229,12 @@
       {:else}
         <section class="auth-method" aria-label="Magic link login">
           {#if $authState.magicLinkCompleted}
-            <div class="auth-panel__result" role="status" aria-live="polite">
-              <p class="auth-panel__result-title">Check your email</p>
-              <p>If your email is in our system, a login link will arrive shortly.</p>
-            </div>
+            <InlineNotification kind="info">
+              Check your email. If your email is in our system, a login link will arrive shortly.
+              {#if page.props.auth.local}
+                Open the <a href="/dev/mailbox">local mailbox</a>.
+              {/if}
+            </InlineNotification>
           {:else}
             <Form
               class="auth-form"
@@ -248,7 +261,9 @@
                     autofocus
                     value={$authState.email}
                     oninput={(event) =>
-                      auth.trigger.updateEmail({ email: event.currentTarget.value })}
+                      auth.trigger.updateEmail({
+                        email: event.currentTarget.value,
+                      })}
                     id="auth-dialog-magic-link-email"
                     name="user[email]"
                     type="email"
@@ -283,7 +298,9 @@
           {/if}
         </section>
 
-        <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
+        <div class="auth-panel__separator" aria-hidden="true">
+          <span>or</span>
+        </div>
 
         <section class="auth-method" aria-label="Password login">
           <Form class="auth-form" method="post" action="/users/log-in" disableWhileProcessing>
@@ -302,7 +319,9 @@
                 <input
                   value={$authState.identifier}
                   oninput={(event) =>
-                    auth.trigger.updateIdentifier({ identifier: event.currentTarget.value })}
+                    auth.trigger.updateIdentifier({
+                      identifier: event.currentTarget.value,
+                    })}
                   id="auth-dialog-password-login-identifier"
                   name="user[identifier]"
                   type="text"
@@ -371,7 +390,9 @@
 
         {#if !$authState.prompt?.reauthenticate}
           {#if hasAvailableProvider}
-            <div class="auth-panel__separator" aria-hidden="true"><span>or</span></div>
+            <div class="auth-panel__separator" aria-hidden="true">
+              <span>or</span>
+            </div>
 
             <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
             <div class="auth-providers" aria-label="Other login methods">
@@ -381,6 +402,13 @@
                 googleIconSvg,
                 page.props.auth.providers.google.available,
                 googleAuthUrl,
+              )}
+              {@render provider(
+                "Sign in",
+                "Apple",
+                appleIconSvg,
+                page.props.auth.providers.apple.available,
+                appleAuthUrl,
               )}
               {@render provider(
                 "Sign in",
@@ -685,25 +713,6 @@
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
     font-size: 0.8rem;
     text-align: center;
-  }
-
-  .auth-panel__result {
-    display: grid;
-    gap: 0.55rem;
-    border: var(--border) solid color-mix(in oklab, var(--color-success) 58%, transparent);
-    border-radius: var(--radius-field);
-    background: color-mix(in oklab, var(--color-success) 10%, transparent);
-    padding: 0.9rem;
-    line-height: 1.45;
-  }
-
-  .auth-panel__result p {
-    margin: 0;
-  }
-
-  .auth-panel__result-title {
-    color: var(--color-success);
-    font-weight: 800;
   }
 
   .auth-panel__sr-only {

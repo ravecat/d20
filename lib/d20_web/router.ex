@@ -28,6 +28,17 @@ defmodule D20Web.Router do
     plug :put_secure_browser_headers
   end
 
+  pipeline :apple do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_secure_browser_headers
+  end
+
+  pipeline :apple_link_result do
+    plug D20Web.Auth.Apple, :link_result
+  end
+
   pipeline :modules do
     plug :put_module_cors_headers
     plug :accepts, ["json"]
@@ -80,6 +91,7 @@ defmodule D20Web.Router do
   scope "/", D20Web do
     pipe_through [:inertia]
 
+    get "/auth/apple", Auth.AppleController, :request
     get "/auth/discord", Auth.DiscordController, :request
     get "/auth/discord/callback", Auth.DiscordController, :callback
     get "/auth/google", Auth.GoogleController, :request
@@ -87,8 +99,17 @@ defmodule D20Web.Router do
   end
 
   scope "/", D20Web do
+    pipe_through [:apple]
+
+    post "/auth/apple/callback", Auth.AppleController, :callback
+  end
+
+  scope "/", D20Web do
     pipe_through [:inertia, :redirect_if_user_is_authenticated]
 
+    get "/auth/apple/register", Auth.AppleController, :registration
+    post "/auth/apple/register", Auth.AppleController, :complete_registration
+    post "/auth/apple/register/cancel", Auth.AppleController, :cancel_registration
     get "/auth/discord/register", Auth.DiscordController, :registration
     post "/auth/discord/register", Auth.DiscordController, :complete_registration
     post "/auth/discord/register/cancel", Auth.DiscordController, :cancel_registration
@@ -104,11 +125,12 @@ defmodule D20Web.Router do
   end
 
   scope "/", D20Web do
-    pipe_through [:inertia, :require_authenticated_user, :require_sudo_mode]
+    pipe_through [:inertia, :require_authenticated_user, :require_sudo_mode, :apple_link_result]
 
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
     get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
+    get "/users/settings/auth/apple", Auth.AppleController, :link
     get "/users/settings/auth/discord", Auth.DiscordController, :link
     get "/users/settings/auth/google", Auth.GoogleController, :link
   end
