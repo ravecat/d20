@@ -1,4 +1,6 @@
 import type { StorybookConfig } from "@storybook/svelte-vite";
+import { fileURLToPath } from "node:url";
+import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   stories: ["../stories/**/*.stories.ts"],
@@ -10,6 +12,16 @@ const config: StorybookConfig = {
   features: {
     sidebarOnboardingChecklist: false,
   },
+  viteFinal: async (config) =>
+    mergeConfig(config, {
+      resolve: {
+        alias: {
+          "@inertiajs/svelte": fileURLToPath(
+            new URL("../stories/mocks/inertia_svelte.ts", import.meta.url),
+          ),
+        },
+      },
+    }),
 };
 
 export default config;

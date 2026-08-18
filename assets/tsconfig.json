@@ -29,6 +29,7 @@
     "js/**/*.js",
     "js/**/*.svelte",
     "stories/**/*.ts",
+    "stories/**/*.svelte",
     "tests/**/*.ts",
     "tests/**/*.svelte",
     "vite.config.mjs"
