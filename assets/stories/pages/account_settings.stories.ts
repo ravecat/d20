@@ -49,3 +49,21 @@ export const ClaimUsername: Story = {
     username: null,
   },
 };
+
+export const NoAvailableProviders: Story = {
+  args: {
+    auth: {
+      authenticated: true,
+      local: false,
+      prompt: null,
+      providers: {
+        apple: { available: false },
+        discord: { available: false },
+        google: { available: false },
+      },
+    },
+    apple: { available: false, linked: false },
+    discord: { available: false, linked: true },
+    google: { available: false, linked: false },
+  },
+};

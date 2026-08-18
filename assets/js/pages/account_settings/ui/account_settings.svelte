@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { FormComponentSlotProps } from "@inertiajs/core";
   import { Form } from "@inertiajs/svelte";
+  import appleIconSvg from "~/shared/icons/apple.svg?raw";
+  import discordIconSvg from "~/shared/icons/discord.svg?raw";
+  import googleIconSvg from "~/shared/icons/google.svg?raw";
 
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;
 
@@ -22,6 +25,32 @@
   }>;
 
   const { apple, discord, email, google, username }: Props = $props();
+
+  const availableProviders = $derived(
+    [
+      {
+        id: "google",
+        name: "Google",
+        iconSvg: googleIconSvg,
+        href: "/users/settings/auth/google",
+        ...google,
+      },
+      {
+        id: "apple",
+        name: "Apple",
+        iconSvg: appleIconSvg,
+        href: "/users/settings/auth/apple",
+        ...apple,
+      },
+      {
+        id: "discord",
+        name: "Discord",
+        iconSvg: discordIconSvg,
+        href: "/users/settings/auth/discord",
+        ...discord,
+      },
+    ].filter(({ available }) => available),
+  );
 </script>
 
 <svelte:head>
@@ -34,81 +63,45 @@
     <p>Manage the username, email address, and password used by your D20 account.</p>
   </header>
 
-  <section class="settings-card" aria-labelledby="sign-in-methods-title">
-    <div>
-      <h2 id="sign-in-methods-title">Sign-in methods</h2>
-      <p>Choose how you securely access your D20 account.</p>
-    </div>
-
-    <div class="settings-method">
+  {#if availableProviders.length > 0}
+    <section class="settings-card settings-card--providers" aria-labelledby="sign-in-methods-title">
       <div>
-        <p class="settings-method__name">Google</p>
-        <p class="settings-method__status">
-          {google.linked
-            ? google.available
-              ? "Linked"
-              : "Linked - unavailable"
-            : google.available
-              ? "Not linked"
-              : "Unavailable"}
-        </p>
+        <h2 id="sign-in-methods-title">Sign-in methods</h2>
+        <p>Choose how you securely access your D20 account.</p>
       </div>
 
-      {#if !google.linked && google.available}
-        <a class="settings-method__action" href="/users/settings/auth/google">Link Google</a>
-      {:else if !google.linked}
-        <button class="settings-method__action" type="button" disabled>Link Google</button>
-      {/if}
-    </div>
+      <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
+      <ul class="settings-providers">
+        {#each availableProviders as provider (provider.id)}
+          <li class="settings-provider">
+            <span class="settings-provider__identity">
+              <span class="settings-provider__icon" aria-hidden="true">
+                {@html provider.iconSvg}
+              </span>
+              <span class="settings-provider__name">{provider.name}</span>
+            </span>
 
-    <div class="settings-method">
-      <div>
-        <p class="settings-method__name">Apple</p>
-        <p class="settings-method__status">
-          {apple.linked
-            ? apple.available
-              ? "Linked"
-              : "Linked - unavailable"
-            : apple.available
-              ? "Not linked"
-              : "Unavailable"}
-        </p>
-      </div>
-
-      {#if !apple.linked && apple.available}
-        <a class="settings-method__action" href="/users/settings/auth/apple">Link Apple</a>
-      {:else if !apple.linked}
-        <button class="settings-method__action" type="button" disabled>Link Apple</button>
-      {/if}
-    </div>
-
-    <div class="settings-method">
-      <div>
-        <p class="settings-method__name">Discord</p>
-        <p class="settings-method__status">
-          {discord.linked
-            ? discord.available
-              ? "Linked"
-              : "Linked - unavailable"
-            : discord.available
-              ? "Not linked"
-              : "Unavailable"}
-        </p>
-      </div>
-
-      {#if !discord.linked && discord.available}
-        <a class="settings-method__action" href="/users/settings/auth/discord">Link Discord</a>
-      {:else if !discord.linked}
-        <button class="settings-method__action" type="button" disabled>Link Discord</button>
-      {/if}
-    </div>
-  </section>
+            {#if provider.linked}
+              <span class="settings-provider__state settings-provider__linked">Linked</span>
+            {:else}
+              <a
+                class="settings-provider__state settings-provider__action"
+                href={provider.href}
+                aria-label={`Link ${provider.name}`}>Link</a
+              >
+            {/if}
+          </li>
+        {/each}
+      </ul>
+      <!-- eslint-enable svelte/no-at-html-tags -->
+    </section>
+  {/if}
 
   <section class="settings-card" aria-labelledby="username-settings-title">
     <div>
       <h2 id="username-settings-title">Username</h2>
       {#if username}
-        <p>Your username identifies you to other D20 players and cannot be changed.</p>
+        <p>Your username identifies you to other D20 players.</p>
       {:else}
         <p>Choose the permanent username other D20 players will see.</p>
       {/if}
@@ -263,13 +256,16 @@
 
 <style>
   .settings-page {
+    --settings-control-block-size: 2.5rem;
+
     display: grid;
     box-sizing: border-box;
-    inline-size: min(100%, 46rem);
+    inline-size: 100%;
     min-block-size: 100%;
     margin-inline: auto;
     padding: 2rem 1rem;
     gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .settings-page__header,
@@ -298,6 +294,8 @@
 
   .settings-card {
     display: grid;
+    min-inline-size: 0;
+    align-content: start;
     gap: 1rem;
     border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, transparent);
     border-radius: var(--radius-box);
@@ -317,46 +315,80 @@
     font-weight: 700;
   }
 
-  .settings-method {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .settings-method > div {
+  .settings-providers {
     display: grid;
-    gap: 0.2rem;
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    margin: 0;
+    padding: 0;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    list-style: none;
   }
 
-  .settings-method__name {
-    font-weight: 700;
+  .settings-provider {
+    display: grid;
+    inline-size: 20rem;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    block-size: var(--settings-control-block-size);
+    align-items: stretch;
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) 4.75rem;
   }
 
-  .settings-method__status {
-    color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
-    font-size: 0.85rem;
-  }
-
-  .settings-method__action {
-    display: inline-grid;
-    min-block-size: 2.75rem;
-    place-items: center;
-    border: 0;
+  .settings-provider__identity {
+    display: inline-flex;
+    box-sizing: border-box;
+    min-inline-size: 0;
+    block-size: 100%;
+    align-items: center;
+    gap: 0.65rem;
+    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 16%, transparent);
     border-radius: var(--radius-field);
-    background: var(--color-primary);
-    padding-inline: 1rem;
-    color: var(--color-primary-content);
-    font: inherit;
+    background: var(--color-base-200);
+    padding-inline: 0.75rem;
+  }
+
+  .settings-provider__icon {
+    display: inline-flex;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    flex: none;
+  }
+
+  .settings-provider__name {
+    overflow-wrap: anywhere;
     font-weight: 700;
+  }
+
+  .settings-provider__state {
+    display: grid;
+    box-sizing: border-box;
+    inline-size: 4.75rem;
+    block-size: 100%;
+    place-items: center;
+    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 16%, transparent);
+    border-radius: var(--radius-field);
+    background: var(--color-base-200);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .settings-provider__linked {
+    color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  }
+
+  .settings-provider__action {
+    border-color: color-mix(in oklab, var(--color-primary) 72%, transparent);
+    background: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-200));
+    color: var(--color-base-content);
     text-decoration: none;
     cursor: pointer;
   }
 
-  .settings-method__action:disabled {
-    background: var(--color-base-200);
-    color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
-    cursor: not-allowed;
+  .settings-provider__action:hover {
+    background: color-mix(in oklab, var(--color-primary) 22%, var(--color-base-200));
   }
 
   :global(.settings-form) {
@@ -382,7 +414,7 @@
   .settings-form__field input {
     box-sizing: border-box;
     inline-size: 100%;
-    min-block-size: 3rem;
+    block-size: var(--settings-control-block-size);
     border: var(--border) solid color-mix(in oklab, var(--color-base-content) 28%, transparent);
     border-radius: var(--radius-field);
     background: var(--color-base-200);
@@ -404,7 +436,8 @@
   }
 
   :global(.settings-form button) {
-    min-block-size: 3rem;
+    box-sizing: border-box;
+    block-size: var(--settings-control-block-size);
     border: 0;
     border-radius: var(--radius-field);
     background: var(--color-primary);
@@ -434,6 +467,23 @@
     outline-offset: 0.1875rem;
   }
 
+  @media (min-width: 48rem) {
+    .settings-page {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .settings-page__header,
+    .settings-card--providers {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .settings-page {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
   @media (max-width: 34rem) {
     .settings-page {
       padding: 1rem 0.5rem;
@@ -441,6 +491,11 @@
 
     .settings-card {
       padding: 1rem;
+    }
+
+    .settings-providers {
+      inline-size: min(100%, 20rem);
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

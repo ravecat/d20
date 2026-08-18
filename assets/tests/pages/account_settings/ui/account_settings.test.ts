@@ -99,10 +99,12 @@ describe("account settings page", () => {
     });
 
     expect(screen.getByText("table_master")).not.toBeNull();
+    expect(screen.getByText("Your username identifies you to other D20 players.")).not.toBeNull();
+    expect(screen.queryByText(/cannot be changed/i)).toBeNull();
     expect(screen.queryByRole("button", { name: "Save username" })).toBeNull();
   });
 
-  it("reports unlinked and linked Google states", () => {
+  it("switches between the Google Link action and Linked text without secondary status copy", () => {
     const { unmount } = render(AccountSettingsPage, {
       apple: appleUnlinked,
       auth,
@@ -113,7 +115,8 @@ describe("account settings page", () => {
     });
 
     expect(screen.getByRole("heading", { name: "Sign-in methods" })).not.toBeNull();
-    expect(screen.getAllByText("Not linked")).toHaveLength(3);
+    expect(screen.getByText("Google")).not.toBeNull();
+    expect(screen.queryByText("Not linked")).toBeNull();
     expect(screen.getByRole("link", { name: "Link Google" })).not.toBeNull();
 
     unmount();
@@ -127,6 +130,7 @@ describe("account settings page", () => {
     });
 
     expect(screen.getByText("Linked")).not.toBeNull();
+    expect(screen.queryByText("Not linked")).toBeNull();
     expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
   });
 
@@ -144,21 +148,19 @@ describe("account settings page", () => {
     expect(link.getAttribute("href")).toBe("/users/settings/auth/google");
   });
 
-  it("disables Google linking while the provider is unavailable", () => {
+  it("omits Google while the provider is unavailable", () => {
     render(AccountSettingsPage, {
       apple: appleUnlinked,
       auth,
       discord: discordUnlinked,
       email: "player@example.com",
-      google: { available: false, linked: false },
+      google: { available: false, linked: true },
       username: "table_master",
     });
 
-    expect(screen.getByText("Unavailable")).not.toBeNull();
+    expect(screen.queryByText("Google")).toBeNull();
+    expect(screen.queryByText("Unavailable")).toBeNull();
     expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
-    expect(
-      (screen.getByRole("button", { name: "Link Google" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
   });
 
   it("reports Apple linking states and uses a normal full-document anchor", () => {
@@ -213,19 +215,34 @@ describe("account settings page", () => {
     expect(screen.queryByRole("link", { name: "Link Discord" })).toBeNull();
   });
 
-  it("disables Discord linking while the provider is unavailable", () => {
+  it("omits Discord while the provider is unavailable", () => {
     render(AccountSettingsPage, {
       apple: appleUnlinked,
       auth,
-      discord: { available: false, linked: false },
+      discord: { available: false, linked: true },
       email: "player@example.com",
       google: googleUnlinked,
       username: "table_master",
     });
 
+    expect(screen.queryByText("Discord")).toBeNull();
+    expect(screen.queryByText("Unavailable")).toBeNull();
     expect(screen.queryByRole("link", { name: "Link Discord" })).toBeNull();
-    expect(
-      (screen.getByRole("button", { name: "Link Discord" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+  });
+
+  it("omits Sign-in methods when every provider is unavailable", () => {
+    render(AccountSettingsPage, {
+      apple: { available: false, linked: false },
+      auth,
+      discord: { available: false, linked: true },
+      email: "player@example.com",
+      google: { available: false, linked: false },
+      username: "table_master",
+    });
+
+    expect(screen.queryByRole("heading", { name: "Sign-in methods" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Username" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Email address" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Password" })).not.toBeNull();
   });
 });
