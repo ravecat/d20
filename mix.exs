@@ -106,6 +106,7 @@ defmodule D20.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "format.check": ["format --check-formatted"],
+      "openspec.check": ["compile", "openspec.check.run"],
       "assets.setup": ["bun.install --if-missing", "bun assets install"],
       "assets.format": ["bun assets run format"],
       "assets.format.check": ["bun assets run format.check"],

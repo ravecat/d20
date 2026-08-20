@@ -29,3 +29,4 @@ None.
 - Local process ownership for Docker Compose, Watchexec, IEx/Phoenix, and Storybook.
 - No production runtime, database migration, public API, session behavior, persistence contract, or iframe module contract changes.
 - Phoenix and Storybook require separate foreground commands until a parallel supervisor is selected.
+- Tracks [GitHub issue #212](https://github.com/ravecat/d20/issues/212).

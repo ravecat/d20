@@ -180,6 +180,28 @@ The project exposes four composite `just` workflows, a standalone Storybook entr
 | `just assets <script> [args...]` | Run a Bun package script at the asset level from the `assets/` directory.  |
 | `just assets storybook:build`    | Build the static Storybook catalog for validation.                         |
 
+## OpenSpec Change Completion
+
+Every active change under `openspec/changes/` must link its owning GitHub Issue with a full Issue URL in `proposal.md`. Keep the Issue and Project status aligned with the remaining delivery work.
+
+Run the read-only lifecycle check locally with:
+
+```sh
+mix openspec.check
+```
+
+The command runs strict non-interactive validation, fails when an active change is complete but unarchived, and identifies active proposals without an Issue link. It never edits specifications, task lists, archives, or GitHub state. `just check` includes the same lifecycle check.
+
+Complete an OpenSpec-backed change in this order:
+
+1. Finish every implementation, test, migration, deployment, rollback, and manual-verification task required by the change.
+2. Update the owning Issue acceptance criteria and record the relevant completion evidence.
+3. Compare each delta specification with its authoritative file under `openspec/specs/` and synchronize every applicable requirement.
+4. Archive the complete proposal, design, delta specifications, and task history under the date-prefixed `openspec/changes/archive/` path.
+5. Run `mix openspec.check` and confirm the archived change no longer appears in `openspec list --json`.
+
+Do not infer completion from age. When deployment, migration, rollback, external coordination, or manual verification remains outstanding, keep the change active, leave the corresponding task unchecked, and record the reason beside that task. Do not archive it merely to make the active list shorter.
+
 ## License
 
 Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (`AGPL-3.0-or-later`).

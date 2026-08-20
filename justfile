@@ -44,6 +44,7 @@ format:
 
 check:
     mix format.check
+    mix openspec.check
     mix assets.format.check
     mix assets.lint
     mix assets.test

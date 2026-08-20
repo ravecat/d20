@@ -31,3 +31,4 @@ None.
 - No session, persistence, or iframe module contract changes.
 - No new dependencies or migrations.
 - Rollback is limited to restoring the previous component styles and D20 sizing implementation, removing the developer routes and page, and restoring the previous footer link.
+- The CSS scroll timeline correction is tracked by [GitHub issue #85](https://github.com/ravecat/d20/issues/85), and its remaining lifecycle reconciliation is tracked by [GitHub issue #153](https://github.com/ravecat/d20/issues/153).

@@ -46,5 +46,5 @@
 - [x] 6.2 Run targeted frontend tests or type checks for changed `/games` and `/games/:slug` props/components.
 - [x] 6.3 Run `mix format --check-formatted` for Elixir changes.
 - [x] 6.4 Run `just test` after targeted tests pass.
-- [ ] 6.5 Run broader `just check` if frontend or cross-cutting behavior changed beyond targeted coverage.
-  - Blocked: `just check` currently fails in `mix format.check` on existing formatting in `test/d20/qwinto/game_test.exs`, which is outside this change.
+- [x] 6.5 Run broader `just check` if frontend or cross-cutting behavior changed beyond targeted coverage.
+  - Verified on 2026-08-20: `just check` passed with 124 frontend tests, 632 backend tests, clean formatting, lint, type diagnostics, Storybook build, and OpenSpec lifecycle validation.

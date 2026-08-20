@@ -34,3 +34,4 @@ Playable games are currently described across multiple places: mocked metadata i
 - No route contract change is intended; `/games/:slug` remains the public game URL.
 - Runtime compatibility risk: synchronous BGG metadata resolution means `/games` catalog and `/games/:slug` rendering depend on resolvable BGG metadata unless caching or asynchronous loading is added later.
 - Rollback impact: the previous mock metadata and module manifest lookup can be restored if the registry introduces resolution regressions.
+- Completion and archival of this historical change are tracked by [GitHub issue #153](https://github.com/ravecat/d20/issues/153).
