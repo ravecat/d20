@@ -8,9 +8,7 @@ $RECYCLE.BIN/
 ._*
 
 # Editors and IDEs
-/.vscode/*
-!/.vscode/extensions.json
-!/.vscode/settings.json
+/.vscode/
 /.idea/
 /.codex
 .codex
