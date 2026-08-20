@@ -27,7 +27,7 @@ export const auth = createStore<
 >({
   context: {
     open: false,
-    mode: "register",
+    mode: "login",
     email: "",
     identifier: "",
     prompt: null,
@@ -37,7 +37,7 @@ export const auth = createStore<
   on: {
     open: (_context, event) => ({
       open: true,
-      mode: event.prompt ? "login" : "register",
+      mode: "login",
       email: event.prompt?.email ?? "",
       identifier: event.prompt?.email ?? "",
       prompt: event.prompt ?? null,
@@ -69,7 +69,7 @@ export const auth = createStore<
     }),
     close: () => ({
       open: false,
-      mode: "register",
+      mode: "login",
       email: "",
       identifier: "",
       prompt: null,
@@ -78,7 +78,7 @@ export const auth = createStore<
     }),
     reset: () => ({
       open: false,
-      mode: "register",
+      mode: "login",
       email: "",
       identifier: "",
       prompt: null,

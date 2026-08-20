@@ -14,7 +14,7 @@ beforeEach(() => {
 });
 
 describe("auth store", () => {
-  it("opens a clean registration dialog", () => {
+  it("opens a clean login dialog", () => {
     auth.trigger.open({ prompt });
     auth.trigger.magicLinkSucceeded();
 
@@ -22,7 +22,7 @@ describe("auth store", () => {
 
     expect(auth.get().context).toEqual({
       open: true,
-      mode: "register",
+      mode: "login",
       email: "",
       identifier: "",
       prompt: null,
@@ -70,7 +70,7 @@ describe("auth store", () => {
 
     expect(auth.get().context).toEqual({
       open: false,
-      mode: "register",
+      mode: "login",
       email: "",
       identifier: "",
       prompt: null,

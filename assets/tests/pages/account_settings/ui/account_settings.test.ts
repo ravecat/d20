@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/svelte";
+import type { ComponentProps } from "svelte";
 import { describe, expect, it } from "vitest";
 import { AccountSettingsPage } from "~/pages/account_settings";
 import inertiaMock from "../../../mocks/inertia";
@@ -13,18 +14,37 @@ const auth = {
     google: { available: true },
   },
 };
-const discordUnlinked = { available: true, linked: false };
-const googleUnlinked = { available: true, linked: false };
-const appleUnlinked = { available: true, linked: false };
+
+const providers = [
+  {
+    available: true,
+    href: "/users/settings/auth/google",
+    id: "google",
+    linked: false,
+    name: "Google",
+  },
+  {
+    available: true,
+    href: "/users/settings/auth/apple",
+    id: "apple",
+    linked: false,
+    name: "Apple",
+  },
+  {
+    available: true,
+    href: "/users/settings/auth/discord",
+    id: "discord",
+    linked: false,
+    name: "Discord",
+  },
+] satisfies ComponentProps<typeof AccountSettingsPage>["providers"];
 
 describe("account settings page", () => {
   it("submits email and password changes as independent Inertia forms", async () => {
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers,
       username: "table_master",
     });
 
@@ -65,11 +85,9 @@ describe("account settings page", () => {
 
   it("displays the account username without an edit action", () => {
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers,
       username: "table_master",
     });
 
@@ -81,11 +99,9 @@ describe("account settings page", () => {
 
   it("switches between the Google Link action and Linked text without secondary status copy", () => {
     const { unmount } = render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers,
       username: "table_master",
     });
 
@@ -96,11 +112,11 @@ describe("account settings page", () => {
 
     unmount();
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: { available: true, linked: true },
+      providers: providers.map((provider) =>
+        provider.id === "google" ? { ...provider, linked: true } : provider,
+      ),
       username: "table_master",
     });
 
@@ -109,27 +125,27 @@ describe("account settings page", () => {
     expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
   });
 
-  it("offers a normal Google linking anchor when unlinked", () => {
+  it("uses the server-provided Google linking URL", () => {
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers: providers.map((provider) =>
+        provider.id === "google" ? { ...provider, href: "/server-provided/google-link" } : provider,
+      ),
       username: "table_master",
     });
 
     const link = screen.getByRole("link", { name: "Link Google" });
-    expect(link.getAttribute("href")).toBe("/users/settings/auth/google");
+    expect(link.getAttribute("href")).toBe("/server-provided/google-link");
   });
 
   it("omits Google while the provider is unavailable", () => {
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: { available: false, linked: true },
+      providers: providers.map((provider) =>
+        provider.id === "google" ? { ...provider, available: false, linked: true } : provider,
+      ),
       username: "table_master",
     });
 
@@ -140,11 +156,9 @@ describe("account settings page", () => {
 
   it("reports Apple linking states and uses a normal full-document anchor", () => {
     const { unmount } = render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers,
       username: "table_master",
     });
 
@@ -153,11 +167,11 @@ describe("account settings page", () => {
 
     unmount();
     render(AccountSettingsPage, {
-      apple: { available: true, linked: true },
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers: providers.map((provider) =>
+        provider.id === "apple" ? { ...provider, linked: true } : provider,
+      ),
       username: "table_master",
     });
 
@@ -166,11 +180,9 @@ describe("account settings page", () => {
 
   it("reports Discord linking states and uses a normal full-document anchor", () => {
     const { unmount } = render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: discordUnlinked,
       email: "player@example.com",
-      google: googleUnlinked,
+      providers,
       username: "table_master",
     });
 
@@ -179,11 +191,11 @@ describe("account settings page", () => {
 
     unmount();
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: { available: true, linked: true },
       email: "player@example.com",
-      google: googleUnlinked,
+      providers: providers.map((provider) =>
+        provider.id === "discord" ? { ...provider, linked: true } : provider,
+      ),
       username: "table_master",
     });
 
@@ -192,11 +204,11 @@ describe("account settings page", () => {
 
   it("omits Discord while the provider is unavailable", () => {
     render(AccountSettingsPage, {
-      apple: appleUnlinked,
       auth,
-      discord: { available: false, linked: true },
       email: "player@example.com",
-      google: googleUnlinked,
+      providers: providers.map((provider) =>
+        provider.id === "discord" ? { ...provider, available: false, linked: true } : provider,
+      ),
       username: "table_master",
     });
 
@@ -207,11 +219,13 @@ describe("account settings page", () => {
 
   it("omits Sign-in methods when every provider is unavailable", () => {
     render(AccountSettingsPage, {
-      apple: { available: false, linked: false },
       auth,
-      discord: { available: false, linked: true },
       email: "player@example.com",
-      google: { available: false, linked: false },
+      providers: providers.map((provider) => ({
+        ...provider,
+        available: false,
+        linked: provider.id === "discord",
+      })),
       username: "table_master",
     });
 

@@ -57,8 +57,8 @@
       </nav>
     {:else}
       <nav class="header__actions" aria-label="Account">
-        <button class="header__register" type="button" onclick={() => auth.trigger.open()}>
-          Register
+        <button class="header__login" type="button" onclick={() => auth.trigger.open()}>
+          Log in
         </button>
       </nav>
     {/if}
@@ -106,7 +106,7 @@
     align-items: center;
   }
 
-  .header__register {
+  .header__login {
     min-block-size: 2.5rem;
     border: 0;
     border-radius: var(--radius-field);
@@ -183,7 +183,7 @@
     text-underline-offset: 0.35em;
   }
 
-  .header__register:focus-visible {
+  .header__login:focus-visible {
     outline: 0.1875rem solid var(--color-primary);
     outline-offset: 0.1875rem;
   }
@@ -239,8 +239,8 @@
       animation-range: 0px 24px;
     }
 
-    .header__register {
-      animation: compact-header-register auto linear both;
+    .header__login {
+      animation: compact-header-login auto linear both;
       animation-timeline: --app-shell-scroll;
       animation-range: 0px 24px;
     }
@@ -250,7 +250,7 @@
       .brand,
       .brand__mark,
       .brand__label,
-      .header__register {
+      .header__login {
         animation: none;
       }
     }
@@ -282,7 +282,7 @@
     }
   }
 
-  @keyframes compact-header-register {
+  @keyframes compact-header-login {
     to {
       min-block-size: 2rem;
     }

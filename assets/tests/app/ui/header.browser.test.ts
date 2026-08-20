@@ -35,83 +35,69 @@ afterEach(async () => {
 });
 
 describe("app header account dialog", () => {
-  it("switches modes without navigation, preserves email, and closes on Escape", async () => {
+  it("opens Login by default, switches modes without navigation, and closes on Escape", async () => {
     renderHeader();
 
-    const register = page.getByRole("button", { name: "Register", exact: true });
-    await register.click();
+    const login = page
+      .getByRole("navigation", { name: "Account" })
+      .getByRole("button", { name: "Log in", exact: true });
+    await login.click();
 
-    const registerDialog = page.getByRole("dialog", { name: "Create your free account" });
-    const dialogElement = registerDialog.element() as HTMLDialogElement;
-    const registrationEmail = page.getByLabelText("Email address");
+    const loginDialog = page.getByRole("dialog", { name: "Log in" });
+    const dialogElement = loginDialog.element() as HTMLDialogElement;
+    const loginEmail = page.getByLabelText("Email address");
+    const loginIdentifier = page.getByLabelText("Username or email");
     const sharedIntroduction = page.getByText(
       "Save your game history and achievements. Share game sessions across devices and watch replays of completed games.",
     );
 
-    await expect.element(registerDialog).toBeVisible();
-    await expect.element(sharedIntroduction).toBeVisible();
-    expect((registrationEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
-    expect(registrationEmail.element().hasAttribute("autofocus")).toBe(true);
-    await expect.poll(() => document.activeElement).toBe(registrationEmail.element());
-
-    await registrationEmail.fill("player@example.com");
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
-
-    const loginDialog = page.getByRole("dialog", { name: "Log in" });
-    const loginEmail = page.getByLabelText("Email address");
-    const loginIdentifier = page.getByLabelText("Username or email");
-
     await expect.element(loginDialog).toBeVisible();
     await expect.element(sharedIntroduction).toBeVisible();
-    expect(page.getByRole("heading", { name: "Magic Link" }).elements()).toHaveLength(0);
-    expect(page.getByRole("heading", { name: "Password login" }).elements()).toHaveLength(0);
+    expect(page.getByRole("button", { name: "Register", exact: true }).elements()).toHaveLength(0);
     expect((loginEmail.element() as HTMLInputElement).placeholder).toBe("Email address");
     expect((loginIdentifier.element() as HTMLInputElement).placeholder).toBe("Username or email");
     expect(
       (page.getByLabelText("Password", { exact: true }).element() as HTMLInputElement).placeholder,
     ).toBe("Password");
-    expect((loginEmail.element() as HTMLInputElement).value).toBe("player@example.com");
-    expect((loginIdentifier.element() as HTMLInputElement).value).toBe("player@example.com");
     expect(loginEmail.element().hasAttribute("autofocus")).toBe(true);
     expect(loginIdentifier.element().hasAttribute("autofocus")).toBe(false);
     await expect.poll(() => document.activeElement).toBe(loginEmail.element());
-    expect(
-      page.getByRole("button", { name: "Create account", exact: true }).elements(),
-    ).toHaveLength(1);
 
+    await loginEmail.fill("player@example.com");
     await page.getByRole("button", { name: "Create account", exact: true }).click();
 
-    const switchedRegistrationEmail = page.getByLabelText("Email address");
+    const registerDialog = page.getByRole("dialog", { name: "Create your free account" });
+    const registrationEmail = page.getByLabelText("Email address");
 
-    await expect
-      .element(page.getByRole("dialog", { name: "Create your free account" }))
-      .toBeVisible();
-    expect((switchedRegistrationEmail.element() as HTMLInputElement).value).toBe(
+    await expect.element(registerDialog).toBeVisible();
+    expect((registrationEmail.element() as HTMLInputElement).value).toBe("player@example.com");
+    await expect.poll(() => document.activeElement).toBe(registrationEmail.element());
+
+    await registerDialog.getByRole("button", { name: "Log in", exact: true }).click();
+
+    await expect.element(loginDialog).toBeVisible();
+    expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe(
       "player@example.com",
     );
-    await expect.poll(() => document.activeElement).toBe(switchedRegistrationEmail.element());
+    expect((page.getByLabelText("Username or email").element() as HTMLInputElement).value).toBe(
+      "player@example.com",
+    );
 
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => dialogElement.open).toBe(false);
 
-    await register.click();
+    await login.click();
 
-    const reopenedEmail = page.getByLabelText("Email address");
-
-    await expect
-      .element(page.getByRole("dialog", { name: "Create your free account" }))
-      .toBeVisible();
-    expect((reopenedEmail.element() as HTMLInputElement).value).toBe("");
-    expect(page.getByLabelText("Password", { exact: true }).elements()).toHaveLength(0);
+    await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
+    expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe("");
+    await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
   });
 
   it("routes the explicit close action through the native dialog", async () => {
     renderHeader();
+    await openLoginMode();
 
-    const register = page.getByRole("button", { name: "Register", exact: true });
-    await register.click();
-
-    const dialog = page.getByRole("dialog", { name: "Create your free account" });
+    const dialog = page.getByRole("dialog", { name: "Log in" });
     const dialogElement = dialog.element() as HTMLDialogElement;
 
     await page.getByLabelText("Email address").fill("discard@example.com");
@@ -120,7 +106,7 @@ describe("app header account dialog", () => {
     await expect.poll(() => dialogElement.open).toBe(false);
     expect(page.getByRole("dialog").elements()).toHaveLength(0);
 
-    await register.click();
+    await openLoginMode();
 
     expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe("");
   });
@@ -128,24 +114,25 @@ describe("app header account dialog", () => {
   it("delegates backdrop light dismissal to the native modal dialog", async () => {
     renderHeader();
 
-    const register = page.getByRole("button", { name: "Register", exact: true });
-    await register.click();
+    const login = page
+      .getByRole("navigation", { name: "Account" })
+      .getByRole("button", { name: "Log in", exact: true });
+    await login.click();
 
-    const dialog = page.getByRole("dialog", { name: "Create your free account" });
+    const dialog = page.getByRole("dialog", { name: "Log in" });
     const dialogElement = dialog.element() as HTMLDialogElement;
 
     expect(dialogElement.getAttribute("closedby")).toBe("any");
     expect(dialogElement.matches(":modal")).toBe(true);
 
-    await register.click({ force: true });
+    await login.click({ force: true });
 
     await expect.poll(() => dialogElement.open).toBe(false);
   });
 
   it("submits registration through its Inertia form and renders confirmation", async () => {
     renderHeader();
-    const register = page.getByRole("button", { name: "Register", exact: true });
-    await register.click();
+    await openRegistrationMode();
 
     await page.getByLabelText("Email address").fill("player@example.com");
     await page.getByRole("button", { name: "Create account", exact: true }).click();
@@ -176,10 +163,16 @@ describe("app header account dialog", () => {
     await expect.element(page.getByRole("link", { name: "Sign up with Google" })).toBeVisible();
     assertProviderHidden("Sign up", "Apple");
     assertProviderHidden("Sign up", "Facebook");
-    await expect.element(page.getByRole("button", { name: "Log in", exact: true })).toBeVisible();
+    await expect
+      .element(
+        page
+          .getByRole("dialog", { name: "Create your free account" })
+          .getByRole("button", { name: "Log in", exact: true }),
+      )
+      .toBeVisible();
 
     await userEvent.keyboard("{Escape}");
-    await register.click();
+    await openRegistrationMode();
 
     expect(page.getByText("Check your email", { exact: true }).elements()).toHaveLength(0);
     expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe("");
@@ -187,7 +180,7 @@ describe("app header account dialog", () => {
 
   it("keeps registration validation and delivery failures inside registration", async () => {
     renderHeader();
-    await page.getByRole("button", { name: "Register" }).click();
+    await openRegistrationMode();
 
     const email = page.getByLabelText("Email address");
     await email.fill("existing@example.com");
@@ -245,7 +238,13 @@ describe("app header account dialog", () => {
     await expect.element(page.getByLabelText("Information")).toBeVisible();
     expect(page.getByRole("link", { name: "local mailbox" }).elements()).toHaveLength(0);
     await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
-    await expect.element(page.getByRole("button", { name: "Log in", exact: true })).toBeVisible();
+    await expect
+      .element(
+        page
+          .getByRole("dialog", { name: "Log in" })
+          .getByRole("button", { name: "Log in", exact: true }),
+      )
+      .toBeVisible();
   });
 
   it("shows the local mailbox only in successful email notices", async () => {
@@ -265,7 +264,7 @@ describe("app header account dialog", () => {
       },
     });
     renderHeader();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openRegistrationMode();
 
     const mailbox = page.getByRole("link", { name: "local mailbox" });
 
@@ -284,7 +283,7 @@ describe("app header account dialog", () => {
     await expect.element(page.getByLabelText("Information")).toBeVisible();
     expect(mailbox.element().getAttribute("href")).toBe("/dev/mailbox");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     expect(mailbox.elements()).toHaveLength(0);
 
@@ -302,11 +301,11 @@ describe("app header account dialog", () => {
 
   it("hides the local mailbox link when it is unavailable", async () => {
     renderHeader();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openRegistrationMode();
 
     expect(page.getByRole("link", { name: "local mailbox" }).elements()).toHaveLength(0);
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     expect(page.getByRole("link", { name: "local mailbox" }).elements()).toHaveLength(0);
   });
@@ -324,7 +323,10 @@ describe("app header account dialog", () => {
 
     expect((password.element() as HTMLInputElement).type).toBe("text");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await page
+      .getByRole("region", { name: "Password login" })
+      .getByRole("button", { name: "Log in", exact: true })
+      .click();
 
     expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
       action: "/users/log-in",
@@ -361,7 +363,7 @@ describe("app header account dialog", () => {
 
     expect((password.element() as HTMLInputElement).type).toBe("text");
     await page.getByRole("button", { name: "Create account", exact: true }).click();
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     expect(
       (page.getByLabelText("Password", { exact: true }).element() as HTMLInputElement).type,
@@ -373,7 +375,7 @@ describe("app header account dialog", () => {
 
   it("shows Google and Discord links while Apple is unavailable", async () => {
     renderHeader();
-    await page.getByRole("button", { name: "Register" }).click();
+    await openRegistrationMode();
 
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
     await expect.element(page.getByRole("link", { name: "Sign up with Google" })).toBeVisible();
@@ -381,7 +383,7 @@ describe("app header account dialog", () => {
     assertProviderHidden("Sign up", "Apple");
     assertProviderHidden("Sign up", "Facebook");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(2);
     await expect.element(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
@@ -408,7 +410,7 @@ describe("app header account dialog", () => {
       },
     });
     renderHeader();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openRegistrationMode();
 
     const registrationAppleLink = page.getByRole("link", { name: "Sign up with Apple" });
     expect(registrationAppleLink.element().getAttribute("href")).toBe(
@@ -420,7 +422,7 @@ describe("app header account dialog", () => {
     ).toBe("/auth/discord?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
     assertProviderHidden("Sign up", "Facebook");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     const loginAppleLink = page.getByRole("link", { name: "Sign in with Apple" });
     expect(loginAppleLink.element().getAttribute("href")).toBe(
@@ -450,11 +452,11 @@ describe("app header account dialog", () => {
       },
     });
     renderHeader();
-    await page.getByRole("button", { name: "Register" }).click();
+    await openRegistrationMode();
 
     assertProviderHidden("Sign up", "Google");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     assertProviderHidden("Sign in", "Google");
     await expect.element(page.getByRole("link", { name: "Sign in with Discord" })).toBeVisible();
@@ -477,11 +479,11 @@ describe("app header account dialog", () => {
       },
     });
     renderHeader();
-    await page.getByRole("button", { name: "Register" }).click();
+    await openRegistrationMode();
 
     assertProviderHidden("Sign up", "Discord");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     assertProviderHidden("Sign in", "Discord");
     await expect.element(page.getByRole("link", { name: "Sign in with Apple" })).toBeVisible();
@@ -505,12 +507,12 @@ describe("app header account dialog", () => {
       },
     });
     renderHeader();
-    await page.getByRole("button", { name: "Register" }).click();
+    await openRegistrationMode();
 
     expect(page.getByLabelText("Other registration methods").elements()).toHaveLength(0);
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(0);
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     expect(page.getByLabelText("Other login methods").elements()).toHaveLength(0);
     expect(page.getByText("or", { exact: true }).elements()).toHaveLength(1);
@@ -534,7 +536,7 @@ describe("app header account dialog", () => {
       },
     });
     renderHeader();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openRegistrationMode();
 
     const registrationLink = page.getByRole("link", { name: "Sign up with Google" });
     expect(registrationLink.element().getAttribute("href")).toBe(
@@ -546,7 +548,7 @@ describe("app header account dialog", () => {
     assertProviderHidden("Sign up", "Apple");
     assertProviderHidden("Sign up", "Facebook");
 
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await switchToLoginMode();
 
     const loginLink = page.getByRole("link", { name: "Sign in with Google" });
     expect(loginLink.element().getAttribute("href")).toBe(
@@ -559,25 +561,15 @@ describe("app header account dialog", () => {
     assertProviderHidden("Sign in", "Facebook");
   });
 
-  it("keeps every login method reachable at a narrow viewport", async () => {
+  it("keeps every login method and registration switch reachable at a narrow viewport", async () => {
     await page.viewport(280, 640);
     renderHeader();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openLoginMode();
 
-    const registrationDialog = page.getByRole("dialog", { name: "Create your free account" });
-    const registrationHeading = page.getByRole("heading", { name: "Create your free account" });
+    const loginDialog = page.getByRole("dialog", { name: "Log in" });
+    const modeSwitch = loginDialog.getByRole("button", { name: "Create account", exact: true });
 
-    await expect.element(registrationDialog).toBeVisible();
-    await expect.element(registrationHeading).toBeVisible();
-    await expect.element(page.getByLabelText("Email address")).toBeVisible();
-    await expect.element(page.getByRole("button", { name: "Close", exact: true })).toBeVisible();
-
-    await page.getByRole("button", { name: "Log in", exact: true }).click();
-
-    const dialog = page.getByRole("dialog", { name: "Log in" });
-    const modeSwitch = page.getByRole("button", { name: "Create account", exact: true });
-
-    await expect.element(dialog).toBeVisible();
+    await expect.element(loginDialog).toBeVisible();
     await expect.element(page.getByRole("heading", { name: "Log in" })).toBeVisible();
     await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
     await expect.element(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
@@ -587,10 +579,18 @@ describe("app header account dialog", () => {
     await expect.element(modeSwitch).toBeVisible();
 
     await modeSwitch.click();
+
+    const registrationDialog = page.getByRole("dialog", { name: "Create your free account" });
+
     await expect.element(registrationDialog).toBeVisible();
+    await expect
+      .element(page.getByRole("heading", { name: "Create your free account" }))
+      .toBeVisible();
+    await expect.element(page.getByLabelText("Email address")).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "Close", exact: true })).toBeVisible();
   });
 
-  it("replaces Register with Inertia account actions for authenticated users", async () => {
+  it("replaces Log in with Inertia account actions for authenticated users", async () => {
     inertiaMock.setPage({
       props: {
         auth: {
@@ -608,7 +608,8 @@ describe("app header account dialog", () => {
     });
     renderHeader();
 
-    expect(page.getByRole("button", { name: "Register" }).elements()).toHaveLength(0);
+    expect(page.getByRole("button", { name: "Log in", exact: true }).elements()).toHaveLength(0);
+    expect(page.getByRole("button", { name: "Register", exact: true }).elements()).toHaveLength(0);
     expect(page.getByRole("link", { name: "Settings" }).element().getAttribute("href")).toBe(
       "/users/settings",
     );
@@ -718,20 +719,35 @@ describe("app header account dialog", () => {
     expect(page.getByRole("button", { name: "Create account" }).elements()).toHaveLength(0);
   });
 
-  it("opens registration from the overlay header", async () => {
+  it("opens Login from the overlay header", async () => {
     renderHeader({ overlay: true });
 
-    await page.getByRole("button", { name: "Register" }).click();
+    await openLoginMode();
 
-    await expect
-      .element(page.getByRole("dialog", { name: "Create your free account" }))
-      .toBeVisible();
+    await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
   });
 });
 
 async function openLoginMode() {
-  await page.getByRole("button", { name: "Register" }).click();
-  await page.getByRole("button", { name: "Log in", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Account" })
+    .getByRole("button", { name: "Log in", exact: true })
+    .click();
+}
+
+async function openRegistrationMode() {
+  await openLoginMode();
+  await page
+    .getByRole("dialog", { name: "Log in" })
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+}
+
+async function switchToLoginMode() {
+  await page
+    .getByRole("dialog", { name: "Create your free account" })
+    .getByRole("button", { name: "Log in", exact: true })
+    .click();
 }
 
 function assertProviderHidden(prefix: "Sign up" | "Sign in", provider: string) {

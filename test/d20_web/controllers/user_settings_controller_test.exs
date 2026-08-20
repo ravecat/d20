@@ -44,11 +44,38 @@ defmodule D20Web.UserSettingsControllerTest do
 
       assert html_response(conn, 200) =~ ~s(id="app")
       assert inertia_component(conn) == "account_settings"
-      assert inertia_props(conn).email == user.email
-      assert inertia_props(conn).username == user.username
-      assert inertia_props(conn).apple == %{available: false, linked: false}
-      assert inertia_props(conn).discord == %{available: true, linked: false}
-      assert inertia_props(conn).google == %{available: true, linked: false}
+      props = inertia_props(conn)
+
+      assert props.email == user.email
+      assert props.username == user.username
+
+      assert props.providers == [
+               %{
+                 available: true,
+                 href: ~p"/users/settings/auth/google",
+                 id: "google",
+                 linked: false,
+                 name: "Google"
+               },
+               %{
+                 available: false,
+                 href: ~p"/users/settings/auth/apple",
+                 id: "apple",
+                 linked: false,
+                 name: "Apple"
+               },
+               %{
+                 available: true,
+                 href: ~p"/users/settings/auth/discord",
+                 id: "discord",
+                 linked: false,
+                 name: "Discord"
+               }
+             ]
+
+      refute Map.has_key?(props, :apple)
+      refute Map.has_key?(props, :discord)
+      refute Map.has_key?(props, :google)
     end
 
     test "reports a linked Apple method", %{conn: conn, user: user} do
@@ -57,7 +84,13 @@ defmodule D20Web.UserSettingsControllerTest do
 
       conn = get(conn, ~p"/users/settings")
 
-      assert inertia_props(conn).apple == %{available: true, linked: true}
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "apple")) == %{
+               available: true,
+               href: ~p"/users/settings/auth/apple",
+               id: "apple",
+               linked: true,
+               name: "Apple"
+             }
     end
 
     test "converts a verified Apple link cookie to flash", %{conn: conn, user: user} do
@@ -110,7 +143,13 @@ defmodule D20Web.UserSettingsControllerTest do
 
       conn = get(conn, ~p"/users/settings")
 
-      assert inertia_props(conn).discord == %{available: true, linked: true}
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "discord")) == %{
+               available: true,
+               href: ~p"/users/settings/auth/discord",
+               id: "discord",
+               linked: true,
+               name: "Discord"
+             }
     end
 
     test "reports Discord as unavailable without hiding linked state", %{conn: conn, user: user} do
@@ -129,7 +168,13 @@ defmodule D20Web.UserSettingsControllerTest do
 
       conn = get(conn, ~p"/users/settings")
 
-      assert inertia_props(conn).discord == %{available: false, linked: true}
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "discord")) == %{
+               available: false,
+               href: ~p"/users/settings/auth/discord",
+               id: "discord",
+               linked: true,
+               name: "Discord"
+             }
     end
 
     test "reports a linked Google method", %{conn: conn, user: user} do
@@ -137,7 +182,13 @@ defmodule D20Web.UserSettingsControllerTest do
 
       conn = get(conn, ~p"/users/settings")
 
-      assert inertia_props(conn).google == %{available: true, linked: true}
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "google")) == %{
+               available: true,
+               href: ~p"/users/settings/auth/google",
+               id: "google",
+               linked: true,
+               name: "Google"
+             }
     end
 
     test "reports Google as unavailable without hiding linked state", %{conn: conn, user: user} do
@@ -156,7 +207,13 @@ defmodule D20Web.UserSettingsControllerTest do
 
       conn = get(conn, ~p"/users/settings")
 
-      assert inertia_props(conn).google == %{available: false, linked: true}
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "google")) == %{
+               available: false,
+               href: ~p"/users/settings/auth/google",
+               id: "google",
+               linked: true,
+               name: "Google"
+             }
     end
 
     test "redirects if user is not logged in" do

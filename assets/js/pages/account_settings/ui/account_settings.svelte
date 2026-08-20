@@ -5,52 +5,32 @@
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
 
+  const providerIcons = {
+    apple: appleIconSvg,
+    discord: discordIconSvg,
+    google: googleIconSvg,
+  } as const;
+
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;
+  type ProviderId = keyof typeof providerIcons;
+
+  type Provider = {
+    available: boolean;
+    href: string;
+    id: ProviderId;
+    linked: boolean;
+    name: string;
+  };
 
   type Props = InertiaProps<{
-    apple: {
-      available: boolean;
-      linked: boolean;
-    };
-    discord: {
-      available: boolean;
-      linked: boolean;
-    };
     email: string;
-    google: {
-      available: boolean;
-      linked: boolean;
-    };
+    providers: Provider[];
     username: string;
   }>;
 
-  const { apple, discord, email, google, username }: Props = $props();
+  const { email, providers, username }: Props = $props();
 
-  const availableProviders = $derived(
-    [
-      {
-        id: "google",
-        name: "Google",
-        iconSvg: googleIconSvg,
-        href: "/users/settings/auth/google",
-        ...google,
-      },
-      {
-        id: "apple",
-        name: "Apple",
-        iconSvg: appleIconSvg,
-        href: "/users/settings/auth/apple",
-        ...apple,
-      },
-      {
-        id: "discord",
-        name: "Discord",
-        iconSvg: discordIconSvg,
-        href: "/users/settings/auth/discord",
-        ...discord,
-      },
-    ].filter(({ available }) => available),
-  );
+  const availableProviders = $derived(providers.filter(({ available }) => available));
 </script>
 
 <svelte:head>
@@ -76,7 +56,7 @@
           <li class="settings-provider">
             <span class="settings-provider__identity">
               <span class="settings-provider__icon" aria-hidden="true">
-                {@html provider.iconSvg}
+                {@html providerIcons[provider.id]}
               </span>
               <span class="settings-provider__name">{provider.name}</span>
             </span>
