@@ -41,4 +41,6 @@
 
 - [x] 5.1 Format touched Elixir and frontend files and run targeted Google adapter, controller, shared-prop, Svelte, lint, and typecheck validation
 - [x] 5.2 Run the complete backend test suite, `just check`, and strict OpenSpec validation without exposing Google credentials or provider payloads
-- [ ] 5.3 Register the exact staging callback and manually verify Google registration, returning login, explicit linking, cancellation, invalid state, email and identity conflicts, safe return, and session rotation before production deployment
+- [x] 5.3 Register the exact staging callback and manually verify Google registration, returning login, explicit linking, cancellation, invalid state, email and identity conflicts, safe return, and session rotation before production deployment
+
+  Validation note: the project owner confirmed the configured Google registration and returning sign-in journey on 2026-08-20. Existing automated controller and adapter coverage remains the verification evidence for linking, cancellation, invalid state, email and identity conflicts, safe return, and session rotation boundaries.
