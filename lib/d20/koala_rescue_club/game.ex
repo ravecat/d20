@@ -158,7 +158,7 @@ defmodule D20.KoalaRescueClub.Game do
   def fetch_player(%__MODULE__{players: players}, player_id), do: Map.fetch(players, player_id)
 
   defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
-    rulesheet = game |> Pathex.view!(lens(:sheet)) |> Ruleset.sheet!()
+    rulesheet = game |> Pathex.view!(path(:sheet)) |> Ruleset.sheet!()
 
     volunteers =
       List.duplicate(:available, rulesheet.volunteers) ++
@@ -179,25 +179,25 @@ defmodule D20.KoalaRescueClub.Game do
 
     player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
 
-    game = Pathex.force_over!(game, lens(:players) ~> path(actor_id), &identity/1, player)
+    game = Pathex.force_over!(game, path(:players) ~> path(actor_id), &identity/1, player)
 
     phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
 
-    Pathex.set!(game, lens(:phase), phase)
+    Pathex.set!(game, path(:phase), phase)
   end
 
   defp apply_command(game, %D20.Command{event: "left", actor_id: actor_id}) do
     game =
-      Pathex.over!(game, lens(:players), fn players -> Pathex.without(players, path(actor_id)) end)
+      Pathex.over!(game, path(:players), fn players -> Pathex.without(players, path(actor_id)) end)
 
     phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
 
-    Pathex.set!(game, lens(:phase), phase)
+    Pathex.set!(game, path(:phase), phase)
   end
 
   defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
-    players = Pathex.view!(game, lens(:players))
-    each_player = lens(:players) ~> all()
+    players = Pathex.view!(game, path(:players))
+    each_player = path(:players) ~> all()
 
     mode =
       case map_size(players) do
@@ -206,10 +206,10 @@ defmodule D20.KoalaRescueClub.Game do
       end
 
     game
-    |> Pathex.set!(lens(:phase), :roll)
-    |> Pathex.set!(lens(:mode), mode)
-    |> Pathex.set!(lens(:round), 1)
-    |> Pathex.set!(lens(:turn), 1)
+    |> Pathex.set!(path(:phase), :roll)
+    |> Pathex.set!(path(:mode), mode)
+    |> Pathex.set!(path(:round), 1)
+    |> Pathex.set!(path(:turn), 1)
     |> Pathex.set!(each_player ~> path(:status), :ready)
     |> Pathex.set!(each_player ~> path(:rounds), [])
     |> Pathex.set!(each_player ~> path(:badges), %{})
@@ -220,9 +220,9 @@ defmodule D20.KoalaRescueClub.Game do
     %{d6: [value]} = Dice.roll!(d6: 1)
 
     game
-    |> Pathex.set!(lens(:phase), :submit)
-    |> Pathex.set!(lens(:roll), %{value: value})
-    |> Pathex.set!(lens(:players) ~> all() ~> path(:status), :pending)
+    |> Pathex.set!(path(:phase), :submit)
+    |> Pathex.set!(path(:roll), %{value: value})
+    |> Pathex.set!(path(:players) ~> all() ~> path(:status), :pending)
   end
 
   defp apply_command(
@@ -233,7 +233,7 @@ defmodule D20.KoalaRescueClub.Game do
     player = Pathex.force_over!(player, path(:turns), &(&1 ++ [value]), [value])
 
     game
-    |> Pathex.set!(lens(:players) ~> path(actor_id), player)
+    |> Pathex.set!(path(:players) ~> path(actor_id), player)
     |> maybe_resolve_turn()
   end
 
@@ -253,24 +253,24 @@ defmodule D20.KoalaRescueClub.Game do
   end
 
   defp maybe_finish(game) do
-    turn = Pathex.view!(game, lens(:turn))
+    turn = Pathex.view!(game, path(:turn))
 
     if Ruleset.final_turn?(turn) do
       scores = score_players(game)
 
       game
-      |> Pathex.set!(lens(:phase), :finished)
-      |> Pathex.set!(lens(:scores), scores)
+      |> Pathex.set!(path(:phase), :finished)
+      |> Pathex.set!(path(:scores), scores)
     else
       next_turn = turn + 1
       {:ok, next_round} = Ruleset.round(next_turn)
 
       game
-      |> Pathex.set!(lens(:phase), :roll)
-      |> Pathex.set!(lens(:round), next_round)
-      |> Pathex.set!(lens(:turn), next_turn)
-      |> Pathex.set!(lens(:roll), nil)
-      |> Pathex.set!(lens(:players) ~> all() ~> path(:status), :ready)
+      |> Pathex.set!(path(:phase), :roll)
+      |> Pathex.set!(path(:round), next_round)
+      |> Pathex.set!(path(:turn), next_turn)
+      |> Pathex.set!(path(:roll), nil)
+      |> Pathex.set!(path(:players) ~> all() ~> path(:status), :ready)
     end
   end
 

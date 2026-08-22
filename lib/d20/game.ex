@@ -30,8 +30,6 @@ defmodule D20.Game do
 
       @behaviour D20.Game
 
-      defp lens(field), do: path(field)
-
       @impl D20.Game
       def server, do: unquote(server)
 

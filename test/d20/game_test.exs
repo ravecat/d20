@@ -6,18 +6,8 @@ defmodule D20.GameTest do
   defmodule CustomServer do
   end
 
-  defmodule LensState do
-    defstruct phase: :setup, round: 1
-  end
-
   defmodule TestGame do
     use D20.Game
-
-    def view_field(state, field), do: Pathex.view!(state, lens(field))
-
-    def ready_players(state) do
-      Pathex.set!(state, lens(:players) ~> all() ~> path(:status), :ready)
-    end
 
     @impl D20.Game
     def changeset(_params), do: Ecto.Changeset.cast({%{}, %{}}, %{}, [])
@@ -85,29 +75,6 @@ defmodule D20.GameTest do
   test "provides an unsupported default preview callback" do
     assert {:error, :unknown_command} =
              TestGame.preview(%{phase: :setup}, %D20.Command{event: "draft"})
-  end
-
-  test "provides private field and collection lenses to game engines" do
-    assert TestGame.view_field(%{phase: :setup, round: 3}, :phase) == :setup
-    assert TestGame.view_field(%{phase: :setup, round: 3}, :round) == 3
-    assert TestGame.view_field(%LensState{phase: :finished, round: 6}, :phase) == :finished
-
-    assert %{
-             players: %{
-               "player-1" => %{status: :ready, score: 1},
-               "player-2" => %{status: :ready, score: 2}
-             }
-           } =
-             TestGame.ready_players(%{
-               players: %{
-                 "player-1" => %{status: :pending, score: 1},
-                 "player-2" => %{status: :submitted, score: 2}
-               }
-             })
-
-    refute function_exported?(TestGame, :lens, 1)
-
-    assert_raise Pathex.Error, fn -> TestGame.view_field(%{}, :missing) end
   end
 
   test "returns an empty attrs changeset for engines without creation fields" do

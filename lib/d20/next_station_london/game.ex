@@ -13,7 +13,6 @@ defmodule D20.NextStationLondon.Game do
   alias D20.NextStationLondon.Ruleset
 
   @phases [:setup, :reveal, :turn, :finished]
-  @player_statuses [:ready, :pending, :submitted]
   @known_events ["join", "left", "start", "reveal", "draw", "pass"]
   @derive Jason.Encoder
   @primary_key false
@@ -147,65 +146,68 @@ defmodule D20.NextStationLondon.Game do
   end
 
   defp join_player(game, player_id) do
-    %{game | players: Map.put_new(game.players, player_id, initial_player())}
+    Pathex.force_over!(
+      game,
+      path(:players) ~> path(player_id),
+      &Function.identity/1,
+      initial_player()
+    )
   end
 
   defp leave_player(game, player_id) do
-    %{game | players: Map.delete(game.players, player_id)}
+    Pathex.over!(game, path(:players), fn players -> Pathex.without(players, path(player_id)) end)
   end
 
   defp start_game(game) do
-    players =
-      Map.new(game.players, fn {player_id, player} ->
-        {player_id, %{player | status: :ready, pencil_offset: nil}}
-      end)
+    each_player = path(:players) ~> all()
 
-    %{
-      game
-      | phase: :reveal,
-        round: 1,
-        players: players,
-        pencil_cycle: [],
-        remaining_deck: [],
-        draws: []
-    }
+    game
+    |> Pathex.set!(path(:phase), :reveal)
+    |> Pathex.set!(path(:round), 1)
+    |> Pathex.set!(path(:pencil_cycle), [])
+    |> Pathex.set!(path(:remaining_deck), [])
+    |> Pathex.set!(path(:draws), [])
+    |> Pathex.set!(each_player ~> path(:status), :ready)
+    |> Pathex.set!(each_player ~> path(:pencil_offset), nil)
   end
 
   defp reveal(game, attrs) do
     game
     |> maybe_commit_round_setup(attrs)
     |> reveal_instruction()
-    |> set_player_statuses(:pending)
-    |> Map.put(:phase, :turn)
+    |> Pathex.set!(path(:players) ~> all() ~> path(:status), :pending)
+    |> Pathex.set!(path(:phase), :turn)
   end
 
   defp maybe_commit_round_setup(%__MODULE__{draws: [], remaining_deck: []} = game, attrs) do
     game
     |> commit_first_round_assignments(attrs)
-    |> Map.put(:remaining_deck, attrs.deck)
+    |> Pathex.set!(path(:remaining_deck), attrs.deck)
   end
 
   defp maybe_commit_round_setup(game, _attrs), do: game
 
   defp commit_first_round_assignments(%__MODULE__{round: 1} = game, attrs) do
-    players =
-      Map.new(game.players, fn {player_id, player} ->
-        {player_id, %{player | pencil_offset: Map.fetch!(attrs.pencil_offsets, player_id)}}
+    game =
+      Enum.reduce(attrs.pencil_offsets, game, fn {player_id, pencil_offset}, game ->
+        Pathex.set!(
+          game,
+          path(:players) ~> path(player_id) ~> path(:pencil_offset),
+          pencil_offset
+        )
       end)
 
-    %{
-      game
-      | players: players,
-        pencil_cycle: attrs.pencil_cycle,
-        objectives: attrs.objectives || game.objectives,
-        powers: attrs.powers || game.powers
-    }
+    game
+    |> Pathex.set!(path(:pencil_cycle), attrs.pencil_cycle)
+    |> Pathex.set!(path(:objectives), attrs.objectives || game.objectives)
+    |> Pathex.set!(path(:powers), attrs.powers || game.powers)
   end
 
   defp commit_first_round_assignments(game, _attrs), do: game
 
   defp commit_action(game, player_id, player) do
-    game = put_in(game.players[player_id], %{player | status: :submitted})
+    player = Pathex.set!(player, path(:status), :submitted)
+    game = Pathex.set!(game, path(:players) ~> path(player_id), player)
 
     if Rules.turn_complete?(game) do
       advance_instruction_or_round(game)
@@ -218,21 +220,23 @@ defmodule D20.NextStationLondon.Game do
     if Rules.current_instruction(game).final do
       finish_or_prepare_next_round(game)
     else
-      %{game | phase: :reveal}
+      Pathex.set!(game, path(:phase), :reveal)
     end
   end
 
   defp finish_or_prepare_next_round(%__MODULE__{round: 4} = game) do
-    %{game | phase: :finished, remaining_deck: []}
+    game
+    |> Pathex.set!(path(:phase), :finished)
+    |> Pathex.set!(path(:remaining_deck), [])
   end
 
   defp finish_or_prepare_next_round(game) do
     game
-    |> Map.put(:phase, :reveal)
-    |> Map.put(:round, game.round + 1)
-    |> Map.put(:remaining_deck, [])
-    |> Map.put(:draws, [])
-    |> set_player_statuses(:ready)
+    |> Pathex.set!(path(:phase), :reveal)
+    |> Pathex.over!(path(:round), &(&1 + 1))
+    |> Pathex.set!(path(:remaining_deck), [])
+    |> Pathex.set!(path(:draws), [])
+    |> Pathex.set!(path(:players) ~> all() ~> path(:status), :ready)
   end
 
   defp reveal_instruction(%__MODULE__{remaining_deck: [card_id | remaining]} = game) do
@@ -244,11 +248,8 @@ defmodule D20.NextStationLondon.Game do
         {[card_id], remaining}
       end
 
-    %{game | remaining_deck: remaining, draws: game.draws ++ [%{cards: cards}]}
-  end
-
-  defp set_player_statuses(game, status) when status in @player_statuses do
-    players = Map.new(game.players, fn {id, player} -> {id, %{player | status: status}} end)
-    %{game | players: players}
+    game
+    |> Pathex.set!(path(:remaining_deck), remaining)
+    |> Pathex.over!(path(:draws), &(&1 ++ [%{cards: cards}]))
   end
 end

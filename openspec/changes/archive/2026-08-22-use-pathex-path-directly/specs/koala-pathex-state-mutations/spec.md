@@ -1,9 +1,15 @@
-# koala-pathex-state-mutations Specification
+## RENAMED Requirements
 
-## Purpose
-Define Koala Rescue Club aggregate mutation through direct Pathex field, keyed-player, and collection paths while preserving gameplay behavior.
+- FROM: `Koala field lenses do not duplicate schema metadata`
+- TO: `Koala paths do not duplicate schema metadata`
+- FROM: `Command application is expressed as lens-based aggregate mutation`
+- TO: `Command application is expressed as path-based aggregate mutation`
+- FROM: `Automatic completed-turn transitions use lens-based aggregate mutation`
+- TO: `Automatic completed-turn transitions use path-based aggregate mutation`
+- FROM: `The lens experiment preserves external behavior`
+- TO: `The path refactor preserves external behavior`
 
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Koala paths do not duplicate schema metadata
 `D20.KoalaRescueClub.Game` SHALL use Pathex `path/1` supplied by `use D20.Game` directly for aggregate field references. The shared path configuration SHALL address map fields without maintaining a second enumeration of embedded-schema fields or depending on Ecto's internal compile-time field attributes.
