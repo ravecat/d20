@@ -22,17 +22,14 @@ defmodule D20.NextStationLondon.RulesTest do
 
       assert :ok = Rules.validate(solo, command("start", "p1"))
 
-      preparing = %{game | phase: :preparing_round, round: 1}
+      preparing = %{game | phase: :reveal, round: 1}
 
       assert {:error, :system_only} =
-               Rules.validate(
-                 preparing,
-                 command("prepare_round", "p1", valid_round_setup(preparing))
-               )
+               Rules.validate(preparing, command("reveal", "p1", valid_round_setup(preparing)))
     end
 
     test "validates exact first-round assignments and later-round omissions" do
-      game = %{game_with_players(3) | phase: :preparing_round, round: 1}
+      game = %{game_with_players(3) | phase: :reveal, round: 1}
       attrs = valid_round_setup(game)
 
       assert :ok = Rules.validate_round_setup(game, attrs)
@@ -50,7 +47,7 @@ defmodule D20.NextStationLondon.RulesTest do
                Rules.validate_round_setup(game, invalid) == {:error, :invalid_system_setup}
              end)
 
-      solo = %{game_with_players(1) | phase: :preparing_round, round: 1}
+      solo = %{game_with_players(1) | phase: :reveal, round: 1}
       solo_attrs = valid_round_setup(solo)
       assert :ok = Rules.validate_round_setup(solo, solo_attrs)
 
@@ -341,7 +338,7 @@ defmodule D20.NextStationLondon.RulesTest do
   defp game_with_players(count) do
     players = Map.new(1..count, fn index -> {"p#{index}", Game.initial_player()} end)
 
-    %Game{phase: :ready, players: players}
+    %Game{phase: :setup, players: players}
   end
 
   defp build_game(card_id, power \\ nil) do
@@ -353,7 +350,7 @@ defmodule D20.NextStationLondon.RulesTest do
         else: nil
 
     %Game{
-      phase: :build,
+      phase: :turn,
       round: 1,
       players: %{"p1" => player},
       pencil_cycle: [:green, :blue, :pink, :purple],
@@ -384,7 +381,7 @@ defmodule D20.NextStationLondon.RulesTest do
   end
 
   defp draw_command(player_id, sections, opts \\ []) do
-    command("draw_sections", player_id, %{
+    command("draw", player_id, %{
       sections: sections,
       power: Keyword.get(opts, :power),
       chosen_symbol: Keyword.get(opts, :chosen_symbol),

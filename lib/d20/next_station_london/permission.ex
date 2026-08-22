@@ -13,13 +13,13 @@ defmodule D20.NextStationLondon.Permission do
 
   @permissions ~w(
     can_start_game
-    can_draw_sections
+    can_draw
     can_pass
   )a
 
   @type t :: %{
           required(:can_start_game) => boolean(),
-          required(:can_draw_sections) => boolean(),
+          required(:can_draw) => boolean(),
           required(:can_pass) => boolean()
         }
 
@@ -43,7 +43,7 @@ defmodule D20.NextStationLondon.Permission do
     Rules.ready_to_start?(game) and Rules.participant?(game, actor_id)
   end
 
-  def authorize(:draw_sections, %Scope{actor: %{id: actor_id}}, %Session{
+  def authorize(:draw, %Scope{actor: %{id: actor_id}}, %Session{
         phase: :in_progress,
         game: %Game{} = game
       }) do
@@ -62,8 +62,7 @@ defmodule D20.NextStationLondon.Permission do
 
   defp permit?(:can_start_game, scope, session), do: permit(:start_game, scope, session) == :ok
 
-  defp permit?(:can_draw_sections, scope, session),
-    do: permit(:draw_sections, scope, session) == :ok
+  defp permit?(:can_draw, scope, session), do: permit(:draw, scope, session) == :ok
 
   defp permit?(:can_pass, scope, session), do: permit(:pass, scope, session) == :ok
 end

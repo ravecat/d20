@@ -26,25 +26,25 @@ defmodule D20.NextStationLondon.ServerTest do
 
     send(pid, {:online, "owner", %{online_at: 1}})
 
-    assert_receive {:session, %Session{game: %Game{phase: :ready}} = joined}
+    assert_receive {:session, %Session{game: %Game{phase: :setup}} = joined}
 
     %{pid: pid, session: joined}
   end
 
-  test "uses the game phase as state and automatically prepares exactly one valid round", %{
+  test "uses the game phase as state and automatically reveals exactly one instruction", %{
     pid: pid,
     session: session
   } do
-    assert {:ready, {"next-station-london", Game, ^session}} = :sys.get_state(pid)
+    assert {:setup, {"next-station-london", Game, ^session}} = :sys.get_state(pid)
 
-    assert {:ok, %Session{game: %Game{phase: :preparing_round}} = started} =
+    assert {:ok, %Session{game: %Game{phase: :reveal}} = started} =
              Sessions.dispatch(scope(session.id), "start", %{})
 
     assert_receive {:session, ^started}
 
     assert_receive {:session,
                     %Session{
-                      game: %Game{phase: :build, objectives: objectives, powers: powers} = game
+                      game: %Game{phase: :turn, objectives: objectives, powers: powers} = game
                     } = prepared}
 
     assert length(objectives) == 2
@@ -58,23 +58,23 @@ defmodule D20.NextStationLondon.ServerTest do
     prepared_cards = Enum.flat_map(game.draws, & &1.cards) ++ game.remaining_deck
     assert Ruleset.valid_deck_permutation?(prepared_cards)
 
-    assert {:build, {"next-station-london", Game, ^prepared}} = :sys.get_state(pid)
+    assert {:turn, {"next-station-london", Game, ^prepared}} = :sys.get_state(pid)
     assert {:ok, {^prepared, "next-station-london"}} = Sessions.get(session.id)
-    refute_receive {:session, %Session{game: %Game{phase: :build}}}, 100
+    refute_receive {:session, %Session{game: %Game{phase: :turn}}}, 100
   end
 
-  test "keeps client preparation actor-bound and does not replace the committed setup", %{
+  test "keeps client reveal actor-bound and does not replace the committed setup", %{
     session: session
   } do
-    assert {:ok, %Session{game: %Game{phase: :preparing_round}}} =
+    assert {:ok, %Session{game: %Game{phase: :reveal}}} =
              Sessions.dispatch(scope(session.id), "start", %{})
 
-    assert_receive {:session, %Session{game: %Game{phase: :preparing_round}}}
-    assert_receive {:session, %Session{game: %Game{phase: :build}} = prepared}
+    assert_receive {:session, %Session{game: %Game{phase: :reveal}}}
+    assert_receive {:session, %Session{game: %Game{phase: :turn}} = prepared}
 
-    attrs = Server.prepare_command(prepared.game).attrs
+    attrs = Server.reveal_command(prepared.game).attrs
 
-    assert {:error, :invalid_phase} = Sessions.dispatch(scope(session.id), "prepare_round", attrs)
+    assert {:error, :invalid_phase} = Sessions.dispatch(scope(session.id), "reveal", attrs)
 
     assert {:ok, {^prepared, "next-station-london"}} = Sessions.get(session.id)
     refute_receive {:session, _updated}, 100
@@ -83,7 +83,7 @@ defmodule D20.NextStationLondon.ServerTest do
   test "terminates an invalid internally generated setup with an observable reason" do
     player = Game.initial_player()
 
-    game = %Game{phase: :preparing_round, round: 1, players: %{"owner" => player}}
+    game = %Game{phase: :reveal, round: 1, players: %{"owner" => player}}
 
     session = %Session{
       id: Ecto.UUID.generate(),
@@ -93,15 +93,10 @@ defmodule D20.NextStationLondon.ServerTest do
     }
 
     data = {"next-station-london", Game, session}
-    invalid = %Command{event: "prepare_round", attrs: %{deck: []}}
+    invalid = %Command{event: "reveal", attrs: %{deck: []}}
 
     assert {:stop, {:invalid_random_setup, :invalid_system_setup}, ^data} =
-             Server.handle_event(
-               :state_timeout,
-               {:prepare_round, invalid},
-               :preparing_round,
-               data
-             )
+             Server.handle_event(:state_timeout, {:reveal, invalid}, :reveal, data)
   end
 
   test "preserves idle expiration alongside automatic preparation", %{pid: pid, session: session} do
@@ -109,16 +104,16 @@ defmodule D20.NextStationLondon.ServerTest do
     on_exit(fn -> Application.put_env(:d20, :session_idle_timeout, original_timeout) end)
     Application.put_env(:d20, :session_idle_timeout, 300)
 
-    assert {:ok, %Session{game: %Game{phase: :preparing_round}}} =
+    assert {:ok, %Session{game: %Game{phase: :reveal}}} =
              Sessions.dispatch(scope(session.id), "start", %{})
 
-    assert_receive {:session, %Session{game: %Game{phase: :preparing_round}}}
-    assert_receive {:session, %Session{game: %Game{phase: :build}}}
+    assert_receive {:session, %Session{game: %Game{phase: :reveal}}}
+    assert_receive {:session, %Session{game: %Game{phase: :turn}}}
 
     monitor_ref = Process.monitor(pid)
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 150
 
-    assert {:ok, {%Session{game: %Game{phase: :build}}, "next-station-london"}} =
+    assert {:ok, {%Session{game: %Game{phase: :turn}}, "next-station-london"}} =
              Sessions.get(session.id)
 
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 175

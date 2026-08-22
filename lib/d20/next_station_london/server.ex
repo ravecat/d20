@@ -1,6 +1,6 @@
 defmodule D20.NextStationLondon.Server do
   @moduledoc """
-  Session server that prepares each Next Station: London round on state entry.
+  Session server that reveals each Next Station: London instruction on state entry.
   """
 
   use D20.Sessions.Server
@@ -13,16 +13,16 @@ defmodule D20.NextStationLondon.Server do
   @impl :gen_statem
   def callback_mode, do: [:handle_event_function, :state_enter]
 
-  def handle_event(:enter, _old_state, :preparing_round, {_slug, Game, session}) do
-    command = prepare_command(session.game)
+  def handle_event(:enter, _old_state, :reveal, {_slug, Game, session}) do
+    command = reveal_command(session.game)
 
-    {:keep_state_and_data, [{:state_timeout, 0, {:prepare_round, command}}]}
+    {:keep_state_and_data, [{:state_timeout, 0, {:reveal, command}}]}
   end
 
   def handle_event(
         :state_timeout,
-        {:prepare_round, %Command{} = command},
-        :preparing_round,
+        {:reveal, %Command{} = command},
+        :reveal,
         {slug, Game, session} = data
       ) do
     case Session.dispatch(session, Game, command) do
@@ -37,12 +37,14 @@ defmodule D20.NextStationLondon.Server do
   end
 
   @doc false
-  @spec prepare_command(Game.t()) :: Command.t()
-  def prepare_command(%Game{} = game) do
-    %Command{event: "prepare_round", attrs: prepare_attrs(game)}
+  @spec reveal_command(Game.t()) :: Command.t()
+  def reveal_command(%Game{draws: [], remaining_deck: []} = game) do
+    %Command{event: "reveal", attrs: round_setup_attrs(game)}
   end
 
-  defp prepare_attrs(game) do
+  def reveal_command(%Game{}), do: %Command{event: "reveal", attrs: %{}}
+
+  defp round_setup_attrs(game) do
     %{deck: Enum.shuffle(Ruleset.card_ids())}
     |> maybe_put_pencils(game)
     |> maybe_put_objectives(game)

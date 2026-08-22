@@ -6,7 +6,7 @@ defmodule D20.NextStationLondon.Command do
   alias D20.NextStationLondon.Ruleset
 
   @simple_events ["join", "left"]
-  @prepare_keys [:deck, :pencil_cycle, :pencil_offsets, :objectives, :powers]
+  @reveal_keys [:deck, :pencil_cycle, :pencil_offsets, :objectives, :powers]
   @draw_keys [:sections, :power, :chosen_symbol, :power_target]
   @pass_keys [:power, :power_target]
 
@@ -26,10 +26,10 @@ defmodule D20.NextStationLondon.Command do
     end
   end
 
-  def validate(%D20.Command{event: "prepare_round", attrs: attrs} = command) do
+  def validate(%D20.Command{event: "reveal", attrs: attrs} = command) do
     with {:ok, attrs} <- normalize_map(attrs),
-         :ok <- require_known_keys(attrs, @prepare_keys),
-         {:ok, deck} <- required_list(attrs, :deck, &normalize_card_id/1),
+         :ok <- require_known_keys(attrs, @reveal_keys),
+         {:ok, deck} <- optional_list(attrs, :deck, &normalize_card_id/1),
          {:ok, pencil_cycle} <- optional_list(attrs, :pencil_cycle, &normalize_color/1),
          {:ok, pencil_offsets} <- optional_map(attrs, :pencil_offsets, &normalize_offsets/1),
          {:ok, objectives} <- optional_list(attrs, :objectives, &normalize_objective/1),
@@ -48,7 +48,7 @@ defmodule D20.NextStationLondon.Command do
     end
   end
 
-  def validate(%D20.Command{event: "draw_sections", attrs: attrs} = command) do
+  def validate(%D20.Command{event: "draw", attrs: attrs} = command) do
     with {:ok, attrs} <- normalize_map(attrs),
          :ok <- require_known_keys(attrs, @draw_keys),
          {:ok, sections} <- required_list(attrs, :sections, &normalize_section/1),

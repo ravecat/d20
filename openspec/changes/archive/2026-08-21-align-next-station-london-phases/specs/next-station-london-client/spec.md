@@ -1,8 +1,5 @@
-# next-station-london-client Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change implement-next-station-london-rules. Update Purpose after archive.
-## Requirements
 ### Requirement: The iframe client consumes the caller-specific D20 contract
 
 The Next Station: London iframe client SHALL bootstrap `next-station-london` through the D20 SDK, SHALL replace its state from connect and projection events, and SHALL forward `draw` and `pass` payloads without deriving or weakening server legality.
@@ -48,46 +45,3 @@ The shared D20 shell SHALL present the ordinary owner start control with no game
 - **WHEN** the caller is not a frozen player
 - **THEN** the client exposes no mutation controls
 - **AND** allows viewing one existing player network without inventing a roster order
-
-### Requirement: Authoritative options drive all construction controls
-
-The client SHALL use `sections`, `joker_sections`, `switch_sections`, `double_sections`, `double_station_targets`, and `double_station_sections` as authoritative interaction options for the current caller.
-
-#### Scenario: Double Station extends the line
-
-- **WHEN** the caller enables Double Station and selects a projected section
-- **THEN** the target selector contains only the targets correlated with that section
-- **AND** confirmation remains disabled until one correlated target is selected
-
-#### Scenario: Double Station is used while passing
-
-- **WHEN** no section is selected and the caller chooses to spend Double Station while passing
-- **THEN** the target selector uses `double_station_targets`
-- **AND** the client sends `pass` with the selected power and target
-
-#### Scenario: Double Section is available
-
-- **WHEN** the caller enables Double Section
-- **THEN** the client presents each complete projected two-section sequence and its optional chosen symbol
-- **AND** sends the selected sequence atomically in one command
-
-### Requirement: The board remains usable across input methods and viewports
-
-The client SHALL render the bundled London board with committed colored lines, doubled stations, current selection, and legal route overlays, and SHALL keep route controls accessible by pointer and keyboard on desktop and mobile layouts.
-
-#### Scenario: A keyboard user selects a legal section
-
-- **WHEN** a legal route overlay receives Enter or Space
-- **THEN** the same normalized section is selected as for a pointer click
-- **AND** the confirm control reflects the selection
-
-#### Scenario: The board is taller than the desktop viewport
-
-- **WHEN** the board and controls would exceed the available desktop height
-- **THEN** the board scales within the available height without clipping its first or final station rows
-
-#### Scenario: The client is shown on a narrow viewport
-
-- **WHEN** the viewport uses the mobile layout
-- **THEN** status, board, score, and controls form a readable single-column flow
-- **AND** the board remains full-width without horizontal document overflow

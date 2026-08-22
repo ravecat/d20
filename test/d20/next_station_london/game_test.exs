@@ -30,16 +30,16 @@ defmodule D20.NextStationLondon.GameTest do
     end
 
     test "reports the explicit terminal state" do
-      refute Game.finished?(%Game{phase: :build})
+      refute Game.finished?(%Game{phase: :turn})
       assert Game.finished?(%Game{phase: :finished})
     end
   end
 
   describe "setup roster" do
-    test "uses players as the only unordered roster and recomputes readiness" do
+    test "uses players as the only unordered roster and derives readiness without changing phase" do
       {:ok, game} = D20.Game.init(Game)
 
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "join", "p1")
+      assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "join", "p1")
       assert {:ok, ^game} = dispatch(game, "join", "p1")
 
       game =
@@ -52,9 +52,9 @@ defmodule D20.NextStationLondon.GameTest do
       assert {:error, :player_limit_reached} = dispatch(game, "join", "p5")
       assert map_size(game.players) == 4
 
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "left", "p4")
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "left", "p3")
-      assert {:ok, %Game{phase: :ready} = game} = dispatch(game, "left", "p2")
+      assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "left", "p4")
+      assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "left", "p3")
+      assert {:ok, %Game{phase: :setup} = game} = dispatch(game, "left", "p2")
       assert {:ok, %Game{phase: :setup, players: %{}}} = dispatch(game, "left", "p1")
     end
 
@@ -63,19 +63,19 @@ defmodule D20.NextStationLondon.GameTest do
 
       assert {:error, :not_joined} = dispatch(game, "start", "spectator")
 
-      assert {:ok, %Game{phase: :preparing_round, round: 1, pencil_cycle: []} = started} =
+      assert {:ok, %Game{phase: :reveal, round: 1, pencil_cycle: []} = started} =
                dispatch(game, "start", "p1")
 
       assert started.players["p1"].pencil_offset == nil
     end
 
-    test "starts and prepares games with one through four players" do
+    test "starts and reveals games with one through four players" do
       Enum.each(1..4, fn count ->
         game = started_game(count)
         attrs = prepare_attrs(game)
 
-        assert {:ok, %Game{phase: :build, round: 1} = prepared} =
-                 dispatch(game, "prepare_round", nil, attrs)
+        assert {:ok, %Game{phase: :turn, round: 1} = prepared} =
+                 dispatch(game, "reveal", nil, attrs)
 
         assert map_size(prepared.players) == count
         assert Enum.all?(prepared.players, fn {_id, player} -> player.status == :pending end)
@@ -97,7 +97,7 @@ defmodule D20.NextStationLondon.GameTest do
     end
   end
 
-  describe "round preparation" do
+  describe "station reveal" do
     test "commits first-round assignments once and keeps future cards private in state history" do
       {:ok, game} = D20.Game.init(Game, %{"objectives" => true, "powers" => true})
       {:ok, game} = dispatch(game, "join", "p1")
@@ -106,7 +106,7 @@ defmodule D20.NextStationLondon.GameTest do
 
       attrs = prepare_attrs(game)
 
-      assert {:ok, %Game{phase: :build} = game} = dispatch(game, "prepare_round", nil, attrs)
+      assert {:ok, %Game{phase: :turn} = game} = dispatch(game, "reveal", nil, attrs)
 
       assert game.objectives == [:all_districts, :central_district]
 
@@ -118,17 +118,17 @@ defmodule D20.NextStationLondon.GameTest do
              }
 
       assert [%{cards: ["underground_square"]}] = game.draws
-      assert {:error, :invalid_phase} = dispatch(game, "prepare_round", nil, attrs)
+      assert {:error, :invalid_phase} = dispatch(game, "reveal", nil, attrs)
 
-      assert {:error, :invalid_phase} = dispatch(game, "prepare_round", "p1", attrs)
+      assert {:error, :invalid_phase} = dispatch(game, "reveal", "p1", attrs)
     end
 
-    test "rejects client preparation before committing any random state" do
+    test "rejects client reveal before committing any random state" do
       game = started_game(2)
 
-      assert {:error, :system_only} = dispatch(game, "prepare_round", "p1", prepare_attrs(game))
+      assert {:error, :system_only} = dispatch(game, "reveal", "p1", prepare_attrs(game))
 
-      assert game.phase == :preparing_round
+      assert game.phase == :reveal
       assert game.draws == []
       assert game.remaining_deck == []
     end
@@ -139,14 +139,18 @@ defmodule D20.NextStationLondon.GameTest do
       game = 2 |> started_game() |> prepare_game()
       first_draw = game.draws
 
-      assert {:ok, %Game{phase: :build} = game} = dispatch(game, "pass", "p1")
+      assert {:ok, %Game{phase: :turn} = game} = dispatch(game, "pass", "p1")
       assert game.players["p1"].status == :submitted
       assert game.players["p2"].status == :pending
       assert game.draws == first_draw
 
       assert {:error, :already_submitted} = dispatch(game, "pass", "p1")
 
-      assert {:ok, %Game{phase: :build} = game} = dispatch(game, "pass", "p2")
+      assert {:ok, %Game{phase: :reveal} = game} = dispatch(game, "pass", "p2")
+      assert game.draws == first_draw
+      assert Enum.all?(game.players, fn {_id, player} -> player.status == :submitted end)
+
+      assert {:ok, %Game{phase: :turn} = game} = dispatch(game, "reveal", nil)
       assert length(game.draws) == 2
       assert Enum.all?(game.players, fn {_id, player} -> player.status == :pending end)
     end
@@ -165,20 +169,21 @@ defmodule D20.NextStationLondon.GameTest do
       game = 1 |> started_game() |> prepare_game()
 
       assert {:error, :invalid_destination} =
-               dispatch(game, "draw_sections", "p1", %{
-                 "sections" => [%{"from" => "r2c3", "to" => "r0c5"}]
-               })
+               dispatch(game, "draw", "p1", %{"sections" => [%{"from" => "r2c3", "to" => "r0c5"}]})
 
       assert game.players["p1"].lines.green.edges == []
       assert game.players["p1"].status == :pending
       assert length(game.draws) == 1
 
       assert {:ok, game} =
-               dispatch(game, "draw_sections", "p1", %{
-                 "sections" => [%{"from" => "r2c3", "to" => "r1c3"}]
-               })
+               dispatch(game, "draw", "p1", %{"sections" => [%{"from" => "r2c3", "to" => "r1c3"}]})
 
       assert game.players["p1"].lines.green.edges == ["r1c3-r2c3"]
+      assert game.phase == :reveal
+      assert length(game.draws) == 1
+
+      assert {:ok, game} = dispatch(game, "reveal", nil)
+      assert game.phase == :turn
       assert length(game.draws) == 2
     end
 
@@ -186,7 +191,7 @@ defmodule D20.NextStationLondon.GameTest do
       round_one = 1 |> started_game() |> prepare_game()
       after_round_one = submit_passes_until_round_ends(round_one)
 
-      assert after_round_one.phase == :preparing_round
+      assert after_round_one.phase == :reveal
       assert after_round_one.round == 2
       assert after_round_one.draws == []
       assert after_round_one.remaining_deck == []
@@ -221,18 +226,24 @@ defmodule D20.NextStationLondon.GameTest do
     end)
   end
 
-  defp prepare_game(%Game{phase: :preparing_round} = game) do
-    {:ok, game} = dispatch(game, "prepare_round", nil, prepare_attrs(game))
+  defp prepare_game(%Game{phase: :reveal} = game) do
+    {:ok, game} = dispatch(game, "reveal", nil, prepare_attrs(game))
     game
   end
 
   defp submit_passes_until_round_ends(game) do
-    Enum.reduce_while(1..11, game, fn _index, game ->
-      if game.phase == :build do
-        {:ok, game} = dispatch(game, "pass", "p1")
-        {:cont, game}
-      else
-        {:halt, game}
+    Enum.reduce_while(1..22, game, fn _index, game ->
+      case game do
+        %Game{phase: :turn} ->
+          {:ok, game} = dispatch(game, "pass", "p1")
+          {:cont, game}
+
+        %Game{phase: :reveal, draws: [_ | _]} ->
+          {:ok, game} = dispatch(game, "reveal", nil)
+          {:cont, game}
+
+        %Game{} ->
+          {:halt, game}
       end
     end)
   end

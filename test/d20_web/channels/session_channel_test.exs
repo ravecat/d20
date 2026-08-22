@@ -440,7 +440,7 @@ defmodule D20Web.SessionChannelTest do
       refute Map.has_key?(reconnected_projection, :selection)
     end
 
-    test "should run Next Station London through automatic preparation and explicit projections" do
+    test "should run Next Station London through automatic reveal and explicit projections" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       actor_id = actor.id
 
@@ -468,7 +468,7 @@ defmodule D20Web.SessionChannelTest do
                self: ^actor_id,
                members: %{^actor_id => %{status: :online}},
                permissions: %{can_start_game: true},
-               game: %{phase: :ready, players: %{^actor_id => %{status: :ready}}}
+               game: %{phase: :setup, players: %{^actor_id => %{status: :ready}}}
              } = projection
 
       refute Map.has_key?(projection, :attrs)
@@ -477,15 +477,15 @@ defmodule D20Web.SessionChannelTest do
 
       assert_reply start_ref, :ok
 
-      assert_push "projection", %{phase: :in_progress, game: %{phase: :preparing_round, round: 1}}
+      assert_push "projection", %{phase: :in_progress, game: %{phase: :reveal, round: 1}}
 
       assert_push "projection", %{
         objectives: objectives,
         powers: powers,
-        permissions: %{can_draw_sections: true, can_pass: true},
+        permissions: %{can_draw: true, can_pass: true},
         options: %{sections: sections},
         game: %{
-          phase: :build,
+          phase: :turn,
           round: 1,
           reveals: [_first_reveal],
           players: %{^actor_id => %{current_color: current_color, status: :pending}}
@@ -497,8 +497,7 @@ defmodule D20Web.SessionChannelTest do
       assert current_color in LondonRuleset.colors()
       assert sections != []
 
-      invalid_ref =
-        push(socket, "draw_sections", %{"sections" => [%{"from" => "r0c0", "to" => "r0c1"}]})
+      invalid_ref = push(socket, "draw", %{"sections" => [%{"from" => "r0c0", "to" => "r0c1"}]})
 
       assert_reply invalid_ref, :error, %{reason: "invalid_origin"}
       refute_push "projection", _projection, 100
@@ -507,7 +506,12 @@ defmodule D20Web.SessionChannelTest do
       assert_reply pass_ref, :ok
 
       assert_push "projection", %{
-        game: %{phase: :build, reveals: [_, _], players: %{^actor_id => %{status: :pending}}}
+        permissions: %{can_draw: false, can_pass: false},
+        game: %{phase: :reveal, current_instruction: nil, reveals: [_]}
+      }
+
+      assert_push "projection", %{
+        game: %{phase: :turn, reveals: [_, _], players: %{^actor_id => %{status: :pending}}}
       }
 
       spectator = %{id: Ecto.UUID.generate(), type: :anonymous}
@@ -515,7 +519,7 @@ defmodule D20Web.SessionChannelTest do
       assert {:ok,
               %{
                 self: spectator_id,
-                permissions: %{can_draw_sections: false, can_pass: false},
+                permissions: %{can_draw: false, can_pass: false},
                 options: %{sections: [], power: nil},
                 game: %{players: %{^actor_id => _owner_player}}
               }, _spectator_socket} = join_session_channel(session.id, spectator)

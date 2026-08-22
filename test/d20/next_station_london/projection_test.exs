@@ -18,9 +18,9 @@ defmodule D20.NextStationLondon.ProjectionTest do
              self: "owner",
              objectives: [:all_districts, :central_district],
              powers: %{green: :double_section},
-             permissions: %{can_draw_sections: true, can_pass: true},
+             permissions: %{can_draw: true, can_pass: true},
              game: %{
-               phase: :build,
+               phase: :turn,
                round: 1,
                current_instruction: %{destination: :square},
                reveals: [%{cards: ["street_square"]}],
@@ -45,7 +45,7 @@ defmodule D20.NextStationLondon.ProjectionTest do
   end
 
   test "omits runtime attrs when start has no game-specific fields" do
-    game = %Game{phase: :ready, players: %{"owner" => Game.initial_player()}}
+    game = %Game{phase: :setup, players: %{"owner" => Game.initial_player()}}
 
     session = %Session{
       id: "session-1",
@@ -69,18 +69,26 @@ defmodule D20.NextStationLondon.ProjectionTest do
     spectator = Projection.render(scope("spectator"), session)
     assert spectator.options == empty_options()
 
-    assert spectator.permissions == %{
-             can_start_game: false,
-             can_draw_sections: false,
-             can_pass: false
-           }
+    assert spectator.permissions == %{can_start_game: false, can_draw: false, can_pass: false}
 
     submitted_session = put_in(session.game.players["owner"].status, :submitted)
     submitted = Projection.render(scope("owner"), submitted_session)
 
     assert submitted.options == empty_options()
-    assert submitted.permissions.can_draw_sections == false
+    assert submitted.permissions.can_draw == false
     assert submitted.permissions.can_pass == false
+  end
+
+  test "renders reveal without an active instruction or mutation options" do
+    session = build_session()
+    session = %{session | game: %{session.game | phase: :reveal}}
+    projection = Projection.render(scope("owner"), session)
+
+    assert projection.game.current_instruction == nil
+    assert [%{cards: ["street_square"]}] = projection.game.reveals
+    assert projection.options == empty_options()
+    assert projection.permissions.can_draw == false
+    assert projection.permissions.can_pass == false
   end
 
   test "projects wildcard, switch, and Double Station alternatives from Rules" do
@@ -144,7 +152,7 @@ defmodule D20.NextStationLondon.ProjectionTest do
       owner_id: "owner",
       members: %{"owner" => %{}, "p2" => %{}},
       game: %Game{
-        phase: :build,
+        phase: :turn,
         round: 1,
         players: %{"owner" => owner, "p2" => other},
         objectives: [:all_districts, :central_district],

@@ -43,7 +43,7 @@ defmodule D20.NextStationLondon.Rules do
   def participant?(_game, _player_id), do: false
 
   @spec submit_allowed?(Game.t(), term()) :: boolean()
-  def submit_allowed?(%{phase: :build} = game, player_id) do
+  def submit_allowed?(%{phase: :turn} = game, player_id) do
     case Map.fetch(game.players, player_id) do
       {:ok, %{status: :pending}} -> true
       _ -> false
@@ -89,16 +89,16 @@ defmodule D20.NextStationLondon.Rules do
     end
   end
 
-  def validate(game, %D20.Command{event: "prepare_round", actor_id: actor_id, attrs: attrs}) do
+  def validate(game, %D20.Command{event: "reveal", actor_id: actor_id, attrs: attrs}) do
     with :ok <- require_system_actor(actor_id),
-         :ok <- validate_round_setup(game, attrs) do
+         :ok <- validate_reveal(game, attrs) do
       :ok
     end
   end
 
   @spec resolve_action(Game.t(), D20.Command.t()) :: {:ok, Game.player()} | {:error, reason()}
   def resolve_action(game, %D20.Command{event: event, actor_id: player_id, attrs: attrs})
-      when event in ["draw_sections", "pass"] do
+      when event in ["draw", "pass"] do
     with :ok <- require_participant(game, player_id),
          {:ok, player} <- require_pending_player(game, player_id),
          {:ok, color} <- current_color(game, player_id),
@@ -116,6 +116,15 @@ defmodule D20.NextStationLondon.Rules do
         valid_objective_setup?(game, attrs.objectives) and valid_power_setup?(game, attrs.powers)
 
     if valid?, do: :ok, else: {:error, :invalid_system_setup}
+  end
+
+  @spec validate_reveal(Game.t(), map()) :: :ok | {:error, :invalid_system_setup}
+  def validate_reveal(%{draws: [], remaining_deck: []} = game, attrs) do
+    validate_round_setup(game, attrs)
+  end
+
+  def validate_reveal(_game, attrs) do
+    if Enum.all?(Map.values(attrs), &is_nil/1), do: :ok, else: {:error, :invalid_system_setup}
   end
 
   @spec current_color(Game.t(), D20.Actors.Actor.id()) ::
@@ -465,7 +474,7 @@ defmodule D20.NextStationLondon.Rules do
 
   defp validate_section_count("pass", _attrs), do: :ok
 
-  defp validate_section_count("draw_sections", attrs) do
+  defp validate_section_count("draw", attrs) do
     expected = if attrs.power == :double_section, do: 2, else: 1
     if length(attrs.sections) == expected, do: :ok, else: {:error, :invalid_section_count}
   end
@@ -474,7 +483,7 @@ defmodule D20.NextStationLondon.Rules do
     apply_power_result(player, color, attrs.power, attrs.power_target)
   end
 
-  defp apply_action(game, player, color, "draw_sections", attrs) do
+  defp apply_action(game, player, color, "draw", attrs) do
     instruction = current_instruction(game)
     destination = if attrs.power == :joker, do: :joker, else: instruction.destination
     switch? = instruction.switch or attrs.power == :railroad_switch

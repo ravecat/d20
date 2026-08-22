@@ -1,13 +1,13 @@
 asyncapi: 3.0.0
 info:
   title: Next Station London Session Async API
-  version: 2.0.0
+  version: 3.0.0
   description: >
     Real-time contract for Next Station London sessions. Clients join one
     session topic, start the game, submit simultaneous construction choices,
     and receive authoritative caller-specific projections. Round decks, pencil
-    assignments, objectives, and powers are prepared by the server. Only
-    revealed cards are public.
+    assignments, objectives, and powers are prepared by the server during
+    reveal. Only revealed cards are public.
   license:
     name: MIT
   tags:
@@ -63,7 +63,7 @@ channels:
       and then tracks transport presence, which adds or refreshes the caller as
       a session member and asks the game engine to admit the actor as a player.
       Accepted commands receive an empty success reply. State changes and
-      automatic round preparation are published as projections.
+      automatic station reveals are published as projections.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -87,8 +87,8 @@ channels:
         $ref: "#/components/messages/leaveGame"
       startSession:
         $ref: "#/components/messages/startSession"
-      drawSections:
-        $ref: "#/components/messages/drawSections"
+      draw:
+        $ref: "#/components/messages/draw"
       passInstruction:
         $ref: "#/components/messages/passInstruction"
       commandReply:
@@ -140,7 +140,8 @@ operations:
     description: >
       The joined session owner starts while waiting for players. Solo games
       and multiplayer games use the same empty payload. A successful start
-      enters automatic round preparation, where the server assigns pencils.
+      enters reveal, where the server assigns pencils and reveals the first
+      station instruction.
     messages:
       - $ref: "#/channels/gameSession/messages/startSession"
     reply:
@@ -148,7 +149,7 @@ operations:
         $ref: "#/channels/gameSession"
       messages:
         - $ref: "#/channels/gameSession/messages/commandReply"
-  drawSections:
+  draw:
     action: send
     channel:
       $ref: "#/channels/gameSession"
@@ -158,7 +159,7 @@ operations:
       Double Section. Optional power fields are validated with the complete
       action. Any failure leaves the network and submission status unchanged.
     messages:
-      - $ref: "#/channels/gameSession/messages/drawSections"
+      - $ref: "#/channels/gameSession/messages/draw"
     reply:
       channel:
         $ref: "#/channels/gameSession"
@@ -271,17 +272,17 @@ components:
     startSession:
       name: start
       title: Start Session
-      summary: Start the game and request automatic first-round preparation
+      summary: Start the game and enter automatic station reveal
       contentType: application/json
       payload:
         $ref: "#/components/schemas/startPayload"
-    drawSections:
-      name: draw_sections
-      title: Draw Sections
+    draw:
+      name: draw
+      title: Draw
       summary: Submit one complete construction action
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/drawSectionsPayload"
+        $ref: "#/components/schemas/drawPayload"
     passInstruction:
       name: pass
       title: Pass Instruction
@@ -419,7 +420,7 @@ components:
       description: Next Station London requires no caller-provided start attributes.
       maxProperties: 0
       additionalProperties: false
-    drawSectionsPayload:
+    drawPayload:
       type: object
       required: [sections]
       properties:
@@ -520,11 +521,11 @@ components:
       additionalProperties: true
     permissions:
       type: object
-      required: [can_start_game, can_draw_sections, can_pass]
+      required: [can_start_game, can_draw, can_pass]
       properties:
         can_start_game:
           type: boolean
-        can_draw_sections:
+        can_draw:
           type: boolean
         can_pass:
           type: boolean
@@ -543,7 +544,7 @@ components:
       properties:
         phase:
           type: string
-          enum: [setup, ready, preparing_round, build, finished]
+          enum: [setup, reveal, turn, finished]
         round:
           type: integer
           minimum: 0
@@ -554,6 +555,7 @@ components:
           items:
             $ref: "#/components/schemas/color"
         current_instruction:
+          description: Active instruction during turn; null during setup, reveal, and finished.
           oneOf:
             - $ref: "#/components/schemas/instruction"
             - type: "null"

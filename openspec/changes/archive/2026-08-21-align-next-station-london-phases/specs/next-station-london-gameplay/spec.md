@@ -1,24 +1,12 @@
-# next-station-london-gameplay Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change implement-next-station-london-rules. Update Purpose after archive.
-## Requirements
 ### Requirement: Session creation selects optional modules through top-level fields
 The system SHALL create Next Station: London with top-level `objectives` and `powers` boolean attrs, each defaulting to false, and SHALL NOT introduce a `variants` wrapper or separate `shared_objectives` and `pencil_powers` aggregate fields.
-
-#### Scenario: Base session is created
-- **WHEN** a caller creates Next Station: London without module attrs
-- **THEN** the engine initializes in setup with `objectives: nil` and `powers: nil`
 
 #### Scenario: Advanced modules are enabled
 - **WHEN** a caller supplies `objectives: true` and `powers: true`
 - **THEN** the engine initializes the enabled but unprepared fields as `objectives: []` and `powers: %{}` before the session process starts
 - **AND** the first reveal replaces those empty values with exactly two objective ids and one complete color-to-power map
-
-#### Scenario: Creation attrs are malformed
-- **WHEN** either module attr is not a boolean
-- **THEN** session creation fails with invalid creation attrs
-- **AND** no session process starts
 
 ### Requirement: The players map is the sole frozen game roster
 The system SHALL accept 1 to 4 setup players in `game.players` keyed by participant id, require the session owner to be a joined player before start, and use that map as the sole gameplay roster. The system SHALL NOT store, project, sort, or reconstruct a player-order field or encode roster readiness as a game phase.
@@ -79,24 +67,6 @@ The system SHALL automatically assign every frozen participant exactly one disti
 - **THEN** the start payload is empty
 - **AND** the waiting projection omits declarative start-form attributes
 - **AND** pencil assignments remain unset until the automatic first reveal commits them
-
-### Requirement: In-progress membership does not change game players
-The system SHALL use the keys of the frozen start-time `game.players` map for every submission and completion predicate.
-
-#### Scenario: Frozen player disconnects
-- **WHEN** a frozen participant leaves during an in-progress game
-- **THEN** outer session membership is updated
-- **AND** the game retains that participant, network, pending status, and completion obligation
-
-#### Scenario: Frozen player reconnects
-- **WHEN** the same actor joins again during the game
-- **THEN** the actor regains access to the existing player slot
-- **AND** no player or line state is reset
-
-#### Scenario: New actor joins after start
-- **WHEN** an actor whose id is not a key in the frozen players map joins during the game
-- **THEN** the actor is a spectator
-- **AND** the actor cannot draw, pass, or delay instruction completion
 
 ### Requirement: Station reveal is automatic, committed once, and hidden
 The system SHALL use a Next Station: London custom server to dispatch exactly one actorless reveal on each entry to the reveal phase. A reveal SHALL prepare a valid shuffled deck when a round has no committed deck, or advance the already committed deck between turns.
@@ -173,99 +143,6 @@ The system SHALL give every frozen player-map entry one optional construction ac
 - **THEN** the command is rejected with `invalid_phase`
 - **AND** the game remains unchanged
 
-### Requirement: Sections follow printed construction geometry
-The system SHALL accept only static potential sections and SHALL validate the candidate against the complete committed player network.
-
-#### Scenario: Colored line is initialized
-- **WHEN** a round begins for one pencil color
-- **THEN** that color's departure station is the first node of the line before any section is drawn
-- **AND** the node remains part of the colored line even if the player passes every instruction
-
-#### Scenario: First section is drawn
-- **WHEN** a player draws the first section of a colored line
-- **THEN** its origin is that color's departure station
-- **AND** its target is a station on one static potential section from that departure
-
-#### Scenario: Ordinary later section is drawn
-- **WHEN** a player draws a later section without an effective switch
-- **THEN** its origin is a degree-one endpoint of the current colored line
-
-#### Scenario: Target revisits the same colored line
-- **WHEN** a candidate target station already belongs to the current colored line
-- **THEN** the action is rejected with `station_revisited`
-
-#### Scenario: Section is not printed on the map
-- **WHEN** the submitted endpoints are not one static potential section
-- **THEN** the action is rejected with `invalid_section`
-
-#### Scenario: Section is reused by another color
-- **WHEN** the same undirected section already belongs to any colored line in the player's network
-- **THEN** the action is rejected with `section_reused`
-
-#### Scenario: Section crosses an existing section
-- **WHEN** a candidate segment intersects an existing segment anywhere other than a station that is an endpoint of both
-- **THEN** the action is rejected with `section_crossing`
-
-#### Scenario: Different lines share a station
-- **WHEN** a candidate section ends at a station already used by another color without crossing or reusing a section
-- **THEN** the section is legal with respect to intersection rules
-- **AND** the station can become an interchange
-
-### Requirement: Destination symbols are authoritative
-The system SHALL require every drawn section target to match the current effective destination while treating the central wild station as a match for every ordinary symbol.
-
-#### Scenario: Ordinary symbol matches
-- **WHEN** the effective destination is circle, square, triangle, or pentagon
-- **THEN** an ordinary target with the same symbol is accepted if all other section rules pass
-
-#### Scenario: Ordinary symbol differs
-- **WHEN** the effective destination is an ordinary symbol and the target has another ordinary symbol
-- **THEN** the action is rejected with `invalid_destination`
-
-#### Scenario: Central station is targeted
-- **WHEN** a section targets central wild station `r3c5`
-- **THEN** the station satisfies any ordinary or Joker destination
-
-### Requirement: Joker and Railroad Switch cards follow special construction rules
-The system SHALL combine special Station cards with the ordinary construction predicates without weakening unrelated geometry or occupancy rules.
-
-#### Scenario: Joker is revealed
-- **WHEN** the effective destination card is either Joker
-- **THEN** each participant may choose any ordinary destination symbol for that instruction
-
-#### Scenario: Railroad Switch is revealed
-- **WHEN** the Railroad Switch is the next card in the committed deck
-- **THEN** the engine immediately consumes the following card as the destination card for the same instruction
-- **AND** the Switch and destination cards remain visible in reveal history
-
-#### Scenario: Switch occurs on instruction 1 or 2
-- **WHEN** Railroad Switch is paired on either of the first two construction instructions
-- **THEN** its branch privilege is disabled
-- **AND** the paired destination still resolves as an ordinary endpoint instruction
-
-#### Scenario: Switch occurs after instruction 2
-- **WHEN** Railroad Switch is paired after the second instruction
-- **THEN** a player may originate the submitted section at any station already on the current colored line
-- **AND** later ordinary sections may extend from any degree-one endpoint created by the branch
-
-#### Scenario: Switch is paired with the fifth Underground card
-- **WHEN** the paired destination becomes the fifth revealed Underground card
-- **THEN** that combined instruction is the final instruction of the round
-
-### Requirement: Rejected actions are atomic and do not publish
-The system SHALL validate a complete draw or pass candidate before mutating the game.
-
-#### Scenario: One part of a compound action is invalid
-- **WHEN** any submitted section, power modifier, or cross-field constraint fails
-- **THEN** no submitted section or power use is committed
-- **AND** the player remains pending
-- **AND** the server does not broadcast an updated session
-
-#### Scenario: Complete action is valid
-- **WHEN** every structural and state-dependent predicate succeeds
-- **THEN** the server stores one updated session
-- **AND** broadcasts one caller-rendered update through the existing session publication path
-
 ### Requirement: Each round scores one colored line
 The system SHALL score the current colored line after every participant resolves the turn containing the fifth Underground card.
 
@@ -294,38 +171,6 @@ The system SHALL score the current colored line after every participant resolves
 - **AND** round increments
 - **AND** round-only deck and instruction state are cleared
 - **AND** the game enters reveal for the next pencil color
-
-### Requirement: Final scoring determines complete outcomes
-The system SHALL finish after round 4 and expose line, tourist, interchange, objective, total, winner, tie-breaker, and solo result data as applicable.
-
-#### Scenario: Interchanges are scored
-- **WHEN** final scoring evaluates a station used by 2, 3, or 4 distinct colored lines
-- **THEN** that station scores 2, 5, or 9 points respectively
-- **AND** repeated sections within one color cannot increase its distinct-line count
-
-#### Scenario: Multiplayer total is calculated
-- **WHEN** a multiplayer game finishes
-- **THEN** each total equals four colored-line scores plus tourist score plus interchange score plus achieved Shared Objective points
-
-#### Scenario: Multiplayer winner is determined
-- **WHEN** final totals differ
-- **THEN** every player with the highest total is identified as the winning candidate
-
-#### Scenario: Total score is tied
-- **WHEN** players tie on final total
-- **THEN** the player with the highest single colored-line score wins
-- **AND** a remaining tie is recorded as shared victory
-
-#### Scenario: Solo result is determined
-- **WHEN** a solo game finishes
-- **THEN** the engine applies enabled-module penalties to the final score for rating purposes
-- **AND** returns the matching continuous solo band
-
-#### Scenario: Game reaches terminal state
-- **WHEN** final scoring completes
-- **THEN** the inner phase becomes finished
-- **AND** `D20.Game.finished?/1` returns true
-- **AND** the outer session phase becomes finished
 
 ### Requirement: Projection and permissions are caller-specific and explicit
 The system SHALL render Next Station: London through a dedicated projection and SHALL NOT expose a raw Session or raw game aggregate.
@@ -364,12 +209,6 @@ The system SHALL render Next Station: London through a dedicated projection and 
 
 ### Requirement: Playable runtime and public contract are integrated together
 The system SHALL expose the existing `next-station-london` registry entry as an in-progress preview only when engine, projection, permissions, contract, and integration coverage are present.
-
-#### Scenario: Registry entry is a development preview
-- **WHEN** the implementation is complete
-- **THEN** slug `next-station-london` retains engine `D20.NextStationLondon.Game`, BGG id `353545`, and existing iframe sandbox values
-- **AND** its status is `in_progress` and the catalog presents it as `Soon`
-- **AND** session launch is available outside production and unavailable in production through the shared in-progress launch gate
 
 #### Scenario: Public contract is requested
 - **WHEN** a developer requests the Next Station: London contract

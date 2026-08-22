@@ -7,9 +7,9 @@ defmodule D20.NextStationLondon.PermissionTest do
   alias D20.NextStationLondon.Permission
   alias D20.Sessions.Session
 
-  @denied %{can_start_game: false, can_draw_sections: false, can_pass: false}
+  @denied %{can_start_game: false, can_draw: false, can_pass: false}
 
-  test "lets only the joined owner start a ready waiting session" do
+  test "lets only the joined owner start an eligible setup session" do
     ready = session(:waiting_for_players, ready_game())
 
     assert %{can_start_game: true} = Permission.permissions(scope("owner"), ready)
@@ -19,23 +19,22 @@ defmodule D20.NextStationLondon.PermissionTest do
     assert Permission.permissions(scope("owner"), not_joined) == @denied
   end
 
-  test "lets only pending frozen players draw or pass during build" do
+  test "lets only pending frozen players draw or pass during turn" do
     game = build_game()
     session = session(:in_progress, game)
 
-    assert %{can_draw_sections: true, can_pass: true} =
-             Permission.permissions(scope("owner"), session)
+    assert %{can_draw: true, can_pass: true} = Permission.permissions(scope("owner"), session)
 
     submitted = put_in(session.game.players["owner"].status, :submitted)
     assert Permission.permissions(scope("owner"), submitted) == @denied
     assert Permission.permissions(scope("spectator"), session) == @denied
   end
 
-  test "denies mutation during preparation and after finish" do
-    preparing = session(:in_progress, %{ready_game() | phase: :preparing_round, round: 1})
+  test "denies mutation during reveal and after finish" do
+    revealing = session(:in_progress, %{ready_game() | phase: :reveal, round: 1})
     finished = session(:finished, %{build_game() | phase: :finished})
 
-    assert Permission.permissions(scope("owner"), preparing) == @denied
+    assert Permission.permissions(scope("owner"), revealing) == @denied
     assert Permission.permissions(scope("owner"), finished) == @denied
   end
 
@@ -47,14 +46,14 @@ defmodule D20.NextStationLondon.PermissionTest do
   end
 
   defp ready_game do
-    %Game{phase: :ready, players: %{"owner" => Game.initial_player()}}
+    %Game{phase: :setup, players: %{"owner" => Game.initial_player()}}
   end
 
   defp build_game do
     player = %{Game.initial_player() | status: :pending, pencil_offset: 0}
 
     %Game{
-      phase: :build,
+      phase: :turn,
       round: 1,
       pencil_cycle: [:green, :blue, :pink, :purple],
       players: %{"owner" => player},

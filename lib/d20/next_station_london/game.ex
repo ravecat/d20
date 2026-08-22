@@ -12,9 +12,9 @@ defmodule D20.NextStationLondon.Game do
   alias D20.NextStationLondon.Rules
   alias D20.NextStationLondon.Ruleset
 
-  @phases [:setup, :ready, :preparing_round, :build, :finished]
+  @phases [:setup, :reveal, :turn, :finished]
   @player_statuses [:ready, :pending, :submitted]
-  @known_events ["join", "left", "start", "prepare_round", "draw_sections", "pass"]
+  @known_events ["join", "left", "start", "reveal", "draw", "pass"]
   @derive Jason.Encoder
   @primary_key false
 
@@ -29,7 +29,7 @@ defmodule D20.NextStationLondon.Game do
     field :draws, {:array, :map}, default: []
   end
 
-  @type phase :: :setup | :ready | :preparing_round | :build | :finished
+  @type phase :: :setup | :reveal | :turn | :finished
   @type player_status :: :ready | :pending | :submitted
   @type line :: %{
           required(:edges) => [Ruleset.edge_id()],
@@ -81,41 +81,36 @@ defmodule D20.NextStationLondon.Game do
 
   @impl D20.Game
   @spec dispatch(t(), D20.Command.t()) :: {:ok, t()} | {:error, reason()}
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "join"} = command)
-      when phase in [:setup, :ready] do
+  def dispatch(%__MODULE__{phase: :setup} = game, %D20.Command{event: "join"} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
-      {:ok, game |> join_player(command.actor_id) |> refresh_setup_phase()}
+      {:ok, join_player(game, command.actor_id)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left"} = command)
-      when phase in [:setup, :ready] do
+  def dispatch(%__MODULE__{phase: :setup} = game, %D20.Command{event: "left"} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
-      {:ok, game |> leave_player(command.actor_id) |> refresh_setup_phase()}
+      {:ok, leave_player(game, command.actor_id)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"} = command) do
+  def dispatch(%__MODULE__{phase: :setup} = game, %D20.Command{event: "start"} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
       {:ok, start_game(game)}
     end
   end
 
-  def dispatch(
-        %__MODULE__{phase: :preparing_round} = game,
-        %D20.Command{event: "prepare_round"} = command
-      ) do
+  def dispatch(%__MODULE__{phase: :reveal} = game, %D20.Command{event: "reveal"} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
-      {:ok, prepare_round(game, command.attrs)}
+      {:ok, reveal(game, command.attrs)}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :build} = game, %D20.Command{event: event} = command)
-      when event in ["draw_sections", "pass"] do
+  def dispatch(%__MODULE__{phase: :turn} = game, %D20.Command{event: event} = command)
+      when event in ["draw", "pass"] do
     with {:ok, command} <- Command.validate(command),
          {:ok, player} <- Rules.resolve_action(game, command) do
       {:ok, commit_action(game, command.actor_id, player)}
@@ -123,7 +118,7 @@ defmodule D20.NextStationLondon.Game do
   end
 
   def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: event})
-      when event in ["join", "left"] and phase in [:preparing_round, :build] do
+      when event in ["join", "left"] and phase in [:reveal, :turn] do
     {:ok, game}
   end
 
@@ -159,10 +154,6 @@ defmodule D20.NextStationLondon.Game do
     %{game | players: Map.delete(game.players, player_id)}
   end
 
-  defp refresh_setup_phase(game) do
-    %{game | phase: if(Rules.ready_to_start?(game), do: :ready, else: :setup)}
-  end
-
   defp start_game(game) do
     players =
       Map.new(game.players, fn {player_id, player} ->
@@ -171,7 +162,7 @@ defmodule D20.NextStationLondon.Game do
 
     %{
       game
-      | phase: :preparing_round,
+      | phase: :reveal,
         round: 1,
         players: players,
         pencil_cycle: [],
@@ -180,15 +171,21 @@ defmodule D20.NextStationLondon.Game do
     }
   end
 
-  defp prepare_round(game, attrs) do
+  defp reveal(game, attrs) do
+    game
+    |> maybe_commit_round_setup(attrs)
+    |> reveal_instruction()
+    |> set_player_statuses(:pending)
+    |> Map.put(:phase, :turn)
+  end
+
+  defp maybe_commit_round_setup(%__MODULE__{draws: [], remaining_deck: []} = game, attrs) do
     game
     |> commit_first_round_assignments(attrs)
     |> Map.put(:remaining_deck, attrs.deck)
-    |> Map.put(:draws, [])
-    |> reveal_instruction()
-    |> set_player_statuses(:pending)
-    |> Map.put(:phase, :build)
   end
+
+  defp maybe_commit_round_setup(game, _attrs), do: game
 
   defp commit_first_round_assignments(%__MODULE__{round: 1} = game, attrs) do
     players =
@@ -221,9 +218,7 @@ defmodule D20.NextStationLondon.Game do
     if Rules.current_instruction(game).final do
       finish_or_prepare_next_round(game)
     else
-      game
-      |> reveal_instruction()
-      |> set_player_statuses(:pending)
+      %{game | phase: :reveal}
     end
   end
 
@@ -233,7 +228,7 @@ defmodule D20.NextStationLondon.Game do
 
   defp finish_or_prepare_next_round(game) do
     game
-    |> Map.put(:phase, :preparing_round)
+    |> Map.put(:phase, :reveal)
     |> Map.put(:round, game.round + 1)
     |> Map.put(:remaining_deck, [])
     |> Map.put(:draws, [])

@@ -42,7 +42,7 @@ defmodule D20.NextStationLondon.Projection do
         phase: game.phase,
         round: game.round,
         pencil_cycle: game.pencil_cycle,
-        current_instruction: Rules.current_instruction(game),
+        current_instruction: render_current_instruction(game),
         reveals: render_reveals(game),
         players: render_players(game),
         scores: Rules.scores(game),
@@ -76,6 +76,11 @@ defmodule D20.NextStationLondon.Projection do
       game |> Map.put(:draws, Enum.take(game.draws, turn)) |> Rules.current_instruction()
     end)
   end
+
+  defp render_current_instruction(%Game{phase: :turn} = game),
+    do: Rules.current_instruction(game)
+
+  defp render_current_instruction(%Game{}), do: nil
 
   defp render_outcome(%Game{phase: :finished} = game), do: Rules.outcome(game)
   defp render_outcome(%Game{}), do: nil

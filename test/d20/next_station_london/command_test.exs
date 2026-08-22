@@ -20,7 +20,7 @@ defmodule D20.NextStationLondon.CommandTest do
              LondonCommand.validate(%Command{event: "start", actor_id: "p1", attrs: %{}})
   end
 
-  test "normalizes actorless round preparation" do
+  test "normalizes actorless new-round and in-round reveals" do
     assert {:ok,
             %Command{
               attrs: %{
@@ -32,7 +32,7 @@ defmodule D20.NextStationLondon.CommandTest do
               }
             }} =
              LondonCommand.validate(%Command{
-               event: "prepare_round",
+               event: "reveal",
                attrs: %{
                  "deck" => Ruleset.card_ids(),
                  "pencil_cycle" => ~w(green blue pink purple),
@@ -43,6 +43,17 @@ defmodule D20.NextStationLondon.CommandTest do
              })
 
     assert deck == Ruleset.card_ids()
+
+    assert {:ok,
+            %Command{
+              attrs: %{
+                deck: nil,
+                pencil_cycle: nil,
+                pencil_offsets: nil,
+                objectives: nil,
+                powers: nil
+              }
+            }} = LondonCommand.validate(%Command{event: "reveal", attrs: %{}})
   end
 
   test "normalizes draw and pass payloads" do
@@ -56,7 +67,7 @@ defmodule D20.NextStationLondon.CommandTest do
               }
             }} =
              LondonCommand.validate(%Command{
-               event: "draw_sections",
+               event: "draw",
                actor_id: "p1",
                attrs: %{
                  "sections" => [
@@ -80,14 +91,11 @@ defmodule D20.NextStationLondon.CommandTest do
     invalid_commands = [
       %Command{event: "start", attrs: []},
       %Command{event: "start", attrs: %{"pencil_order" => ~w(green blue pink purple)}},
-      %Command{event: "prepare_round", attrs: %{"deck" => ["missing"]}},
-      %Command{event: "prepare_round", attrs: %{"deck" => [], "extra" => true}},
-      %Command{event: "draw_sections", attrs: %{"sections" => []}},
-      %Command{event: "draw_sections", attrs: %{"sections" => [%{"from" => "r2c3"}]}},
-      %Command{
-        event: "draw_sections",
-        attrs: %{"sections" => [%{"from" => "r2c3", "to" => "missing"}]}
-      },
+      %Command{event: "reveal", attrs: %{"deck" => ["missing"]}},
+      %Command{event: "reveal", attrs: %{"deck" => [], "extra" => true}},
+      %Command{event: "draw", attrs: %{"sections" => []}},
+      %Command{event: "draw", attrs: %{"sections" => [%{"from" => "r2c3"}]}},
+      %Command{event: "draw", attrs: %{"sections" => [%{"from" => "r2c3", "to" => "missing"}]}},
       %Command{event: "pass", attrs: %{"power" => "unknown"}},
       %Command{event: "pass", attrs: %{"unexpected" => true}}
     ]

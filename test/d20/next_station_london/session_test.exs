@@ -32,10 +32,7 @@ defmodule D20.NextStationLondon.SessionTest do
     }
 
     {:ok, session} =
-      Session.dispatch(session, Game, %Command{
-        event: "prepare_round",
-        attrs: %{deck: final_deck()}
-      })
+      Session.dispatch(session, Game, %Command{event: "reveal", attrs: %{deck: final_deck()}})
 
     {:ok, session} = Session.dispatch(session, Game, command("left", "owner"))
     assert session.members == %{}
@@ -48,7 +45,15 @@ defmodule D20.NextStationLondon.SessionTest do
     session =
       Enum.reduce(1..5, session, fn _turn, session ->
         {:ok, session} = Session.dispatch(session, Game, command("pass", "owner"))
-        session
+
+        case session.game.phase do
+          :reveal ->
+            {:ok, session} = Session.dispatch(session, Game, command("reveal", nil))
+            session
+
+          :finished ->
+            session
+        end
       end)
 
     assert session.phase == :finished
