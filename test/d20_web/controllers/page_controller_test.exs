@@ -618,14 +618,7 @@ defmodule D20Web.PageControllerTest do
   test "POST /games/:slug/sessions forbids in-progress launch when configured", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_progress, false)
 
-    put_registry_games(
-      qwinto: [
-        engine: D20.Qwinto.Game,
-        bgg_id: 183_006,
-        sandbox: ["allow-scripts"],
-        status: :in_progress
-      ]
-    )
+    put_registry_games(qwinto: [engine: D20.Qwinto.Game, bgg_id: 183_006, status: :in_progress])
 
     before_count = Elixir.Registry.count(D20.Registry)
 
@@ -658,9 +651,7 @@ defmodule D20Web.PageControllerTest do
 
   test "POST /games/:slug/sessions redirects with errors when the configured engine is invalid",
        %{conn: conn} do
-    put_registry_games(
-      qwinto: [engine: String, bgg_id: 183_006, sandbox: ["allow-scripts"], status: :active]
-    )
+    put_registry_games(qwinto: [engine: String, bgg_id: 183_006, status: :active])
 
     conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 

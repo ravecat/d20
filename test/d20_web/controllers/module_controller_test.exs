@@ -120,14 +120,7 @@ defmodule D20Web.ModuleControllerTest do
     Application.put_env(:d20, :allow_launch_in_progress, false)
 
     Application.put_env(:d20, Registry,
-      games: [
-        "koala-rescue-club": [
-          engine: KoalaGame,
-          bgg_id: 425_873,
-          sandbox: ["allow-scripts", "allow-same-origin"],
-          status: :in_progress
-        ]
-      ]
+      games: ["koala-rescue-club": [engine: KoalaGame, bgg_id: 425_873, status: :in_progress]]
     )
 
     conn =

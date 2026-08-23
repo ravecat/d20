@@ -13,23 +13,16 @@ defmodule D20.Games.Registry do
 
     @slug_pattern ~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
     @statuses [:active, :in_progress]
-    @fields [:slug, :engine, :bgg_id, :sandbox, :status]
-    @types %{
-      slug: :string,
-      engine: :any,
-      bgg_id: :integer,
-      sandbox: {:array, :string},
-      status: :any
-    }
+    @fields [:slug, :engine, :bgg_id, :status]
+    @types %{slug: :string, engine: :any, bgg_id: :integer, status: :any}
 
     @enforce_keys [:slug, :bgg_id]
-    defstruct [:slug, :bgg_id, :status, engine: nil, sandbox: []]
+    defstruct [:slug, :bgg_id, :status, engine: nil]
 
     @type t :: %__MODULE__{
             slug: String.t(),
             engine: D20.Game.engine() | nil,
             bgg_id: integer(),
-            sandbox: [String.t()],
             status: :active | :in_progress | nil
           }
 
@@ -41,7 +34,6 @@ defmodule D20.Games.Registry do
       |> validate_slug()
       |> validate_number(:bgg_id, greater_than: 0)
       |> validate_inclusion(:status, @statuses, message: "must be active or in_progress")
-      |> validate_length(:sandbox, min: 1)
       |> validate_operational_bindings()
     end
 
@@ -64,18 +56,9 @@ defmodule D20.Games.Registry do
 
     defp validate_operational_bindings(changeset) do
       if get_field(changeset, :status) in @statuses do
-        changeset
-        |> validate_required([:engine])
-        |> require_sandbox()
+        validate_required(changeset, [:engine])
       else
         changeset
-      end
-    end
-
-    defp require_sandbox(changeset) do
-      case get_field(changeset, :sandbox) do
-        sandbox when is_list(sandbox) and sandbox != [] -> changeset
-        _sandbox -> add_error(changeset, :sandbox, "must be a non-empty list of strings")
       end
     end
   end

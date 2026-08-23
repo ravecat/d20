@@ -37,44 +37,28 @@ defmodule D20.Games.RegistryTest do
 
     assert Enum.map(entries, & &1.slug) == @catalog_slugs
 
-    assert %Registry.Entry{
-             bgg_id: 352_418,
-             engine: D20.Fliptown.Game,
-             sandbox: fliptown_sandbox,
-             status: nil
-           } = entry_by_slug(entries, "fliptown")
+    assert %Registry.Entry{bgg_id: 352_418, engine: D20.Fliptown.Game, status: nil} =
+             entry_by_slug(entries, "fliptown")
 
-    assert %Registry.Entry{
-             bgg_id: 425_873,
-             engine: D20.KoalaRescueClub.Game,
-             sandbox: koala_sandbox,
-             status: :active
-           } = entry_by_slug(entries, "koala-rescue-club")
+    assert %Registry.Entry{bgg_id: 425_873, engine: D20.KoalaRescueClub.Game, status: :active} =
+             entry_by_slug(entries, "koala-rescue-club")
 
     assert %Registry.Entry{
              bgg_id: 353_545,
              engine: D20.NextStationLondon.Game,
-             sandbox: next_station_sandbox,
              status: :in_progress
            } = entry_by_slug(entries, "next-station-london")
 
-    assert %Registry.Entry{
-             bgg_id: 183_006,
-             engine: D20.Qwinto.Game,
-             sandbox: qwinto_sandbox,
-             status: :active
-           } = entry_by_slug(entries, "qwinto")
+    assert %Registry.Entry{bgg_id: 183_006, engine: D20.Qwinto.Game, status: :active} =
+             entry_by_slug(entries, "qwinto")
 
-    assert %Registry.Entry{bgg_id: 420_087, engine: nil, sandbox: [], status: nil} =
+    assert %Registry.Entry{bgg_id: 420_087, engine: nil, status: nil} =
              entry_by_slug(entries, "flip-7")
 
-    assert %Registry.Entry{bgg_id: 245_654, engine: nil, sandbox: [], status: nil} =
+    assert %Registry.Entry{bgg_id: 245_654, engine: nil, status: nil} =
              entry_by_slug(entries, "railroad-ink")
 
-    assert "allow-scripts" in fliptown_sandbox
-    assert "allow-scripts" in koala_sandbox
-    assert "allow-scripts" in next_station_sandbox
-    assert "allow-scripts" in qwinto_sandbox
+    refute Enum.any?(entries, &Map.has_key?(&1, :sandbox))
   end
 
   test "fetches registered games by internal slug" do
@@ -103,54 +87,40 @@ defmodule D20.Games.RegistryTest do
     assert D20.Game.ensure_engine(D20.Fliptown.Game) == {:ok, D20.Fliptown.Game}
     assert D20.Game.ensure_engine(D20.KoalaRescueClub.Game) == {:ok, D20.KoalaRescueClub.Game}
 
-    put_games(qwinto: [engine: String, bgg_id: 183_006, sandbox: ["allow-scripts"]])
+    put_games(qwinto: [engine: String, bgg_id: 183_006])
 
     assert {:ok, %Registry.Entry{engine: String} = entry} = Registry.fetch("qwinto")
     assert D20.Game.ensure_engine(entry.engine) == {:error, :invalid_engine}
   end
 
-  test "exposes iframe sandbox on the fetched entry" do
+  test "keeps module framing data out of fetched entries" do
     assert {:ok, %Registry.Entry{} = entry} = Registry.fetch("qwinto")
     assert entry.slug == "qwinto"
-    assert "allow-scripts" in entry.sandbox
+    refute Map.has_key?(entry, :sandbox)
     refute Map.has_key?(entry, :attrs)
     refute Map.has_key?(entry, :embed_url)
     refute Map.has_key?(entry, :allowed_origins)
   end
 
   test "builds entries through their changeset" do
-    attrs = %{
-      slug: "qwinto",
-      engine: D20.Qwinto.Game,
-      bgg_id: 183_006,
-      sandbox: ["allow-scripts"],
-      status: :active
-    }
+    attrs = %{slug: "qwinto", engine: D20.Qwinto.Game, bgg_id: 183_006, status: :active}
 
     assert %Ecto.Changeset{valid?: true} = Entry.changeset(attrs)
 
     assert %Entry{slug: "qwinto", engine: D20.Qwinto.Game, bgg_id: 183_006, status: :active} =
              Entry.new!(attrs)
 
-    assert %Entry{slug: "voyages", bgg_id: 350_736, engine: nil, sandbox: [], status: nil} =
+    assert %Entry{slug: "voyages", bgg_id: 350_736, engine: nil, status: nil} =
              Entry.new!(%{slug: "voyages", bgg_id: 350_736})
   end
 
   test "validates registry entry attrs" do
-    changeset =
-      Entry.changeset(%{
-        slug: "invalid_slug",
-        engine: nil,
-        bgg_id: 0,
-        sandbox: [],
-        status: :active
-      })
+    changeset = Entry.changeset(%{slug: "invalid_slug", engine: nil, bgg_id: 0, status: :active})
 
     refute changeset.valid?
     assert_error(changeset, :slug, "has invalid format")
     assert_error(changeset, :engine, "can't be blank")
     assert_error(changeset, :bgg_id, "must be greater than %{number}")
-    assert_error(changeset, :sandbox, "must be a non-empty list of strings")
   end
 
   test "rejects unsupported statuses and incomplete launchable bindings" do
@@ -163,15 +133,10 @@ defmodule D20.Games.RegistryTest do
 
     refute incomplete.valid?
     assert_error(incomplete, :engine, "can't be blank")
-    assert_error(incomplete, :sandbox, "must be a non-empty list of strings")
   end
 
   test "raises invalid changeset errors for invalid configured entries" do
-    put_games(qwinto: [engine: D20.Qwinto.Game, bgg_id: nil, sandbox: ["allow-scripts"]])
-
-    assert_raise Ecto.InvalidChangesetError, fn -> Registry.fetch("qwinto") end
-
-    put_games(qwinto: [engine: D20.Qwinto.Game, bgg_id: 183_006, sandbox: [], status: :active])
+    put_games(qwinto: [engine: D20.Qwinto.Game, bgg_id: nil])
 
     assert_raise Ecto.InvalidChangesetError, fn -> Registry.fetch("qwinto") end
   end

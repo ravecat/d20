@@ -76,32 +76,17 @@ config :d20, D20.Games.Registry,
     "death-valley": [bgg_id: 322_703],
     "deep-sea-adventure": [bgg_id: 169_654],
     "flip-7": [bgg_id: 420_087],
-    fliptown: [
-      engine: D20.Fliptown.Game,
-      bgg_id: 352_418,
-      sandbox: ["allow-scripts", "allow-same-origin"]
-    ],
-    "koala-rescue-club": [
-      engine: D20.KoalaRescueClub.Game,
-      bgg_id: 425_873,
-      sandbox: ["allow-scripts", "allow-same-origin"],
-      status: :active
-    ],
+    fliptown: [engine: D20.Fliptown.Game, bgg_id: 352_418],
+    "koala-rescue-club": [engine: D20.KoalaRescueClub.Game, bgg_id: 425_873, status: :active],
     "lost-cities": [bgg_id: 50],
     nimalia: [bgg_id: 361_850],
     "next-station-london": [
       engine: D20.NextStationLondon.Game,
       bgg_id: 353_545,
-      sandbox: ["allow-scripts", "allow-same-origin"],
       status: :in_progress
     ],
     "railroad-ink": [bgg_id: 245_654],
-    qwinto: [
-      engine: D20.Qwinto.Game,
-      bgg_id: 183_006,
-      sandbox: ["allow-scripts", "allow-same-origin"],
-      status: :active
-    ],
+    qwinto: [engine: D20.Qwinto.Game, bgg_id: 183_006, status: :active],
     qwixx: [bgg_id: 131_260],
     "shifting-stones": [bgg_id: 302_280],
     "sky-team": [bgg_id: 373_106],
@@ -110,6 +95,8 @@ config :d20, D20.Games.Registry,
     voyages: [bgg_id: 350_736],
     waypoints: [bgg_id: 388_329]
   ]
+
+config :d20, D20Web.Module, sandbox: ["allow-scripts", "allow-same-origin"]
 
 config :d20, D20.Module.Token,
   salt: "module",

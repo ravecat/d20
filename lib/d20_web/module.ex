@@ -21,10 +21,10 @@ defmodule D20Web.Module do
         }
 
   @spec entry(Plug.Conn.t() | Phoenix.Socket.t(), D20.Games.Registry.Entry.t()) :: entry()
-  def entry(source, %D20.Games.Registry.Entry{slug: slug, sandbox: sandbox}) do
+  def entry(source, %D20.Games.Registry.Entry{slug: slug}) do
     embed_url = source |> request_context() |> embed_url(slug)
 
-    %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: sandbox}
+    %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: sandbox!()}
   end
 
   @spec connection(Plug.Conn.t() | Phoenix.Socket.t(), String.t(), String.t()) :: connection()
@@ -72,6 +72,24 @@ defmodule D20Web.Module do
          assigns: %{scope: %Scope{actor: %Actor{} = actor}, request_uri: %URI{} = uri}
        }) do
     %{actor: actor, uri: uri}
+  end
+
+  defp sandbox! do
+    case Application.fetch_env(:d20, __MODULE__) do
+      {:ok, config} when is_list(config) -> validate_sandbox!(Keyword.get(config, :sandbox))
+      _config -> raise_invalid_sandbox()
+    end
+  end
+
+  defp validate_sandbox!([_capability | _rest] = sandbox) do
+    if Enum.all?(sandbox, &is_binary/1), do: sandbox, else: raise_invalid_sandbox()
+  end
+
+  defp validate_sandbox!(_sandbox), do: raise_invalid_sandbox()
+
+  defp raise_invalid_sandbox do
+    raise ArgumentError,
+          "expected :d20, D20Web.Module :sandbox configuration to be a non-empty list of strings"
   end
 
   @spec embed_url(request_context(), String.t()) :: String.t()

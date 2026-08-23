@@ -25,8 +25,9 @@ The system SHALL allow each game engine to declare the attrs required to create 
 
 #### Scenario: Registry does not own creation attrs
 - **WHEN** the shell resolves a game from the registry
-- **THEN** the registry provides operational game bindings such as slug, engine, BGG id, and sandbox
-- **AND** the registry does not provide game-specific creation attrs or validation rules
+- **THEN** the registry provides game identity and runtime bindings such as slug, engine, BGG id, and availability status
+- **AND** the registry provides neither game-specific creation attrs nor iframe sandbox policy
+- **AND** the registry does not provide game-specific creation validation rules
 
 ### Requirement: Game creation forms use a JSON Schema transport
 The system SHALL represent launchable game creation controls with JSON Schema generated from the game changeset at the game page boundary.
