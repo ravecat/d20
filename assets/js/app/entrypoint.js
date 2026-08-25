@@ -21,6 +21,7 @@ import "vite/modulepreload-polyfill";
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 import { createInertiaApp } from "@inertiajs/svelte";
+import { Hooks as BackpexHooks, backpexParams } from "backpex";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
@@ -33,8 +34,8 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks },
+  params: backpexParams({ _csrf_token: csrfToken }),
+  hooks: { ...colocatedHooks, ...BackpexHooks },
 });
 
 // Show progress bar on live navigation and form submits

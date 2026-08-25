@@ -4,14 +4,15 @@ defmodule D20Web.SessionChannel do
   alias D20.Accounts
   alias D20.Accounts.Scope
   alias D20.Sessions
+  alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.Projection
   alias D20Web.Workspace
 
-  @spec topic(Sessions.id()) :: String.t()
+  @spec topic(Session.id()) :: String.t()
   def topic(session_id) when is_binary(session_id), do: "session:" <> session_id
 
-  @spec session_id(String.t()) :: {:ok, Sessions.id()} | {:error, :invalid_topic}
+  @spec session_id(String.t()) :: {:ok, Session.id()} | {:error, :invalid_topic}
   def session_id("session:" <> session_id) when session_id != "", do: {:ok, session_id}
   def session_id(_topic), do: {:error, :invalid_topic}
 
@@ -21,13 +22,13 @@ defmodule D20Web.SessionChannel do
         _payload,
         %{
           handler: D20Web.ModuleSocket,
-          assigns: %{scope: %{session: %{id: session_id}, game: %{slug: slug}}}
+          assigns: %{scope: %{session: %{id: session_id}, game: %{id: game_id}}}
         } = socket
       ) do
-    with {:ok, {session, ^slug}} <- Sessions.get(session_id) do
+    with {:ok, {session, ^game_id}} <- Sessions.get(session_id) do
       join_to_session(socket, session)
     else
-      {:ok, {_session, _session_slug}} -> join_error({:error, :forbidden})
+      {:ok, {_session, _session_game_id}} -> join_error({:error, :forbidden})
       {:error, reason} -> join_error({:error, reason})
     end
   end
@@ -41,8 +42,8 @@ defmodule D20Web.SessionChannel do
         _payload,
         %{assigns: %{scope: %{actor: %{id: _actor_id}}}} = socket
       ) do
-    with {:ok, {session, slug}} <- Sessions.get(session_id) do
-      scope = socket.assigns.scope |> Scope.put_session(session.id) |> Scope.put_game(slug)
+    with {:ok, {session, game_id}} <- Sessions.get(session_id) do
+      scope = socket.assigns.scope |> Scope.put_session(session.id) |> Scope.put_game(game_id)
 
       socket = assign(socket, :scope, scope)
 

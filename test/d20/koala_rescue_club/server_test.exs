@@ -12,8 +12,10 @@ defmodule D20.KoalaRescueClub.ServerTest do
   alias D20Web.SessionChannel
 
   setup do
+    game_id = game_id(425_873)
+
     assert {:ok, %Session{} = session} =
-             Sessions.create("koala-rescue-club", Game, "owner", %{"sheet" => "dharug"})
+             Sessions.create(game_id, Game, "owner", %{"sheet" => "dharug"})
 
     on_exit(fn -> Sessions.stop(session.id) end)
 
@@ -29,21 +31,26 @@ defmodule D20.KoalaRescueClub.ServerTest do
                       game: %Game{phase: :ready, players: %{"owner" => _player}}
                     }}
 
-    %{pid: pid, session: session}
+    %{pid: pid, session: session, game_id: game_id}
   end
 
-  test "uses the current game phase as the state-machine state", %{pid: pid, session: session} do
-    assert {:ok, {%Session{game: %Game{phase: :ready}} = current_session, "koala-rescue-club"}} =
+  test "uses the current game phase as the state-machine state", %{
+    pid: pid,
+    session: session,
+    game_id: game_id
+  } do
+    assert {:ok, {%Session{game: %Game{phase: :ready}} = current_session, ^game_id}} =
              Sessions.get(session.id)
 
-    assert {:ready, {"koala-rescue-club", Game, ^current_session}} = :sys.get_state(pid)
+    assert {:ready, {^game_id, Game, ^current_session}} = :sys.get_state(pid)
   end
 
   test "keeps player state across duplicate online and final offline events", %{
     pid: pid,
-    session: session
+    session: session,
+    game_id: game_id
   } do
-    assert {:ok, {%Session{game: %Game{players: %{"owner" => player}}}, _slug}} =
+    assert {:ok, {%Session{game: %Game{players: %{"owner" => player}}}, _game_id}} =
              Sessions.get(session.id)
 
     send(pid, {:online, "owner", %{online_at: 2}})
@@ -62,20 +69,24 @@ defmodule D20.KoalaRescueClub.ServerTest do
                       game: %Game{players: %{"owner" => ^player}}
                     } = offline}
 
-    assert {:ok, {^offline, "koala-rescue-club"}} = Sessions.get(session.id)
+    assert {:ok, {^offline, ^game_id}} = Sessions.get(session.id)
     assert online.game == offline.game
   end
 
-  test "schedules and performs one server-owned roll", %{pid: pid, session: session} do
+  test "schedules and performs one server-owned roll", %{
+    pid: pid,
+    session: session,
+    game_id: game_id
+  } do
     assert {:ok,
             %Session{
               game: %Game{phase: :roll, mode: :solo, players: %{"owner" => _player}, roll: nil}
             } = roll_session} = Sessions.dispatch(scope(session.id), "start", %{})
 
     assert_receive {:session, ^roll_session}
-    assert {:roll, {"koala-rescue-club", Game, ^roll_session}} = :sys.get_state(pid)
+    assert {:roll, {^game_id, Game, ^roll_session}} = :sys.get_state(pid)
 
-    assert {:ok, {^roll_session, "koala-rescue-club"}} = Sessions.get(session.id)
+    assert {:ok, {^roll_session, ^game_id}} = Sessions.get(session.id)
 
     send(pid, {:online, "owner", %{online_at: 123}})
 
@@ -85,7 +96,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
                       game: %Game{phase: :roll, mode: :solo, players: %{"owner" => _player}}
                     } = presence_session}
 
-    assert {:roll, {"koala-rescue-club", Game, ^presence_session}} = :sys.get_state(pid)
+    assert {:roll, {^game_id, Game, ^presence_session}} = :sys.get_state(pid)
 
     assert_receive {:session,
                     %Session{game: %Game{phase: :submit, mode: :solo, roll: %{value: value}}} =
@@ -93,7 +104,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
                    5_000
 
     assert value in 1..6
-    assert {:submit, {"koala-rescue-club", Game, ^submitted_session}} = :sys.get_state(pid)
+    assert {:submit, {^game_id, Game, ^submitted_session}} = :sys.get_state(pid)
     refute_receive {:session, %Session{game: %Game{phase: :submit}}}, 100
   end
 
@@ -104,7 +115,10 @@ defmodule D20.KoalaRescueClub.ServerTest do
     assert {:error, :invalid_identity} = Sessions.dispatch(scope(session.id), "roll", %{})
   end
 
-  test "schedules the next roll only after every player submits", %{session: session} do
+  test "schedules the next roll only after every player submits", %{
+    session: session,
+    game_id: game_id
+  } do
     assert {:ok, %Session{}} = Sessions.dispatch(scope(session.id, "player-2"), "join", %{})
 
     assert_receive {:session,
@@ -134,7 +148,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
              })
 
     refute_receive {:session, %Session{}}, 100
-    assert {:ok, {^rolled_session, "koala-rescue-club"}} = Sessions.get(session.id)
+    assert {:ok, {^rolled_session, ^game_id}} = Sessions.get(session.id)
 
     assert {:ok, %Session{game: %Game{phase: :submit}} = owner_submitted} =
              Sessions.dispatch(scope(session.id), "submit", %{
@@ -146,7 +160,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     assert_receive {:session, ^owner_submitted}
 
-    assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _slug}} =
+    assert {:ok, {%Session{game: %Game{phase: :submit, turn: 1}}, _game_id}} =
              Sessions.get(session.id)
 
     assert {:ok, %Session{game: %Game{phase: :roll, mode: :multiplayer, turn: 2}}} =
@@ -177,8 +191,7 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 250
 
-    assert {:ok, {%Session{game: %Game{phase: :roll}}, "koala-rescue-club"}} =
-             Sessions.get(session.id)
+    assert {:ok, {%Session{game: %Game{phase: :roll}}, _game_id}} = Sessions.get(session.id)
 
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 300
     assert_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 500
@@ -188,6 +201,6 @@ defmodule D20.KoalaRescueClub.ServerTest do
     %Actor{id: actor_id, type: :anonymous}
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
-    |> Scope.put_game("koala-rescue-club")
+    |> Scope.put_game(game_id(425_873))
   end
 end

@@ -12,7 +12,7 @@ export type WorkspaceSessionPhase = "in_progress" | "finished";
 
 export interface WorkspaceSessionDescriptor {
   id: string;
-  slug: string;
+  game_id: string;
   phase: WorkspaceSessionPhase;
   module: ModuleEntry;
   connection: ModuleConnection;

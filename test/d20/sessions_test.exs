@@ -45,7 +45,7 @@ defmodule D20.SessionsTest do
     alias D20.Sessions.Session
 
     @impl :gen_statem
-    def init({_slug, _engine, %Session{}} = data) do
+    def init({_game_id, _engine, %Session{}} = data) do
       {:ok, :running, data}
     end
 
@@ -145,14 +145,14 @@ defmodule D20.SessionsTest do
     end
 
     test "provides Presence admission behavior to custom servers by default" do
-      assert {:ok, %Session{} = session} =
-               Sessions.create("shared-default", SharedDefaultServerGame, "p1")
+      game_id = game_id(183_006)
+      assert {:ok, %Session{} = session} = Sessions.create(game_id, SharedDefaultServerGame, "p1")
 
       on_exit(fn -> Sessions.stop(session.id) end)
 
       topic = SessionChannel.topic(session.id)
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, topic)
-      assert {:ok, {^session, "shared-default"}} = Sessions.get(session.id)
+      assert {:ok, {^session, ^game_id}} = Sessions.get(session.id)
 
       assert {:ok, %{}} =
                Presence.handle_metas(
@@ -168,11 +168,12 @@ defmodule D20.SessionsTest do
                         game: %{events: [{"join", "p2", %{online_at: 123}}]}
                       } = updated_session}
 
-      assert {:ok, {^updated_session, "shared-default"}} = Sessions.get(session.id)
+      assert {:ok, {^updated_session, ^game_id}} = Sessions.get(session.id)
     end
 
     test "provides serialized attachment behavior to custom servers by default" do
-      assert {:ok, %Session{} = session} = Sessions.create("custom", CustomServerGame, "owner")
+      game_id = game_id(183_006)
+      assert {:ok, %Session{} = session} = Sessions.create(game_id, CustomServerGame, "owner")
 
       on_exit(fn -> Sessions.stop(session.id) end)
 
@@ -185,14 +186,14 @@ defmodule D20.SessionsTest do
 
       send(pid, {:online, "actor", %{online_at: 123}})
 
-      assert {:ok, {%Session{members: %{"actor" => %{status: :online}}, game: game}, "custom"}} =
+      assert {:ok, {%Session{members: %{"actor" => %{status: :online}}, game: game}, ^game_id}} =
                Sessions.get(session.id)
 
       assert :ok = Sessions.detach(actor_scope, session.id)
 
       assert {:ok,
               {%Session{members: %{"actor" => %{status: :offline}}, game: detached_game},
-               "custom"}} = Sessions.get(session.id)
+               ^game_id}} = Sessions.get(session.id)
 
       assert detached_game == game
       assert SessionRegistry.list("actor") == []
@@ -200,8 +201,9 @@ defmodule D20.SessionsTest do
   end
 
   describe "create/3" do
-    test "starts a supervised session process for a game slug" do
-      assert {:ok, %Session{} = session} = Sessions.create("qwinto", TestGame, "p1")
+    test "starts a supervised session process for a local game id" do
+      game_id = game_id(183_006)
+      assert {:ok, %Session{} = session} = Sessions.create(game_id, TestGame, "p1")
       id = session.id
       session_ref = id
 
@@ -209,15 +211,16 @@ defmodule D20.SessionsTest do
 
       assert {:ok, ^id} = Ecto.UUID.cast(id)
       assert %Session{id: ^id, owner_id: "p1"} = session
-      assert {:ok, {^session, "qwinto"}} = Sessions.get(session_ref)
+      assert {:ok, {^session, ^game_id}} = Sessions.get(session_ref)
       assert [{pid, Server}] = Registry.lookup(D20.Registry, {:session, session_ref})
       assert Process.alive?(pid)
 
-      assert {:waiting_for_players, {"qwinto", TestGame, ^session}} = :sys.get_state(pid)
+      assert {:waiting_for_players, {^game_id, TestGame, ^session}} = :sys.get_state(pid)
     end
 
     test "starts the engine configured game server" do
-      assert {:ok, %Session{} = session} = Sessions.create("custom", CustomServerGame, "p1")
+      game_id = game_id(183_006)
+      assert {:ok, %Session{} = session} = Sessions.create(game_id, CustomServerGame, "p1")
       session_ref = session.id
 
       on_exit(fn -> Sessions.stop(session_ref) end)
@@ -228,42 +231,61 @@ defmodule D20.SessionsTest do
                session_ref |> scope("p1") |> Sessions.dispatch("start", %{})
 
       assert {"start", "p1", %{server: :custom}} in session.game.events
-      assert {:ok, {^session, "custom"}} = Sessions.get(session_ref)
+      assert {:ok, {^session, ^game_id}} = Sessions.get(session_ref)
+    end
+
+    test "uses TypeID primary-key casting for the persisted game lookup" do
+      assert {:error, :game_not_found} = Sessions.create(TypeID.new("game"), TestGame, "p1")
+
+      assert_raise Ecto.Query.CastError, fn -> Sessions.create("not-an-id", TestGame, "p1") end
+
+      assert_raise Ecto.Query.CastError, fn ->
+        Sessions.create(TypeID.new("user"), TestGame, "p1")
+      end
+    end
+
+    test "rejects a game when session launch is unavailable" do
+      assert {:error, :forbidden} = Sessions.create(game_id(360_471), TestGame, "p1")
     end
 
     test "returns invalid owner errors" do
-      assert {:error, :invalid_owner_id} = Sessions.create("qwinto", TestGame, "")
-      assert {:error, :invalid_owner_id} = Sessions.create("qwinto", TestGame, nil)
+      qwinto_id = game_id(183_006)
+      assert {:error, :invalid_owner_id} = Sessions.create(qwinto_id, TestGame, "")
+      assert {:error, :invalid_owner_id} = Sessions.create(qwinto_id, TestGame, nil)
     end
 
     test "returns engine validation errors" do
-      assert {:error, :invalid_engine} = Sessions.create("qwinto", String, "p1")
+      assert {:error, :invalid_engine} = Sessions.create(game_id(183_006), String, "p1")
     end
 
     test "passes creation attrs into the game before starting the session process" do
+      koala_id = game_id(425_873)
+
       assert {:ok, %Session{game: %KoalaGame{sheet: :yugambeh}} = session} =
-               Sessions.create("koala-rescue-club", KoalaGame, "p1", %{"sheet" => "yugambeh"})
+               Sessions.create(koala_id, KoalaGame, "p1", %{"sheet" => "yugambeh"})
 
       on_exit(fn -> Sessions.stop(session.id) end)
 
-      assert {:ok, {^session, "koala-rescue-club"}} = Sessions.get(session.id)
+      assert {:ok, {^session, ^koala_id}} = Sessions.get(session.id)
     end
 
     test "manages a Koala state-machine server through the shared session API" do
+      koala_id = game_id(425_873)
+
       assert {:ok, %Session{} = session} =
-               Sessions.create("koala-rescue-club", KoalaGame, "p1", %{"sheet" => "dharug"})
+               Sessions.create(koala_id, KoalaGame, "p1", %{"sheet" => "dharug"})
 
       on_exit(fn -> Sessions.stop(session.id) end)
 
       assert [{_pid, D20.KoalaRescueClub.Server}] =
                Registry.lookup(D20.Registry, {:session, session.id})
 
-      assert {:ok, {^session, "koala-rescue-club"}} = Sessions.get(session.id)
+      assert {:ok, {^session, ^koala_id}} = Sessions.get(session.id)
 
       assert {:ok, %Session{members: %{}} = joined_session} =
                Sessions.dispatch(scope(session.id, "p1"), "join", %{})
 
-      assert {:ok, {^joined_session, "koala-rescue-club"}} = Sessions.get(session.id)
+      assert {:ok, {^joined_session, ^koala_id}} = Sessions.get(session.id)
 
       assert :ok = Sessions.stop(session.id)
       assert_session_stopped(session.id)
@@ -273,7 +295,7 @@ defmodule D20.SessionsTest do
       before_count = Registry.count(D20.Registry)
 
       assert {:error, %Ecto.Changeset{valid?: false}} =
-               Sessions.create("koala-rescue-club", KoalaGame, "p1", %{"sheet" => "missing"})
+               Sessions.create(game_id(425_873), KoalaGame, "p1", %{"sheet" => "missing"})
 
       assert Registry.count(D20.Registry) == before_count
     end
@@ -284,11 +306,15 @@ defmodule D20.SessionsTest do
       start_test_session(TestGame, "p1")
     end
 
-    test "serializes session transitions through the process", %{id: id, ref: ref} do
+    test "serializes session transitions through the process", %{
+      id: id,
+      ref: ref,
+      game_id: game_id
+    } do
       assert {:ok, %Session{} = session} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
       assert {"start", "p1", %{}} in session.game.events
       assert session.id == id
-      assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {^session, ^game_id}} = Sessions.get(ref)
     end
 
     test "dispatches scoped game commands with the actor id", %{ref: ref} do
@@ -315,42 +341,43 @@ defmodule D20.SessionsTest do
       assert {:error, :forbidden} = Sessions.dispatch(%Scope{}, "noop", %{})
     end
 
-    test "keeps current state when a dispatch returns an error", %{ref: ref} do
+    test "keeps current state when a dispatch returns an error", %{ref: ref, game_id: game_id} do
       assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
-      assert {:ok, {before, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {before, ^game_id}} = Sessions.get(ref)
       assert {:error, :invalid_command} = Sessions.dispatch(scope(ref, "p1"), "fail", %{})
-      assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {^before, ^game_id}} = Sessions.get(ref)
     end
 
     test "stores, publishes, and replies with one authoritative accepted state", %{
       ref: ref,
-      pid: pid
+      pid: pid,
+      game_id: game_id
     } do
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
 
       assert {:ok, %Session{} = session} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
       assert_receive {:session, ^session}
-      assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
-      assert {:in_progress, {"test-game", TestGame, ^session}} = :sys.get_state(pid)
+      assert {:ok, {^session, ^game_id}} = Sessions.get(ref)
+      assert {:in_progress, {^game_id, TestGame, ^session}} = :sys.get_state(pid)
 
       assert {:error, :invalid_command} = Sessions.dispatch(scope(ref, "p1"), "fail", %{})
       refute_receive {:session, %Session{}}, 50
-      assert {:ok, {^session, "test-game"}} = Sessions.get(ref)
-      assert {:in_progress, {"test-game", TestGame, ^session}} = :sys.get_state(pid)
+      assert {:ok, {^session, ^game_id}} = Sessions.get(ref)
+      assert {:in_progress, {^game_id, TestGame, ^session}} = :sys.get_state(pid)
 
       assert {:ok, %Session{phase: :finished} = finished_session} =
                Sessions.dispatch(scope(ref, "p1"), "finish", %{})
 
       assert_receive {:session, ^finished_session}
-      assert {:finished, {"test-game", TestGame, ^finished_session}} = :sys.get_state(pid)
+      assert {:finished, {^game_id, TestGame, ^finished_session}} = :sys.get_state(pid)
     end
 
-    test "keeps client state out of the server state", %{id: id, ref: ref} do
-      assert {:ok, {%Session{id: ^id} = session, "test-game"}} = Sessions.get(ref)
+    test "keeps client state out of the server state", %{id: id, ref: ref, game_id: game_id} do
+      assert {:ok, {%Session{id: ^id} = session, ^game_id}} = Sessions.get(ref)
       refute Map.has_key?(session, :client_state)
     end
 
-    test "updates members from session presence events", %{id: id, ref: ref} do
+    test "updates members from session presence events", %{id: id, ref: ref, game_id: game_id} do
       topic = SessionChannel.topic(id)
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, topic)
 
@@ -373,7 +400,7 @@ defmodule D20.SessionsTest do
                  %{}
                )
 
-      assert {:ok, {session, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {session, ^game_id}} = Sessions.get(ref)
       assert_receive {:session, ^session}
 
       assert %{status: :online, online_at: 123, display_name: "forged", avatar: "forged-avatar"} =
@@ -391,7 +418,7 @@ defmodule D20.SessionsTest do
                  %{}
                )
 
-      assert {:ok, {session, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {session, ^game_id}} = Sessions.get(ref)
       assert_receive {:session, ^session}
 
       assert %{status: :offline, online_at: 123, display_name: "forged", avatar: "forged-avatar"} =
@@ -420,12 +447,12 @@ defmodule D20.SessionsTest do
 
       assert offline.game == online.game
 
-      assert {:ok, {^offline, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {^offline, _game_id}} = Sessions.get(ref)
 
       send(pid, {:offline, "p2"})
 
       refute_receive {:session, %Session{}}, 50
-      assert {:ok, {^offline, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {^offline, _game_id}} = Sessions.get(ref)
       refute online == offline
     end
   end
@@ -435,17 +462,21 @@ defmodule D20.SessionsTest do
       start_test_session(TestGame, "p1")
     end
 
-    test "serializes a caller-scoped read without storing or publishing", %{ref: ref, pid: pid} do
+    test "serializes a caller-scoped read without storing or publishing", %{
+      ref: ref,
+      pid: pid,
+      game_id: game_id
+    } do
       assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
-      assert {:ok, {before, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {before, ^game_id}} = Sessions.get(ref)
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
 
       assert {:ok, %{actor_id: "p2", attrs: %{candidate: 1}, event_count: 1}} =
                Sessions.preview(scope(ref, "p2"), "inspect", %{candidate: 1})
 
       refute_receive {:session, %Session{}}, 50
-      assert {:ok, {^before, "test-game"}} = Sessions.get(ref)
-      assert {:in_progress, {"test-game", TestGame, ^before}} = :sys.get_state(pid)
+      assert {:ok, {^before, ^game_id}} = Sessions.get(ref)
+      assert {:in_progress, {^game_id, TestGame, ^before}} = :sys.get_state(pid)
     end
 
     test "requires session and actor context" do
@@ -458,7 +489,11 @@ defmodule D20.SessionsTest do
       start_test_session(RejectPresenceGame, "p1")
     end
 
-    test "retains online membership when game admission is rejected", %{ref: ref, pid: pid} do
+    test "retains online membership when game admission is rejected", %{
+      ref: ref,
+      pid: pid,
+      game_id: game_id
+    } do
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
 
       send(pid, {:online, "rejected", %{online_at: 123}})
@@ -469,10 +504,9 @@ defmodule D20.SessionsTest do
                         game: %{events: []}
                       } = online}
 
-      assert {:ok, {^online, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {^online, ^game_id}} = Sessions.get(ref)
 
-      assert {:waiting_for_players, {"test-game", RejectPresenceGame, ^online}} =
-               :sys.get_state(pid)
+      assert {:waiting_for_players, {^game_id, RejectPresenceGame, ^online}} = :sys.get_state(pid)
     end
 
     test "keeps admitted game state when the member goes offline", %{ref: ref, pid: pid} do
@@ -490,7 +524,7 @@ defmodule D20.SessionsTest do
 
       assert_receive {:session, %Session{members: %{"p2" => %{status: :offline}}} = offline}
 
-      assert {:ok, {^offline, "test-game"}} = Sessions.get(ref)
+      assert {:ok, {^offline, _game_id}} = Sessions.get(ref)
       assert offline.game == online.game
     end
   end
@@ -521,7 +555,7 @@ defmodule D20.SessionsTest do
 
       send(pid, {:online, "p2", %{online_at: 123}})
 
-      assert {:ok, {%Session{members: %{"p2" => %{status: :online}}, game: game}, _slug}} =
+      assert {:ok, {%Session{members: %{"p2" => %{status: :online}}, game: game}, _game_id}} =
                Sessions.get(ref)
 
       assert :ok = Sessions.detach(actor_scope, ref)
@@ -529,7 +563,7 @@ defmodule D20.SessionsTest do
       assert SessionRegistry.list("p2") == []
 
       assert {:ok,
-              {%Session{members: %{"p2" => %{status: :offline}}, game: detached_game}, _slug}} =
+              {%Session{members: %{"p2" => %{status: :offline}}, game: detached_game}, _game_id}} =
                Sessions.get(ref)
 
       assert detached_game == game
@@ -539,10 +573,15 @@ defmodule D20.SessionsTest do
     test "ordinary Presence offline keeps the attachment", %{ref: ref, pid: pid} do
       assert :ok = Sessions.attach(scope(ref, "p2"))
       send(pid, {:online, "p2", %{online_at: 123}})
-      assert {:ok, {%Session{members: %{"p2" => %{status: :online}}}, _slug}} = Sessions.get(ref)
+
+      assert {:ok, {%Session{members: %{"p2" => %{status: :online}}}, _game_id}} =
+               Sessions.get(ref)
 
       send(pid, {:offline, "p2"})
-      assert {:ok, {%Session{members: %{"p2" => %{status: :offline}}}, _slug}} = Sessions.get(ref)
+
+      assert {:ok, {%Session{members: %{"p2" => %{status: :offline}}}, _game_id}} =
+               Sessions.get(ref)
+
       assert SessionRegistry.list("p2") == [{pid, ref}]
     end
 
@@ -563,13 +602,13 @@ defmodule D20.SessionsTest do
       actor_id = Ecto.UUID.generate()
       actor_scope = Scope.for_actor(%Actor{id: actor_id, type: :anonymous})
 
-      assert {:ok, owned_session} = Sessions.create("owned-game", TestGame, actor_id)
-      assert {:ok, joined_session} = Sessions.create("joined-game", TestGame, "other-owner")
+      game_id = game_id(183_006)
+      assert {:ok, owned_session} = Sessions.create(game_id, TestGame, actor_id)
+      assert {:ok, joined_session} = Sessions.create(game_id, TestGame, "other-owner")
 
-      assert {:ok, second_joined_session} =
-               Sessions.create("second-game", TestGame, "other-owner")
+      assert {:ok, second_joined_session} = Sessions.create(game_id, TestGame, "other-owner")
 
-      assert {:ok, unrelated_session} = Sessions.create("unrelated-game", TestGame, "other-owner")
+      assert {:ok, unrelated_session} = Sessions.create(game_id, TestGame, "other-owner")
 
       sessions = [owned_session, joined_session, second_joined_session, unrelated_session]
       on_exit(fn -> Enum.each(sessions, &Sessions.stop(&1.id)) end)
@@ -589,13 +628,12 @@ defmodule D20.SessionsTest do
                |> Sessions.list()
                |> Enum.map(fn {pid, {%Session{id: id}, slug}} -> {pid, id, slug} end)
 
-      assert Enum.all?(runtime_sessions, fn {pid, _id, _slug} -> Process.alive?(pid) end)
+      assert Enum.all?(runtime_sessions, fn {pid, _id, _game_id} -> Process.alive?(pid) end)
 
-      assert runtime_sessions |> Enum.map(fn {_pid, id, slug} -> {id, slug} end) |> Enum.sort() ==
-               Enum.sort([
-                 {joined_session.id, "joined-game"},
-                 {second_joined_session.id, "second-game"}
-               ])
+      assert runtime_sessions
+             |> Enum.map(fn {_pid, id, id_game} -> {id, id_game} end)
+             |> Enum.sort() ==
+               Enum.sort([{joined_session.id, game_id}, {second_joined_session.id, game_id}])
     end
 
     test "returns no sessions without an actor scope" do
@@ -608,8 +646,8 @@ defmodule D20.SessionsTest do
       start_test_session(TestGame, "p1")
     end
 
-    test "returns server metadata for the session", %{id: id} do
-      assert {:ok, {%Session{id: ^id}, "test-game"}} = Sessions.get(id)
+    test "returns server metadata for the session", %{id: id, game_id: game_id} do
+      assert {:ok, {%Session{id: ^id}, ^game_id}} = Sessions.get(id)
     end
   end
 
@@ -686,7 +724,7 @@ defmodule D20.SessionsTest do
       monitor_ref = Process.monitor(pid)
 
       refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 250
-      assert {:ok, {%Session{}, "test-game"}} = Sessions.get(session_ref)
+      assert {:ok, {%Session{}, _game_id}} = Sessions.get(session_ref)
       refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 300
       assert_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 500
     end
@@ -694,20 +732,21 @@ defmodule D20.SessionsTest do
 
   defp start_test_session(engine, owner_id) do
     assert {:ok, session} = Session.new(engine, owner_id)
+    game_id = game_id(183_006)
 
-    pid = start_supervised!({Server, slug: "test-game", engine: engine, session: session})
+    pid = start_supervised!({Server, game_id: game_id, engine: engine, session: session})
     send(pid, :presence)
-    assert {:ok, {_session, "test-game"}} = Server.get(pid)
+    assert {:ok, {_session, ^game_id}} = Server.get(pid)
     ref = session.id
 
-    %{id: session.id, ref: ref, session: session, pid: pid}
+    %{id: session.id, ref: ref, session: session, pid: pid, game_id: game_id}
   end
 
   defp mark_online(session_id, actor_id) do
     assert [{pid, _server}] = Registry.lookup(D20.Registry, {:session, session_id})
     send(pid, {:online, actor_id, %{online_at: 123}})
 
-    assert {:ok, {%Session{members: %{^actor_id => %{status: :online}}}, _slug}} =
+    assert {:ok, {%Session{members: %{^actor_id => %{status: :online}}}, _game_id}} =
              Sessions.get(session_id)
   end
 
@@ -738,6 +777,6 @@ defmodule D20.SessionsTest do
     %Actor{id: actor_id, type: :anonymous}
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
-    |> Scope.put_game("test-game")
+    |> Scope.put_game(game_id(183_006))
   end
 end

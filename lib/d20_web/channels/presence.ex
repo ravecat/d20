@@ -7,9 +7,10 @@ defmodule D20Web.Presence do
     otp_app: :d20,
     pubsub_server: D20.PubSub
 
+  alias D20.Sessions.Session
   alias D20Web.SessionChannel
 
-  @spec subscribe(D20.Sessions.id()) :: :ok | {:error, term()}
+  @spec subscribe(Session.id()) :: :ok | {:error, term()}
   def subscribe(session_id) when is_binary(session_id) do
     Phoenix.PubSub.subscribe(D20.PubSub, topic(SessionChannel.topic(session_id)))
   end

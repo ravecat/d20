@@ -1,7 +1,11 @@
 import { render } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
 import { HomePage } from "~/pages/home";
-import type { GameMetadata } from "~/shared/types";
+import type { GameMetadata } from "~/shared/types/game";
+
+const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
+const voyagesId = "game_01h45ybmy7fj7b4r9vvp74ms6k";
+const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
 
 const auth = {
   authenticated: false,
@@ -15,13 +19,13 @@ const auth = {
 };
 
 describe("home page", () => {
-  it("renders game tiles with preview images and slug links", () => {
+  it("renders game tiles with preview images and id-only links", () => {
     render(HomePage, {
       auth,
       games: [
         {
-          slug: "qwinto",
-          status: "active",
+          id: qwintoId,
+          stage: "released",
           game: gameMetadata({
             name: "Qwinto",
             categories: ["Dice", "Number"],
@@ -38,7 +42,7 @@ describe("home page", () => {
     const title = link?.querySelector("h2");
     const visibleText = link?.textContent ?? "";
 
-    expect(link?.getAttribute("href")).toBe("/games/qwinto");
+    expect(link?.getAttribute("href")).toBe(`/games/${qwintoId}`);
     expect(title?.textContent).toBe("Qwinto");
     expect(image?.getAttribute("src")).toBe("https://example.invalid/qwinto-image.jpg");
     expect(visibleText).toContain("Qwinto");
@@ -46,7 +50,8 @@ describe("home page", () => {
     expect(visibleText).toContain("Number");
     expect(visibleText).not.toContain("Dice Rolling");
     expect(visibleText).not.toContain("Paper-and-Pencil");
-    expect(visibleText).not.toContain("Soon");
+    expect(visibleText).not.toContain("In development");
+    expect(visibleText).not.toContain("Planned");
   });
 
   it("renders fallback preview state when metadata has no image", () => {
@@ -54,8 +59,8 @@ describe("home page", () => {
       auth,
       games: [
         {
-          slug: "qwinto",
-          status: null,
+          id: voyagesId,
+          stage: "planned",
           game: gameMetadata({ thumbnailUrl: null, imageUrl: null }),
         },
       ],
@@ -65,16 +70,17 @@ describe("home page", () => {
 
     expect(link?.textContent).toContain("Qwinto");
     expect(document.images).toHaveLength(0);
-    expect(link?.getAttribute("href")).toBe("/games/qwinto");
+    expect(link?.getAttribute("href")).toBe(`/games/${voyagesId}`);
+    expect(link?.textContent).toContain("Planned");
   });
 
-  it("renders the Soon label for in-progress games", () => {
+  it("renders the In development label for games under development", () => {
     render(HomePage, {
       auth,
       games: [
         {
-          slug: "koala-rescue-club",
-          status: "in_progress",
+          id: koalaId,
+          stage: "in_development",
           game: gameMetadata({ name: "Koala Rescue Club" }),
         },
       ],
@@ -82,10 +88,10 @@ describe("home page", () => {
 
     const [link] = document.links;
 
-    expect(link?.getAttribute("href")).toBe("/games/koala-rescue-club");
+    expect(link?.getAttribute("href")).toBe(`/games/${koalaId}`);
     expect(link?.querySelector("h2")?.textContent).toBe("Koala Rescue Club");
     expect(link?.textContent).toContain("Koala Rescue Club");
-    expect(link?.textContent).toContain("Soon");
+    expect(link?.textContent).toContain("In development");
   });
 
   it("renders games in the received catalog order", () => {
@@ -93,45 +99,45 @@ describe("home page", () => {
       auth,
       games: [
         {
-          slug: "inactive-first",
-          status: null,
-          game: gameMetadata({ name: "Inactive First" }),
+          id: "game_01h4rn40ybeqws3gfp073jt81b",
+          stage: "planned",
+          game: gameMetadata({ name: "Planned First" }),
         },
         {
-          slug: "active-first",
-          status: "active",
-          game: gameMetadata({ name: "Active First" }),
+          id: "game_01h45y849qfqvbeayxmwkxg5x9",
+          stage: "released",
+          game: gameMetadata({ name: "Released First" }),
         },
         {
-          slug: "soon-first",
-          status: "in_progress",
-          game: gameMetadata({ name: "Soon First" }),
+          id: "game_01h45ypmyxekaa2apdhevf7bve",
+          stage: "in_development",
+          game: gameMetadata({ name: "Development First" }),
         },
         {
-          slug: "active-second",
-          status: "active",
-          game: gameMetadata({ name: "Active Second" }),
+          id: "game_01h45ydzqkemsb9x8gq2q7vpvb",
+          stage: "released",
+          game: gameMetadata({ name: "Released Second" }),
         },
         {
-          slug: "inactive-second",
-          status: null,
-          game: gameMetadata({ name: "Inactive Second" }),
+          id: "game_01h45y3ps9e18adjv9zvx743s2",
+          stage: "planned",
+          game: gameMetadata({ name: "Planned Second" }),
         },
         {
-          slug: "soon-second",
-          status: "in_progress",
-          game: gameMetadata({ name: "Soon Second" }),
+          id: "game_01h45y6thxeyg95gnpgqqefgpa",
+          stage: "in_development",
+          game: gameMetadata({ name: "Development Second" }),
         },
       ],
     });
 
     expect([...document.querySelectorAll("h2")].map((title) => title.textContent)).toEqual([
-      "Inactive First",
-      "Active First",
-      "Soon First",
-      "Active Second",
-      "Inactive Second",
-      "Soon Second",
+      "Planned First",
+      "Released First",
+      "Development First",
+      "Released Second",
+      "Planned Second",
+      "Development Second",
     ]);
   });
 });

@@ -5,8 +5,6 @@ defmodule D20Web.Plugs.AsyncApi do
 
   @behaviour Plug
 
-  alias D20.Games.Registry
-
   @impl true
   def init(mode) when mode in [:raw, :reference], do: mode
 
@@ -73,12 +71,15 @@ defmodule D20Web.Plugs.AsyncApi do
 
   defp specification("workspace"), do: {:error, :specification_not_found}
 
-  defp specification(slug) do
-    case Registry.fetch(slug) do
-      {:ok, %Registry.Entry{slug: registered_slug}} -> {:ok, registered_slug}
-      {:error, :game_not_found} -> {:error, :specification_not_found}
+  defp specification(slug) when is_binary(slug) do
+    if Regex.match?(~r/\A[a-z0-9][a-z0-9-]*\z/, slug) do
+      {:ok, slug}
+    else
+      {:error, :specification_not_found}
     end
   end
+
+  defp specification(_slug), do: {:error, :specification_not_found}
 
   defp not_found(conn) do
     Plug.Conn.send_resp(conn, :not_found, "Not found")

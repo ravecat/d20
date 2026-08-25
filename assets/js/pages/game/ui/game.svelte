@@ -8,18 +8,19 @@
     PlayTimeLabel,
     PlayerCountLabel,
   } from "~/shared/components";
-  import type { GameMetadata, SessionDescriptor } from "~/shared/types";
+  import type { GameMetadata, GameStage, SessionDescriptor } from "~/shared/types/game";
   import LaunchForm from "./launch_form.svelte";
 
   type Props = InertiaProps<{
-    slug: string;
+    id: string;
+    stage: GameStage;
     canLaunchGame: boolean;
     game: GameMetadata;
     schema: Schema | null;
     session?: SessionDescriptor | null;
   }>;
 
-  const { slug, canLaunchGame = false, game, schema, session = null }: Props = $props();
+  const { id, canLaunchGame = false, game, schema, session = null }: Props = $props();
 </script>
 
 <div class="game-detail-page">
@@ -87,7 +88,7 @@
                 <Lobby {session} />
               {/key}
             {:else if canLaunchGame && schema}
-              <LaunchForm {slug} {schema} />
+              <LaunchForm {id} {schema} />
             {/if}
           </div>
         </aside>

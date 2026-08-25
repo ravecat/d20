@@ -22,6 +22,7 @@ defmodule D20Web.SessionChannelTest do
     test "should track anonymous actor presence" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       actor_id = actor.id
+      game_id = game_id(183_006)
       session_id = create_runtime_session(actor_id)
 
       :ok = Presence.subscribe(session_id)
@@ -33,7 +34,7 @@ defmodule D20Web.SessionChannelTest do
 
       assert socket.assigns.scope.session == %{id: session_id}
 
-      assert socket.assigns.scope.game == %{slug: "qwinto"}
+      assert socket.assigns.scope.game == %{id: game_id}
 
       assert [{runtime_pid, ^session_id}] = SessionRegistry.list(actor_id)
       assert Process.alive?(runtime_pid)
@@ -62,7 +63,7 @@ defmodule D20Web.SessionChannelTest do
 
       assert is_integer(tracked_online_at)
 
-      assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_id)
+      assert {:ok, {session, ^game_id}} = D20.Sessions.get(session_id)
 
       assert %{
                status: :online,
@@ -101,6 +102,7 @@ defmodule D20Web.SessionChannelTest do
     test "should track signed module token actors through presence" do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       actor_id = actor.id
+      game_id = game_id(183_006)
       session_id = create_runtime_session(actor.id)
 
       :ok = Presence.subscribe(session_id)
@@ -111,7 +113,7 @@ defmodule D20Web.SessionChannelTest do
 
       assert socket.assigns.scope.session == %{id: session_id}
 
-      assert socket.assigns.scope.game == %{slug: "qwinto"}
+      assert socket.assigns.scope.game == %{id: game_id}
 
       refute Map.has_key?(socket.assigns, :actor)
       refute Map.has_key?(socket.assigns, :module)
@@ -123,7 +125,7 @@ defmodule D20Web.SessionChannelTest do
 
       assert socket.assigns.scope.session == %{id: session_id}
 
-      assert socket.assigns.scope.game == %{slug: "qwinto"}
+      assert socket.assigns.scope.game == %{id: game_id}
 
       assert_receive {:online, ^actor_id, %{online_at: tracked_online_at}}
 
@@ -136,7 +138,7 @@ defmodule D20Web.SessionChannelTest do
       assert permissions.can_start_game == false
       assert %{status: :online, online_at: ^tracked_online_at} = members[actor_id]
 
-      assert {:ok, {%Session{members: members}, "qwinto"}} = D20.Sessions.get(session_id)
+      assert {:ok, {%Session{members: members}, ^game_id}} = D20.Sessions.get(session_id)
       assert %{status: :online, online_at: ^tracked_online_at} = members[actor_id]
     end
 
@@ -168,7 +170,7 @@ defmodule D20Web.SessionChannelTest do
         members: %{^actor_id => %{status: :online}, ^other_actor_id => %{status: :online}}
       }
 
-      assert {:ok, {%Session{game: game_before}, "qwinto"}} = D20.Sessions.get(session_id)
+      assert {:ok, {%Session{game: game_before}, _game_id}} = D20.Sessions.get(session_id)
 
       first_pid = first_socket.channel_pid
       second_pid = second_socket.channel_pid
@@ -203,7 +205,7 @@ defmodule D20Web.SessionChannelTest do
         members: %{^actor_id => %{status: :offline}, ^other_actor_id => %{status: :online}}
       }
 
-      assert {:ok, {%Session{members: members, game: ^game_before}, "qwinto"}} =
+      assert {:ok, {%Session{members: members, game: ^game_before}, _game_id}} =
                D20.Sessions.get(session_id)
 
       assert %{status: :offline} = members[actor.id]
@@ -229,7 +231,7 @@ defmodule D20Web.SessionChannelTest do
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       session_id = create_runtime_session(actor.id)
 
-      assert {:ok, socket} = connect_module_socket(session_id, actor, module_id: "missing")
+      assert {:ok, socket} = connect_module_socket(session_id, actor, module_id: game_id(425_873))
 
       assert {:error, %{reason: "forbidden"}} =
                subscribe_and_join(socket, SessionChannel.topic(session_id), %{})
@@ -275,7 +277,7 @@ defmodule D20Web.SessionChannelTest do
         permissions: %{can_roll: false, can_see_roll: false}
       }
 
-      assert {:ok, {session, "qwinto"}} = D20.Sessions.get(session_ref)
+      assert {:ok, {session, _game_id}} = D20.Sessions.get(session_ref)
       assert session.phase == :in_progress
     end
 
@@ -382,8 +384,7 @@ defmodule D20Web.SessionChannelTest do
       assert available_cells != []
       refute_push "projection", _payload, 100
 
-      assert {:ok, {%Session{game: unchanged_game}, "koala-rescue-club"}} =
-               D20.Sessions.get(session_id)
+      assert {:ok, {%Session{game: unchanged_game}, _game_id}} = D20.Sessions.get(session_id)
 
       assert unchanged_game == rolled_session.game
       refute Map.has_key?(rolled_session.game.players[actor.id], :selection)
@@ -445,7 +446,7 @@ defmodule D20Web.SessionChannelTest do
       actor_id = actor.id
 
       assert {:ok, session} =
-               D20.Sessions.create("next-station-london", LondonGame, actor_id, %{
+               D20.Sessions.create(game_id(353_545), LondonGame, actor_id, %{
                  "objectives" => true,
                  "powers" => true
                })
@@ -534,7 +535,7 @@ defmodule D20Web.SessionChannelTest do
   end
 
   defp create_runtime_session(owner_id) do
-    assert {:ok, session} = D20.Sessions.create("qwinto", D20.Qwinto.Game, owner_id)
+    assert {:ok, session} = D20.Sessions.create(game_id(183_006), D20.Qwinto.Game, owner_id)
 
     on_exit(fn -> D20.Sessions.stop(session.id) end)
 
@@ -542,27 +543,21 @@ defmodule D20Web.SessionChannelTest do
   end
 
   defp create_koala_submit_session(owner_id) do
+    koala_id = game_id(425_873)
+
     assert {:ok, session} =
-             D20.Sessions.create("koala-rescue-club", KoalaGame, owner_id, %{"sheet" => "dharug"})
+             D20.Sessions.create(koala_id, KoalaGame, owner_id, %{"sheet" => "dharug"})
 
     on_exit(fn -> D20.Sessions.stop(session.id) end)
     :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(session.id))
 
     assert {:ok, %Session{}} =
-             D20.Sessions.dispatch(
-               session_scope(session.id, owner_id, "koala-rescue-club"),
-               "join",
-               %{}
-             )
+             D20.Sessions.dispatch(session_scope(session.id, owner_id, koala_id), "join", %{})
 
     assert_receive {:session, %Session{game: %KoalaGame{phase: :ready}}}
 
     assert {:ok, %Session{}} =
-             D20.Sessions.dispatch(
-               session_scope(session.id, owner_id, "koala-rescue-club"),
-               "start",
-               %{}
-             )
+             D20.Sessions.dispatch(session_scope(session.id, owner_id, koala_id), "start", %{})
 
     assert_receive {:session, %Session{game: %KoalaGame{phase: :roll}}}
 
@@ -585,20 +580,22 @@ defmodule D20Web.SessionChannelTest do
       connect_info: %{auth_token: token, uri: URI.parse("ws://example.com/socket/websocket")}
   end
 
-  defp session_scope(session_id, actor_id, slug \\ "qwinto") do
+  defp session_scope(session_id, actor_id, local_game_id \\ nil) do
+    local_game_id = local_game_id || game_id(183_006)
+
     %Actor{id: actor_id, type: :anonymous}
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
-    |> Scope.put_game(slug)
+    |> Scope.put_game(local_game_id)
   end
 
   defp connect_module_socket(session_id, actor, opts \\ []) do
-    module_id = Keyword.get(opts, :module_id, "qwinto")
+    module_id = Keyword.get(opts, :module_id, game_id(183_006))
 
     token =
       D20.Module.Token.sign(D20Web.Endpoint, %{
         endpoint: "ws://example.com/module",
-        slug: module_id,
+        game_id: module_id,
         topic: SessionChannel.topic(session_id),
         actor: %Actor{id: actor.id, type: actor.type}
       })

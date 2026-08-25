@@ -9,6 +9,9 @@ import type {
   WorkspaceState,
 } from "~/widgets/workspace/model/workspace";
 
+const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
+const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
+
 const transport = vi.hoisted(() => ({
   call: vi.fn(),
   session: vi.fn(),
@@ -176,7 +179,7 @@ describe("Workspace presentation", () => {
   it("closes one active window and destroys its frame after the replacement snapshot", () => {
     const harness = workspaceHarness();
     renderWorkspace();
-    harness.ready([descriptor("session-a"), descriptor("session-b", "koala-rescue-club")]);
+    harness.ready([descriptor("session-a"), descriptor("session-b", koalaId)]);
     flushSync();
 
     expect(document.querySelector('[aria-label="Workspace sessions"]')).toBeNull();
@@ -193,7 +196,7 @@ describe("Workspace presentation", () => {
     expect(document.querySelectorAll('iframe[title="Game module"]')).toHaveLength(2);
     expect(bridge.destroy).not.toHaveBeenCalled();
 
-    harness.ready([descriptor("session-b", "koala-rescue-club")]);
+    harness.ready([descriptor("session-b", koalaId)]);
     flushSync();
 
     expect(document.querySelectorAll("dialog")).toHaveLength(1);
@@ -247,7 +250,7 @@ describe("Workspace presentation", () => {
     renderWorkspace();
     const sessions = [
       descriptor("session-a"),
-      descriptor("session-b", "koala-rescue-club"),
+      descriptor("session-b", koalaId),
       descriptor("session-c"),
     ];
     harness.loading(sessions);
@@ -284,7 +287,7 @@ describe("Workspace presentation", () => {
   it("maps authoritative phase and shared transport state to compact statuses", () => {
     const harness = workspaceHarness();
     renderWorkspace();
-    harness.ready([descriptor("session-a"), descriptor("session-b", "qwinto", "finished")]);
+    harness.ready([descriptor("session-a"), descriptor("session-b", qwintoId, "finished")]);
     flushSync();
 
     button("Compact Game session session-a").click();
@@ -412,12 +415,12 @@ type WorkspaceChannelState = ReturnType<typeof channelState>;
 
 function descriptor(
   id: string,
-  slug = "qwinto",
+  game_id = qwintoId,
   phase: WorkspaceSessionDescriptor["phase"] = "in_progress",
 ): WorkspaceSessionDescriptor {
   return {
     id,
-    slug,
+    game_id,
     phase,
     module: {
       embed_url: `https://module.example.test/${id}`,

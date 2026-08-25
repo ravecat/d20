@@ -7,6 +7,9 @@ import {
   type WorkspaceState,
 } from "~/widgets/workspace/model/workspace";
 
+const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
+const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
+
 const mocks = vi.hoisted(() => ({
   call: vi.fn(),
   session: vi.fn(),
@@ -71,20 +74,20 @@ describe("Workspace", () => {
   it("expands the first session from initial and replacement snapshots in Auto", () => {
     const discovery = discoveryHarness();
 
-    discovery.ready([descriptor("session-a", "qwinto"), descriptor("session-b", "qwinto")]);
+    discovery.ready([descriptor("session-a", qwintoId), descriptor("session-b", qwintoId)]);
 
     expect(
-      get(discovery.workspace).sessions.map(({ id, slug, phase }) => ({ id, slug, phase })),
+      get(discovery.workspace).sessions.map(({ id, game_id, phase }) => ({ id, game_id, phase })),
     ).toEqual([
-      { id: "session-a", slug: "qwinto", phase: "in_progress" },
-      { id: "session-b", slug: "qwinto", phase: "in_progress" },
+      { id: "session-a", game_id: qwintoId, phase: "in_progress" },
+      { id: "session-b", game_id: qwintoId, phase: "in_progress" },
     ]);
     expect(get(discovery.workspace).layout).toEqual({ mode: "auto", id: "session-a" });
     expect(get(discovery.workspace)).not.toHaveProperty("expandedId");
 
     discovery.ready([
-      descriptor("session-b", "qwinto", "fresh-token"),
-      descriptor("session-c", "koala-rescue-club"),
+      descriptor("session-b", qwintoId, "fresh-token"),
+      descriptor("session-c", koalaId),
     ]);
 
     expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual([
@@ -164,7 +167,7 @@ describe("Workspace", () => {
     expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual(["session-b"]);
     expect(get(discovery.workspace).layout).toEqual({ mode: "auto", id: "session-b" });
 
-    discovery.ready([descriptor("session-a"), descriptor("session-b", "qwinto", "fresh")]);
+    discovery.ready([descriptor("session-a"), descriptor("session-b", qwintoId, "fresh")]);
 
     expect(get(discovery.workspace).sessions.map(({ id }) => id)).toEqual([
       "session-a",
@@ -248,12 +251,12 @@ type WorkspaceChannelState = ReturnType<typeof discoveryState>;
 
 function descriptor(
   id: string,
-  slug = "qwinto",
+  game_id = qwintoId,
   token = `token-${id}`,
 ): WorkspaceSessionDescriptor {
   return {
     id,
-    slug,
+    game_id,
     phase: "in_progress",
     module: {
       embed_url: `https://module.example.test/${id}`,
@@ -273,11 +276,11 @@ function workspaceSnapshot(token: string): Workspace {
     sessions: [
       {
         id: "session-a",
-        slug: "qwinto",
+        game_id: qwintoId,
         phase: "in_progress",
         module: {
-          embed_url: "https://qwinto.example.test/",
-          allowed_origins: ["https://qwinto.example.test"],
+          embed_url: "https://game-01h45yhtgqfhxbcrsfbhxdsdvy.example.test/",
+          allowed_origins: ["https://game-01h45yhtgqfhxbcrsfbhxdsdvy.example.test"],
           sandbox: ["allow-scripts"],
         },
         connection: {

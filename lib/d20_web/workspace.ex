@@ -4,14 +4,15 @@ defmodule D20Web.Workspace do
   """
 
   alias D20.Accounts.Scope
-  alias D20.Games.Registry
+  alias D20.Games
+  alias D20.Games.Game
   alias D20.Sessions
   alias D20.Sessions.Session
   alias D20Web.Module
 
   @type descriptor :: %{
-          required(:id) => Sessions.id(),
-          required(:slug) => Sessions.slug(),
+          required(:id) => Session.id(),
+          required(:game_id) => String.t(),
           required(:phase) => Session.phase(),
           required(:module) => Module.entry(),
           required(:connection) => Module.connection()
@@ -22,7 +23,7 @@ defmodule D20Web.Workspace do
     Phoenix.PubSub.subscribe(D20.PubSub, topic(Scope.actor_id(scope)))
   end
 
-  @spec close_session_for_actor(Scope.t(), Sessions.id()) :: :ok | {:error, term()}
+  @spec close_session_for_actor(Scope.t(), Session.id()) :: :ok | {:error, term()}
   def close_session_for_actor(%Scope{actor: %{id: actor_id}} = scope, session_id)
       when is_binary(actor_id) and is_binary(session_id) do
     with :ok <- Sessions.detach(scope, session_id) do
@@ -58,13 +59,14 @@ defmodule D20Web.Workspace do
       socket.assigns.scope
       |> Sessions.list()
       |> Enum.flat_map(fn
-        {pid, {%Session{id: id, phase: phase}, slug}} when phase in [:in_progress, :finished] ->
-          case Registry.fetch(slug) do
-            {:ok, %Registry.Entry{} = entry} -> [{descriptor(socket, entry, id, phase), pid}]
+        {pid, {%Session{id: id, phase: phase}, game_id}}
+        when phase in [:in_progress, :finished] ->
+          case Games.get(game_id) do
+            {:ok, _game} -> [{descriptor(socket, game_id, id, phase), pid}]
             {:error, :game_not_found} -> []
           end
 
-        {_pid, {%Session{}, _slug}} ->
+        {_pid, {%Session{}, _game_id}} ->
           []
       end)
       |> Enum.sort_by(fn {%{id: id}, _pid} -> id end)
@@ -75,15 +77,15 @@ defmodule D20Web.Workspace do
     {descriptors, runtime_pids}
   end
 
-  @spec descriptor(Phoenix.Socket.t(), Registry.Entry.t(), Sessions.id(), Session.phase()) ::
+  @spec descriptor(Phoenix.Socket.t(), Game.id(), Session.id(), Session.phase()) ::
           descriptor()
-  defp descriptor(socket, %Registry.Entry{slug: slug} = entry, id, phase) do
+  defp descriptor(socket, game_id, id, phase) do
     %{
       id: id,
-      slug: slug,
+      game_id: TypeID.to_string(game_id),
       phase: phase,
-      module: Module.entry(socket, entry),
-      connection: Module.connection(socket, slug, id)
+      module: Module.entry(socket, game_id),
+      connection: Module.connection(socket, game_id, id)
     }
   end
 

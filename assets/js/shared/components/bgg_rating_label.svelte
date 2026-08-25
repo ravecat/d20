@@ -1,5 +1,5 @@
 <script module lang="ts">
-  import type { GameMetadata } from "~/shared/types";
+  import type { GameMetadata } from "~/shared/types/game";
 
   function formatRating(game: GameMetadata) {
     const rating = validRating(game.rating);

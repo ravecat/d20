@@ -47,11 +47,12 @@ defmodule D20Web.Auth do
   or falls back to the `signed_in_path/1`.
   """
   def log_in_user(conn, user, params \\ %{}) do
-    return_to = get_session(conn, :return_to)
+    path = get_session(conn, :return_to) || signed_in_path(conn)
 
     conn
     |> create_or_extend_session(user, params)
-    |> redirect(to: return_to || signed_in_path(conn))
+    |> maybe_force_full_page_redirect()
+    |> redirect(to: path)
   end
 
   @doc """
@@ -309,6 +310,14 @@ defmodule D20Web.Auth do
 
   defp signed_in_path(_conn), do: ~p"/"
 
+  defp maybe_force_full_page_redirect(conn) do
+    if get_req_header(conn, "x-inertia") == ["true"] do
+      Inertia.Controller.force_inertia_redirect(conn)
+    else
+      conn
+    end
+  end
+
   @doc """
   Plug for routes that require the user to be authenticated.
   """
@@ -327,6 +336,43 @@ defmodule D20Web.Auth do
       |> halt()
     end
   end
+
+  @doc """
+  Plug for routes that require an administrator.
+  """
+  def require_administrator(%{assigns: %{current_user: %User{role: :admin}}} = conn, _opts),
+    do: conn
+
+  def require_administrator(conn, _opts) do
+    conn
+    |> put_resp_content_type("text/plain")
+    |> send_resp(:forbidden, "Forbidden")
+    |> halt()
+  end
+
+  @doc false
+  def on_mount(:admin, _params, session, socket) do
+    user = fetch_session_user(session)
+    socket = Phoenix.Component.assign(socket, :current_user, user)
+
+    if administrator?(user) do
+      {:cont, socket}
+    else
+      {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
+    end
+  end
+
+  defp fetch_session_user(%{"user_token" => token}) when is_binary(token) do
+    case Accounts.get_user_by_session_token(token) do
+      {%User{} = user, _inserted_at} -> user
+      nil -> nil
+    end
+  end
+
+  defp fetch_session_user(_session), do: nil
+
+  defp administrator?(%User{role: :admin}), do: true
+  defp administrator?(_user), do: false
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do
     store_return_to(conn, current_path(conn))

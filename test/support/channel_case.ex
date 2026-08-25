@@ -22,6 +22,7 @@ defmodule D20Web.ChannelCase do
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
       import D20Web.ChannelCase
+      import D20.GamesFixtures
 
       # The default endpoint for testing
       @endpoint D20Web.Endpoint

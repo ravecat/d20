@@ -23,6 +23,7 @@
     "@xstate/store": "4.2.1",
     "@xstate/store-svelte": "2.0.0",
     "ajv": "8.20.0",
+    "backpex": "file:../deps/backpex",
     "phoenix": "file:../deps/phoenix",
     "phoenix-session": "1.1.0",
     "phoenix_html": "file:../deps/phoenix_html",

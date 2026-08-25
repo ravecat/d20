@@ -6,11 +6,11 @@
   import formDefaults from "~/shared/lib/form";
 
   type Props = {
-    slug: string;
+    id: string;
     schema: Schema;
   };
 
-  const { slug, schema }: Props = $props();
+  const { id, schema }: Props = $props();
   const page = usePage();
   let processing = $state(false);
 
@@ -36,7 +36,7 @@
   });
 
   function submit(value: SchemaObjectValue) {
-    router.post(`/games/${slug}/sessions`, value, {
+    router.post(`/games/${id}/sessions`, value, {
       errorBag: "session",
       onStart: () => {
         processing = true;

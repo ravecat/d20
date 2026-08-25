@@ -15,17 +15,18 @@ defmodule D20.Sessions.Server do
   @behaviour :gen_statem
 
   alias D20.Command
+  alias D20.Games.Game
   alias D20.Sessions
   alias D20.Sessions.Session
   alias D20Web.Presence
   alias D20Web.SessionChannel
   alias D20Web.Workspace
 
-  @type opts :: [slug: Sessions.slug(), engine: D20.Game.engine(), session: Session.t()]
-  @type state :: {Sessions.slug(), D20.Game.engine(), Session.t()}
+  @type opts :: [game_id: Game.id(), engine: D20.Game.engine(), session: Session.t()]
+  @type state :: {Game.id(), D20.Game.engine(), Session.t()}
 
   @callback start_link(opts()) :: :gen_statem.start_ret()
-  @callback get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
+  @callback get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Game.id()}}
   @callback dispatch(:gen_statem.server_ref(), Command.t()) ::
               {:ok, Session.t()} | {:error, Session.reason()}
   @callback preview(:gen_statem.server_ref(), Command.t()) ::
@@ -51,7 +52,7 @@ defmodule D20.Sessions.Server do
 
       @impl D20.Sessions.Server
       @spec get(:gen_statem.server_ref()) ::
-              {:ok, {D20.Sessions.Session.t(), D20.Sessions.slug()}}
+              {:ok, {D20.Sessions.Session.t(), D20.Games.Game.id()}}
       def get(server), do: D20.Sessions.Server.get(server)
 
       @impl D20.Sessions.Server
@@ -111,23 +112,27 @@ defmodule D20.Sessions.Server do
   @doc false
   @spec start_link(module(), opts()) :: :gen_statem.start_ret()
   def start_link(server, opts) do
-    slug = Keyword.fetch!(opts, :slug)
+    game_id = Keyword.fetch!(opts, :game_id)
     engine = Keyword.fetch!(opts, :engine)
     session = Keyword.fetch!(opts, :session)
 
-    :gen_statem.start_link(Sessions.via(session.id, server), server, {slug, engine, session}, [])
+    :gen_statem.start_link(
+      Sessions.via(session.id, server),
+      server,
+      {game_id, engine, session},
+      []
+    )
   end
 
   @impl :gen_statem
   @spec init(state()) :: :gen_statem.init_result(term(), state())
-  def init({slug, engine, %Session{} = session} = data)
-      when is_binary(slug) and is_atom(engine) do
+  def init({_game_id, engine, %Session{} = session} = data) when is_atom(engine) do
     {:ok, state(session), data}
   end
 
   def init(_data), do: {:stop, :badarg}
 
-  @spec get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Sessions.slug()}}
+  @spec get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Game.id()}}
   def get(server), do: :gen_statem.call(server, :get)
 
   @spec dispatch(:gen_statem.server_ref(), Command.t()) ::
@@ -146,18 +151,18 @@ defmodule D20.Sessions.Server do
   def callback_mode, do: :handle_event_function
 
   @impl :gen_statem
-  def handle_event({:call, from}, :get, _state, {slug, _engine, session}) do
-    {:keep_state_and_data, [{:reply, from, {:ok, {session, slug}}}, idle_action()]}
+  def handle_event({:call, from}, :get, _state, {game_id, _engine, session}) do
+    {:keep_state_and_data, [{:reply, from, {:ok, {session, game_id}}}, idle_action()]}
   end
 
-  def handle_event(:info, :presence, _state, {_slug, _engine, session} = data) do
+  def handle_event(:info, :presence, _state, {_game_id, _engine, session} = data) do
     case Presence.subscribe(session.id) do
       :ok -> {:keep_state_and_data, [idle_action()]}
       {:error, reason} -> {:stop, reason, data}
     end
   end
 
-  def handle_event({:call, from}, {:attach, actor_id}, _state, {_slug, _engine, session}) do
+  def handle_event({:call, from}, {:attach, actor_id}, _state, {_game_id, _engine, session}) do
     actor_id
     |> Sessions.Registry.attach(session.id)
     |> publish_attachment(actor_id)
@@ -165,7 +170,7 @@ defmodule D20.Sessions.Server do
     {:keep_state_and_data, [{:reply, from, :ok}, idle_action()]}
   end
 
-  def handle_event({:call, from}, {:detach, actor_id}, state, {slug, engine, session}) do
+  def handle_event({:call, from}, {:detach, actor_id}, state, {game_id, engine, session}) do
     attachment_change = Sessions.Registry.detach(actor_id)
 
     case Session.offline(session, actor_id) do
@@ -177,7 +182,7 @@ defmodule D20.Sessions.Server do
         broadcast(session, updated_session)
         publish_attachment(attachment_change, actor_id)
 
-        data = {slug, engine, updated_session}
+        data = {game_id, engine, updated_session}
         next_state = state(updated_session)
         actions = [{:reply, from, :ok}, idle_action()]
 
@@ -193,7 +198,7 @@ defmodule D20.Sessions.Server do
         {:call, from},
         {:dispatch, %Command{} = command},
         state,
-        {slug, engine, session}
+        {game_id, engine, session}
       ) do
     case Session.dispatch(session, engine, command) do
       {:ok, ^session} ->
@@ -202,7 +207,7 @@ defmodule D20.Sessions.Server do
       {:ok, %Session{} = updated_session} ->
         broadcast(session, updated_session)
 
-        data = {slug, engine, updated_session}
+        data = {game_id, engine, updated_session}
         next_state = state(updated_session)
 
         actions = [{:reply, from, {:ok, updated_session}}, idle_action()]
@@ -222,14 +227,19 @@ defmodule D20.Sessions.Server do
         {:call, from},
         {:preview, %Command{} = command},
         _state,
-        {_slug, engine, session}
+        {_game_id, engine, session}
       ) do
     reply = Session.preview(session, engine, command)
 
     {:keep_state_and_data, [{:reply, from, reply}, idle_action()]}
   end
 
-  def handle_event(:internal, {:dispatch, %Command{} = command}, state, {slug, engine, session}) do
+  def handle_event(
+        :internal,
+        {:dispatch, %Command{} = command},
+        state,
+        {game_id, engine, session}
+      ) do
     case Session.dispatch(session, engine, command) do
       {:ok, ^session} ->
         {:keep_state_and_data, [idle_action()]}
@@ -237,7 +247,7 @@ defmodule D20.Sessions.Server do
       {:ok, %Session{} = updated_session} ->
         broadcast(session, updated_session)
 
-        data = {slug, engine, updated_session}
+        data = {game_id, engine, updated_session}
         next_state = state(updated_session)
 
         if next_state == state do
@@ -251,7 +261,7 @@ defmodule D20.Sessions.Server do
     end
   end
 
-  def handle_event(:info, {:online, actor_id, attrs}, state, {_slug, engine, _session} = data) do
+  def handle_event(:info, {:online, actor_id, attrs}, state, {_game_id, engine, _session} = data) do
     update_presence(state, data, fn session ->
       with {:ok, online_session} <- Session.online(session, actor_id, attrs) do
         command = %Command{event: "join", actor_id: actor_id, attrs: attrs}
@@ -302,7 +312,7 @@ defmodule D20.Sessions.Server do
 
   defp publish_attachment(:unchanged, _actor_id), do: :ok
 
-  defp update_presence(state, {slug, engine, session}, update) do
+  defp update_presence(state, {game_id, engine, session}, update) do
     case update.(session) do
       {:ok, ^session} ->
         {:keep_state_and_data, [idle_action()]}
@@ -310,7 +320,7 @@ defmodule D20.Sessions.Server do
       {:ok, %Session{} = updated_session} ->
         broadcast(session, updated_session)
 
-        data = {slug, engine, updated_session}
+        data = {game_id, engine, updated_session}
         next_state = state(updated_session)
 
         if next_state == state do

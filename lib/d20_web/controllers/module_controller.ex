@@ -2,43 +2,43 @@ defmodule D20Web.ModuleController do
   use D20Web, :controller
 
   alias D20.Games
-  alias D20.Games.Registry
+  alias D20.Games.Game
   alias D20.Sessions
   alias D20.Sessions.Session
   alias D20Web.Module
 
   @spec options(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def options(conn, %{"slug" => slug}) do
-    with {:ok, %Registry.Entry{}} <- Registry.fetch(slug) do
-      send_resp(conn, :no_content, "")
-    else
-      {:error, reason} -> send_error(conn, reason)
+  def options(conn, %{"game_id" => game_id}) do
+    case Games.get(game_id) do
+      {:ok, %Game{}} -> send_resp(conn, :no_content, "")
+      {:error, _reason} -> send_error(conn, :game_not_found)
     end
   end
 
   @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def create(conn, %{"slug" => slug} = params) do
-    with {:ok, entry} <- Registry.fetch(slug),
-         {:ok, %Session{} = session} <- ensure_session(conn, entry, params) do
-      json(conn, %{session: session.id, bootstrap: Module.connection(conn, slug, session.id)})
+  def create(conn, %{"game_id" => game_id} = params) do
+    with {:ok, game} <- Games.get(game_id),
+         {:ok, %Session{} = session} <- ensure_session(conn, game, params) do
+      json(conn, %{session: session.id, bootstrap: Module.connection(conn, game.id, session.id)})
     else
       {:error, reason} -> send_error(conn, reason)
     end
   end
 
-  defp ensure_session(_conn, %Registry.Entry{slug: slug}, %{"session" => session_id}) do
+  defp ensure_session(_conn, %Game{id: game_id}, %{"session" => session_id}) do
     case Sessions.get(session_id) do
-      {:ok, {%Session{} = session, ^slug}} -> {:ok, session}
-      {:ok, {%Session{}, _other_slug}} -> {:error, :session_not_found}
+      {:ok, {%Session{} = session, ^game_id}} -> {:ok, session}
+      {:ok, {%Session{}, _other_game_id}} -> {:error, :session_not_found}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp ensure_session(conn, %Registry.Entry{slug: slug, engine: engine} = entry, params) do
-    if Games.session_launch_available?(entry) do
+  defp ensure_session(conn, %Game{} = game, params) do
+    if Games.session_launch_available?(game) do
       attrs = Map.get(params, "attrs", %{})
+      {:ok, engine} = Games.engine(game)
 
-      Sessions.create(slug, engine, conn.assigns.scope.actor.id, attrs)
+      Sessions.create(game.id, engine, conn.assigns.scope.actor.id, attrs)
     else
       {:error, :forbidden}
     end

@@ -1,11 +1,11 @@
 defmodule D20.GamesTest do
-  use ExUnit.Case, async: false
+  use D20.DataCase, async: false
 
   import ExUnit.CaptureLog
 
   alias D20.Games
   alias D20.Games.Game
-  alias D20.Games.Registry
+  alias D20.Games.Metadata
   alias D20.Games.Sources.BoardGameGeek
 
   @qwinto_xml """
@@ -35,7 +35,7 @@ defmodule D20.GamesTest do
   </items>
   """
 
-  @registered_game_names %{
+  @bgg_names %{
     "50" => "Lost Cities",
     "131260" => "Qwixx",
     "169654" => "Deep Sea Adventure",
@@ -63,7 +63,8 @@ defmodule D20.GamesTest do
 
     original_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
 
-    original_launch_config = Application.get_env(:d20, :allow_launch_in_progress, :not_configured)
+    original_launch_config =
+      Application.get_env(:d20, :allow_launch_in_development, :not_configured)
 
     original_req_options = Req.default_options()
 
@@ -74,8 +75,8 @@ defmodule D20.GamesTest do
       Req.default_options(original_req_options)
 
       case original_launch_config do
-        :not_configured -> Application.delete_env(:d20, :allow_launch_in_progress)
-        config -> Application.put_env(:d20, :allow_launch_in_progress, config)
+        :not_configured -> Application.delete_env(:d20, :allow_launch_in_development)
+        config -> Application.put_env(:d20, :allow_launch_in_development, config)
       end
 
       case original_config do
@@ -85,63 +86,71 @@ defmodule D20.GamesTest do
     end)
   end
 
-  test "fetches registered Qwinto metadata by slug" do
+  test "fetches persisted game metadata by local id" do
     stub_bgg_game(@qwinto_xml)
+    qwinto_id = game_id(183_006)
 
-    assert {:ok, %Game{} = game} = Games.fetch_by_slug("qwinto")
-    assert game.name == "Qwinto"
-    assert game.categories == ["Dice", "Number"]
-    assert game.mechanics == ["Dice Rolling", "Paper-and-Pencil"]
-    assert game.description == "Resolved from BGG."
-    assert game.thumbnail_url == "https://example.invalid/thumb.jpg"
-    assert game.min_age == 8
-    assert game.complexity == 1.47
-    assert game.rating == 7.42
-    refute Map.has_key?(game, :slug)
+    assert {:ok, {%Game{id: ^qwinto_id, bgg_id: 183_006}, %Metadata{} = metadata}} =
+             Games.fetch_by_id(qwinto_id)
+
+    assert metadata.name == "Qwinto"
+    assert metadata.categories == ["Dice", "Number"]
+    assert metadata.mechanics == ["Dice Rolling", "Paper-and-Pencil"]
+    assert metadata.description == "Resolved from BGG."
+    assert metadata.thumbnail_url == "https://example.invalid/thumb.jpg"
+    assert metadata.min_age == 8
+    assert metadata.complexity == 1.47
+    assert metadata.rating == 7.42
+    refute Map.has_key?(metadata, :slug)
   end
 
-  test "lists registered game metadata by availability and registry order" do
+  test "lists persisted games ordered by implementation stage and local id" do
     stub_registered_bgg_games()
 
     assert {:ok, games} = Games.list()
 
-    assert Enum.map(games, & &1.slug) == [
-             "koala-rescue-club",
-             "qwinto",
-             "next-station-london",
-             "aquamarine",
-             "confusing-lands",
-             "death-valley",
-             "deep-sea-adventure",
-             "flip-7",
-             "fliptown",
-             "lost-cities",
-             "nimalia",
-             "qwixx",
-             "railroad-ink",
-             "shifting-stones",
-             "sky-team",
-             "trailblazers",
-             "trails-of-tucana",
-             "voyages",
-             "waypoints"
-           ]
+    assert length(games) == 19
 
-    assert %{status: nil, game: %Game{name: "Aquamarine"}} =
-             Enum.find(games, &(&1.slug == "aquamarine"))
+    ordered_bgg_ids = [
+      425_873,
+      183_006,
+      353_545,
+      360_471,
+      342_200,
+      322_703,
+      169_654,
+      420_087,
+      352_418,
+      50,
+      361_850,
+      245_654,
+      131_260,
+      302_280,
+      373_106,
+      352_454,
+      283_864,
+      350_736,
+      388_329
+    ]
 
-    assert %Game{name: "Fliptown"} = game_by_slug(games, "fliptown")
+    assert Enum.map(games, & &1.id) == Enum.map(ordered_bgg_ids, &game_id/1)
 
-    assert %{status: :active, game: %Game{name: "Koala Rescue Club"}} =
-             Enum.find(games, &(&1.slug == "koala-rescue-club"))
+    qwinto_id = game_id(183_006)
+    koala_id = game_id(425_873)
+    next_station_id = game_id(353_545)
+    voyages_id = game_id(350_736)
 
-    assert %{status: :in_progress, game: %Game{name: "Next Station: London"}} =
-             Enum.find(games, &(&1.slug == "next-station-london"))
+    assert %{stage: :released} = Enum.find(games, &(&1.id == qwinto_id))
+    assert %{stage: :released} = Enum.find(games, &(&1.id == koala_id))
+    assert %{stage: :in_development} = Enum.find(games, &(&1.id == next_station_id))
+    assert %{stage: :planned} = Enum.find(games, &(&1.id == voyages_id))
+    assert %Metadata{name: "Qwinto"} = Enum.find(games, &(&1.id == qwinto_id)).metadata
+  end
 
-    assert %Game{name: "Next Station: London"} = game_by_slug(games, "next-station-london")
-
-    assert %{status: :active, game: %Game{name: "Qwinto"}} =
-             Enum.find(games, &(&1.slug == "qwinto"))
+  test "omits public slugs from catalog entries" do
+    stub_registered_bgg_games()
+    assert {:ok, games} = Games.list()
+    refute Map.has_key?(Enum.find(games, &(&1.id == game_id(183_006))), :slug)
   end
 
   test "lists empty fallback metadata when the batch request fails" do
@@ -150,114 +159,67 @@ defmodule D20.GamesTest do
     log =
       capture_log(fn ->
         assert {:ok, games} = Games.list()
-        assert length(games) == map_size(@registered_game_names)
-        assert %Game{name: nil, image_url: nil} = game_by_slug(games, "qwinto")
+        assert length(games) == map_size(@bgg_names)
+        assert Enum.find(games, &(&1.id == game_id(183_006))).metadata.name == nil
+        refute Map.has_key?(Enum.find(games, &(&1.id == game_id(183_006))), :slug)
       end)
 
     assert log =~ "Failed to enrich game metadata; using local fallback"
   end
 
-  test "returns empty fallback metadata for registered games when BGG is unavailable" do
-    api_key = "key-that-must-not-be-logged"
-    Application.put_env(:d20, BoardGameGeek, api_key: api_key)
+  test "returns empty fallback metadata when BGG is unavailable" do
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 503, "Unavailable") end)
 
     log =
       capture_log(fn ->
-        assert {:ok, %Game{name: nil, description: nil, image_url: nil}} =
-                 Games.fetch_by_slug("qwinto")
-      end)
-
-    assert log =~ "Failed to enrich game metadata; using local fallback"
-    refute log =~ api_key
-    refute log =~ "authorization"
-  end
-
-  test "returns empty fallback metadata when the BGG request times out" do
-    Req.Test.expect(__MODULE__, &Req.Test.transport_error(&1, :timeout))
-
-    log =
-      capture_log(fn ->
-        assert {:ok, %Game{name: nil, playing_time: nil}} = Games.fetch_by_slug("qwinto")
+        assert {:ok, {%Game{}, %Metadata{} = metadata}} = Games.fetch_by_id(game_id(183_006))
+        assert metadata.name == nil
       end)
 
     assert log =~ "Failed to enrich game metadata; using local fallback"
   end
 
-  test "returns empty fallback metadata without configured BGG credentials" do
-    Application.delete_env(:d20, BoardGameGeek)
+  test "uses TypeID primary-key casting for local ids" do
+    stub_bgg_game(@qwinto_xml)
+    qwinto_id = game_id(183_006)
+    missing_id = TypeID.new("game")
 
-    log =
-      capture_log(fn ->
-        assert {:ok, %Game{name: nil, rating: nil}} = Games.fetch_by_slug("qwinto")
-      end)
+    assert {:ok, {%Game{id: ^qwinto_id}, %Metadata{}}} =
+             Games.fetch_by_id(TypeID.to_string(qwinto_id))
 
-    assert log =~ "Failed to enrich game metadata; using local fallback"
+    assert {:error, :game_not_found} = Games.fetch_by_id(missing_id)
+
+    assert_raise Ecto.Query.CastError, fn -> Games.fetch_by_id("not-a-typeid") end
+    assert_raise Ecto.Query.CastError, fn -> Games.get(TypeID.new("user")) end
   end
 
-  test "returns empty fallback metadata when BGG metadata cannot be parsed" do
-    Req.Test.expect(__MODULE__, fn conn -> Req.Test.text(conn, "not xml") end)
+  test "allows released and Next Station launch when in-development launch is enabled" do
+    Application.put_env(:d20, :allow_launch_in_development, true)
+    assert {:ok, released} = Games.get(game_id(183_006))
+    assert {:ok, koala} = Games.get(game_id(425_873))
+    assert {:ok, next_station} = Games.get(game_id(353_545))
+    assert {:ok, planned} = Games.get(game_id(350_736))
 
-    log =
-      capture_log(fn ->
-        assert {:ok, %Game{name: nil, categories: []}} = Games.fetch_by_slug("qwinto")
-      end)
-
-    assert log =~ "Failed to enrich game metadata; using local fallback"
-  end
-
-  test "preserves batch metadata while falling back for an omitted registered game" do
-    stub_registered_bgg_games(
-      %{"425873" => game_item_xml("425873", "Resolved Koala Rescue Club")},
-      ["183006"]
-    )
-
-    log =
-      capture_log(fn ->
-        assert {:ok, games} = Games.list()
-        assert %Game{name: nil, image_url: nil} = game_by_slug(games, "qwinto")
-
-        assert %Game{name: "Resolved Koala Rescue Club"} =
-                 game_by_slug(games, "koala-rescue-club")
-      end)
-
-    assert log =~ "Failed to enrich game metadata; using local fallback"
-  end
-
-  test "returns not found for unknown games" do
-    assert Games.fetch_by_slug("missing") == {:error, :game_not_found}
-  end
-
-  test "allows active and Next Station session launch when in-progress launch is enabled" do
-    Application.put_env(:d20, :allow_launch_in_progress, true)
-    assert {:ok, active} = Registry.fetch("qwinto")
-    assert {:ok, koala} = Registry.fetch("koala-rescue-club")
-    assert {:ok, next_station} = Registry.fetch("next-station-london")
-    assert {:ok, inactive} = Registry.fetch("voyages")
-
-    assert Games.session_launch_available?(active)
+    assert Games.session_launch_available?(released)
     assert Games.session_launch_available?(koala)
     assert Games.session_launch_available?(next_station)
-    refute Games.session_launch_available?(inactive)
+    refute Games.session_launch_available?(planned)
   end
 
-  test "keeps active launch available and disables Next Station when in-progress launch is disabled" do
-    Application.put_env(:d20, :allow_launch_in_progress, false)
-    assert {:ok, active} = Registry.fetch("qwinto")
-    assert {:ok, koala} = Registry.fetch("koala-rescue-club")
-    assert {:ok, next_station} = Registry.fetch("next-station-london")
-    assert {:ok, inactive} = Registry.fetch("voyages")
+  test "disables Next Station launch when in-development launch is disabled" do
+    Application.put_env(:d20, :allow_launch_in_development, false)
+    assert {:ok, released} = Games.get(game_id(183_006))
+    assert {:ok, next_station} = Games.get(game_id(353_545))
+    assert {:ok, planned} = Games.get(game_id(350_736))
 
-    assert Games.session_launch_available?(active)
-    assert Games.session_launch_available?(koala)
+    assert Games.session_launch_available?(released)
     refute Games.session_launch_available?(next_station)
-    refute Games.session_launch_available?(inactive)
+    refute Games.session_launch_available?(planned)
   end
 
   defp stub_bgg_game(xml) do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.params == %{"id" => "183006", "type" => "boardgame", "stats" => "1"}
-
       Req.Test.text(conn, xml)
     end)
   end
@@ -268,13 +230,13 @@ defmodule D20.GamesTest do
 
       requested_ids = String.split(ids, ",")
 
-      assert MapSet.new(requested_ids) == MapSet.new(Map.keys(@registered_game_names))
+      assert MapSet.new(requested_ids) == MapSet.new(Map.keys(@bgg_names))
 
       items =
         requested_ids
         |> Enum.reject(&(&1 in omitted_ids))
         |> Enum.map_join(fn id ->
-          Map.get(overrides, id, game_item_xml(id, Map.fetch!(@registered_game_names, id)))
+          Map.get(overrides, id, game_item_xml(id, Map.fetch!(@bgg_names, id)))
         end)
 
       Req.Test.text(conn, "<items>#{items}</items>")
@@ -287,11 +249,5 @@ defmodule D20.GamesTest do
       <name type="primary" value="#{name}" />
     </item>
     """
-  end
-
-  defp game_by_slug(games, slug) do
-    games
-    |> Enum.find(&(&1.slug == slug))
-    |> Map.fetch!(:game)
   end
 end

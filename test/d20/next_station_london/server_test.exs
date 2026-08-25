@@ -13,11 +13,10 @@ defmodule D20.NextStationLondon.ServerTest do
   alias D20Web.SessionChannel
 
   setup do
+    game_id = game_id(353_545)
+
     assert {:ok, %Session{} = session} =
-             Sessions.create("next-station-london", Game, "owner", %{
-               "objectives" => true,
-               "powers" => true
-             })
+             Sessions.create(game_id, Game, "owner", %{"objectives" => true, "powers" => true})
 
     on_exit(fn -> Sessions.stop(session.id) end)
 
@@ -28,14 +27,15 @@ defmodule D20.NextStationLondon.ServerTest do
 
     assert_receive {:session, %Session{game: %Game{phase: :setup}} = joined}
 
-    %{pid: pid, session: joined}
+    %{pid: pid, session: joined, game_id: game_id}
   end
 
   test "uses the game phase as state and automatically reveals exactly one instruction", %{
     pid: pid,
-    session: session
+    session: session,
+    game_id: game_id
   } do
-    assert {:setup, {"next-station-london", Game, ^session}} = :sys.get_state(pid)
+    assert {:setup, {^game_id, Game, ^session}} = :sys.get_state(pid)
 
     assert {:ok, %Session{game: %Game{phase: :reveal}} = started} =
              Sessions.dispatch(scope(session.id), "start", %{})
@@ -58,8 +58,8 @@ defmodule D20.NextStationLondon.ServerTest do
     prepared_cards = Enum.flat_map(game.draws, & &1.cards) ++ game.remaining_deck
     assert Ruleset.valid_deck_permutation?(prepared_cards)
 
-    assert {:turn, {"next-station-london", Game, ^prepared}} = :sys.get_state(pid)
-    assert {:ok, {^prepared, "next-station-london"}} = Sessions.get(session.id)
+    assert {:turn, {^game_id, Game, ^prepared}} = :sys.get_state(pid)
+    assert {:ok, {^prepared, ^game_id}} = Sessions.get(session.id)
     refute_receive {:session, %Session{game: %Game{phase: :turn}}}, 100
   end
 
@@ -76,7 +76,7 @@ defmodule D20.NextStationLondon.ServerTest do
 
     assert {:error, :invalid_phase} = Sessions.dispatch(scope(session.id), "reveal", attrs)
 
-    assert {:ok, {^prepared, "next-station-london"}} = Sessions.get(session.id)
+    assert {:ok, {^prepared, _game_id}} = Sessions.get(session.id)
     refute_receive {:session, _updated}, 100
   end
 
@@ -92,7 +92,7 @@ defmodule D20.NextStationLondon.ServerTest do
       game: game
     }
 
-    data = {"next-station-london", Game, session}
+    data = {game_id(353_545), Game, session}
     invalid = %Command{event: "reveal", attrs: %{deck: []}}
 
     assert {:stop, {:invalid_random_setup, :invalid_system_setup}, ^data} =
@@ -113,8 +113,7 @@ defmodule D20.NextStationLondon.ServerTest do
     monitor_ref = Process.monitor(pid)
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 150
 
-    assert {:ok, {%Session{game: %Game{phase: :turn}}, "next-station-london"}} =
-             Sessions.get(session.id)
+    assert {:ok, {%Session{game: %Game{phase: :turn}}, _game_id}} = Sessions.get(session.id)
 
     refute_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 175
     assert_receive {:DOWN, ^monitor_ref, :process, ^pid, :normal}, 300
@@ -124,6 +123,6 @@ defmodule D20.NextStationLondon.ServerTest do
     %Actor{id: "owner", type: :anonymous}
     |> Scope.for_actor()
     |> Scope.put_session(session_id)
-    |> Scope.put_game("next-station-london")
+    |> Scope.put_game(game_id(353_545))
   end
 end

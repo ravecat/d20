@@ -243,6 +243,26 @@ defmodule D20.AccountsTest do
       assert is_nil(user.confirmed_at)
       assert is_nil(user.username)
       assert is_nil(user.password)
+      assert user.role == :user
+    end
+
+    test "uses the closed user and admin role enum" do
+      assert Ecto.Enum.values(User, :role) == [:user, :admin]
+    end
+
+    test "ignores a forged administrator role" do
+      email = unique_user_email()
+
+      assert {:ok, %User{role: :user}} = Accounts.register_user(%{email: email, role: :admin})
+    end
+
+    test "rejects unsupported roles at the database boundary" do
+      user_fixture()
+
+      assert {:error,
+              %Postgrex.Error{
+                postgres: %{code: :check_violation, constraint: "users_role_domain"}
+              }} = Ecto.Adapters.SQL.query(D20.Repo, "UPDATE users SET role = 'owner'", [])
     end
   end
 

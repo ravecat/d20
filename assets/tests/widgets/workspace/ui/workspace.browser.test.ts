@@ -9,6 +9,8 @@ import type {
   WorkspaceState,
 } from "~/widgets/workspace/model/workspace";
 
+const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
+
 const transport = vi.hoisted(() => ({
   call: vi.fn(),
   session: vi.fn(),
@@ -311,7 +313,7 @@ function descriptor(
 ): WorkspaceSessionDescriptor {
   return {
     id,
-    slug: "qwinto",
+    game_id: qwintoId,
     phase,
     module: {
       embed_url: embedUrl,

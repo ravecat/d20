@@ -4,33 +4,47 @@ defmodule D20.Module.Token do
   """
 
   alias D20.Actors.Actor
+  alias D20.Games.Game
 
   @type claims :: %{
           required(:endpoint) => String.t(),
-          required(:slug) => String.t(),
+          required(:game_id) => Game.id(),
           required(:topic) => String.t(),
           required(:actor) => Actor.t()
         }
 
   @type context :: Phoenix.Token.context()
 
-  defguardp valid_claims?(claims)
-            when is_map(claims) and is_binary(claims.endpoint) and is_binary(claims.slug) and
-                   is_binary(claims.topic) and is_struct(claims.actor, Actor)
-
   @spec sign(context(), claims()) :: String.t()
-  def sign(context, claims) when is_map(claims) do
+  def sign(context, %{game_id: %TypeID{} = game_id} = claims) do
+    claims = Map.put(claims, :game_id, TypeID.to_string(game_id))
     Phoenix.Token.sign(context, salt(), claims)
   end
 
   @spec verify(context(), String.t()) :: {:ok, claims()} | {:error, term()}
   def verify(context, token) when is_binary(token) do
-    case Phoenix.Token.verify(context, salt(), token, max_age: max_age()) do
-      {:ok, claims} when valid_claims?(claims) -> {:ok, claims}
-      {:ok, _claims} -> {:error, :invalid_claims}
-      {:error, reason} -> {:error, reason}
+    with {:ok, claims} <- Phoenix.Token.verify(context, salt(), token, max_age: max_age()),
+         {:ok, claims} <- validate_claims(claims) do
+      {:ok, claims}
     end
   end
+
+  defp validate_claims(%{
+         endpoint: endpoint,
+         game_id: game_id,
+         topic: topic,
+         actor: %Actor{} = actor
+       })
+       when is_binary(endpoint) and is_binary(game_id) and is_binary(topic) do
+    with {:ok, %TypeID{} = game_id} <- TypeID.from_string(game_id),
+         "game" <- TypeID.prefix(game_id) do
+      {:ok, %{endpoint: endpoint, game_id: game_id, topic: topic, actor: actor}}
+    else
+      _invalid -> {:error, :invalid_claims}
+    end
+  end
+
+  defp validate_claims(_claims), do: {:error, :invalid_claims}
 
   defp salt, do: config!(:salt)
   defp max_age, do: config!(:max_age)

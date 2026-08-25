@@ -17,12 +17,13 @@ defmodule D20.Accounts.Scope do
   alias D20.Accounts.Anonymous
   alias D20.Accounts.User
   alias D20.Actors.Actor
+  alias D20.Games.Game
   alias D20.Sessions.Session
 
   defstruct actor: nil, session: nil, game: nil
 
   @type session :: %{required(:id) => Session.id()}
-  @type game :: %{required(:slug) => String.t()}
+  @type game :: %{required(:id) => Game.id()}
   @type t :: %__MODULE__{actor: Actor.t() | nil, session: session() | nil, game: game() | nil}
 
   @doc """
@@ -50,8 +51,8 @@ defmodule D20.Accounts.Scope do
   @doc """
   Adds the current game identity to the scope.
   """
-  @spec put_game(t(), String.t()) :: t()
-  def put_game(%__MODULE__{} = scope, slug) when is_binary(slug) do
-    %{scope | game: %{slug: slug}}
+  @spec put_game(t(), Game.id()) :: t()
+  def put_game(%__MODULE__{} = scope, game_id) do
+    %{scope | game: %{id: game_id}}
   end
 end

@@ -1,6 +1,7 @@
 defmodule D20Web.Router do
   use D20Web, :router
 
+  import Backpex.Router
   import D20Web.Module, only: [put_module_cors_headers: 2]
   import D20Web.Auth
 
@@ -47,14 +48,24 @@ defmodule D20Web.Router do
     plug :put_secure_browser_headers
   end
 
+  live_session :dashboard, on_mount: [{D20Web.Auth, :admin}, Backpex.InitAssigns] do
+    scope "/dashboard", D20Web do
+      pipe_through [:browser, :require_authenticated_user, :require_administrator]
+
+      backpex_routes()
+
+      live_resources "", Admin.GameLive, only: [:index, :show, :edit]
+    end
+  end
+
   scope "/", D20Web do
     pipe_through :inertia
 
     get "/", PageController, :home
     get "/developers", PageController, :developers
     get "/games", PageController, :games
-    get "/games/:slug", PageController, :game
-    post "/games/:slug/sessions", PageController, :create_game_session
+    get "/games/:game_id", PageController, :game
+    post "/games/:game_id/sessions", PageController, :create_game_session
   end
 
   scope "/developers/specs" do
@@ -65,8 +76,8 @@ defmodule D20Web.Router do
   scope "/", D20Web do
     pipe_through :modules
 
-    options "/modules/:slug", ModuleController, :options
-    post "/modules/:slug", ModuleController, :create
+    options "/modules/:game_id", ModuleController, :options
+    post "/modules/:game_id", ModuleController, :create
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

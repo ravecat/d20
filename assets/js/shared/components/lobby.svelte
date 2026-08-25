@@ -3,14 +3,14 @@
   import { onDestroy, onMount, untrack } from "svelte";
   import Session from "./session.svelte";
   import { createSession } from "~/shared/stores";
-  import type { SessionDescriptor } from "~/shared/types";
+  import type { SessionDescriptor } from "~/shared/types/game";
 
   interface Props {
     session: SessionDescriptor;
   }
 
   const { session }: Props = $props();
-  const { topic, slug } = untrack(() => session);
+  const { topic, gameId } = untrack(() => session);
   const controller = createSession(topic);
   let handled = false;
 
@@ -21,7 +21,7 @@
 
         handled = true;
 
-        router.get(`/games/${slug}`, {}, { preserveScroll: true, replace: true });
+        router.get(`/games/${gameId}`, {}, { preserveScroll: true, replace: true });
       }
     }),
   );

@@ -4,6 +4,7 @@ defmodule D20.Accounts.User do
 
   @primary_key {:id, TypeID, autogenerate: true, prefix: "user"}
   @type id :: TypeID.t()
+  @type role :: :user | :admin
 
   schema "users" do
     field :email, :string
@@ -12,6 +13,7 @@ defmodule D20.Accounts.User do
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
+    field :role, Ecto.Enum, values: [:user, :admin], default: :user
 
     has_many :user_identities, D20.Accounts.UserIdentity
 

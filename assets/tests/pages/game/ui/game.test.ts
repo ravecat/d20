@@ -5,8 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "@sjsf/form";
 import { GamePage } from "~/pages/game";
 import type { SessionState, SessionStore } from "~/shared/stores";
-import type { GameMetadata, Session } from "~/shared/types";
+import type { GameMetadata, Session } from "~/shared/types/game";
 import inertiaMock from "../../../mocks/inertia";
+
+const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
+const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
+const nextStationId = "game_01h45ykcj8exz9cknf3mj4z6bx";
+const voyagesId = "game_01h45ybmy7fj7b4r9vvp74ms6k";
 
 const sessionMock = vi.hoisted(() => ({
   createSession: vi.fn(),
@@ -75,7 +80,8 @@ describe("game detail page", () => {
   it("renders runtime title, preview image, and description", () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata({
         name: "Resolved Qwinto",
         categories: ["Dice", "Number"],
@@ -106,7 +112,8 @@ describe("game detail page", () => {
   it("renders provider metadata labels in the activation panel", () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata({
         minPlayers: 2,
         maxPlayers: 6,
@@ -135,7 +142,8 @@ describe("game detail page", () => {
   it("renders single metadata values without fake ranges", () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata({
         minPlayers: 1,
         maxPlayers: 1,
@@ -155,7 +163,8 @@ describe("game detail page", () => {
   it("renders minimum-only play time as an open-ended value", () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata({
         playingTime: null,
         minPlayTime: 20,
@@ -173,7 +182,8 @@ describe("game detail page", () => {
   it("omits missing provider metadata labels", () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata({
         name: null,
         imageUrl: null,
@@ -207,7 +217,8 @@ describe("game detail page", () => {
   it("keeps available metadata while omitting missing metadata labels", () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata({
         minPlayers: 2,
         maxPlayers: 6,
@@ -230,10 +241,11 @@ describe("game detail page", () => {
     expect(document.body.textContent).not.toContain("Not listed");
   });
 
-  it("posts session creation to the internal slug route", async () => {
+  it("posts session creation to the id-based route", async () => {
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata(),
       canLaunchGame: true,
       schema: emptySchema,
@@ -245,7 +257,7 @@ describe("game detail page", () => {
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledWith(
-        "/games/qwinto/sessions",
+        `/games/${qwintoId}/sessions`,
         {},
         expect.objectContaining({ errorBag: "session" }),
       );
@@ -255,13 +267,14 @@ describe("game detail page", () => {
   it("keeps a query session in the lobby until it starts", () => {
     const session = {
       id: "session-a",
-      slug: "qwinto",
+      gameId: qwintoId,
       topic: "session:session-a",
     };
 
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata(),
       canLaunchGame: true,
       schema: emptySchema,
@@ -277,13 +290,14 @@ describe("game detail page", () => {
   it("requests a page refresh without detaching the active lobby", async () => {
     const session = {
       id: "session-a",
-      slug: "qwinto",
+      gameId: qwintoId,
       topic: "session:session-a",
     };
 
     const { unmount } = render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata(),
       canLaunchGame: true,
       schema: emptySchema,
@@ -295,7 +309,7 @@ describe("game detail page", () => {
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.get).toHaveBeenCalledWith(
-        "/games/qwinto",
+        `/games/${qwintoId}`,
         {},
         { preserveScroll: true, replace: true },
       );
@@ -313,13 +327,14 @@ describe("game detail page", () => {
   it("detaches a waiting session when the caller leaves before Start", () => {
     const { unmount } = render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata(),
       canLaunchGame: true,
       schema: emptySchema,
       session: {
         id: "session-a",
-        slug: "qwinto",
+        gameId: qwintoId,
         topic: "session:session-a",
       },
     });
@@ -332,7 +347,8 @@ describe("game detail page", () => {
   it("posts a selected enum value from the creation form schema", async () => {
     const { getByRole } = render(GamePage, {
       auth,
-      slug: "koala-rescue-club",
+      id: koalaId,
+      stage: "released",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       schema: koalaSchema,
       canLaunchGame: true,
@@ -349,7 +365,7 @@ describe("game detail page", () => {
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledWith(
-        "/games/koala-rescue-club/sessions",
+        `/games/${koalaId}/sessions`,
         { sheet: "yugambeh" },
         expect.any(Object),
       );
@@ -359,7 +375,8 @@ describe("game detail page", () => {
   it("shows an Inertia field error on the SJSF control", async () => {
     render(GamePage, {
       auth,
-      slug: "koala-rescue-club",
+      id: koalaId,
+      stage: "released",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       schema: koalaSchema,
       canLaunchGame: true,
@@ -390,7 +407,8 @@ describe("game detail page", () => {
 
     render(GamePage, {
       auth,
-      slug: "qwinto",
+      id: qwintoId,
+      stage: "released",
       game: gameMetadata(),
       canLaunchGame: true,
       schema: emptySchema,
@@ -402,7 +420,8 @@ describe("game detail page", () => {
   it("renders boolean schema properties as checkboxes and posts typed values", async () => {
     render(GamePage, {
       auth,
-      slug: "next-station-london",
+      id: nextStationId,
+      stage: "in_development",
       game: gameMetadata({ name: "Next Station London" }),
       schema: nextStationSchema,
       canLaunchGame: true,
@@ -420,7 +439,7 @@ describe("game detail page", () => {
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledWith(
-        "/games/next-station-london/sessions",
+        `/games/${nextStationId}/sessions`,
         { objectives: false, powers: true },
         expect.any(Object),
       );
@@ -430,7 +449,8 @@ describe("game detail page", () => {
   it("keeps game details visible without session controls when launch is unavailable", () => {
     render(GamePage, {
       auth,
-      slug: "voyages",
+      id: voyagesId,
+      stage: "planned",
       canLaunchGame: false,
       schema: null,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { inertia } from "@inertiajs/svelte";
-  import type { GameCatalogEntry } from "~/shared/types";
+  import type { GameCatalogEntry } from "~/shared/types/game";
 
   type Props = InertiaProps<{
     games: GameCatalogEntry[];
@@ -13,21 +13,22 @@
   <section class="home-shell">
     {#if games.length > 0}
       <ul class="home-grid">
-        {#each games as entry (entry.slug)}
+        {#each games as entry (entry.id)}
           {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
           {@const title = entry.game.name}
+          {@const href = `/games/${entry.id}`}
           <li class="game-card-item">
             <a
               class={{
                 "game-card": true,
-                "game-card--active": entry.status === "active",
-                "game-card--muted": entry.status !== "active",
-                "game-card--in-progress": entry.status === "in_progress",
+                "game-card--released": entry.stage === "released",
+                "game-card--muted": entry.stage !== "released",
+                "game-card--unreleased": entry.stage !== "released",
               }}
-              href={`/games/${entry.slug}`}
-              aria-labelledby={title ? `game-title-${entry.slug}` : undefined}
+              {href}
+              aria-labelledby={title ? `game-title-${entry.id}` : undefined}
               aria-label={title ? undefined : "Open game"}
-              use:inertia={{ href: `/games/${entry.slug}` }}
+              use:inertia={{ href }}
             >
               <div class="game-preview">
                 {#if url}
@@ -60,11 +61,13 @@
                     </ul>
                   </div>
                 {/if}
-                {#if entry.status === "in_progress"}
-                  <span class="game-status-badge">Soon</span>
+                {#if entry.stage === "in_development"}
+                  <span class="game-status-badge">In development</span>
+                {:else if entry.stage === "planned"}
+                  <span class="game-status-badge">Planned</span>
                 {/if}
                 {#if title}
-                  <h2 id={`game-title-${entry.slug}`} class="game-title">{title}</h2>
+                  <h2 id={`game-title-${entry.id}`} class="game-title">{title}</h2>
                 {/if}
               </div>
             </a>
@@ -187,7 +190,7 @@
       scale 180ms ease;
   }
 
-  .game-card--active:hover .game-preview-image {
+  .game-card--released:hover .game-preview-image {
     filter: saturate(1.2) contrast(0.94) brightness(0.96);
     scale: 1.06;
   }
@@ -281,7 +284,7 @@
       0 0 10px rgb(0 0 0 / 0.5);
   }
 
-  .game-card--in-progress .game-title {
+  .game-card--unreleased .game-title {
     max-inline-size: calc(100% - 6rem);
   }
 

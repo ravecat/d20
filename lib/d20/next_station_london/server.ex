@@ -13,7 +13,7 @@ defmodule D20.NextStationLondon.Server do
   @impl :gen_statem
   def callback_mode, do: [:handle_event_function, :state_enter]
 
-  def handle_event(:enter, _old_state, :reveal, {_slug, Game, session}) do
+  def handle_event(:enter, _old_state, :reveal, {_game_id, Game, session}) do
     command = reveal_command(session.game)
 
     {:keep_state_and_data, [{:state_timeout, 0, {:reveal, command}}]}
@@ -23,13 +23,14 @@ defmodule D20.NextStationLondon.Server do
         :state_timeout,
         {:reveal, %Command{} = command},
         :reveal,
-        {slug, Game, session} = data
+        {game_id, Game, session} = data
       ) do
     case Session.dispatch(session, Game, command) do
       {:ok, %Session{} = updated_session} ->
         broadcast(session, updated_session)
 
-        {:next_state, updated_session.game.phase, {slug, Game, updated_session}, [idle_action()]}
+        {:next_state, updated_session.game.phase, {game_id, Game, updated_session},
+         [idle_action()]}
 
       {:error, reason} ->
         {:stop, {:invalid_random_setup, reason}, data}

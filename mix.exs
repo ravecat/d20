@@ -68,6 +68,7 @@ defmodule D20.MixProject do
       {:pathex, "~> 2.6"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
+      {:backpex, "~> 0.20.0"},
       {:bodyguard, "~> 2.4.3"},
       {:igniter, "~> 0.6", only: [:dev], runtime: false},
       {:recode, "~> 0.8", only: [:dev, :test], runtime: false},

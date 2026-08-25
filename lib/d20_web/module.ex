@@ -1,12 +1,16 @@
 defmodule D20Web.Module do
   @moduledoc """
   Builds iframe embed data for modules.
+
+  The iframe sandbox policy is a single shared application configuration owned
+  here; persisted game records never define or override it.
   """
 
   import Plug.Conn, only: [get_req_header: 2, put_resp_header: 3]
 
   alias D20.Accounts.Scope
   alias D20.Actors.Actor
+  alias D20.Games.Game
 
   @type request_context :: %{optional(:actor) => Actor.t(), required(:uri) => URI.t()}
   @type entry :: %{
@@ -20,20 +24,21 @@ defmodule D20Web.Module do
           required(:token) => String.t()
         }
 
-  @spec entry(Plug.Conn.t() | Phoenix.Socket.t(), D20.Games.Registry.Entry.t()) :: entry()
-  def entry(source, %D20.Games.Registry.Entry{slug: slug}) do
-    embed_url = source |> request_context() |> embed_url(slug)
+  @spec entry(Plug.Conn.t() | Phoenix.Socket.t(), Game.id()) :: entry()
+  def entry(source, game_id) do
+    embed_url = source |> request_context() |> embed_url(game_id)
 
-    %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: sandbox!()}
+    %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: sandbox()}
   end
 
-  @spec connection(Plug.Conn.t() | Phoenix.Socket.t(), String.t(), String.t()) :: connection()
-  def connection(source, slug, session_id) when is_binary(slug) and is_binary(session_id) do
+  @spec connection(Plug.Conn.t() | Phoenix.Socket.t(), Game.id(), String.t()) ::
+          connection()
+  def connection(source, game_id, session_id) do
     %{actor: actor} = context = request_context(source)
     endpoint = module_endpoint(context)
     topic = D20Web.SessionChannel.topic(session_id)
 
-    claims = %{endpoint: endpoint, topic: topic, slug: slug, actor: actor}
+    claims = %{endpoint: endpoint, topic: topic, game_id: game_id, actor: actor}
 
     %{endpoint: endpoint, topic: topic, token: D20.Module.Token.sign(D20Web.Endpoint, claims)}
   end
@@ -74,28 +79,10 @@ defmodule D20Web.Module do
     %{actor: actor, uri: uri}
   end
 
-  defp sandbox! do
-    case Application.fetch_env(:d20, __MODULE__) do
-      {:ok, config} when is_list(config) -> validate_sandbox!(Keyword.get(config, :sandbox))
-      _config -> raise_invalid_sandbox()
-    end
-  end
-
-  defp validate_sandbox!([_capability | _rest] = sandbox) do
-    if Enum.all?(sandbox, &is_binary/1), do: sandbox, else: raise_invalid_sandbox()
-  end
-
-  defp validate_sandbox!(_sandbox), do: raise_invalid_sandbox()
-
-  defp raise_invalid_sandbox do
-    raise ArgumentError,
-          "expected :d20, D20Web.Module :sandbox configuration to be a non-empty list of strings"
-  end
-
-  @spec embed_url(request_context(), String.t()) :: String.t()
-  defp embed_url(context, slug) do
+  @spec embed_url(request_context(), Game.id()) :: String.t()
+  defp embed_url(context, game_id) do
     context
-    |> module_uri(slug)
+    |> module_uri(game_id)
     |> Map.put(:path, "/")
     |> URI.to_string()
   end
@@ -111,9 +98,9 @@ defmodule D20Web.Module do
     |> URI.to_string()
   end
 
-  @spec module_uri(request_context(), String.t()) :: URI.t()
-  defp module_uri(%{uri: %URI{scheme: scheme, host: host}}, slug) do
-    %URI{scheme: http_scheme(scheme), host: "#{slug}.#{host}"}
+  @spec module_uri(request_context(), Game.id()) :: URI.t()
+  defp module_uri(%{uri: %URI{scheme: scheme, host: host}}, game_id) do
+    %URI{scheme: http_scheme(scheme), host: "game-#{TypeID.suffix(game_id)}.#{host}"}
   end
 
   @spec module_endpoint(request_context()) :: String.t()
@@ -130,4 +117,30 @@ defmodule D20Web.Module do
 
   defp socket_scheme(scheme) when scheme in ["https", "wss"], do: "wss"
   defp socket_scheme(_scheme), do: "ws"
+
+  @spec sandbox() :: [String.t()]
+  defp sandbox do
+    case Application.get_env(:d20, __MODULE__, [])[:sandbox] do
+      nil ->
+        raise ArgumentError,
+              "D20Web.Module :sandbox configuration to be a non-empty list of strings"
+
+      sandbox ->
+        validate_sandbox!(sandbox)
+    end
+  end
+
+  defp validate_sandbox!(sandbox) when is_list(sandbox) and sandbox != [] do
+    if Enum.all?(sandbox, &is_binary/1) do
+      sandbox
+    else
+      raise ArgumentError,
+            "D20Web.Module :sandbox configuration to be a non-empty list of strings, got: #{inspect(sandbox)}"
+    end
+  end
+
+  defp validate_sandbox!(sandbox) do
+    raise ArgumentError,
+          "D20Web.Module :sandbox configuration to be a non-empty list of strings, got: #{inspect(sandbox)}"
+  end
 end

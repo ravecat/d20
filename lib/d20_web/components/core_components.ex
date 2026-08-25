@@ -441,6 +441,13 @@ defmodule D20Web.CoreComponents do
   end
 
   @doc """
+  Translates Backpex interface text using the application Gettext backend.
+  """
+  def translate_backpex({msg, opts}) do
+    Gettext.dgettext(D20Web.Gettext, "backpex", msg, opts)
+  end
+
+  @doc """
   Translates an error message using gettext.
   """
   def translate_error({msg, opts}) do

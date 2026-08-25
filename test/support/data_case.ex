@@ -24,6 +24,7 @@ defmodule D20.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import D20.DataCase
+      import D20.GamesFixtures
     end
   end
 

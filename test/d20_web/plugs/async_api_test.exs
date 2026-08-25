@@ -37,12 +37,15 @@ defmodule D20Web.Plugs.AsyncApiTest do
 
     assert {:ok, contract} = File.read(spec_path)
     assert contract =~ "title: Workspace Channel Async API"
-    assert contract =~ "version: 1.2.0"
+    assert contract =~ "version: 1.3.0"
     assert contract =~ "name: close_session"
     assert contract =~ "closeWorkspaceSession:"
     assert contract =~ "disconnects retain the attachment"
     assert contract =~ "join recreates it"
     assert contract =~ "until a later authorized"
+    assert contract =~ "game_id:\n          type: string"
+    assert contract =~ "^game_[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}$"
+    refute contract =~ "game_id:\n          type: integer"
     refute contract =~ "name: session_closed"
     refute contract =~ "sessionClosedPayload:"
   end

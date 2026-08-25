@@ -1,5 +1,5 @@
 <script module lang="ts">
-  import type { GameMetadata } from "~/shared/types";
+  import type { GameMetadata } from "~/shared/types/game";
 
   function formatPlayerCount(game: GameMetadata) {
     const min = positiveInteger(game.minPlayers);

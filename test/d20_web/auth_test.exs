@@ -157,6 +157,17 @@ defmodule D20Web.AuthTest do
       assert redirected_to(conn) == "/hello"
     end
 
+    test "forces a full-page redirect after Inertia authentication", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> put_req_header("x-inertia", "true")
+        |> put_session(:return_to, "/games")
+        |> Auth.log_in_user(user)
+
+      assert redirected_to(conn) == "/games"
+      assert conn.private.inertia_force_redirect
+    end
+
     test "writes a cookie if remember_me is configured", %{conn: conn, user: user} do
       conn = conn |> fetch_cookies() |> Auth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]

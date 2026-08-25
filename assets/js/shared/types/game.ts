@@ -18,16 +18,16 @@ export interface GameMetadata {
 }
 
 export interface GameCatalogEntry {
-  slug: string;
-  status: GameStatus | null;
+  id: string;
+  stage: GameStage;
   game: GameMetadata;
 }
 
-export type GameStatus = "active" | "in_progress";
+export type GameStage = "planned" | "in_development" | "released";
 
 export interface SessionDescriptor {
   id: string;
-  slug: string;
+  gameId: string;
   topic: string;
 }
 

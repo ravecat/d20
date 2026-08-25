@@ -16,18 +16,12 @@ defmodule D20Web.ModuleTest do
 
   test "builds an iframe entry with the configured sandbox policy", %{conn: conn} do
     Application.put_env(:d20, Module, sandbox: ["allow-scripts"])
+    game_id = game_id(183_006)
+    embed_url = "http://game-#{TypeID.suffix(game_id)}.example.com/"
+    origin = "http://game-#{TypeID.suffix(game_id)}.example.com"
 
-    registry_entry = %D20.Games.Registry.Entry{
-      slug: "qwinto",
-      engine: D20.Qwinto.Game,
-      bgg_id: 183_006
-    }
-
-    assert %{
-             embed_url: "http://qwinto.example.com/",
-             allowed_origins: ["http://qwinto.example.com"],
-             sandbox: ["allow-scripts"]
-           } = entry = Module.entry(conn, registry_entry)
+    assert %{embed_url: ^embed_url, allowed_origins: [^origin], sandbox: ["allow-scripts"]} =
+             entry = Module.entry(conn, game_id)
 
     refute Map.has_key?(entry, :bootstrap)
     refute Map.has_key?(entry, :connection)
@@ -38,17 +32,19 @@ defmodule D20Web.ModuleTest do
     session_id = Ecto.UUID.generate()
     topic = "session:#{session_id}"
     conn = assign(conn, :scope, %Scope{actor: actor})
-    connection = Module.connection(conn, "qwinto", session_id)
+    game_id = game_id(183_006)
+    connection = Module.connection(conn, game_id, session_id)
 
     assert %{endpoint: "ws://example.com/module", topic: ^topic, token: token} = connection
 
     refute Map.has_key?(connection, :slug)
     refute Map.has_key?(connection, :actor)
+    refute Map.has_key?(connection, :game_id)
 
     assert {:ok,
             %{
               endpoint: "ws://example.com/module",
-              slug: "qwinto",
+              game_id: ^game_id,
               topic: ^topic,
               actor: %Actor{id: "p1", type: :anonymous}
             }} = D20.Module.Token.verify(D20Web.Endpoint, token)
@@ -63,38 +59,27 @@ defmodule D20Web.ModuleTest do
     topic = "session:#{session_id}"
 
     socket = socket UserSocket, "socket-id", %{scope: Scope.for_actor(actor), request_uri: uri}
+    koala_id = game_id(425_873)
+    qwinto_id = game_id(183_006)
+    embed_url = "https://game-#{TypeID.suffix(koala_id)}.shell.example.com/"
+    origin = "https://game-#{TypeID.suffix(koala_id)}.shell.example.com"
 
-    registry_entry = %D20.Games.Registry.Entry{
-      slug: "koala-rescue-club",
-      engine: D20.KoalaRescueClub.Game,
-      bgg_id: 425_873
-    }
-
-    assert %{
-             embed_url: "https://koala-rescue-club.shell.example.com/",
-             allowed_origins: ["https://koala-rescue-club.shell.example.com"],
-             sandbox: ["allow-forms"]
-           } = Module.entry(socket, registry_entry)
+    assert %{embed_url: ^embed_url, allowed_origins: [^origin], sandbox: ["allow-forms"]} =
+             Module.entry(socket, koala_id)
 
     assert %{endpoint: "wss://shell.example.com/module", topic: ^topic, token: token} =
-             Module.connection(socket, "qwinto", session_id)
+             Module.connection(socket, qwinto_id, session_id)
 
     assert {:ok,
             %{
               endpoint: "wss://shell.example.com/module",
-              slug: "qwinto",
+              game_id: ^qwinto_id,
               topic: ^topic,
               actor: ^actor
             }} = D20.Module.Token.verify(D20Web.Endpoint, token)
   end
 
   test "rejects missing and malformed sandbox configuration", %{conn: conn} do
-    registry_entry = %D20.Games.Registry.Entry{
-      slug: "qwinto",
-      engine: D20.Qwinto.Game,
-      bgg_id: 183_006
-    }
-
     invalid_configs = [nil, [], [sandbox: []], [sandbox: "allow-scripts"], [sandbox: [:scripts]]]
 
     for config <- invalid_configs do
@@ -106,7 +91,7 @@ defmodule D20Web.ModuleTest do
 
       assert_raise ArgumentError,
                    ~r/D20Web.Module :sandbox configuration to be a non-empty list of strings/,
-                   fn -> Module.entry(conn, registry_entry) end
+                   fn -> Module.entry(conn, game_id(183_006)) end
     end
   end
 end

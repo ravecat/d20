@@ -1,6 +1,6 @@
 import { session } from "phoenix-session";
 import { socket } from "~/shared/api";
-import type { Session } from "~/shared/types";
+import type { Session } from "~/shared/types/game";
 
 type CommandError = {
   reason?: string;
