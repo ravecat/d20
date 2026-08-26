@@ -111,7 +111,7 @@ Use this workflow when you want the D20 shell and one or more local iframe modul
 just up
 ```
 
-`just up` starts the shared Traefik container through detached Docker Compose and then invokes the public `serve` workflow. If the requested node is absent, the watched Phoenix workflow remains in the foreground and retains normal interactive IEx shutdown behavior. If the node is already registered, `serve` triggers its existing Watchexec owner and returns instead of starting a duplicate. `up` does not start Concurrently or Storybook. Detached Compose services remain running until `docker compose down` is called.
+`just up` starts the shared Traefik container through detached Docker Compose and then invokes the public `serve` workflow. If the requested node is absent, the watched Phoenix workflow remains in the foreground and retains normal interactive IEx shutdown behavior: press Ctrl+C to open the BREAK menu, then select `a` to abort the workflow. Watchexec and its IEx, Phoenix, Vite, and filesystem-watcher children exit with the foreground command. If the node is already registered, `serve` triggers its existing Watchexec owner and returns instead of starting a duplicate. `up` does not start Concurrently or Storybook. Detached Compose services remain running until `docker compose down` is called.
 
 Each local module project should start its own Compose service and join the shared external `d20` Docker network. D20 derives iframe hosts from module slugs and the shell request host: when D20 is opened at `localhost:5000`, a module with slug `<module-slug>` resolves to `http://<module-slug>.localhost`.
 

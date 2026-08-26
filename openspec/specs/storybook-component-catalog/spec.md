@@ -8,15 +8,15 @@ Define D20's isolated production-component catalog, deterministic story boundari
 
 ### Requirement: Isolated Svelte component catalog
 
-The frontend package SHALL provide a Storybook catalog for production Svelte components that starts and builds without starting Phoenix, PostgreSQL, live channels, workspace transports, or external game iframes.
+The frontend package SHALL provide a Storybook catalog for production Svelte components that starts and builds without starting Phoenix, PostgreSQL, live channels, workspace transports, or external game iframes. The root command interface SHALL expose the catalog independently from routed application startup.
 
 #### Scenario: Start the catalog for local development
 
-- **WHEN** a contributor runs the documented Storybook development command from the repository command boundary
+- **WHEN** a contributor runs `just storybook` with optional Storybook CLI arguments
 - **THEN** Storybook serves the catalog on port 6006 when that port is available
 - **AND** Storybook automatically uses the nearest available port without prompting when port 6006 is occupied
 - **AND** the command reports the selected URL without opening a browser automatically
-- **AND** optional development CLI arguments are forwarded unchanged to Storybook
+- **AND** every optional development CLI argument is forwarded unchanged to Storybook
 - **AND** no Phoenix application or backend service is required to browse isolated stories
 
 #### Scenario: Build the static catalog
@@ -26,21 +26,12 @@ The frontend package SHALL provide a Storybook catalog for production Svelte com
 - **AND** Phoenix can serve the generated files under `/storybook/` when they exist
 - **AND** the regular production asset deployment does not build Storybook implicitly
 
-#### Scenario: Start the routed development workflow
+#### Scenario: Start routed application development
 
-- **WHEN** a contributor runs `just up` without an already-running D20 server
-- **THEN** Docker Compose starts before Phoenix and Storybook
-- **AND** the root Just workflow invokes the process supervisor supplied by the Nix development shell
-- **AND** the frontend package exposes only the atomic Storybook command rather than the composite host workflow
-- **AND** Phoenix and Storybook run concurrently in the foreground
-- **AND** their combined output identifies each line as `phoenix` or `storybook`
-
-#### Scenario: Reuse an existing D20 server
-
-- **WHEN** `just up` finds the exact `d20` node already registered
-- **THEN** the reuse helper triggers the existing watcher and exits successfully
-- **AND** the supervised Storybook process continues running
-- **AND** the existing server retains ownership of its original output stream
+- **WHEN** a contributor runs `just up`
+- **THEN** Docker Compose starts before the interactive Phoenix workflow
+- **AND** Storybook does not start in that process tree
+- **AND** the contributor can start Storybook independently with `just storybook`
 
 ### Requirement: Production-style story rendering
 

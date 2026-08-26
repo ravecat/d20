@@ -14,5 +14,5 @@
 ## 3. Validation
 
 - [x] 3.1 Validate Just parsing, public command discovery, exact and missing EPMD routing, custom node arguments, Storybook argument forwarding, and Docker-before-serve command order.
-- [ ] 3.2 Exercise the real sequential `just up` workflow and characterize its documented interactive shutdown without leaving invocation-owned processes.
+- [x] 3.2 Exercise the real sequential `just up` workflow and characterize its documented interactive shutdown without leaving invocation-owned processes.
 - [x] 3.3 Run strict validation for the change and all repository OpenSpec artifacts.
