@@ -56,7 +56,7 @@ The catalog SHALL contain Fliptown, Koala Rescue Club, Next Station: London, Qwi
 - **THEN** its entry includes `stage` `planned`
 
 ### Requirement: Home cards communicate availability
-The home page SHALL render games in the order received from the backend without client-side filtering, grouping, or sorting. It SHALL display released games with the full visual treatment and visually mute in-development and planned games while preserving readable titles, keyboard focus, and detail links. In-development games SHALL display an `In development` badge, and planned games SHALL display a `Planned` badge. Game titles SHALL render directly over the artwork without a chip background, with a subtle left-side scrim for legibility.
+The home page SHALL render games in the order received from the backend without client-side filtering, grouping, or sorting. It SHALL display released games with the full visual treatment and visually mute in-development and planned games while preserving readable titles, keyboard focus, and detail links. In-development games SHALL display an `In development` badge. Planned games SHALL NOT display a lifecycle badge because their presence in the catalog already communicates that they are planned. Game titles SHALL render directly over the artwork without a chip background, with a subtle left-side scrim for legibility.
 
 #### Scenario: Backend order is preserved
 - **WHEN** the home page receives the ordered catalog
@@ -76,9 +76,9 @@ The home page SHALL render games in the order received from the backend without 
 - **THEN** its preview is muted and an `In development` badge is visible
 - **AND** the catalog entry stage remains `in_development`
 
-#### Scenario: Planned card is labeled and navigable
+#### Scenario: Planned card is navigable without a redundant label
 - **WHEN** the home page renders a planned game
-- **THEN** its preview is muted and a `Planned` badge is visible
+- **THEN** its preview is muted and no lifecycle badge is visible
 - **AND** its link uses only the stable local game id
 
 ### Requirement: Every catalog game has a detail page

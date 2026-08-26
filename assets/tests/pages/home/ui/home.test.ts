@@ -54,7 +54,7 @@ describe("home page", () => {
     expect(visibleText).not.toContain("Planned");
   });
 
-  it("renders fallback preview state when metadata has no image", () => {
+  it("renders a planned game without a redundant status label", () => {
     render(HomePage, {
       auth,
       games: [
@@ -71,7 +71,8 @@ describe("home page", () => {
     expect(link?.textContent).toContain("Qwinto");
     expect(document.images).toHaveLength(0);
     expect(link?.getAttribute("href")).toBe(`/games/${voyagesId}`);
-    expect(link?.textContent).toContain("Planned");
+    expect(link?.textContent).not.toContain("Planned");
+    expect(link?.textContent).not.toContain("In development");
   });
 
   it("renders the In development label for games under development", () => {

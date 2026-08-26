@@ -23,7 +23,7 @@
                 "game-card": true,
                 "game-card--released": entry.stage === "released",
                 "game-card--muted": entry.stage !== "released",
-                "game-card--unreleased": entry.stage !== "released",
+                "game-card--in-development": entry.stage === "in_development",
               }}
               {href}
               aria-labelledby={title ? `game-title-${entry.id}` : undefined}
@@ -63,8 +63,6 @@
                 {/if}
                 {#if entry.stage === "in_development"}
                   <span class="game-status-badge">In development</span>
-                {:else if entry.stage === "planned"}
-                  <span class="game-status-badge">Planned</span>
                 {/if}
                 {#if title}
                   <h2 id={`game-title-${entry.id}`} class="game-title">{title}</h2>
@@ -284,7 +282,7 @@
       0 0 10px rgb(0 0 0 / 0.5);
   }
 
-  .game-card--unreleased .game-title {
+  .game-card--in-development .game-title {
     max-inline-size: calc(100% - 6rem);
   }
 

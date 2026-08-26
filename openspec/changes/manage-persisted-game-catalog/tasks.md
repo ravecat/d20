@@ -49,7 +49,7 @@
 - [x] 6.2 Update shared frontend game types and page props to expose stable game identity as string `id` and implementation stage as `stage`; remove public game slug fields, the optional status, `gameId`/`implementationStage` page naming, numeric-id assumptions, and barrel proxies.
 - [x] 6.3 Use direct id-only URLs for home tiles, lobby cleanup, and launch-form submission; remove the cosmetic game-route helper rather than retaining a one-line abstraction.
 - [x] 6.4 Update Workspace TypeScript descriptors and state tests from `slug` to string TypeID `gameId` without adding normalization, presentation names, browser persistence, or a second state owner.
-- [x] 6.5 Update home, game, launch form, lobby, Workspace model/component, and browser fixtures/tests for TypeID-only links, `Planned`/`In development` stage presentation, disabled Play hiding, and unchanged Session/window interactions.
+- [x] 6.5 Update home, game, launch form, lobby, Workspace model/component, and browser fixtures/tests for TypeID-only links, an `In development` badge without a redundant `Planned` badge, disabled Play hiding, and unchanged Session/window interactions.
 
 ## 7. Backpex Dependency and Asset Integration
 
