@@ -99,7 +99,15 @@ just assets storybook:build
 
 When Phoenix is running after that build, it serves the generated entry point at [http://localhost:5000/storybook/index.html](http://localhost:5000/storybook/index.html). The regular `mix assets.deploy` workflow does not build or publish Storybook automatically.
 
-Stories live under [`assets/stories/`](assets/stories/) and import production components from `assets/js/`. See the [story source conventions](assets/stories/README.md) for deterministic fixtures and connected-dependency mocks. Storybook supports isolated visual, viewport, controls, docs, and accessibility review; existing Vitest unit and browser suites remain the automated behavior boundary until Storybook browser testing is added explicitly.
+Stories live under [`assets/stories/`](assets/stories/) and import production components from `assets/js/`. See the [story source conventions](assets/stories/README.md) for deterministic fixtures and connected-dependency mocks.
+
+Run visual regression tests with:
+
+```sh
+just assets playwright install chromium # once
+just assets test:visual
+just assets test:visual --update
+```
 
 Storybook runs independently from the routed application workflow. Start `just up` and `just storybook` in separate terminals when both are needed.
 

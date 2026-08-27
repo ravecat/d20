@@ -44,6 +44,9 @@ pnpm-debug.log*
 coverage
 test-output
 __tests__
+assets/__screenshots__
+assets/.vitest
+assets/.vitest-attachments
 *.test.*
 *.spec.ts
 *.spec.tsx

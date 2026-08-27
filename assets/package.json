@@ -12,9 +12,12 @@
     "test": "vitest run",
     "test:browser": "vitest run --project browser",
     "test:unit": "vitest run --project unit",
-    "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json"
+    "test:visual": "vitest run --project desktop --project tablet --project mobile",
+    "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json",
+    "vitest": "vitest"
   },
   "dependencies": {
+    "@fontsource-variable/noto-sans-mono": "5.3.0",
     "@inertiajs/svelte": "3.6.0",
     "@rvct/d20sdk": "1.2.0",
     "@sjsf/ajv8-validator": "3.8.0",
@@ -35,12 +38,14 @@
     "@eslint/js": "^10.0.1",
     "@storybook/addon-a11y": "^10.5.7",
     "@storybook/addon-docs": "^10.5.7",
+    "@storybook/addon-vitest": "10.5.7",
     "@storybook/svelte-vite": "^10.5.7",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tailwindcss/vite": "^4.1.0",
     "@testing-library/svelte": "^5.4.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/browser-playwright": "4.1.7",
+    "@vitest/ui": "4.1.7",
     "browserslist": "^4.28.6",
     "browserslist-to-esbuild": "^2.1.1",
     "daisyui": "^5.0.0",

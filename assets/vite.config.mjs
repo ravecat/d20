@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { playwright } from "@vitest/browser-playwright";
@@ -8,6 +9,7 @@ import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
 
 const assetsDir = fileURLToPath(new URL(".", import.meta.url));
+const storybookDir = path.join(assetsDir, ".storybook");
 const browserTargets = browserslistToEsbuild(undefined, { path: assetsDir });
 const staticPort = Number(process.env.STATIC_PORT || "5174");
 const isVitest = process.env.VITEST === "true";
@@ -48,6 +50,41 @@ export default defineConfig({
       }),
   ],
   test: {
+    outputFile: {
+      html: path.join(assetsDir, ".vitest/report/index.html"),
+    },
+    browser: {
+      api: { strictPort: false },
+      provider: playwright({
+        contextOptions: {
+          viewport: { width: 1280, height: 900 },
+          screen: { width: 1280, height: 900 },
+        },
+      }),
+      expect: {
+        toMatchScreenshot: {
+          resolveScreenshotPath: ({
+            arg,
+            browserName,
+            ext,
+            project,
+            root: projectRoot,
+            screenshotDirectory,
+            testFileDirectory,
+            testFileName,
+          }) =>
+            path.join(
+              projectRoot,
+              screenshotDirectory,
+              testFileDirectory,
+              testFileName,
+              project.name,
+              browserName,
+              `${arg}${ext}`,
+            ),
+        },
+      },
+    },
     projects: [
       {
         extends: true,
@@ -76,6 +113,90 @@ export default defineConfig({
             provider: playwright(),
             instances: [{ browser: "chromium" }, { browser: "firefox" }],
             viewport: { width: 1280, height: 800 },
+          },
+        },
+      },
+      {
+        extends: true,
+        optimizeDeps: {
+          exclude: ["@storybook/svelte"],
+        },
+        plugins: [
+          storybookTest({
+            configDir: storybookDir,
+            initialGlobals: {
+              viewport: { value: "desktop" },
+            },
+          }),
+        ],
+        test: {
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
+          setupFiles: [path.join(storybookDir, "vitest.setup.ts")],
+          browser: {
+            enabled: true,
+            headless: true,
+            instances: [{ browser: "chromium", name: "desktop" }],
+            trace: {
+              mode: "retain-on-failure",
+              tracesDir: path.join(assetsDir, ".vitest/traces/desktop"),
+            },
+          },
+        },
+      },
+      {
+        extends: true,
+        optimizeDeps: {
+          exclude: ["@storybook/svelte"],
+        },
+        plugins: [
+          storybookTest({
+            configDir: storybookDir,
+            initialGlobals: {
+              viewport: { value: "tablet" },
+            },
+          }),
+        ],
+        test: {
+          fileParallelism: false,
+          sequence: { groupOrder: 2 },
+          setupFiles: [path.join(storybookDir, "vitest.setup.ts")],
+          browser: {
+            enabled: true,
+            headless: true,
+            instances: [{ browser: "chromium", name: "tablet" }],
+            trace: {
+              mode: "retain-on-failure",
+              tracesDir: path.join(assetsDir, ".vitest/traces/tablet"),
+            },
+          },
+        },
+      },
+      {
+        extends: true,
+        optimizeDeps: {
+          exclude: ["@storybook/svelte"],
+        },
+        plugins: [
+          storybookTest({
+            configDir: storybookDir,
+            initialGlobals: {
+              viewport: { value: "mobile" },
+            },
+          }),
+        ],
+        test: {
+          fileParallelism: false,
+          sequence: { groupOrder: 3 },
+          setupFiles: [path.join(storybookDir, "vitest.setup.ts")],
+          browser: {
+            enabled: true,
+            headless: true,
+            instances: [{ browser: "chromium", name: "mobile" }],
+            trace: {
+              mode: "retain-on-failure",
+              tracesDir: path.join(assetsDir, ".vitest/traces/mobile"),
+            },
           },
         },
       },
