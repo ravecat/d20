@@ -636,10 +636,10 @@ describe("app header account dialog", () => {
             google: { available: true },
           },
           prompt: {
-            email: "",
+            email: null,
+            identifier: "",
             kind: "warning",
-            message:
-              "That email already has a D20 account. Log in with an existing method, then link Discord in Account Settings.",
+            message: "You must log in to access this page.",
             reauthenticate: false,
             returnTo: "/users/settings",
           },
@@ -652,10 +652,8 @@ describe("app header account dialog", () => {
 
     await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
     await expect
-      .element(page.getByRole("status").filter({ hasText: "That email already has" }))
-      .toHaveTextContent(
-        "That email already has a D20 account. Log in with an existing method, then link Discord in Account Settings.",
-      );
+      .element(page.getByRole("status").filter({ hasText: "You must log in" }))
+      .toHaveTextContent("You must log in to access this page.");
     await expect.element(page.getByLabelText("Warning")).toBeVisible();
 
     const submit = page
@@ -690,6 +688,7 @@ describe("app header account dialog", () => {
           },
           prompt: {
             email: "player@example.com",
+            identifier: "table_master",
             kind: "warning",
             message: "You must re-authenticate to access this page.",
             reauthenticate: true,
@@ -711,12 +710,59 @@ describe("app header account dialog", () => {
     const identifier = page.getByLabelText("Username or email").element() as HTMLInputElement;
 
     expect(email.value).toBe("player@example.com");
-    expect(identifier.value).toBe("player@example.com");
+    expect(identifier.value).toBe("table_master");
     expect(email.readOnly).toBe(true);
     expect(identifier.readOnly).toBe(true);
     expect(page.getByLabelText("Keep me signed in").elements()).toHaveLength(0);
-    expect(page.getByLabelText("Other login methods").elements()).toHaveLength(0);
+    const provider = page.getByRole("link", { name: "Sign in with Google" }).element();
+    expect(provider.getAttribute("href")).toContain("intent=reauthenticate");
     expect(page.getByRole("button", { name: "Create account" }).elements()).toHaveLength(0);
+  });
+
+  it("keeps stable login forms and runtime providers for a provider-only reauthentication", async () => {
+    inertiaMock.setPage({
+      url: "/",
+      props: {
+        auth: {
+          authenticated: true,
+          local: false,
+          providers: {
+            apple: { available: false },
+            discord: { available: true },
+            google: { available: true },
+          },
+          prompt: {
+            email: null,
+            identifier: "provider_only",
+            kind: "warning",
+            message: "You must re-authenticate to access this page.",
+            reauthenticate: true,
+            returnTo: "/users/settings",
+          },
+        },
+        errors: {},
+      },
+    });
+
+    renderHeader();
+
+    await expect.element(page.getByRole("dialog", { name: "Confirm it is you" })).toBeVisible();
+
+    const email = page.getByLabelText("Email address").element() as HTMLInputElement;
+    const identifier = page.getByLabelText("Username or email").element() as HTMLInputElement;
+
+    expect(email.value).toBe("");
+    expect(email.readOnly).toBe(true);
+    expect(identifier.value).toBe("provider_only");
+    expect(identifier.readOnly).toBe(true);
+    await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
+
+    const google = page.getByRole("link", { name: "Sign in with Google" }).element();
+    const discord = page.getByRole("link", { name: "Sign in with Discord" }).element();
+
+    expect(google.getAttribute("href")).toContain("intent=reauthenticate");
+    expect(discord.getAttribute("href")).toContain("intent=reauthenticate");
+    assertProviderHidden("Sign in", "Apple");
   });
 
   it("opens Login from the overlay header", async () => {

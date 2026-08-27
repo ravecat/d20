@@ -54,11 +54,13 @@ defmodule D20Web.UserSettingsController do
           &url(~p"/users/settings/confirm-email/#{&1}")
         )
 
+        message =
+          if user.email,
+            do: "A link to confirm your email change has been sent to the new address.",
+            else: "A link to confirm your email has been sent to the new address."
+
         conn
-        |> put_flash(
-          :info,
-          "A link to confirm your email change has been sent to the new address."
-        )
+        |> put_flash(:info, message)
         |> redirect(to: ~p"/users/settings")
 
       changeset ->
@@ -89,7 +91,12 @@ defmodule D20Web.UserSettingsController do
         |> put_flash(:info, "Email changed successfully.")
         |> redirect(to: ~p"/users/settings")
 
-      {:error, _} ->
+      {:error, %Ecto.Changeset{}} ->
+        conn
+        |> put_flash(:error, "That email address is no longer available.")
+        |> redirect(to: ~p"/users/settings")
+
+      {:error, _reason} ->
         conn
         |> put_flash(:error, "Email change link is invalid or it has expired.")
         |> redirect(to: ~p"/users/settings")

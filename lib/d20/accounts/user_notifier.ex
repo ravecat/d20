@@ -22,12 +22,15 @@ defmodule D20.Accounts.UserNotifier do
   @doc """
   Deliver instructions to update a user email.
   """
-  def deliver_update_email_instructions(user, url) do
-    deliver(user.email, "Update email instructions", """
+  def deliver_update_email_instructions(%User{email: nil}, _url),
+    do: {:error, :email_not_available}
+
+  def deliver_update_email_instructions(%User{email: email}, url) do
+    deliver(email, "Update email instructions", """
 
     ==============================
 
-    Hi #{user.email},
+    Hi #{email},
 
     You can change your email by visiting the URL below:
 
@@ -42,12 +45,14 @@ defmodule D20.Accounts.UserNotifier do
   @doc """
   Deliver instructions to log in with a magic link.
   """
-  def deliver_login_instructions(user, url) do
-    case user do
-      %User{confirmed_at: nil} -> deliver_confirmation_instructions(user, url)
-      _ -> deliver_magic_link_instructions(user, url)
-    end
-  end
+  def deliver_login_instructions(%User{email: nil}, _url),
+    do: {:error, :email_not_available}
+
+  def deliver_login_instructions(%User{confirmed_at: nil} = user, url),
+    do: deliver_confirmation_instructions(user, url)
+
+  def deliver_login_instructions(%User{} = user, url),
+    do: deliver_magic_link_instructions(user, url)
 
   defp deliver_magic_link_instructions(user, url) do
     deliver(user.email, "Log in instructions", """

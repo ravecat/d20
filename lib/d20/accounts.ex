@@ -161,16 +161,37 @@ defmodule D20.Accounts do
   end
 
   @doc """
-  Atomically registers a confirmed user and links one external identity.
+  Atomically registers a completed user and links one external identity.
 
-  The caller supplies only normalized identity fields, including an email already
-  verified by the provider boundary or D20. Provider payloads and credentials are
-  not accepted by this context boundary.
+  The caller supplies only normalized identity fields. A provider-verified email
+  is optional and is stored only when it is not already owned. Provider payloads
+  and credentials are not accepted by this context boundary.
   """
   @spec register_user_with_identity(map(), UserIdentity.provider(), String.t()) ::
           {:ok, %User{}}
           | {:error, :user | :identity, Ecto.Changeset.t()}
   def register_user_with_identity(attrs, provider, provider_uid) when is_map(attrs) do
+    email = provider_email(attrs)
+
+    attrs =
+      if is_binary(email) and get_user_by_email(email),
+        do: put_provider_email(attrs, nil),
+        else: attrs
+
+    case transact_user_with_identity(attrs, provider, provider_uid) do
+      {:error, :user, %Ecto.Changeset{} = changeset} = error ->
+        if is_binary(email) and email_constraint_error?(changeset) do
+          attrs |> put_provider_email(nil) |> transact_user_with_identity(provider, provider_uid)
+        else
+          error
+        end
+
+      result ->
+        result
+    end
+  end
+
+  defp transact_user_with_identity(attrs, provider, provider_uid) do
     Multi.new()
     |> Multi.insert(:user, User.provider_registration_changeset(%User{}, attrs))
     |> Multi.insert(:identity, fn %{user: user} ->
@@ -187,6 +208,27 @@ defmodule D20.Accounts do
       {:error, operation, %Ecto.Changeset{} = changeset, _changes} ->
         {:error, operation, changeset}
     end
+  end
+
+  defp provider_email(attrs), do: Map.get(attrs, :email, Map.get(attrs, "email"))
+
+  defp put_provider_email(attrs, email) do
+    if Enum.all?(Map.keys(attrs), &is_binary/1) do
+      Map.put(attrs, "email", email)
+    else
+      Map.put(attrs, :email, email)
+    end
+  end
+
+  defp email_constraint_error?(%Ecto.Changeset{errors: errors}) do
+    Enum.any?(errors, fn
+      {:email, {_message, metadata}} ->
+        metadata[:constraint] == :unique and
+          metadata[:constraint_name] in ["users_email_index", :users_email_index]
+
+      _error ->
+        false
+    end)
   end
 
   @doc """
@@ -245,8 +287,8 @@ defmodule D20.Accounts do
       %Ecto.Changeset{data: %User{}}
 
   """
-  def change_user_email(user, attrs \\ %{}, opts \\ []) do
-    User.email_changeset(user, attrs, opts)
+  def change_user_email(user, attrs \\ %{}) do
+    User.email_changeset(user, attrs)
   end
 
   @doc """
@@ -255,7 +297,7 @@ defmodule D20.Accounts do
   If the token matches, the user email is updated and the token is deleted.
   """
   def update_user_email(user, token) do
-    context = "change:#{user.email}"
+    context = email_change_context(user.email)
 
     Repo.transact(fn ->
       with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
@@ -265,7 +307,8 @@ defmodule D20.Accounts do
              Repo.delete_all(from UserToken, where: [user_id: ^user.id, context: ^context]) do
         {:ok, user}
       else
-        _ -> {:error, :transaction_aborted}
+        {:error, %Ecto.Changeset{} = changeset} -> {:error, changeset}
+        _error -> {:error, :transaction_aborted}
       end
     end)
   end
@@ -402,23 +445,39 @@ defmodule D20.Accounts do
       {:ok, %{to: ..., body: ...}}
 
   """
-  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
-      when is_function(update_email_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
+  def deliver_user_update_email_instructions(
+        %User{email: email} = user,
+        current_email,
+        update_email_url_fun
+      )
+      when is_binary(email) and is_function(update_email_url_fun, 1) do
+    {encoded_token, user_token} =
+      UserToken.build_email_token(user, email_change_context(current_email))
 
     Repo.insert!(user_token)
     UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
   end
 
+  def deliver_user_update_email_instructions(%User{}, _current_email, update_email_url_fun)
+      when is_function(update_email_url_fun, 1),
+      do: {:error, :email_not_available}
+
   @doc """
-  Delivers the magic link login instructions to the given user.
+  Delivers the magic link login instructions to a user with verified email.
   """
-  def deliver_login_instructions(%User{} = user, magic_link_url_fun)
-      when is_function(magic_link_url_fun, 1) do
+  def deliver_login_instructions(%User{email: email} = user, magic_link_url_fun)
+      when is_binary(email) and is_function(magic_link_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "login")
     Repo.insert!(user_token)
     UserNotifier.deliver_login_instructions(user, magic_link_url_fun.(encoded_token))
   end
+
+  def deliver_login_instructions(%User{}, magic_link_url_fun)
+      when is_function(magic_link_url_fun, 1),
+      do: {:error, :email_not_available}
+
+  defp email_change_context(nil), do: "change:none"
+  defp email_change_context(email) when is_binary(email), do: "change:#{email}"
 
   @doc """
   Deletes the signed token with the given context.

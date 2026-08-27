@@ -21,7 +21,7 @@ defmodule D20Web.Admin.Layouts do
       <:topbar class="gap-3">
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <span class="badge badge-outline badge-sm">Operations</span>
-          <p class="truncate text-sm text-base-content/70">{@current_user.email}</p>
+          <p class="truncate text-sm text-base-content/70">{@current_user.username}</p>
         </div>
         <Backpex.HTML.Layout.theme_selector
           current_theme={@current_theme}

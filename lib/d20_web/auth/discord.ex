@@ -71,22 +71,18 @@ defmodule D20Web.Auth.Discord do
   def normalize(_auth), do: {:error, :invalid_provider_result}
 
   @doc """
-  Validates the additional email data required only for a new registration.
+  Retains a syntactically valid verified Discord email as an optional candidate.
   """
   @spec registration_data(normalized_identity()) ::
-          {:ok, %{provider_uid: String.t(), email: String.t()}} | {:error, atom()}
-  def registration_data(%{provider_uid: provider_uid, email: email, email_verified: true})
-      when is_binary(email) do
-    changeset = User.email_changeset(%User{}, %{email: email}, validate_unique: false)
+          {:ok, %{provider_uid: String.t(), email: String.t() | nil}}
+  def registration_data(%{provider_uid: provider_uid} = identity) do
+    email =
+      if identity.email_verified do
+        email_candidate(identity.email)
+      end
 
-    if changeset.valid? do
-      {:ok, %{provider_uid: provider_uid, email: Ecto.Changeset.get_change(changeset, :email)}}
-    else
-      {:error, :invalid_email}
-    end
+    {:ok, %{provider_uid: provider_uid, email: email}}
   end
-
-  def registration_data(_identity), do: {:error, :unverified_email}
 
   @doc false
   def failure_reason(%Ueberauth.Failure{provider: provider})
@@ -110,11 +106,14 @@ defmodule D20Web.Auth.Discord do
   Stores a link intent bound to the initiating D20 user.
   """
   def put_link_intent(conn, user) do
-    put_session(conn, @intent_session_key, %{
-      "action" => "link",
-      "user_id" => to_string(user.id),
-      "issued_at" => System.system_time(:second)
-    })
+    put_user_intent(conn, "link", user)
+  end
+
+  @doc """
+  Stores a reauthentication intent bound to the current D20 user.
+  """
+  def put_reauthenticate_intent(conn, user) do
+    put_user_intent(conn, "reauthenticate", user)
   end
 
   @doc """
@@ -168,7 +167,7 @@ defmodule D20Web.Auth.Discord do
            is_binary(token_nonce) and byte_size(token_nonce) == byte_size(session_nonce) and
              Plug.Crypto.secure_compare(token_nonce, session_nonce),
          :ok <- validate_provider_uid(provider_uid),
-         true <- is_binary(email) do
+         true <- is_nil(email) or is_binary(email) do
       {:ok, %{provider_uid: provider_uid, email: email}}
     else
       _ -> {:error, :invalid_or_expired_completion}
@@ -183,6 +182,14 @@ defmodule D20Web.Auth.Discord do
     |> delete_session(@completion_token_session_key)
     |> delete_session(@completion_nonce_session_key)
   end
+
+  defp email_candidate(email) when is_binary(email) do
+    changeset = User.email_candidate_changeset(%{email: email})
+
+    if changeset.valid?, do: Ecto.Changeset.get_change(changeset, :email)
+  end
+
+  defp email_candidate(_email), do: nil
 
   defp validate_provider_uid(provider_uid)
        when is_binary(provider_uid) and byte_size(provider_uid) > 0 and
@@ -199,15 +206,33 @@ defmodule D20Web.Auth.Discord do
   defp configured_credential?(value) when is_binary(value), do: String.trim(value) != ""
   defp configured_credential?(_value), do: false
 
+  defp put_user_intent(conn, action, user) do
+    put_session(conn, @intent_session_key, %{
+      "action" => action,
+      "user_id" => to_string(user.id),
+      "issued_at" => System.system_time(:second)
+    })
+  end
+
   defp validate_intent(%{"action" => action, "issued_at" => issued_at} = intent)
-       when action in ["authenticate", "link"] and is_integer(issued_at) do
+       when action in ["authenticate", "link", "reauthenticate"] and is_integer(issued_at) do
     age = System.system_time(:second) - issued_at
 
     cond do
-      age < 0 or age > @intent_max_age -> {:error, :invalid_or_expired_intent}
-      action == "authenticate" -> {:ok, :authenticate}
-      is_binary(intent["user_id"]) -> {:ok, {:link, intent["user_id"]}}
-      true -> {:error, :invalid_or_expired_intent}
+      age < 0 or age > @intent_max_age ->
+        {:error, :invalid_or_expired_intent}
+
+      action == "authenticate" ->
+        {:ok, :authenticate}
+
+      action == "link" and is_binary(intent["user_id"]) ->
+        {:ok, {:link, intent["user_id"]}}
+
+      action == "reauthenticate" and is_binary(intent["user_id"]) ->
+        {:ok, {:reauthenticate, intent["user_id"]}}
+
+      true ->
+        {:error, :invalid_or_expired_intent}
     end
   end
 

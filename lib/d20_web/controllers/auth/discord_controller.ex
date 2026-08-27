@@ -20,6 +20,8 @@ defmodule D20Web.Auth.DiscordController do
     response_type
     client_id
     state
+    intent
+    return_to
   )
 
   plug :prepare_discord_request when action == :request
@@ -111,6 +113,20 @@ defmodule D20Web.Auth.DiscordController do
     end
   end
 
+  defp handle_callback(conn, {:reauthenticate, user_id}, identity) do
+    current_user = conn.assigns.current_user
+    identity_user = Accounts.get_user_by_identity(:discord, identity.provider_uid)
+
+    if current_user && to_string(current_user.id) == user_id && identity_user &&
+         identity_user.id == current_user.id do
+      conn
+      |> put_flash(:info, "Identity confirmed.")
+      |> Auth.log_in_user(current_user)
+    else
+      reauthentication_failure_response(conn)
+    end
+  end
+
   defp handle_callback(conn, {:link, user_id}, identity) do
     user = conn.assigns.current_user
 
@@ -133,25 +149,11 @@ defmodule D20Web.Auth.DiscordController do
   end
 
   defp start_registration(conn, identity) do
-    with {:ok, registration} <- Discord.registration_data(identity),
-         nil <- Accounts.get_user_by_email(registration.email) do
-      conn
-      |> Discord.put_registration(registration)
-      |> redirect(to: ~p"/auth/discord/register")
-    else
-      %Accounts.User{} ->
-        conn
-        |> Auth.put_auth_prompt(
-          kind: :warning,
-          message:
-            "That email already has a D20 account. Log in with an existing method, then link Discord in Account Settings.",
-          reauthenticate: false
-        )
-        |> redirect(to: failure_path(conn))
+    {:ok, registration} = Discord.registration_data(identity)
 
-      {:error, reason} ->
-        failure_response(conn, {:ok, :authenticate}, reason)
-    end
+    conn
+    |> Discord.put_registration(registration)
+    |> redirect(to: ~p"/auth/discord/register")
   end
 
   defp complete_registration(conn, registration, user_params) do
@@ -234,23 +236,14 @@ defmodule D20Web.Auth.DiscordController do
           discord_unavailable_response(conn)
         end
 
+      {{:ok, {:reauthenticate, user_id}}, current_user} when not is_nil(current_user) ->
+        if to_string(current_user.id) == user_id,
+          do: reauthentication_failure_response(conn),
+          else: discord_unavailable_response(conn)
+
       _other ->
         discord_unavailable_response(conn)
     end
-  end
-
-  defp failure_response(conn, {:ok, :authenticate}, reason)
-       when reason in [:unverified_email, :invalid_email] do
-    log_failure(conn, :callback, reason)
-
-    conn
-    |> Auth.put_auth_prompt(
-      kind: :warning,
-      message:
-        "Discord did not provide a usable verified email. Continue with email, then link Discord in Account Settings.",
-      reauthenticate: false
-    )
-    |> redirect(to: failure_path(conn))
   end
 
   defp failure_response(conn, intent, reason) do
@@ -266,6 +259,11 @@ defmodule D20Web.Auth.DiscordController do
           authentication_failure_response(conn)
         end
 
+      {{:ok, {:reauthenticate, user_id}}, current_user} when not is_nil(current_user) ->
+        if to_string(current_user.id) == user_id,
+          do: reauthentication_failure_response(conn),
+          else: authentication_failure_response(conn)
+
       _other ->
         authentication_failure_response(conn)
     end
@@ -277,6 +275,16 @@ defmodule D20Web.Auth.DiscordController do
       kind: :error,
       message: "Discord sign-in could not be completed. Try again or use email.",
       reauthenticate: false
+    )
+    |> redirect(to: failure_path(conn))
+  end
+
+  defp reauthentication_failure_response(conn) do
+    conn
+    |> Auth.put_auth_prompt(
+      kind: :error,
+      message: "Discord could not confirm the current account. Try another linked method.",
+      reauthenticate: true
     )
     |> redirect(to: failure_path(conn))
   end
@@ -295,9 +303,28 @@ defmodule D20Web.Auth.DiscordController do
     conn = Auth.store_return_to(conn, conn.params["return_to"])
 
     conn =
-      case Discord.fetch_intent(conn) do
-        {:ok, {:link, _user_id}} -> conn
-        _other -> Discord.put_authenticate_intent(conn)
+      case {conn.params["intent"], Discord.fetch_intent(conn), conn.assigns[:current_user]} do
+        {"reauthenticate", _intent, %Accounts.User{} = user} ->
+          Discord.put_reauthenticate_intent(conn, user)
+
+        {"reauthenticate", _intent, _current_user} ->
+          conn
+          |> Auth.put_auth_prompt(
+            kind: :error,
+            message: "Log in before confirming your identity.",
+            reauthenticate: false
+          )
+          |> redirect(to: ~p"/")
+          |> halt()
+
+        {_intent, {:ok, {:link, _user_id}}, _current_user} ->
+          conn
+
+        {nil, _intent, nil} ->
+          Discord.put_authenticate_intent(conn)
+
+        {_intent, _stored_intent, _current_user} ->
+          conn |> reauthentication_failure_response() |> halt()
       end
 
     %{

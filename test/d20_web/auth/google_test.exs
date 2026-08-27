@@ -66,7 +66,7 @@ defmodule D20Web.Auth.GoogleTest do
     end
   end
 
-  test "requires a valid verified email only for registration" do
+  test "retains only a valid verified email as an optional registration candidate" do
     assert {:ok, identity} =
              "google-subject" |> google_auth("player@example.com", true) |> Google.normalize()
 
@@ -77,7 +77,8 @@ defmodule D20Web.Auth.GoogleTest do
       assert {:ok, invalid_identity} =
                "google-subject" |> google_auth(email, verified) |> Google.normalize()
 
-      assert {:error, _reason} = Google.registration_data(invalid_identity)
+      assert {:ok, %{provider_uid: "google-subject", email: nil}} =
+               Google.registration_data(invalid_identity)
     end
   end
 
@@ -105,6 +106,14 @@ defmodule D20Web.Auth.GoogleTest do
     assert user_id == to_string(user.id)
   end
 
+  test "stores a reauthentication intent bound to the user", %{conn: conn} do
+    user = D20.AccountsFixtures.user_fixture()
+
+    conn = conn |> init_test_session(%{}) |> Google.put_reauthenticate_intent(user)
+
+    assert get_session(conn, :google_auth_intent) == {:reauthenticate, to_string(user.id)}
+  end
+
   test "binds registration completion to the session nonce", %{conn: conn} do
     conn =
       conn
@@ -117,6 +126,14 @@ defmodule D20Web.Auth.GoogleTest do
     mismatched_conn = put_session(conn, :google_registration_nonce, "another-session-nonce")
 
     assert {:error, :invalid_or_expired_completion} = Google.fetch_registration(mismatched_conn)
+
+    without_email =
+      conn
+      |> Google.clear_registration()
+      |> Google.put_registration(%{provider_uid: "google-without-email", email: nil})
+
+    assert {:ok, %{provider_uid: "google-without-email", email: nil}} =
+             Google.fetch_registration(without_email)
   end
 
   test "preserves the opaque provider subject in registration completion", %{conn: conn} do

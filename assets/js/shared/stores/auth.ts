@@ -39,7 +39,7 @@ export const auth = createStore<
       open: true,
       mode: "login",
       email: event.prompt?.email ?? "",
-      identifier: event.prompt?.email ?? "",
+      identifier: event.prompt?.identifier ?? event.prompt?.email ?? "",
       prompt: event.prompt ?? null,
       registrationCompleted: false,
       magicLinkCompleted: false,

@@ -70,7 +70,8 @@ describe("app layout", () => {
             google: { available: true },
           },
           prompt: {
-            email: "",
+            email: null,
+            identifier: "",
             kind: "warning",
             message: "You must log in to access this page.",
             reauthenticate: false,

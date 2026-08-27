@@ -333,6 +333,24 @@ defmodule D20Web.AuthTest do
 
       assert email == user.email
     end
+
+    test "uses username and nullable email without exposing method flags", %{conn: conn} do
+      user = provider_user_fixture(%{username: "provider_only"}, :google)
+
+      conn =
+        conn
+        |> fetch_flash()
+        |> assign(:current_user, user)
+        |> assign(:scope, Scope.for_actor(user))
+        |> Auth.require_sudo_mode([])
+
+      prompt = get_session(conn, :auth_prompt)
+
+      assert %{email: nil, identifier: "provider_only", reauthenticate: true} = prompt
+
+      refute Map.has_key?(prompt, :password)
+      refute Map.has_key?(prompt, :providers)
+    end
   end
 
   describe "redirect_if_user_is_authenticated/2" do
@@ -370,7 +388,7 @@ defmodule D20Web.AuthTest do
       assert redirected_to(conn) == ~p"/"
 
       assert %{
-               email: "",
+               email: nil,
                kind: :warning,
                message: "You must log in to access this page.",
                reauthenticate: false,

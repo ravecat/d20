@@ -20,7 +20,8 @@ declare module "@inertiajs/core" {
           };
         };
         readonly prompt: {
-          readonly email: string;
+          readonly email: string | null;
+          readonly identifier: string;
           readonly kind: "info" | "warning" | "error";
           readonly message: string;
           readonly reauthenticate: boolean;

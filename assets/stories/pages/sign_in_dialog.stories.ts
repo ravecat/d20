@@ -29,6 +29,22 @@ export const Reauthentication: Story = {
       mode: "login",
       prompt: {
         email: "player@example.com",
+        identifier: "table_master",
+        kind: "warning",
+        message: "You must re-authenticate to access this page.",
+        reauthenticate: true,
+        returnTo: "/users/settings",
+      },
+    }),
+};
+
+export const ProviderOnlyReauthentication: Story = {
+  beforeEach: () =>
+    prepareAuthDialog({
+      mode: "login",
+      prompt: {
+        email: null,
+        identifier: "provider_only",
         kind: "warning",
         message: "You must re-authenticate to access this page.",
         reauthenticate: true,

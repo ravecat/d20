@@ -3,6 +3,7 @@ import { auth } from "~/shared/stores";
 
 const prompt: NonNullable<InertiaProps["auth"]["prompt"]> = {
   email: "player@example.com",
+  identifier: "table_master",
   kind: "warning",
   message: "You must log in to access this page.",
   reauthenticate: false,
@@ -38,7 +39,7 @@ describe("auth store", () => {
       open: true,
       mode: "login",
       email: "player@example.com",
-      identifier: "player@example.com",
+      identifier: "table_master",
       prompt,
       registrationCompleted: false,
       magicLinkCompleted: false,
@@ -56,7 +57,7 @@ describe("auth store", () => {
       open: true,
       mode: "register",
       email: "changed@example.com",
-      identifier: "changed@example.com",
+      identifier: "table_master",
       prompt,
       registrationCompleted: false,
       magicLinkCompleted: false,

@@ -12,20 +12,12 @@ defmodule D20Web.UserSessionController do
         _ -> "Welcome back!"
       end
 
-    case Accounts.login_user_by_magic_link(token, user_params) do
-      {:ok, {user, _expired_tokens}} ->
-        conn |> put_flash(:info, info) |> Auth.log_in_user(user, user_params)
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        conn
-        |> assign_errors(changeset)
-        |> put_status(:see_other)
-        |> redirect(to: ~p"/users/log-in/#{token}")
-
-      {:error, :not_found} ->
-        conn
-        |> Auth.put_auth_prompt(kind: :error, message: "The link is invalid or it has expired.")
-        |> redirect(to: ~p"/")
+    with %Accounts.User{} = token_user <- Accounts.get_user_by_magic_link_token(token),
+         true <- authenticates_current_account?(conn, token_user) do
+      complete_magic_link_login(conn, token, user_params, info)
+    else
+      nil -> invalid_magic_link(conn)
+      false -> reauthentication_mismatch(conn)
     end
   end
 
@@ -36,7 +28,9 @@ defmodule D20Web.UserSessionController do
       ) do
     conn = Auth.store_return_to(conn, params["return_to"])
 
-    if user = Accounts.get_user_by_identifier_and_password(identifier, password) do
+    user = Accounts.get_user_by_identifier_and_password(identifier, password)
+
+    if user && authenticates_current_account?(conn, user) do
       conn
       |> put_flash(:info, "Welcome back!")
       |> Auth.log_in_user(user, user_params)
@@ -90,6 +84,45 @@ defmodule D20Web.UserSessionController do
     |> put_flash(:info, "Logged out successfully.")
     |> Auth.log_out_user()
   end
+
+  defp complete_magic_link_login(conn, token, user_params, info) do
+    case Accounts.login_user_by_magic_link(token, user_params) do
+      {:ok, {user, _expired_tokens}} ->
+        conn |> put_flash(:info, info) |> Auth.log_in_user(user, user_params)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> assign_errors(changeset)
+        |> put_status(:see_other)
+        |> redirect(to: ~p"/users/log-in/#{token}")
+
+      {:error, :not_found} ->
+        invalid_magic_link(conn)
+    end
+  end
+
+  defp invalid_magic_link(conn) do
+    conn
+    |> Auth.put_auth_prompt(kind: :error, message: "The link is invalid or it has expired.")
+    |> redirect(to: ~p"/")
+  end
+
+  defp reauthentication_mismatch(conn) do
+    conn
+    |> Auth.put_auth_prompt(
+      kind: :error,
+      message: "That sign-in method does not belong to the current account.",
+      reauthenticate: true
+    )
+    |> redirect(to: ~p"/")
+  end
+
+  defp authenticates_current_account?(%{assigns: %{current_user: nil}}, _user), do: true
+
+  defp authenticates_current_account?(%{assigns: %{current_user: %{id: current_user_id}}}, %{
+         id: user_id
+       }),
+       do: current_user_id == user_id
 
   defp invalid_credentials(conn, params) do
     # Do not disclose whether the identifier or password was incorrect.

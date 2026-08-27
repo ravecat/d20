@@ -36,10 +36,6 @@ defmodule D20Web.Router do
     plug :put_secure_browser_headers
   end
 
-  pipeline :apple_link_result do
-    plug D20Web.Auth.Apple, :link_result
-  end
-
   pipeline :modules do
     plug :put_module_cors_headers
     plug :accepts, ["json"]
@@ -100,6 +96,12 @@ defmodule D20Web.Router do
   ## Authentication routes
 
   scope "/", D20Web do
+    pipe_through [:inertia, {D20Web.Auth.Apple, :reauthentication}]
+
+    get "/auth/apple/reauthentication", Auth.AppleController, :reauthentication
+  end
+
+  scope "/", D20Web do
     pipe_through [:inertia]
 
     get "/auth/apple", Auth.AppleController, :request
@@ -136,7 +138,12 @@ defmodule D20Web.Router do
   end
 
   scope "/", D20Web do
-    pipe_through [:inertia, :require_authenticated_user, :require_sudo_mode, :apple_link_result]
+    pipe_through [
+      :inertia,
+      :require_authenticated_user,
+      :require_sudo_mode,
+      {D20Web.Auth.Apple, :link_result}
+    ]
 
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update

@@ -33,7 +33,7 @@ defmodule D20Web.Auth.AppleTest do
       assert {:ok, %{email: nil, provider_uid: "000321.abc"}} = Apple.normalize(auth)
     end
 
-    test "rejects another provider, malformed subject, and invalid email" do
+    test "rejects another provider and malformed subject while discarding invalid email" do
       assert {:error, :unexpected_provider} =
                Apple.normalize(%Auth{provider: :google, uid: "subject", info: %Info{}})
 
@@ -50,7 +50,7 @@ defmodule D20Web.Auth.AppleTest do
                  info: %Info{email: "not-an-email"}
                })
 
-      assert {:error, :invalid_email} = Apple.registration_data(identity)
+      assert {:ok, %{provider_uid: "subject", email: nil}} = Apple.registration_data(identity)
     end
   end
 
@@ -91,6 +91,19 @@ defmodule D20Web.Auth.AppleTest do
 
       assert {_, {:ok, %{action: :link, user_id: "user_123"}}} =
                Apple.consume_attempt(link_request)
+
+      reauthenticate_response =
+        Apple.put_attempt(build_conn(), %{
+          action: :reauthenticate,
+          return_to: "/users/settings",
+          user_id: "user_123"
+        })
+
+      reauthenticate_request =
+        request_with_cookie(Apple.flow_cookie(), cookie_value(reauthenticate_response))
+
+      assert {_, {:ok, %{action: :reauthenticate, user_id: "user_123"}}} =
+               Apple.consume_attempt(reauthenticate_request)
 
       tampered_request =
         request_with_cookie(Apple.flow_cookie(), cookie_value(link_response) <> "tampered")
@@ -143,6 +156,19 @@ defmodule D20Web.Auth.AppleTest do
 
       assert Apple.clear_registration(request).resp_cookies[Apple.flow_cookie()].max_age == 0
       assert {_, {:error, :invalid_flow_state}} = Apple.consume_attempt(request)
+
+      without_email =
+        Apple.put_registration(build_conn(), %{
+          provider_uid: "000321.without-email",
+          email: nil,
+          return_to: "/"
+        })
+
+      without_email_request =
+        request_with_cookie(Apple.flow_cookie(), cookie_value(without_email))
+
+      assert {:ok, %{provider_uid: "000321.without-email", email: nil}} =
+               Apple.fetch_registration(without_email_request)
     end
 
     test "registration rejects missing, wrong-phase, and expired flow state" do

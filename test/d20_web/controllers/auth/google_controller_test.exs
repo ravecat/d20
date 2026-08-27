@@ -71,6 +71,19 @@ defmodule D20Web.Auth.GoogleControllerTest do
       assert get_session(conn, :google_auth_intent) == :authenticate
     end
 
+    test "binds reauthentication requests to the current user", %{conn: conn} do
+      user = user_fixture()
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> get(~p"/auth/google?intent=reauthenticate&return_to=/users/settings")
+
+      assert redirected_to(conn, 302) =~ "https://accounts.google.com/o/oauth2/v2/auth?"
+      assert {:ok, {:reauthenticate, user_id}} = Google.fetch_intent(conn)
+      assert user_id == to_string(user.id)
+    end
+
     test "rejects an unsafe return destination", %{conn: conn} do
       conn = get(conn, "/auth/google?return_to=https%3A%2F%2Fevil.example%2Fsteal")
 
@@ -140,6 +153,39 @@ defmodule D20Web.Auth.GoogleControllerTest do
       assert session_user(conn).id == user.id
     end
 
+    test "reauthenticates only the current user with an exact linked subject", %{conn: conn} do
+      user = authenticated_user(user_fixture())
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :google, "reauth-subject")
+
+      conn =
+        conn
+        |> direct_callback_conn(user, return_to: "/users/settings")
+        |> Google.put_reauthenticate_intent(user)
+        |> assign(:ueberauth_auth, google_auth("reauth-subject", nil, false))
+        |> GoogleController.callback(%{})
+
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert session_user(conn).id == user.id
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Identity confirmed."
+    end
+
+    test "does not switch accounts during provider reauthentication", %{conn: conn} do
+      current_user = authenticated_user(user_fixture())
+      other_user = user_fixture()
+      assert {:ok, _identity} = Accounts.link_user_identity(other_user, :google, "other-subject")
+
+      conn =
+        conn
+        |> direct_callback_conn(current_user, return_to: "/users/settings")
+        |> Google.put_reauthenticate_intent(current_user)
+        |> assign(:ueberauth_auth, google_auth("other-subject", nil, false))
+        |> GoogleController.callback(%{})
+
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert session_user(conn).id == current_user.id
+      assert get_session(conn, :auth_prompt).reauthenticate
+    end
+
     test "starts completion for an unknown subject with verified unused email", %{conn: conn} do
       email = unique_user_email()
 
@@ -159,7 +205,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
       refute get_session(conn, :user_token)
     end
 
-    test "does not auto-link or authenticate an unknown subject by matching email", %{conn: conn} do
+    test "starts distinct registration instead of matching an existing email", %{conn: conn} do
       user = user_fixture()
 
       conn =
@@ -169,14 +215,14 @@ defmodule D20Web.Auth.GoogleControllerTest do
         |> assign(:ueberauth_auth, google_auth("unlinked-subject", user.email, true))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/auth/google/register"
       refute get_session(conn, :user_token)
       refute Accounts.get_user_by_identity(:google, "unlinked-subject")
-      assert get_session(conn, :auth_prompt).kind == :warning
-      assert get_session(conn, :auth_prompt).message =~ "already has a D20 account"
+      assert {:ok, %{email: email}} = Google.fetch_registration(conn)
+      assert email == user.email
     end
 
-    test "rejects unknown identity registration without verified email", %{conn: conn} do
+    test "starts provider-only registration without verified email", %{conn: conn} do
       conn =
         conn
         |> direct_callback_conn()
@@ -184,9 +230,9 @@ defmodule D20Web.Auth.GoogleControllerTest do
         |> assign(:ueberauth_auth, google_auth("new-subject", "player@example.com", false))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/auth/google/register"
       refute get_session(conn, :user_token)
-      assert {:error, :invalid_or_expired_completion} = Google.fetch_registration(conn)
+      assert {:ok, %{provider_uid: "new-subject", email: nil}} = Google.fetch_registration(conn)
     end
 
     test "fails closed without a valid callback intent", %{conn: conn} do
@@ -258,6 +304,39 @@ defmodule D20Web.Auth.GoogleControllerTest do
       assert redirected_to(replay_conn) == ~p"/"
       assert D20.Repo.aggregate(User, :count) == 1
       assert D20.Repo.aggregate(UserIdentity, :count) == 1
+    end
+
+    test "creates a provider-only account when completion has no email", %{conn: conn} do
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> Google.put_registration(%{provider_uid: "provider-only-subject", email: nil})
+        |> post(~p"/auth/google/register", %{"user" => %{"username" => "google_only"}})
+
+      assert redirected_to(conn) == ~p"/"
+
+      assert %User{email: nil, username: "google_only"} =
+               Accounts.get_user_by_identity(:google, "provider-only-subject")
+    end
+
+    test "discards an already-owned email during Google completion", %{conn: conn} do
+      owner = user_fixture()
+
+      conn =
+        conn
+        |> init_test_session(%{})
+        |> Google.put_registration(%{
+          provider_uid: "owned-email-subject",
+          email: String.upcase(owner.email)
+        })
+        |> post(~p"/auth/google/register", %{"user" => %{"username" => "google_distinct"}})
+
+      assert redirected_to(conn) == ~p"/"
+
+      assert %User{email: nil, username: "google_distinct"} =
+               Accounts.get_user_by_identity(:google, "owned-email-subject")
+
+      assert Accounts.get_user_by_email(owner.email).id == owner.id
     end
 
     test "persists the verified proof email instead of a browser replacement", %{conn: conn} do

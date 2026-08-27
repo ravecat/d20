@@ -106,6 +106,23 @@ defmodule D20Web.Auth.AppleControllerTest do
       assert user_id == to_string(user.id)
     end
 
+    test "binds reauthentication requests to the current user", %{conn: conn} do
+      user = user_fixture()
+
+      conn =
+        conn
+        |> log_in_user(user)
+        |> get(~p"/auth/apple?intent=reauthenticate&return_to=/users/settings")
+
+      request =
+        request_with_cookie(Apple.flow_cookie(), conn.resp_cookies[Apple.flow_cookie()].value)
+
+      assert {_, {:ok, %{action: :reauthenticate, user_id: user_id}}} =
+               Apple.consume_attempt(request)
+
+      assert user_id == to_string(user.id)
+    end
+
     test "exposes only GET request and POST callback methods", %{conn: conn} do
       assert response(get(conn, "/auth/apple/callback"), 404)
       assert response(post(conn, "/auth/apple"), 404)
@@ -135,6 +152,67 @@ defmodule D20Web.Auth.AppleControllerTest do
       assert conn.resp_cookies[Apple.flow_cookie()].max_age == 0
     end
 
+    test "reauthenticates only the current user with an exact linked subject", %{conn: conn} do
+      user = user_fixture()
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :apple, "000321.reauth")
+
+      conn =
+        conn
+        |> callback_conn(%{
+          action: :reauthenticate,
+          return_to: "/users/settings",
+          user_id: to_string(user.id)
+        })
+        |> assign(:ueberauth_auth, apple_auth("000321.reauth", nil))
+        |> AppleController.callback(%{})
+
+      assert redirected_to(conn) == ~p"/users/settings"
+
+      assert {session_user, _inserted_at} =
+               Accounts.get_user_by_session_token(get_session(conn, :user_token))
+
+      assert session_user.id == user.id
+    end
+
+    test "does not switch accounts during Apple reauthentication", %{conn: conn} do
+      current_user = user_fixture()
+      other_user = user_fixture()
+      assert {:ok, _identity} = Accounts.link_user_identity(other_user, :apple, "000321.other")
+
+      conn =
+        conn
+        |> callback_conn(%{
+          action: :reauthenticate,
+          return_to: "/users/settings",
+          user_id: to_string(current_user.id)
+        })
+        |> put_session(:user_token, Accounts.generate_user_session_token(current_user))
+        |> assign(:current_user, current_user)
+        |> assign(:ueberauth_auth, apple_auth("000321.other", nil))
+        |> AppleController.callback(%{})
+
+      assert redirected_to(conn) == ~p"/auth/apple/reauthentication"
+      assert conn.resp_cookies[Apple.reauthentication_result_cookie()]
+      refute get_session(conn, :auth_prompt)
+
+      result_cookie = conn.resp_cookies[Apple.reauthentication_result_cookie()].value
+
+      same_site_conn =
+        build_conn()
+        |> log_in_user(current_user)
+        |> put_req_cookie(Apple.reauthentication_result_cookie(), result_cookie)
+        |> get(~p"/auth/apple/reauthentication")
+
+      assert redirected_to(same_site_conn) == ~p"/"
+      assert %{reauthenticate: true} = get_session(same_site_conn, :auth_prompt)
+      assert same_site_conn.resp_cookies[Apple.reauthentication_result_cookie()].max_age == 0
+
+      assert {session_user, _inserted_at} =
+               Accounts.get_user_by_session_token(get_session(same_site_conn, :user_token))
+
+      assert session_user.id == current_user.id
+    end
+
     test "starts username completion for a new subject with a signed email", %{conn: conn} do
       conn =
         conn
@@ -147,7 +225,7 @@ defmodule D20Web.Auth.AppleControllerTest do
       refute Accounts.get_user_by_identity(:apple, "000321.new")
     end
 
-    test "never silently merges an existing email", %{conn: conn} do
+    test "starts distinct registration instead of merging an existing email", %{conn: conn} do
       existing_user = user_fixture()
 
       conn =
@@ -159,22 +237,22 @@ defmodule D20Web.Auth.AppleControllerTest do
         )
         |> AppleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/games"
+      assert redirected_to(conn) == ~p"/auth/apple/register"
       refute get_session(conn, :user_token)
       refute Accounts.get_user_by_identity(:apple, "000321.email-match")
       assert Accounts.get_user_by_email(existing_user.email).id == existing_user.id
     end
 
-    test "requires email for an unknown subject", %{conn: conn} do
+    test "starts provider-only registration for an unknown subject without email", %{conn: conn} do
       conn =
         conn
         |> callback_conn(%{action: :authenticate, return_to: "/", user_id: nil})
         |> assign(:ueberauth_auth, apple_auth("000321.no-email", nil))
         |> AppleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/auth/apple/register"
       refute get_session(conn, :user_token)
-      assert conn.resp_cookies[Apple.flow_cookie()].max_age == 0
+      assert conn.resp_cookies[Apple.flow_cookie()].same_site == "Lax"
     end
 
     test "does not overwrite the Lax application session on a cross-site link callback", %{
@@ -269,6 +347,48 @@ defmodule D20Web.Auth.AppleControllerTest do
 
       assert {_user, _inserted_at} =
                Accounts.get_user_by_session_token(get_session(valid_conn, :user_token))
+    end
+
+    test "creates a provider-only account when completion has no email", %{conn: conn} do
+      cookie =
+        registration_cookie(conn, %{
+          provider_uid: "000321.provider-only",
+          email: nil,
+          return_to: "/"
+        })
+
+      conn =
+        conn
+        |> request_with_cookie(Apple.flow_cookie(), cookie)
+        |> post(~p"/auth/apple/register", %{"user" => %{"username" => "apple_only"}})
+
+      assert redirected_to(conn) == ~p"/"
+
+      assert %User{email: nil, username: "apple_only"} =
+               Accounts.get_user_by_identity(:apple, "000321.provider-only")
+    end
+
+    test "discards an already-owned email during Apple completion", %{conn: conn} do
+      owner = user_fixture()
+
+      cookie =
+        registration_cookie(conn, %{
+          provider_uid: "000321.owned-email",
+          email: String.upcase(owner.email),
+          return_to: "/"
+        })
+
+      conn =
+        conn
+        |> request_with_cookie(Apple.flow_cookie(), cookie)
+        |> post(~p"/auth/apple/register", %{"user" => %{"username" => "apple_distinct"}})
+
+      assert redirected_to(conn) == ~p"/"
+
+      assert %User{email: nil, username: "apple_distinct"} =
+               Accounts.get_user_by_identity(:apple, "000321.owned-email")
+
+      assert Accounts.get_user_by_email(owner.email).id == owner.id
     end
 
     test "rejects missing registration state", %{conn: conn} do

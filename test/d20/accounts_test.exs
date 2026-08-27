@@ -51,6 +51,17 @@ defmodule D20.AccountsTest do
       assert %User{id: ^id} =
                Accounts.get_user_by_identifier_and_password("TABLE_MASTER", valid_user_password())
     end
+
+    test "returns a provider-only user by username and password" do
+      %{id: id, email: nil} =
+        %{username: "provider_player"} |> provider_user_fixture(:google) |> set_password()
+
+      assert %User{id: ^id} =
+               Accounts.get_user_by_identifier_and_password(
+                 "PROVIDER_PLAYER",
+                 valid_user_password()
+               )
+    end
   end
 
   describe "get_user!/1" do
@@ -266,6 +277,36 @@ defmodule D20.AccountsTest do
     end
   end
 
+  describe "optional email persistence" do
+    test "keeps the citext email column nullable and uniquely indexed" do
+      assert %{rows: [["YES", "USER-DEFINED"]]} =
+               Ecto.Adapters.SQL.query!(Repo, """
+               SELECT is_nullable, data_type
+               FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'email'
+               """)
+
+      assert %{rows: [["citext"]]} =
+               Ecto.Adapters.SQL.query!(Repo, """
+               SELECT udt_name
+               FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'email'
+               """)
+
+      assert %{rows: [[true]]} =
+               Ecto.Adapters.SQL.query!(Repo, """
+               SELECT EXISTS (
+                 SELECT 1
+                 FROM pg_indexes
+                 WHERE schemaname = 'public'
+                   AND tablename = 'users'
+                   AND indexname = 'users_email_index'
+                   AND indexdef ILIKE '%UNIQUE%'
+               )
+               """)
+    end
+  end
+
   describe "register_user_with_identity/3" do
     test "atomically creates a confirmed user and provider identity" do
       email = unique_user_email()
@@ -285,6 +326,19 @@ defmodule D20.AccountsTest do
       assert user_id == user.id
     end
 
+    test "atomically creates a completed provider-only user" do
+      assert {:ok,
+              %User{email: nil, username: "provider_player", confirmed_at: confirmed_at} = user} =
+               Accounts.register_user_with_identity(
+                 %{username: "provider_player"},
+                 :google,
+                 "google-subject-without-email"
+               )
+
+      assert confirmed_at
+      assert Accounts.get_user_by_identity(:google, "google-subject-without-email").id == user.id
+    end
+
     test "rolls back the user when provider identity validation fails" do
       email = unique_user_email()
 
@@ -299,18 +353,22 @@ defmodule D20.AccountsTest do
       refute Accounts.get_user_by_email(email)
     end
 
-    test "rejects duplicate email without creating an identity" do
-      user = user_fixture()
+    test "discards an already-owned provider email without merging accounts" do
+      owner = user_fixture()
 
-      assert {:error, :user, changeset} =
+      assert {:ok, %User{email: nil} = provider_user} =
                Accounts.register_user_with_identity(
-                 %{email: String.upcase(user.email), username: "google_player"},
+                 %{email: String.upcase(owner.email), username: "google_player"},
                  :google,
                  "google-subject-email-conflict"
                )
 
-      assert "has already been taken" in errors_on(changeset).email
-      refute Accounts.get_user_by_identity(:google, "google-subject-email-conflict")
+      assert provider_user.id != owner.id
+
+      assert Accounts.get_user_by_identity(:google, "google-subject-email-conflict").id ==
+               provider_user.id
+
+      assert Accounts.get_user_by_email(owner.email).id == owner.id
     end
 
     test "rejects duplicate username without creating an identity" do
@@ -344,6 +402,34 @@ defmodule D20.AccountsTest do
       assert "has already been taken" in errors_on(changeset).provider_uid
       refute Accounts.get_user_by_email(email)
       assert Accounts.get_user_by_identity(:google, "owned-subject").id == owner.id
+    end
+
+    test "allows distinct provider accounts to race for one email" do
+      email = unique_user_email()
+
+      results =
+        [
+          {"racing_google", :google, "google-racing-email"},
+          {"racing_discord", :discord, "discord-racing-email"}
+        ]
+        |> Task.async_stream(
+          fn {username, provider, provider_uid} ->
+            Accounts.register_user_with_identity(
+              %{email: email, username: username},
+              provider,
+              provider_uid
+            )
+          end,
+          max_concurrency: 2,
+          ordered: false
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.count(results, &match?({:ok, %User{}}, &1)) == 2
+
+      users = Enum.map(results, fn {:ok, user} -> user end)
+      assert Enum.count(users, &(&1.email == email)) == 1
+      assert Enum.count(users, &is_nil(&1.email)) == 1
     end
 
     test "allows at most one complete pair from concurrent duplicate attempts" do
@@ -571,6 +657,35 @@ defmodule D20.AccountsTest do
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
     end
+
+    test "adds the first verified email to a provider-only user" do
+      user = provider_user_fixture()
+      email = unique_user_email()
+
+      token =
+        extract_user_token(fn url ->
+          Accounts.deliver_user_update_email_instructions(%{user | email: email}, nil, url)
+        end)
+
+      assert Repo.get!(User, user.id).email == nil
+      assert Repo.get_by!(UserToken, user_id: user.id).context == "change:none"
+      assert {:ok, %User{email: ^email}} = Accounts.update_user_email(user, token)
+    end
+
+    test "keeps email null when the candidate becomes owned before confirmation" do
+      user = provider_user_fixture()
+      email = unique_user_email()
+
+      token =
+        extract_user_token(fn url ->
+          Accounts.deliver_user_update_email_instructions(%{user | email: email}, nil, url)
+        end)
+
+      assert {:ok, _owner} = Accounts.register_user(%{email: email})
+      assert {:error, %Ecto.Changeset{} = changeset} = Accounts.update_user_email(user, token)
+      assert "has already been taken" in errors_on(changeset).email
+      assert Repo.get!(User, user.id).email == nil
+    end
   end
 
   describe "change_user_password/3" do
@@ -794,6 +909,16 @@ defmodule D20.AccountsTest do
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
       assert user_token.context == "login"
+    end
+
+    test "does not create a token or message without email" do
+      user = provider_user_fixture()
+
+      assert {:error, :email_not_available} =
+               Accounts.deliver_login_instructions(user, &"https://example.com/#{&1}")
+
+      refute Repo.get_by(UserToken, user_id: user.id)
+      refute_receive {:email, _email}
     end
   end
 

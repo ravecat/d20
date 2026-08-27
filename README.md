@@ -160,18 +160,6 @@ docker compose down
 | `ECTO_IPV6`         | No                   | Enables IPv6 socket options when set to `true` or `1`.                 |
 | `DNS_CLUSTER_QUERY` | No                   | DNS cluster query for distributed deployment discovery.                |
 
-### Discord authentication
-
-Create a Discord application and register the exact callback URL for each deployed D20 origin:
-
-```text
-https://<d20-host>/auth/discord/callback
-```
-
-Set both `DISCORD_OAUTH_CLIENT_ID` and `DISCORD_OAUTH_CLIENT_SECRET` to make Discord registration, login, and Account Settings linking available. If either value is missing or blank, D20 starts normally and rejects direct Discord routes before contacting the provider. Remove either credential to roll back the integration while preserving existing users and identity mappings.
-
-Before configuring production credentials, verify registration, returning login, explicit linking, cancellation, invalid state, missing or unverified email, matching-email rejection, safe returns, and session rotation in staging. D20 never merges accounts from a matching Discord email and never stores Discord access credentials or profile data.
-
 ## Commands
 
 The project exposes four composite `just` workflows, a standalone Storybook entry point, and two generic dispatchers. Use the `mix` and `assets` dispatchers for all other project and frontend commands.

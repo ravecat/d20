@@ -51,6 +51,36 @@ type Story = StoryObj<typeof meta>;
 
 export const EstablishedAccount: Story = {};
 
+export const ProviderOnlyAccount: Story = {
+  args: {
+    email: null,
+    providers: [
+      {
+        available: true,
+        href: "/users/settings/auth/google",
+        id: "google",
+        linked: true,
+        name: "Google",
+      },
+      {
+        available: true,
+        href: "/users/settings/auth/apple",
+        id: "apple",
+        linked: false,
+        name: "Apple",
+      },
+      {
+        available: false,
+        href: "/users/settings/auth/discord",
+        id: "discord",
+        linked: false,
+        name: "Discord",
+      },
+    ],
+    username: "provider_only",
+  },
+};
+
 export const NoAvailableProviders: Story = {
   args: {
     auth: {

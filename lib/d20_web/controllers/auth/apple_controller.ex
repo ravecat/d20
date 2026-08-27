@@ -12,6 +12,8 @@ defmodule D20Web.Auth.AppleController do
 
   def request(conn, _params), do: conn
 
+  def reauthentication(conn, _params), do: redirect(conn, to: ~p"/")
+
   def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
     {conn, attempt_result} = Apple.consume_attempt(conn)
 
@@ -112,9 +114,11 @@ defmodule D20Web.Auth.AppleController do
 
   defp request_action(nil), do: {:ok, :authenticate}
   defp request_action("link"), do: {:ok, :link}
+  defp request_action("reauthenticate"), do: {:ok, :reauthenticate}
   defp request_action(_intent), do: {:error, :invalid_intent}
 
   defp request_action_or_default("link"), do: :link
+  defp request_action_or_default("reauthenticate"), do: :reauthenticate
   defp request_action_or_default(_intent), do: :authenticate
 
   defp authorize_attempt(%{assigns: %{current_user: %User{} = user}}, :link) do
@@ -123,12 +127,31 @@ defmodule D20Web.Auth.AppleController do
       else: {:error, :sudo_required}
   end
 
+  defp authorize_attempt(%{assigns: %{current_user: %User{} = user}}, :reauthenticate),
+    do: {:ok, to_string(user.id)}
+
   defp authorize_attempt(%{assigns: %{current_user: nil}}, :authenticate), do: {:ok, nil}
   defp authorize_attempt(_conn, :authenticate), do: {:error, :already_authenticated}
-  defp authorize_attempt(_conn, :link), do: {:error, :authentication_required}
+
+  defp authorize_attempt(_conn, action) when action in [:link, :reauthenticate],
+    do: {:error, :authentication_required}
 
   defp handle_callback(conn, %{action: :link} = attempt, identity) do
     complete_link(conn, attempt, identity)
+  end
+
+  defp handle_callback(conn, %{action: :reauthenticate} = attempt, identity) do
+    expected_user = Accounts.get_user(attempt.user_id)
+    identity_user = Accounts.get_user_by_identity(:apple, identity.provider_uid)
+
+    if expected_user && identity_user && identity_user.id == expected_user.id do
+      conn
+      |> put_session(:return_to, attempt.return_to)
+      |> put_flash(:info, "Identity confirmed.")
+      |> Auth.log_in_user(expected_user)
+    else
+      cross_site_reauthentication_failure(conn, attempt)
+    end
   end
 
   defp handle_callback(conn, %{action: :authenticate} = attempt, identity) do
@@ -145,19 +168,15 @@ defmodule D20Web.Auth.AppleController do
   end
 
   defp start_registration(conn, attempt, identity) do
-    with {:ok, registration} <- Apple.registration_data(identity),
-         nil <- Accounts.get_user_by_email(registration.email) do
-      conn
-      |> Apple.put_registration(%{
-        provider_uid: registration.provider_uid,
-        email: registration.email,
-        return_to: attempt.return_to
-      })
-      |> redirect(to: ~p"/auth/apple/register")
-    else
-      %User{} -> authentication_failure(conn, :email_already_registered, attempt.return_to)
-      {:error, reason} -> authentication_failure(conn, reason, attempt.return_to)
-    end
+    {:ok, registration} = Apple.registration_data(identity)
+
+    conn
+    |> Apple.put_registration(%{
+      provider_uid: registration.provider_uid,
+      email: registration.email,
+      return_to: attempt.return_to
+    })
+    |> redirect(to: ~p"/auth/apple/register")
   end
 
   defp complete_registration(conn, completion, user_params) do
@@ -220,6 +239,9 @@ defmodule D20Web.Auth.AppleController do
   defp callback_failure(conn, {:ok, %{action: :link}}, _reason),
     do: link_result(conn, :failed)
 
+  defp callback_failure(conn, {:ok, %{action: :reauthenticate} = attempt}, _reason),
+    do: cross_site_reauthentication_failure(conn, attempt)
+
   defp callback_failure(conn, {:ok, attempt}, reason),
     do: authentication_failure(conn, reason, attempt.return_to)
 
@@ -227,6 +249,13 @@ defmodule D20Web.Auth.AppleController do
     do: authentication_failure(conn, reason, ~p"/")
 
   defp request_failure(conn, :link, _reason), do: link_result(conn, :failed)
+
+  defp request_failure(conn, :reauthenticate, _reason) do
+    reauthentication_failure(
+      conn,
+      Auth.safe_local_path(conn.params["return_to"], default_return(:reauthenticate))
+    )
+  end
 
   defp request_failure(conn, :authenticate, reason),
     do:
@@ -242,6 +271,23 @@ defmodule D20Web.Auth.AppleController do
     conn
     |> Auth.store_return_to(return_to)
     |> Auth.put_auth_prompt(kind: :error, message: failure_message(reason), reauthenticate: false)
+    |> redirect(to: Auth.safe_local_path(return_to, ~p"/"))
+  end
+
+  defp cross_site_reauthentication_failure(conn, attempt) do
+    conn
+    |> Apple.put_reauthentication_result(attempt.user_id, attempt.return_to)
+    |> redirect(to: ~p"/auth/apple/reauthentication")
+  end
+
+  defp reauthentication_failure(conn, return_to) do
+    conn
+    |> Auth.store_return_to(return_to)
+    |> Auth.put_auth_prompt(
+      kind: :error,
+      message: "Apple could not confirm the current account. Try another linked method.",
+      reauthenticate: true
+    )
     |> redirect(to: Auth.safe_local_path(return_to, ~p"/"))
   end
 
@@ -276,15 +322,8 @@ defmodule D20Web.Auth.AppleController do
   end
 
   defp default_return(:link), do: ~p"/users/settings"
+  defp default_return(:reauthenticate), do: ~p"/"
   defp default_return(:authenticate), do: ~p"/"
-
-  defp failure_message(:email_already_registered) do
-    "That email already has a D20 account. Log in with an existing method, then link Apple in Account Settings."
-  end
-
-  defp failure_message(:email_not_provided) do
-    "Apple did not provide an email address. Try again or use email."
-  end
 
   defp failure_message(:provider_unavailable) do
     "Apple sign-in is temporarily unavailable. Use email to continue."

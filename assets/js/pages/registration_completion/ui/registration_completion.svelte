@@ -10,7 +10,7 @@
 
   type Props = InertiaProps<{
     cancelAction?: string;
-    email: string;
+    email: string | null;
     submission: Submission;
   }>;
 
@@ -23,7 +23,9 @@
 
 <div class="registration-page">
   <h1>Finish creating your account</h1>
-  <p class="registration-page__email">{email}</p>
+  {#if email}
+    <p class="registration-page__email">{email}</p>
+  {/if}
   <p>Choose the permanent username other D20 players will see.</p>
 
   <Form class="registration-form" method="post" action={submission.action} disableWhileProcessing>

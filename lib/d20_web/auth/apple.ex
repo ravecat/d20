@@ -3,8 +3,8 @@ defmodule D20Web.Auth.Apple do
   Normalizes trusted Apple strategy results and owns minimal callback state.
 
   Provider credentials and raw claims stop at this web boundary. Accounts only
-  receives the stable provider subject and the transient email required for a
-  new D20 registration. Short-lived D20 state stays in encrypted provider
+  receives the stable provider subject and an optional verified email candidate.
+  Short-lived D20 state stays in encrypted provider
   cookies because Apple's POST callback cannot read the Lax session.
   """
 
@@ -24,6 +24,9 @@ defmodule D20Web.Auth.Apple do
   @link_result_max_age 600
   @link_result_secret "d20 apple link result"
   @link_result_cookie_path "/users/settings"
+  @reauthentication_result_cookie "_d20_apple_reauthentication_result"
+  @reauthentication_result_max_age 600
+  @reauthentication_result_secret "d20 apple reauthentication result"
   @provider_uid_max_bytes 255
   @required_config_keys [:client_id, :team_id, :key_id, :private_key_base64, :callback_url]
 
@@ -33,13 +36,17 @@ defmodule D20Web.Auth.Apple do
           email: String.t() | nil
         }
 
-  @type registration_data :: %{provider_uid: String.t(), email: String.t()}
+  @type registration_data :: %{provider_uid: String.t(), email: String.t() | nil}
   @type attempt :: %{
-          action: :authenticate | :link,
+          action: :authenticate | :link | :reauthenticate,
           return_to: String.t(),
           user_id: String.t() | nil
         }
-  @type registration :: %{provider_uid: String.t(), email: String.t(), return_to: String.t()}
+  @type registration :: %{
+          provider_uid: String.t(),
+          email: String.t() | nil,
+          return_to: String.t()
+        }
   @type link_result :: :linked | :conflict | :failed
 
   @behaviour Plug
@@ -49,6 +56,7 @@ defmodule D20Web.Auth.Apple do
 
   @impl Plug
   def call(conn, :link_result), do: consume_link_result(conn)
+  def call(conn, :reauthentication), do: consume_reauthentication(conn)
 
   @doc """
   Reports whether every runtime value required by Apple authentication is configured.
@@ -114,21 +122,12 @@ defmodule D20Web.Auth.Apple do
   def normalize(_auth), do: {:error, :invalid_auth_result}
 
   @doc """
-  Validates the email data required only when an Apple identity is unknown.
+  Retains a syntactically valid Apple email as an optional registration candidate.
   """
-  @spec registration_data(normalized_identity()) ::
-          {:ok, registration_data()} | {:error, atom()}
-  def registration_data(%{provider_uid: provider_uid, email: email}) when is_binary(email) do
-    changeset = User.email_changeset(%User{}, %{email: email}, validate_unique: false)
-
-    if changeset.valid? do
-      {:ok, %{provider_uid: provider_uid, email: Ecto.Changeset.get_change(changeset, :email)}}
-    else
-      {:error, :invalid_email}
-    end
+  @spec registration_data(normalized_identity()) :: {:ok, registration_data()}
+  def registration_data(%{provider_uid: provider_uid, email: email}) do
+    {:ok, %{provider_uid: provider_uid, email: email_candidate(email)}}
   end
-
-  def registration_data(_identity), do: {:error, :email_not_provided}
 
   @doc """
   Stores the D20 intent needed by Apple's cross-site POST callback.
@@ -213,6 +212,29 @@ defmodule D20Web.Auth.Apple do
   @spec link_result_cookie() :: String.t()
   def link_result_cookie, do: @link_result_cookie
 
+  @doc """
+  Stores a failed cross-site reauthentication result for same-site consumption.
+  """
+  def put_reauthentication_result(conn, user_id, return_to, opts \\ []) do
+    token =
+      Phoenix.Token.encrypt(
+        D20Web.Endpoint,
+        @reauthentication_result_secret,
+        {:failed, user_id, return_to},
+        [max_age: @reauthentication_result_max_age] ++ Keyword.take(opts, [:signed_at])
+      )
+
+    put_resp_cookie(
+      conn,
+      @reauthentication_result_cookie,
+      token,
+      reauthentication_result_cookie_options()
+    )
+  end
+
+  @doc false
+  def reauthentication_result_cookie, do: @reauthentication_result_cookie
+
   @doc false
   @spec failure_reason(Ueberauth.Failure.t() | term()) :: atom()
   def failure_reason(%Ueberauth.Failure{provider: provider})
@@ -221,6 +243,55 @@ defmodule D20Web.Auth.Apple do
 
   def failure_reason(%Ueberauth.Failure{}), do: :unexpected_provider
   def failure_reason(_failure), do: :invalid_provider_failure
+
+  defp consume_reauthentication(conn) do
+    conn = fetch_cookies(conn)
+
+    case conn.cookies[@reauthentication_result_cookie] do
+      nil ->
+        conn
+
+      token ->
+        conn =
+          delete_resp_cookie(
+            conn,
+            @reauthentication_result_cookie,
+            reauthentication_result_cookie_options()
+          )
+
+        case Phoenix.Token.decrypt(D20Web.Endpoint, @reauthentication_result_secret, token,
+               max_age: @reauthentication_result_max_age
+             ) do
+          {:ok, {:failed, user_id, return_to}} ->
+            put_reauthentication_failure(conn, user_id, return_to)
+
+          _invalid ->
+            conn
+        end
+    end
+  end
+
+  defp put_reauthentication_failure(
+         %{assigns: %{current_user: %User{id: current_user_id}}} = conn,
+         user_id,
+         return_to
+       ) do
+    if to_string(current_user_id) == user_id do
+      conn
+      |> D20Web.Auth.store_return_to(return_to)
+      |> D20Web.Auth.put_auth_prompt(
+        kind: :error,
+        message: "Apple could not confirm the current account. Try another linked method.",
+        reauthenticate: true
+      )
+      |> Phoenix.Controller.redirect(to: "/")
+      |> halt()
+    else
+      conn
+    end
+  end
+
+  defp put_reauthentication_failure(conn, _user_id, _return_to), do: conn
 
   defp consume_link_result(conn) do
     conn = fetch_cookies(conn)
@@ -309,20 +380,29 @@ defmodule D20Web.Auth.Apple do
        when is_binary(return_to),
        do: {:ok, %{action: :authenticate, return_to: return_to, user_id: nil}}
 
-  defp parse_attempt({:ok, {:attempt, :link, return_to, user_id}})
-       when is_binary(return_to) and is_binary(user_id) and user_id != "",
-       do: {:ok, %{action: :link, return_to: return_to, user_id: user_id}}
+  defp parse_attempt({:ok, {:attempt, action, return_to, user_id}})
+       when action in [:link, :reauthenticate] and is_binary(return_to) and is_binary(user_id) and
+              user_id != "",
+       do: {:ok, %{action: action, return_to: return_to, user_id: user_id}}
 
   defp parse_attempt({:ok, _flow}), do: {:error, :invalid_flow_state}
   defp parse_attempt({:error, _reason} = error), do: error
 
   defp parse_registration({:ok, {:registration, provider_uid, email, return_to}})
-       when is_binary(provider_uid) and provider_uid != "" and is_binary(email) and
+       when is_binary(provider_uid) and provider_uid != "" and (is_nil(email) or is_binary(email)) and
               is_binary(return_to),
        do: {:ok, %{provider_uid: provider_uid, email: email, return_to: return_to}}
 
   defp parse_registration({:ok, _flow}), do: {:error, :invalid_flow_state}
   defp parse_registration({:error, _reason} = error), do: error
+
+  defp email_candidate(email) when is_binary(email) do
+    changeset = User.email_candidate_changeset(%{email: email})
+
+    if changeset.valid?, do: Ecto.Changeset.get_change(changeset, :email)
+  end
+
+  defp email_candidate(_email), do: nil
 
   defp provider_uid(uid)
        when is_binary(uid) and byte_size(uid) > 0 and byte_size(uid) <= @provider_uid_max_bytes do
@@ -341,6 +421,16 @@ defmodule D20Web.Auth.Apple do
 
   defp registration_cookie_options do
     [http_only: true, secure: true, same_site: "Lax", max_age: @flow_max_age, path: @cookie_path]
+  end
+
+  defp reauthentication_result_cookie_options do
+    [
+      http_only: true,
+      secure: true,
+      same_site: "Lax",
+      max_age: @reauthentication_result_max_age,
+      path: "/"
+    ]
   end
 
   defp link_result_cookie_options do

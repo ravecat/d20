@@ -48,12 +48,12 @@ describe("account settings page", () => {
       username: "table_master",
     });
 
-    const email = screen.getByRole("textbox", { name: "Email address" });
+    const email = screen.getByRole("textbox", { name: "New email address" });
     const password = screen.getByPlaceholderText("New password");
     const confirmation = screen.getByPlaceholderText("Confirm new password");
 
     expect((email as HTMLInputElement).value).toBe("player@example.com");
-    expect(email.getAttribute("autocomplete")).toBe("username");
+    expect(email.getAttribute("autocomplete")).toBe("email");
     expect(password.getAttribute("autocomplete")).toBe("new-password");
     expect(confirmation.getAttribute("autocomplete")).toBe("new-password");
 
@@ -80,6 +80,39 @@ describe("account settings page", () => {
           password_confirmation: "new valid password",
         },
       },
+    });
+  });
+
+  it("offers first-email verification to a provider-only account", async () => {
+    render(AccountSettingsPage, {
+      auth,
+      email: null,
+      providers: providers.map((provider) =>
+        provider.id === "google" ? { ...provider, linked: true } : provider,
+      ),
+      username: "provider_only",
+    });
+
+    expect(
+      screen.getByText(
+        "Add and verify an email to enable magic-link recovery and email notifications.",
+      ),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Add a password for username sign-in while email recovery is unavailable."),
+    ).not.toBeNull();
+
+    const email = screen.getByRole("textbox", { name: "Email address" });
+    expect((email as HTMLInputElement).value).toBe("");
+    expect(email.getAttribute("autocomplete")).toBe("email");
+
+    await fireEvent.input(email, { target: { value: "provider@example.com" } });
+    await fireEvent.click(screen.getByRole("button", { name: "Add email" }));
+
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
+      action: "/users/settings",
+      method: "put",
+      data: { action: "update_email", user: { email: "provider@example.com" } },
     });
   });
 

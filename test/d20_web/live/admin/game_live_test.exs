@@ -67,7 +67,7 @@ defmodule D20Web.Admin.GameLiveTest do
       assert {:ok, view, html} = live(conn, ~p"/dashboard")
 
       assert html =~ "D20 Admin"
-      assert html =~ admin.email
+      assert html =~ admin.username
       assert html =~ "Games"
       assert html =~ "BGG ID"
       refute html =~ "New Game"

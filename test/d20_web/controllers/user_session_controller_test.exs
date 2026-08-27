@@ -85,6 +85,41 @@ defmodule D20Web.UserSessionControllerTest do
       assert_logged_in_inertia_home(conn, user)
     end
 
+    test "logs a provider-only user in by username and password", %{conn: conn} do
+      user = %{username: "provider_only"} |> provider_user_fixture(:google) |> set_password()
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"identifier" => "PROVIDER_ONLY", "password" => valid_user_password()}
+        })
+
+      assert redirected_to(conn) == ~p"/"
+
+      assert {session_user, _inserted_at} =
+               Accounts.get_user_by_session_token(get_session(conn, :user_token))
+
+      assert session_user.id == user.id
+    end
+
+    test "does not switch accounts during password reauthentication", %{conn: conn, user: user} do
+      current_user = set_password(user)
+      other_user = set_password(user_fixture())
+
+      conn =
+        conn
+        |> log_in_user(current_user)
+        |> post(~p"/users/log-in", %{
+          "user" => %{"identifier" => other_user.username, "password" => valid_user_password()}
+        })
+
+      assert redirected_to(conn, 303) == ~p"/"
+
+      assert {session_user, _inserted_at} =
+               Accounts.get_user_by_session_token(get_session(conn, :user_token))
+
+      assert session_user.id == current_user.id
+    end
+
     test "logs the user in with remember me", %{conn: conn, user: user} do
       user = set_password(user)
 
@@ -131,7 +166,8 @@ defmodule D20Web.UserSessionControllerTest do
         })
 
       assert get_session(conn, :user_token)
-      assert redirected_to(conn) == "/games/qwinto?session=table-1"
+      assert conn.status == 409
+      assert get_resp_header(conn, "x-inertia-location") == ["/games/qwinto?session=table-1"]
     end
 
     test "rejects an external Inertia return path", %{conn: conn, user: user} do
@@ -147,7 +183,8 @@ defmodule D20Web.UserSessionControllerTest do
         })
 
       assert get_session(conn, :user_token)
-      assert redirected_to(conn) == ~p"/"
+      assert conn.status == 409
+      assert get_resp_header(conn, "x-inertia-location") == [~p"/"]
     end
 
     test "returns a flat generic error through the Inertia redirect", %{conn: conn, user: user} do
@@ -364,6 +401,23 @@ defmodule D20Web.UserSessionControllerTest do
       assert Accounts.get_user!(existing_user.id).username == "table_master"
       assert %Accounts.User{confirmed_at: nil, username: nil} = Accounts.get_user!(user.id)
       assert Accounts.get_user_by_magic_link_token(token)
+    end
+
+    test "does not switch accounts during Magic Link reauthentication", %{conn: conn, user: user} do
+      other_user = user_fixture()
+      {token, _hashed_token} = generate_user_magic_link_token(other_user)
+
+      conn =
+        conn |> log_in_user(user) |> post(~p"/users/log-in", %{"user" => %{"token" => token}})
+
+      assert redirected_to(conn) == ~p"/"
+
+      assert {session_user, _inserted_at} =
+               Accounts.get_user_by_session_token(get_session(conn, :user_token))
+
+      assert session_user.id == user.id
+      assert get_session(conn, :auth_prompt).reauthenticate
+      assert Accounts.get_user_by_magic_link_token(token).id == other_user.id
     end
 
     test "redirects when a submitted magic link is invalid", %{conn: conn} do

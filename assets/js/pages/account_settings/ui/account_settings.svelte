@@ -23,7 +23,7 @@
   };
 
   type Props = InertiaProps<{
-    email: string;
+    email: string | null;
     providers: Provider[];
     username: string;
   }>;
@@ -89,7 +89,11 @@
   <section class="settings-card" aria-labelledby="email-settings-title">
     <div>
       <h2 id="email-settings-title">Email address</h2>
-      <p>We will send a confirmation link to the new address.</p>
+      <p>
+        {email
+          ? "We will send a confirmation link to the new address."
+          : "Add and verify an email to enable magic-link recovery and email notifications."}
+      </p>
     </div>
 
     <Form class="settings-form" method="put" action="/users/settings" disableWhileProcessing>
@@ -97,15 +101,17 @@
         <input type="hidden" name="action" value="update_email" />
 
         <div class="settings-form__field">
-          <label class="settings-page__sr-only" for="settings-email">Email address</label>
+          <label class="settings-page__sr-only" for="settings-email">
+            {email ? "New email address" : "Email address"}
+          </label>
           <input
             id="settings-email"
             name="user[email]"
             type="email"
             inputmode="email"
-            value={email}
+            value={email ?? ""}
             placeholder="Email address"
-            autocomplete="username"
+            autocomplete="email"
             spellcheck="false"
             required
             aria-invalid={errors.email ? "true" : undefined}
@@ -119,7 +125,7 @@
         </div>
 
         <button type="submit" disabled={processing}>
-          {processing ? "Sending confirmation..." : "Change email"}
+          {processing ? "Sending confirmation..." : email ? "Change email" : "Add email"}
         </button>
       {/snippet}
     </Form>
@@ -128,7 +134,11 @@
   <section class="settings-card" aria-labelledby="password-settings-title">
     <div>
       <h2 id="password-settings-title">Password</h2>
-      <p>Add or replace the password you can use alongside magic links.</p>
+      <p>
+        {email
+          ? "Add or replace the password you can use alongside magic links."
+          : "Add a password for username sign-in while email recovery is unavailable."}
+      </p>
     </div>
 
     <Form class="settings-form" method="put" action="/users/settings" disableWhileProcessing>

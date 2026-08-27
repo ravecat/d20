@@ -138,7 +138,8 @@ defmodule D20Web.Auth do
     end
 
     prompt = %{
-      email: if(current_user, do: current_user.email, else: ""),
+      email: if(current_user, do: current_user.email),
+      identifier: if(current_user, do: current_user.username, else: ""),
       kind: kind,
       message: Keyword.fetch!(opts, :message),
       reauthenticate: Keyword.get(opts, :reauthenticate, not is_nil(current_user)),

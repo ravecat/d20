@@ -4,6 +4,7 @@ defmodule D20.Accounts.User do
 
   @primary_key {:id, TypeID, autogenerate: true, prefix: "user"}
   @type id :: TypeID.t()
+  @type email :: String.t() | nil
   @type role :: :user | :admin
 
   schema "users" do
@@ -24,36 +25,30 @@ defmodule D20.Accounts.User do
   A user changeset for registering or changing the email.
 
   It requires the email to change otherwise an error is added.
-
-  ## Options
-
-    * `:validate_unique` - Set to false if you don't want to validate the
-      uniqueness of the email, useful when displaying live validations.
-      Defaults to `true`.
   """
-  def email_changeset(user, attrs, opts \\ []) do
+  def email_changeset(user, attrs) do
     user
     |> cast(attrs, [:email])
-    |> validate_email(opts)
+    |> validate_required([:email])
+    |> validate_email()
+    |> unsafe_validate_unique(:email, D20.Repo)
+    |> validate_email_changed()
   end
 
-  defp validate_email(changeset, opts) do
-    changeset =
-      changeset
-      |> validate_required([:email])
-      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
-        message: "must have the @ sign and no spaces"
-      )
-      |> validate_length(:email, max: 160)
+  def email_candidate_changeset(attrs) do
+    %__MODULE__{}
+    |> cast(attrs, [:email])
+    |> validate_required([:email])
+    |> validate_email()
+  end
 
-    if Keyword.get(opts, :validate_unique, true) do
-      changeset
-      |> unsafe_validate_unique(:email, D20.Repo)
-      |> unique_constraint(:email)
-      |> validate_email_changed()
-    else
-      changeset
-    end
+  defp validate_email(changeset) do
+    changeset
+    |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
+    |> validate_length(:email, max: 160)
+    |> unique_constraint(:email, name: :users_email_index)
   end
 
   defp validate_email_changed(changeset) do
@@ -80,14 +75,16 @@ defmodule D20.Accounts.User do
   end
 
   @doc """
-  Creates a confirmed user from trusted, provider-independent identity data.
+  Creates a completed user from trusted, provider-independent identity data.
 
-  The caller must supply an email already verified by the provider boundary or D20.
+  Email is an optional candidate already verified by the provider boundary. The
+  owning Accounts transaction must create the external identity atomically with
+  this user.
   """
   def provider_registration_changeset(%__MODULE__{} = user, attrs) do
     user
     |> cast(attrs, [:email, :username])
-    |> validate_email([])
+    |> validate_email()
     |> validate_username()
     |> put_change(:confirmed_at, DateTime.utc_now(:second))
   end

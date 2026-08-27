@@ -30,14 +30,16 @@
     activeEmailInput?.focus();
   }
 
+  const reauthenticate = $derived($authState.prompt?.reauthenticate ?? false);
+  const providerIntent = $derived(reauthenticate ? "&intent=reauthenticate" : "");
   const googleAuthUrl = $derived(
-    `/auth/google?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
+    `/auth/google?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
   );
   const appleAuthUrl = $derived(
-    `/auth/apple?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
+    `/auth/apple?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
   );
   const discordAuthUrl = $derived(
-    `/auth/discord?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}`,
+    `/auth/discord?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
   );
   const hasAvailableProvider = $derived(
     Object.values(page.props.auth.providers).some(({ available }) => available),
@@ -388,39 +390,39 @@
           </Form>
         </section>
 
-        {#if !$authState.prompt?.reauthenticate}
-          {#if hasAvailableProvider}
-            <div class="auth-panel__separator" aria-hidden="true">
-              <span>or</span>
-            </div>
+        {#if hasAvailableProvider}
+          <div class="auth-panel__separator" aria-hidden="true">
+            <span>or</span>
+          </div>
 
-            <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
-            <div class="auth-providers" aria-label="Other login methods">
-              {@render provider(
-                "Sign in",
-                "Google",
-                googleIconSvg,
-                page.props.auth.providers.google.available,
-                googleAuthUrl,
-              )}
-              {@render provider(
-                "Sign in",
-                "Apple",
-                appleIconSvg,
-                page.props.auth.providers.apple.available,
-                appleAuthUrl,
-              )}
-              {@render provider(
-                "Sign in",
-                "Discord",
-                discordIconSvg,
-                page.props.auth.providers.discord.available,
-                discordAuthUrl,
-              )}
-            </div>
-            <!-- eslint-enable svelte/no-at-html-tags -->
-          {/if}
+          <!-- eslint-disable svelte/no-at-html-tags -- Provider icons are trusted build-time SVG assets. -->
+          <div class="auth-providers" aria-label="Other login methods">
+            {@render provider(
+              "Sign in",
+              "Google",
+              googleIconSvg,
+              page.props.auth.providers.google.available,
+              googleAuthUrl,
+            )}
+            {@render provider(
+              "Sign in",
+              "Apple",
+              appleIconSvg,
+              page.props.auth.providers.apple.available,
+              appleAuthUrl,
+            )}
+            {@render provider(
+              "Sign in",
+              "Discord",
+              discordIconSvg,
+              page.props.auth.providers.discord.available,
+              discordAuthUrl,
+            )}
+          </div>
+          <!-- eslint-enable svelte/no-at-html-tags -->
+        {/if}
 
+        {#if !reauthenticate}
           <p class="auth-panel__mode-switch">
             New to D20?
             <button type="button" onclick={() => switchMode("register")}>Create account</button>

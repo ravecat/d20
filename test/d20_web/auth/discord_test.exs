@@ -64,7 +64,7 @@ defmodule D20Web.Auth.DiscordTest do
     assert {:error, :invalid_provider_uid} = Discord.normalize(auth)
   end
 
-  test "requires a valid verified email only for registration" do
+  test "retains only a valid verified email as an optional registration candidate" do
     assert {:ok, identity} =
              "discord-subject" |> discord_auth("player@example.com", true) |> Discord.normalize()
 
@@ -75,7 +75,8 @@ defmodule D20Web.Auth.DiscordTest do
       assert {:ok, invalid_identity} =
                "discord-subject" |> discord_auth(email, verified) |> Discord.normalize()
 
-      assert {:error, _reason} = Discord.registration_data(invalid_identity)
+      assert {:ok, %{provider_uid: "discord-subject", email: nil}} =
+               Discord.registration_data(invalid_identity)
     end
   end
 
@@ -90,6 +91,15 @@ defmodule D20Web.Auth.DiscordTest do
     assert {:ok, :authenticate} = Discord.fetch_intent(conn)
     assert {{:ok, :authenticate}, consumed_conn} = Discord.take_intent(conn)
     assert {:error, :invalid_or_expired_intent} = Discord.fetch_intent(consumed_conn)
+  end
+
+  test "stores a reauthentication intent bound to the user", %{conn: conn} do
+    user = D20.AccountsFixtures.user_fixture()
+
+    conn = conn |> init_test_session(%{}) |> Discord.put_reauthenticate_intent(user)
+
+    assert {:ok, {:reauthenticate, user_id}} = Discord.fetch_intent(conn)
+    assert user_id == to_string(user.id)
   end
 
   test "rejects an expired link intent", %{conn: conn} do
@@ -114,6 +124,14 @@ defmodule D20Web.Auth.DiscordTest do
     mismatched_conn = put_session(conn, :discord_registration_nonce, "another-session-nonce")
 
     assert {:error, :invalid_or_expired_completion} = Discord.fetch_registration(mismatched_conn)
+
+    without_email =
+      conn
+      |> Discord.clear_registration()
+      |> Discord.put_registration(%{provider_uid: "discord-without-email", email: nil})
+
+    assert {:ok, %{provider_uid: "discord-without-email", email: nil}} =
+             Discord.fetch_registration(without_email)
   end
 
   test "rejects expired registration completion", %{conn: conn} do

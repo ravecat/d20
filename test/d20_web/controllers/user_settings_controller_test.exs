@@ -78,6 +78,15 @@ defmodule D20Web.UserSettingsControllerTest do
       refute Map.has_key?(props, :google)
     end
 
+    test "renders provider-only settings with null email and linked identity" do
+      user = provider_user_fixture(%{username: "provider_only"}, :google)
+
+      conn = build_conn() |> log_in_user(user) |> get(~p"/users/settings")
+
+      assert %{email: nil, username: "provider_only", providers: providers} = inertia_props(conn)
+      assert Enum.find(providers, &(&1.id == "google")).linked
+    end
+
     test "reports a linked Apple method", %{conn: conn, user: user} do
       put_apple_auth_config()
       assert {:ok, _identity} = Accounts.link_user_identity(user, :apple, "settings-subject")
@@ -254,6 +263,25 @@ defmodule D20Web.UserSettingsControllerTest do
       assert Accounts.get_user_by_identifier_and_password(user.email, "new valid password")
     end
 
+    test "sets a username password for a provider-only user" do
+      user = provider_user_fixture(%{username: "provider_only"}, :google)
+
+      conn =
+        build_conn()
+        |> log_in_user(user)
+        |> put(~p"/users/settings", %{
+          "action" => "update_password",
+          "user" => %{
+            "password" => "new valid password",
+            "password_confirmation" => "new valid password"
+          }
+        })
+
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert Accounts.get_user_by_identifier_and_password("provider_only", "new valid password")
+      assert Accounts.get_user!(user.id).email == nil
+    end
+
     test "returns flat password validation through the Inertia redirect", %{conn: conn} do
       old_password_conn =
         conn
@@ -291,6 +319,28 @@ defmodule D20Web.UserSettingsControllerTest do
                "A link to confirm your email"
 
       assert Accounts.get_user_by_email(user.email)
+    end
+
+    test "starts first-email verification without persisting the candidate" do
+      assert_receive {:email, _setup_email}
+      user = provider_user_fixture(%{username: "provider_only"}, :google)
+      email = unique_user_email()
+
+      conn =
+        build_conn()
+        |> log_in_user(user)
+        |> put(~p"/users/settings", %{"action" => "update_email", "user" => %{"email" => email}})
+
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "confirm your email"
+      assert Accounts.get_user!(user.id).email == nil
+
+      assert_receive {:email, %Swoosh.Email{text_body: body}}
+      [_, token] = Regex.run(~r{/users/settings/confirm-email/([^\s]+)}, body)
+
+      confirmed_conn = conn |> recycle() |> get(~p"/users/settings/confirm-email/#{token}")
+      assert redirected_to(confirmed_conn) == ~p"/users/settings"
+      assert Accounts.get_user!(user.id).email == email
     end
 
     test "returns flat email validation through the Inertia redirect", %{conn: conn} do

@@ -36,6 +36,20 @@ defmodule D20.AccountsFixtures do
     user
   end
 
+  def provider_user_fixture(attrs \\ %{}, provider \\ :google) do
+    attrs = Map.new(attrs)
+    username = Map.get(attrs, :username) || Map.get(attrs, "username") || unique_user_username()
+
+    provider_uid =
+      Map.get(attrs, :provider_uid) || "#{provider}-#{System.unique_integer([:positive])}"
+
+    user_attrs =
+      attrs |> Map.drop([:provider_uid, "provider_uid"]) |> Map.put(:username, username)
+
+    {:ok, user} = Accounts.register_user_with_identity(user_attrs, provider, provider_uid)
+    user
+  end
+
   def actor_scope_fixture do
     user = user_fixture()
     actor_scope_fixture(user)

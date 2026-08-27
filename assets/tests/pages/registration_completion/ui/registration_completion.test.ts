@@ -72,6 +72,31 @@ describe("registration completion page", () => {
     expect(document.querySelectorAll('input[type="hidden"]')).toHaveLength(0);
   });
 
+  it("completes provider-only registration without exposing or requiring email", async () => {
+    render(RegistrationCompletionPage, {
+      auth,
+      email: null,
+      submission: { action: "/auth/google/register", credential: { type: "server_session" } },
+      cancelAction: "/auth/google/register/cancel",
+    });
+
+    expect(
+      screen.queryByText("You can add and verify an email later from account settings."),
+    ).toBeNull();
+    expect(screen.queryByText("player@example.com")).toBeNull();
+
+    await fireEvent.input(screen.getByRole("textbox", { name: "Username" }), {
+      target: { value: "provider_only" },
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "Finish registration" }));
+
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
+      action: "/auth/google/register",
+      method: "post",
+      data: { user: { username: "provider_only" } },
+    });
+  });
+
   it("uses the same server-session completion contract for Discord", async () => {
     render(RegistrationCompletionPage, {
       auth,
