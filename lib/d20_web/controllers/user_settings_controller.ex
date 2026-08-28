@@ -5,6 +5,7 @@ defmodule D20Web.UserSettingsController do
   alias D20Web.Auth
   alias D20Web.Auth.Apple
   alias D20Web.Auth.Discord
+  alias D20Web.Auth.Facebook
   alias D20Web.Auth.Google
 
   def edit(conn, _params) do
@@ -32,6 +33,13 @@ defmodule D20Web.UserSettingsController do
         id: "discord",
         linked: MapSet.member?(linked_providers, :discord),
         name: "Discord"
+      },
+      %{
+        available: Facebook.available?(),
+        href: ~p"/users/settings/auth/facebook",
+        id: "facebook",
+        linked: MapSet.member?(linked_providers, :facebook),
+        name: "Facebook"
       }
     ]
 

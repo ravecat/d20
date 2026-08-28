@@ -15,6 +15,7 @@ const meta = {
       providers: {
         apple: { available: true },
         discord: { available: true },
+        facebook: { available: true },
         google: { available: true },
       },
     },
@@ -36,6 +37,28 @@ export const AuthProvider: Story = {
     cancelAction: "/auth/google/register/cancel",
     submission: {
       action: "/auth/google/register",
+      credential: { type: "server_session" },
+    },
+  },
+};
+
+export const FacebookWithEmail: Story = {
+  args: {
+    cancelAction: "/auth/facebook/register/cancel",
+    email: "facebook-candidate@example.com",
+    submission: {
+      action: "/auth/facebook/register",
+      credential: { type: "server_session" },
+    },
+  },
+};
+
+export const FacebookProviderOnly: Story = {
+  args: {
+    cancelAction: "/auth/facebook/register/cancel",
+    email: null,
+    submission: {
+      action: "/auth/facebook/register",
       credential: { type: "server_session" },
     },
   },

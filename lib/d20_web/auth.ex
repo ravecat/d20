@@ -17,6 +17,7 @@ defmodule D20Web.Auth do
   alias D20.Actors.Actor
   alias D20Web.Auth.Apple
   alias D20Web.Auth.Discord
+  alias D20Web.Auth.Facebook
   alias D20Web.Auth.Google
 
   # Make the remember me cookie valid for 14 days. This should match
@@ -120,6 +121,7 @@ defmodule D20Web.Auth do
       providers: %{
         apple: %{available: Apple.available?()},
         discord: %{available: Discord.available?()},
+        facebook: %{available: Facebook.available?()},
         google: %{available: Google.available?()}
       }
     })

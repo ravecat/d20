@@ -44,6 +44,7 @@ beforeEach(async () => {
         providers: {
           apple: { available: false },
           discord: { available: true },
+          facebook: { available: false },
           google: { available: true },
         },
       },
@@ -67,6 +68,7 @@ describe("app layout", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: true },
           },
           prompt: {

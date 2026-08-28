@@ -34,7 +34,7 @@ Local email/password and magic-link authentication remain peer authentication me
 ## Current D20 Boundaries
 
 - [`D20.Accounts`](../../lib/d20/accounts.ex) owns user lookup, registration, authentication data, session tokens, and the new external identity operations.
-- [`D20.Accounts.User`](../../lib/d20/accounts/user.ex) is the local account and actor identity. Its email is currently required, so provider-only registration still depends on the username/account foundation in #192.
+- [`D20.Accounts.User`](../../lib/d20/accounts/user.ex) is the local account and actor identity. Its email is nullable; a completed provider-only account has an immutable username and an exact uniquely owned external identity.
 - [`D20.Accounts.UserIdentity`](../../lib/d20/accounts/user_identity.ex) stores only the provider identity mapping introduced by this work.
 - [`D20Web.Auth`](../../lib/d20_web/auth.ex) owns local session renewal, fixation protection, redirects, and the current-user scope.
 - [`D20Web.Router`](../../lib/d20_web/router.ex) has separate Inertia and browser pipelines. Provider redirects must be normal browser navigations, not Inertia requests.
@@ -124,7 +124,7 @@ Callback outcomes:
 | Identity belongs to another user | Return a generic conflict result without revealing the other account. |
 | Provider callback is invalid or incomplete | Fail without creating a D20 session or identity row. |
 
-Provider email can help prefill a later account form only after provider-specific verification has succeeded. `Ueberauth.Auth.Info` has no generic email-verification field, so `D20Web.ProviderAuth` must interpret verified claims from each strategy's raw response. Apple 0.7.0 derives its stable UID and optional email from ID-token claims and can merge a first-callback name payload, but it exposes no generic verified-email flag. That behavior must be tested rather than inferred from the shared Ueberauth struct.
+Provider email is an optional server-owned registration candidate and never a browser-editable completion field. `Ueberauth.Auth.Info` has no generic email-verification field, so each `D20Web.Auth.<Provider>` adapter interprets its strategy's raw response, validates any candidate, and passes only the stable UID plus optional email into short-lived completion state. A missing, malformed, or already-owned candidate does not block registration and results in a provider-only account with null email. Apple 0.7.0 derives its stable UID and optional email from ID-token claims and can merge a first-callback name payload, while Facebook accepts email only when normalized and raw callback values agree. These behaviors are tested rather than inferred from the shared Ueberauth struct.
 
 Sources: [Ueberauth Auth type](https://hexdocs.pm/ueberauth/Ueberauth.Auth.html), [Ueberauth Auth.Info fields](https://hexdocs.pm/ueberauth/Ueberauth.Auth.Info.html), [Google stable `sub` guidance](https://developers.google.com/identity/openid-connect/openid-connect), [Apple 0.7.0 strategy source](https://github.com/ueberauth/ueberauth_apple/blob/0.7.0/lib/ueberauth/strategy/apple.ex).
 
@@ -137,7 +137,7 @@ This snapshot must be refreshed when provider work begins.
 | `ueberauth` | 0.10.8, 2024-02-27 | Core callback contract and built-in `state` CSRF handling are established. Release cadence is slow, so pin the version and audit changes before upgrade. |
 | `ueberauth_google` | 0.12.1, 2023-11-14 | Reasonable first provider, but verify current Google endpoints, requested scopes, UID mapping, callback errors, and PKCE behavior in an integration spike. |
 | `ueberauth_discord` | 0.7.0, 2022-02-01 | Old and maintained outside the Ueberauth Hex publisher. Verify current Discord API compatibility, UID and verified-email extraction, and error handling before adoption. |
-| `ueberauth_facebook` | 0.10.0, 2022-05-05 | High-risk compatibility gate. The released source still defaults the token endpoint to Graph API `/v2.8/oauth/access_token`. Prove a supported versioned endpoint override and complete end-to-end flow before adding the dependency. |
+| `ueberauth_facebook` | 0.10.0, 2022-05-05 | High-risk compatibility gate accepted for implementation behind explicit overrides. The released source defaults to Graph API `/v2.8/oauth/access_token`, but its OAuth client supports overriding both `site` and `token_url`; D20 pins Graph API v26.0 for token and `/me` requests, fixes `email` plus `id,email`, retains state and `appsecret_proof`, and keeps production credentials absent until the complete Meta staging journey passes. |
 | `ueberauth_apple` | 0.7.0, 2026-07-14 | Use 0.7.0 or at least 0.6.2. Versions before 0.6.2 have a critical missing ID-token claim-validation advisory. Version 0.7.0 contains the required callback state/nonce behavior described below. |
 
 This evidence supports "usable with provider-specific gates", not "uniformly mature". Assent 0.3.1 was released in 2025 and bundles all four providers, so it remains the fallback if maintaining several old Ueberauth strategies becomes more work than the Plug integration saves.
@@ -247,19 +247,33 @@ Manual staging checks remain mandatory because provider consoles, redirect allow
 4. Google #190 - first end-to-end provider because its identity contract and current documentation are the clearest.
 5. Discord #188 - proceed only after the older independent strategy passes its compatibility spike.
 6. Apple #191 - add POST callback and isolated cross-site attempt handling, pinned to a fixed version.
-7. Facebook #187 - proceed only after proving compatibility with a currently supported Graph API version; otherwise revisit Assent or a dedicated strategy.
+7. Facebook #187 - implement against explicit Graph API v26.0 endpoints, keep provider email as an optional server-owned candidate, use username-only provider completion with null-email fallback, and keep production credentials absent until Meta staging compatibility is verified.
 8. Enable UI controls only after each provider passes local, staging, failure-path, and rollback validation.
 
-## Deferred Decisions
+## Facebook Implementation Refresh
 
-These questions do not block the implemented database foundation but must be resolved before account linking or provider registration:
+Issue #187 uses `ueberauth_facebook` 0.10.0 only behind explicit current endpoint and request boundaries:
 
-- What recent-authentication proof is required to link an additional identity?
-- How does an unknown provider identity create a user while `User.email` is required?
-- Which verified provider emails can prefill or confirm a D20 address, if any?
-- What recovery proof is required to unlink the last usable authentication method?
-- Is PKCE mandatory for every enabled provider, and does each selected strategy satisfy it?
-- Does the product need one provider account per user, or should the current database invariant be relaxed before public linking?
+- Authorization: `https://www.facebook.com/dialog/oauth`.
+- Token exchange: `https://graph.facebook.com/v26.0/oauth/access_token`.
+- Profile site: `https://graph.facebook.com/v26.0`, with only `id,email` requested.
+- Permission: `email`; Facebook's app-scoped `id` is the identity key. A matching syntactically valid normalized and raw email becomes only an optional server-owned candidate.
+- Request parameters are server-owned; caller scope, auth type, display, locale, redirect, client ID, response type, and state overrides are removed.
+- New accounts use the same username-only completion page and atomic provider registration operation as Google, Discord, and Apple.
+- Missing, malformed, already-owned, or racing email candidates fall back to null email without merging accounts. Browser parameters cannot replace the server-owned candidate.
+
+For local manual testing, create a Meta Development-mode app, add Facebook Login, register the exact `http://localhost:5000/auth/facebook/callback` redirect, and use an app-role account or Meta test user. If the Meta dashboard rejects local HTTP, use an HTTPS tunnel and configure the exact tunneled callback and Phoenix external URL. Staging must verify the complete registration, returning login, linking, cancellation, invalid state, conflict, and rollback matrix before production credentials are configured.
+
+The strategy still has no PKCE support. D20 accepts it only as a confidential server-side client with Ueberauth state validation, client-secret exchange, exact HTTPS staging callback, and `appsecret_proof`. A project policy requiring PKCE blocks production enablement and requires replacing the strategy or revisiting Assent.
+
+## Resolved Decisions
+
+- Linking requires current account-bound sudo proof and never falls back to ordinary login.
+- Unknown provider identities use username-only completion and may create provider-only accounts with null email.
+- Provider email is optional server-owned data, never an identity or merge key and never browser-replaceable during completion.
+- Identity unlinking and removing the last usable authentication method remain unsupported.
+- Facebook's missing PKCE support is accepted only for the confidential server-side client while state, exact HTTPS callbacks, and client-secret exchange remain mandatory.
+- One identity per provider per D20 user remains the current database invariant.
 
 ## Conclusion
 

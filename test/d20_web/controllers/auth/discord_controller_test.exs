@@ -91,7 +91,7 @@ defmodule D20Web.Auth.DiscordControllerTest do
     end
 
     test "does not expose a dynamic provider route", %{conn: conn} do
-      assert conn |> get("/auth/facebook") |> response(404)
+      assert conn |> get("/auth/github") |> response(404)
     end
   end
 

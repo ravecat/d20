@@ -11,6 +11,8 @@ defmodule D20Web.UserSettingsControllerTest do
     original_apple_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Apple)
     original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
 
+    original_facebook_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
+
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, [])
@@ -18,6 +20,11 @@ defmodule D20Web.UserSettingsControllerTest do
     Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
       client_id: "discord-test-client-id",
       client_secret: "discord-test-client-secret"
+    )
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+      client_id: "facebook-test-client-id",
+      client_secret: "facebook-test-client-secret"
     )
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
@@ -32,6 +39,12 @@ defmodule D20Web.UserSettingsControllerTest do
         :ueberauth,
         Ueberauth.Strategy.Discord.OAuth,
         original_discord_config
+      )
+
+      restore_application_env(
+        :ueberauth,
+        Ueberauth.Strategy.Facebook.OAuth,
+        original_facebook_config
       )
 
       restore_application_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, original_google_config)
@@ -70,11 +83,19 @@ defmodule D20Web.UserSettingsControllerTest do
                  id: "discord",
                  linked: false,
                  name: "Discord"
+               },
+               %{
+                 available: true,
+                 href: ~p"/users/settings/auth/facebook",
+                 id: "facebook",
+                 linked: false,
+                 name: "Facebook"
                }
              ]
 
       refute Map.has_key?(props, :apple)
       refute Map.has_key?(props, :discord)
+      refute Map.has_key?(props, :facebook)
       refute Map.has_key?(props, :google)
     end
 
@@ -183,6 +204,20 @@ defmodule D20Web.UserSettingsControllerTest do
                id: "discord",
                linked: true,
                name: "Discord"
+             }
+    end
+
+    test "reports a linked Facebook method", %{conn: conn, user: user} do
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :facebook, "settings-subject")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "facebook")) == %{
+               available: true,
+               href: ~p"/users/settings/auth/facebook",
+               id: "facebook",
+               linked: true,
+               name: "Facebook"
              }
     end
 

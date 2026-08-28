@@ -11,6 +11,7 @@ const auth = {
   providers: {
     apple: { available: false },
     discord: { available: true },
+    facebook: { available: false },
     google: { available: true },
   },
 };
@@ -36,6 +37,13 @@ const providers = [
     id: "discord",
     linked: false,
     name: "Discord",
+  },
+  {
+    available: true,
+    href: "/users/settings/auth/facebook",
+    id: "facebook",
+    linked: false,
+    name: "Facebook",
   },
 ] satisfies ComponentProps<typeof AccountSettingsPage>["providers"];
 
@@ -101,6 +109,9 @@ describe("account settings page", () => {
     expect(
       screen.getByText("Add a password for username sign-in while email recovery is unavailable."),
     ).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Link Facebook" }).getAttribute("href")).toBe(
+      "/users/settings/auth/facebook",
+    );
 
     const email = screen.getByRole("textbox", { name: "Email address" });
     expect((email as HTMLInputElement).value).toBe("");
@@ -156,6 +167,30 @@ describe("account settings page", () => {
     expect(screen.getByText("Linked")).not.toBeNull();
     expect(screen.queryByText("Not linked")).toBeNull();
     expect(screen.queryByRole("link", { name: "Link Google" })).toBeNull();
+  });
+
+  it("reports Facebook linking states and uses the server-provided full-document URL", () => {
+    const { unmount } = render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      providers,
+      username: "table_master",
+    });
+
+    const link = screen.getByRole("link", { name: "Link Facebook" });
+    expect(link.getAttribute("href")).toBe("/users/settings/auth/facebook");
+
+    unmount();
+    render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      providers: providers.map((provider) =>
+        provider.id === "facebook" ? { ...provider, linked: true } : provider,
+      ),
+      username: "table_master",
+    });
+
+    expect(screen.queryByRole("link", { name: "Link Facebook" })).toBeNull();
   });
 
   it("uses the server-provided Google linking URL", () => {

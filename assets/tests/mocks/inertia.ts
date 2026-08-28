@@ -73,6 +73,7 @@ const defaultPage = (): Page<PageProps> => ({
       providers: {
         apple: { available: false },
         discord: { available: true },
+        facebook: { available: false },
         google: { available: true },
       },
     },

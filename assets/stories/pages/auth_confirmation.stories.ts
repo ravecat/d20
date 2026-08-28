@@ -15,6 +15,7 @@ const meta = {
       providers: {
         apple: { available: true },
         discord: { available: true },
+        facebook: { available: false },
         google: { available: true },
       },
     },

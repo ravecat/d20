@@ -5,6 +5,7 @@
   import { onMount, tick } from "svelte";
   import appleIconSvg from "~/shared/icons/apple.svg?raw";
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
+  import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
   import InlineNotification from "./inline_notification.svelte";
   import { auth } from "~/shared/stores/auth";
@@ -40,6 +41,9 @@
   );
   const discordAuthUrl = $derived(
     `/auth/discord?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
+  );
+  const facebookAuthUrl = $derived(
+    `/auth/facebook?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
   );
   const hasAvailableProvider = $derived(
     Object.values(page.props.auth.providers).some(({ available }) => available),
@@ -219,6 +223,13 @@
               discordIconSvg,
               page.props.auth.providers.discord.available,
               discordAuthUrl,
+            )}
+            {@render provider(
+              "Sign up",
+              "Facebook",
+              facebookIconSvg,
+              page.props.auth.providers.facebook.available,
+              facebookAuthUrl,
             )}
           </div>
           <!-- eslint-enable svelte/no-at-html-tags -->
@@ -417,6 +428,13 @@
               discordIconSvg,
               page.props.auth.providers.discord.available,
               discordAuthUrl,
+            )}
+            {@render provider(
+              "Sign in",
+              "Facebook",
+              facebookIconSvg,
+              page.props.auth.providers.facebook.available,
+              facebookAuthUrl,
             )}
           </div>
           <!-- eslint-enable svelte/no-at-html-tags -->

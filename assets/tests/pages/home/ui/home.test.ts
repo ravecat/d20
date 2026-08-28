@@ -14,6 +14,7 @@ const auth = {
   providers: {
     apple: { available: false },
     discord: { available: true },
+    facebook: { available: false },
     google: { available: true },
   },
 };

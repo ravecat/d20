@@ -36,6 +36,7 @@ defmodule D20.MixProject do
       {:inertia, "~> 3.0.0-rc"},
       {:ueberauth, "~> 0.10.8"},
       {:ueberauth_discord, "~> 0.7.0"},
+      {:ueberauth_facebook, "~> 0.10.0"},
       {:ueberauth_google, "~> 0.12.1"},
       {:ueberauth_apple, "~> 0.7.0"},
       {:phoenix_vite, "~> 0.4"},

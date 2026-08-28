@@ -126,7 +126,7 @@ defmodule D20Web.Auth.AppleControllerTest do
     test "exposes only GET request and POST callback methods", %{conn: conn} do
       assert response(get(conn, "/auth/apple/callback"), 404)
       assert response(post(conn, "/auth/apple"), 404)
-      assert response(get(conn, "/auth/facebook"), 404)
+      assert response(get(conn, "/auth/github"), 404)
     end
   end
 

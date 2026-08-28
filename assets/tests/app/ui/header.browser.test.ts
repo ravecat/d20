@@ -20,6 +20,7 @@ beforeEach(async () => {
         providers: {
           apple: { available: false },
           discord: { available: true },
+          facebook: { available: false },
           google: { available: true },
         },
       },
@@ -257,6 +258,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: true },
           },
         },
@@ -392,7 +394,7 @@ describe("app header account dialog", () => {
     assertProviderHidden("Sign in", "Facebook");
   });
 
-  it("shows Apple, Discord, and Google links independently", async () => {
+  it("shows Apple, Discord, Facebook, and Google links independently", async () => {
     inertiaMock.setPage({
       url: "/games/qwinto?session=table-1",
       props: {
@@ -403,6 +405,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: true },
             discord: { available: true },
+            facebook: { available: true },
             google: { available: true },
           },
         },
@@ -420,7 +423,9 @@ describe("app header account dialog", () => {
     expect(
       page.getByRole("link", { name: "Sign up with Discord" }).element().getAttribute("href"),
     ).toBe("/auth/discord?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
-    assertProviderHidden("Sign up", "Facebook");
+    expect(
+      page.getByRole("link", { name: "Sign up with Facebook" }).element().getAttribute("href"),
+    ).toBe("/auth/facebook?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
 
     await switchToLoginMode();
 
@@ -432,7 +437,9 @@ describe("app header account dialog", () => {
     expect(
       page.getByRole("link", { name: "Sign in with Discord" }).element().getAttribute("href"),
     ).toBe("/auth/discord?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
-    assertProviderHidden("Sign in", "Facebook");
+    expect(
+      page.getByRole("link", { name: "Sign in with Facebook" }).element().getAttribute("href"),
+    ).toBe("/auth/facebook?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
   });
 
   it("hides Google when its credentials are unavailable", async () => {
@@ -445,6 +452,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: false },
           },
         },
@@ -472,6 +480,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: true },
             discord: { available: false },
+            facebook: { available: false },
             google: { available: true },
           },
         },
@@ -500,6 +509,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: false },
+            facebook: { available: false },
             google: { available: false },
           },
         },
@@ -529,6 +539,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: true },
           },
         },
@@ -600,6 +611,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: true },
           },
         },
@@ -633,6 +645,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: true },
           },
           prompt: {
@@ -684,6 +697,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: false },
             google: { available: true },
           },
           prompt: {
@@ -729,6 +743,7 @@ describe("app header account dialog", () => {
           providers: {
             apple: { available: false },
             discord: { available: true },
+            facebook: { available: true },
             google: { available: true },
           },
           prompt: {
@@ -759,9 +774,11 @@ describe("app header account dialog", () => {
 
     const google = page.getByRole("link", { name: "Sign in with Google" }).element();
     const discord = page.getByRole("link", { name: "Sign in with Discord" }).element();
+    const facebook = page.getByRole("link", { name: "Sign in with Facebook" }).element();
 
     expect(google.getAttribute("href")).toContain("intent=reauthenticate");
     expect(discord.getAttribute("href")).toContain("intent=reauthenticate");
+    expect(facebook.getAttribute("href")).toContain("intent=reauthenticate");
     assertProviderHidden("Sign in", "Apple");
   });
 

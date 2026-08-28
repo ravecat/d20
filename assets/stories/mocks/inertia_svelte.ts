@@ -18,6 +18,7 @@ const defaultPage = (): StoryPage => ({
       providers: {
         apple: { available: false },
         discord: { available: false },
+        facebook: { available: false },
         google: { available: false },
       },
     },

@@ -10,6 +10,7 @@ const auth = {
   providers: {
     apple: { available: false },
     discord: { available: true },
+    facebook: { available: false },
     google: { available: true },
   },
 };
@@ -116,6 +117,58 @@ describe("registration completion page", () => {
       data: { user: { username: "discord_player" } },
     });
     expect(document.querySelectorAll('input[type="hidden"]')).toHaveLength(0);
+  });
+
+  it("uses username-only Facebook completion with a server-owned email candidate", async () => {
+    render(RegistrationCompletionPage, {
+      auth,
+      email: "facebook-candidate@example.com",
+      submission: { action: "/auth/facebook/register", credential: { type: "server_session" } },
+      cancelAction: "/auth/facebook/register/cancel",
+    });
+
+    expect(screen.getByText("facebook-candidate@example.com")).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Email address" })).toBeNull();
+
+    await fireEvent.input(screen.getByRole("textbox", { name: "Username" }), {
+      target: { value: "facebook_player" },
+    });
+    await fireEvent.click(screen.getByLabelText("Keep me signed in"));
+    await fireEvent.click(screen.getByRole("button", { name: "Finish registration" }));
+
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
+      action: "/auth/facebook/register",
+      method: "post",
+      data: {
+        user: {
+          remember_me: "true",
+          username: "facebook_player",
+        },
+      },
+    });
+    expect(document.querySelectorAll('input[type="hidden"]')).toHaveLength(0);
+  });
+
+  it("completes provider-only Facebook registration without requesting email", async () => {
+    render(RegistrationCompletionPage, {
+      auth,
+      email: null,
+      submission: { action: "/auth/facebook/register", credential: { type: "server_session" } },
+      cancelAction: "/auth/facebook/register/cancel",
+    });
+
+    expect(screen.queryByRole("textbox", { name: "Email address" })).toBeNull();
+
+    await fireEvent.input(screen.getByRole("textbox", { name: "Username" }), {
+      target: { value: "facebook_provider_only" },
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "Finish registration" }));
+
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
+      action: "/auth/facebook/register",
+      method: "post",
+      data: { user: { username: "facebook_provider_only" } },
+    });
   });
 
   it("reports username errors and offers a provider-neutral alternate action", async () => {

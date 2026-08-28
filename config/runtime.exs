@@ -33,6 +33,10 @@ config :ueberauth, Ueberauth.Strategy.Discord.OAuth,
   client_id: normalize_oauth_credential.(System.get_env("DISCORD_OAUTH_CLIENT_ID")),
   client_secret: normalize_oauth_credential.(System.get_env("DISCORD_OAUTH_CLIENT_SECRET"))
 
+config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+  client_id: normalize_oauth_credential.(System.get_env("FACEBOOK_OAUTH_CLIENT_ID")),
+  client_secret: normalize_oauth_credential.(System.get_env("FACEBOOK_OAUTH_CLIENT_SECRET"))
+
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: normalize_oauth_credential.(System.get_env("GOOGLE_OAUTH_CLIENT_ID")),
   client_secret: normalize_oauth_credential.(System.get_env("GOOGLE_OAUTH_CLIENT_SECRET"))

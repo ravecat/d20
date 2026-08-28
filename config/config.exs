@@ -54,6 +54,14 @@ config :ueberauth, Ueberauth,
          request_path: "/auth/discord",
          callback_path: "/auth/discord/callback"
        ]},
+    facebook:
+      {Ueberauth.Strategy.Facebook,
+       [
+         default_scope: "email",
+         profile_fields: "id,email",
+         request_path: "/auth/facebook",
+         callback_path: "/auth/facebook/callback"
+       ]},
     google:
       {Ueberauth.Strategy.Google,
        [
@@ -69,6 +77,14 @@ config :ueberauth, Ueberauth.Strategy.Discord.OAuth,
   site: "https://discord.com/api",
   authorize_url: "https://discord.com/oauth2/authorize",
   token_url: "https://discord.com/api/oauth2/token"
+
+# ueberauth_facebook 0.10.0 defaults to the retired Graph API v2.8 token endpoint
+# and has no PKCE support. D20 pins explicit current Graph endpoints and uses it
+# only as a confidential server client with state and appsecret_proof validation.
+config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+  site: "https://graph.facebook.com/v26.0",
+  authorize_url: "https://www.facebook.com/dialog/oauth",
+  token_url: "https://graph.facebook.com/v26.0/oauth/access_token"
 
 config :d20, D20.Actors.Token,
   salt: "actor",

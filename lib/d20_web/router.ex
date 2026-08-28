@@ -107,6 +107,8 @@ defmodule D20Web.Router do
     get "/auth/apple", Auth.AppleController, :request
     get "/auth/discord", Auth.DiscordController, :request
     get "/auth/discord/callback", Auth.DiscordController, :callback
+    get "/auth/facebook", Auth.FacebookController, :request
+    get "/auth/facebook/callback", Auth.FacebookController, :callback
     get "/auth/google", Auth.GoogleController, :request
     get "/auth/google/callback", Auth.GoogleController, :callback
   end
@@ -126,6 +128,9 @@ defmodule D20Web.Router do
     get "/auth/discord/register", Auth.DiscordController, :registration
     post "/auth/discord/register", Auth.DiscordController, :complete_registration
     post "/auth/discord/register/cancel", Auth.DiscordController, :cancel_registration
+    get "/auth/facebook/register", Auth.FacebookController, :registration
+    post "/auth/facebook/register", Auth.FacebookController, :complete_registration
+    post "/auth/facebook/register/cancel", Auth.FacebookController, :cancel_registration
     get "/auth/google/register", Auth.GoogleController, :registration
     post "/auth/google/register", Auth.GoogleController, :complete_registration
     post "/auth/google/register/cancel", Auth.GoogleController, :cancel_registration
@@ -150,6 +155,7 @@ defmodule D20Web.Router do
     get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
     get "/users/settings/auth/apple", Auth.AppleController, :link
     get "/users/settings/auth/discord", Auth.DiscordController, :link
+    get "/users/settings/auth/facebook", Auth.FacebookController, :link
     get "/users/settings/auth/google", Auth.GoogleController, :link
   end
 

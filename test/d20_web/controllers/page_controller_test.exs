@@ -99,7 +99,7 @@ defmodule D20Web.PageControllerTest do
     original_req_options = Req.default_options()
     original_apple_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Apple)
     original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
-
+    original_facebook_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
 
     original_launch_config =
@@ -112,6 +112,11 @@ defmodule D20Web.PageControllerTest do
     Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth,
       client_id: "discord-test-client-id",
       client_secret: "discord-test-client-secret"
+    )
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth,
+      client_id: nil,
+      client_secret: nil
     )
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth,
@@ -133,6 +138,11 @@ defmodule D20Web.PageControllerTest do
       case original_discord_config do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
         config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth, config)
+      end
+
+      case original_facebook_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
+        config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth, config)
       end
 
       case original_google_config do
@@ -274,6 +284,7 @@ defmodule D20Web.PageControllerTest do
              providers: %{
                apple: %{available: false},
                discord: %{available: true},
+               facebook: %{available: false},
                google: %{available: true}
              }
            }
@@ -290,6 +301,7 @@ defmodule D20Web.PageControllerTest do
     assert inertia_props(conn).auth.providers == %{
              apple: %{available: false},
              discord: %{available: true},
+             facebook: %{available: false},
              google: %{available: true}
            }
 
@@ -300,6 +312,12 @@ defmodule D20Web.PageControllerTest do
   test "Inertia pages derive provider availability independently", %{conn: conn} do
     put_apple_auth_config()
     put_discord_oauth_config(client_id: "discord-client-id", client_secret: nil)
+
+    put_facebook_oauth_config(
+      client_id: "facebook-client-id",
+      client_secret: "facebook-client-secret"
+    )
+
     put_google_oauth_config(client_id: nil, client_secret: "google-client-secret")
 
     conn = get(conn, ~p"/developers")
@@ -307,6 +325,7 @@ defmodule D20Web.PageControllerTest do
     assert inertia_props(conn).auth.providers == %{
              apple: %{available: true},
              discord: %{available: false},
+             facebook: %{available: true},
              google: %{available: false}
            }
   end
@@ -704,6 +723,18 @@ defmodule D20Web.PageControllerTest do
       case original_dev_routes do
         :not_configured -> Application.delete_env(:d20, :dev_routes)
         configured -> Application.put_env(:d20, :dev_routes, configured)
+      end
+    end)
+  end
+
+  defp put_facebook_oauth_config(config) do
+    previous_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth, config)
+
+    on_exit(fn ->
+      case previous_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
+        value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth, value)
       end
     end)
   end

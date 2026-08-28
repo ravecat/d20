@@ -15,6 +15,9 @@ declare module "@inertiajs/core" {
           readonly discord: {
             readonly available: boolean;
           };
+          readonly facebook: {
+            readonly available: boolean;
+          };
           readonly google: {
             readonly available: boolean;
           };

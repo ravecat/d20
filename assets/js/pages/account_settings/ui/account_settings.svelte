@@ -3,11 +3,13 @@
   import { Form } from "@inertiajs/svelte";
   import appleIconSvg from "~/shared/icons/apple.svg?raw";
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
+  import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
 
   const providerIcons = {
     apple: appleIconSvg,
     discord: discordIconSvg,
+    facebook: facebookIconSvg,
     google: googleIconSvg,
   } as const;
 

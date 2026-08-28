@@ -20,6 +20,7 @@ export function prepareAuthDialog({ mode, outcome, prompt }: AuthDialogState) {
         providers: {
           apple: { available: true },
           discord: { available: true },
+          facebook: { available: true },
           google: { available: true },
         },
       },

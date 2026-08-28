@@ -191,9 +191,9 @@ defmodule D20.Accounts do
     end
   end
 
-  defp transact_user_with_identity(attrs, provider, provider_uid) do
+  defp transact_user_with_identity(%Ecto.Changeset{} = user_changeset, provider, provider_uid) do
     Multi.new()
-    |> Multi.insert(:user, User.provider_registration_changeset(%User{}, attrs))
+    |> Multi.insert(:user, user_changeset)
     |> Multi.insert(:identity, fn %{user: user} ->
       UserIdentity.changeset(%UserIdentity{user_id: user.id}, %{
         provider: provider,
@@ -208,6 +208,12 @@ defmodule D20.Accounts do
       {:error, operation, %Ecto.Changeset{} = changeset, _changes} ->
         {:error, operation, changeset}
     end
+  end
+
+  defp transact_user_with_identity(attrs, provider, provider_uid) when is_map(attrs) do
+    attrs
+    |> then(&User.provider_registration_changeset(%User{}, &1))
+    |> transact_user_with_identity(provider, provider_uid)
   end
 
   defp provider_email(attrs), do: Map.get(attrs, :email, Map.get(attrs, "email"))

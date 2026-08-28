@@ -23,6 +23,7 @@
 
 <div class="registration-page">
   <h1>Finish creating your account</h1>
+
   {#if email}
     <p class="registration-page__email">{email}</p>
   {/if}
@@ -50,7 +51,7 @@
           spellcheck="false"
           minlength="3"
           maxlength="32"
-          pattern="[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?"
+          pattern="[a-z0-9](?:[a-z0-9_\-]*[a-z0-9])?"
           enterkeyhint="done"
           required
           autofocus
