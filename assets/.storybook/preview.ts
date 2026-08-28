@@ -1,7 +1,21 @@
 import type { Preview } from "@storybook/svelte-vite";
+import { withThemeByDataAttribute } from "@storybook/addon-themes";
 import "../css/app.css";
 
 const preview: Preview = {
+  decorators: [
+    // Sets data-theme on the preview html element (the addon's default parent),
+    // so theme tokens, color-scheme, and the root scrollbar follow the toolbar
+    // selection instead of the browser's prefers-color-scheme.
+    withThemeByDataAttribute({
+      themes: {
+        light: "light",
+        dark: "dark",
+      },
+      defaultTheme: "light",
+      attributeName: "data-theme",
+    }),
+  ],
   parameters: {
     controls: {
       matchers: {
