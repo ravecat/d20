@@ -103,6 +103,16 @@
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+/* daisyUI leaves the scrollbar track transparent, which lets an embedding
+   surface with a mismatched background bleed through the scrollbar. Derive
+   both scrollbar colors from the active theme so the scrollbar follows the
+   selected light/dark theme in every rendering context. */
+:root {
+  scrollbar-color:
+    color-mix(in oklch, var(--color-base-content) 35%, transparent)
+    var(--color-base-100);
+}
+
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session],
 [data-phx-teleported-src] {
