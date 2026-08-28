@@ -43,6 +43,19 @@ config :d20,
   allow_launch_in_development: config_env() != :prod,
   session_idle_timeout: :timer.minutes(30)
 
+# Steam OpenID assertions arrive in query parameters before the provider controller runs.
+# Phoenix's global logging boundary must therefore redact them here; the Ueberauth adapter
+# cannot prevent earlier endpoint/request logging from seeing the callback values.
+config :phoenix, :filter_parameters, [
+  "password",
+  "openid.assoc_handle",
+  "openid.claimed_id",
+  "openid.identity",
+  "openid.response_nonce",
+  "openid.sig",
+  "state"
+]
+
 # ueberauth_google 0.12.1 does not implement PKCE. D20 therefore uses it only as a
 # confidential server-side client with state validation and a client-secret exchange.
 config :ueberauth, Ueberauth,
@@ -67,7 +80,10 @@ config :ueberauth, Ueberauth,
        [
          default_scope: "openid email",
          userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo"
-       ]}
+       ]},
+    steam:
+      {Ueberauth.Strategy.Steam,
+       [request_path: "/auth/steam", callback_path: "/auth/steam/callback"]}
   ]
 
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,

@@ -19,6 +19,7 @@ defmodule D20Web.Auth do
   alias D20Web.Auth.Discord
   alias D20Web.Auth.Facebook
   alias D20Web.Auth.Google
+  alias D20Web.Auth.Steam
 
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
@@ -122,7 +123,8 @@ defmodule D20Web.Auth do
         apple: %{available: Apple.available?()},
         discord: %{available: Discord.available?()},
         facebook: %{available: Facebook.available?()},
-        google: %{available: Google.available?()}
+        google: %{available: Google.available?()},
+        steam: %{available: Steam.available?()}
       }
     })
     |> then(fn conn -> if prompt, do: delete_session(conn, :auth_prompt), else: conn end)

@@ -101,6 +101,7 @@ defmodule D20Web.PageControllerTest do
     original_discord_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Discord.OAuth)
     original_facebook_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+    original_steam_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Steam)
 
     original_launch_config =
       Application.get_env(:d20, :allow_launch_in_development, :not_configured)
@@ -123,6 +124,8 @@ defmodule D20Web.PageControllerTest do
       client_id: "google-test-client-id",
       client_secret: "google-test-client-secret"
     )
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Steam, api_key: nil)
 
     Req.default_options(plug: {Req.Test, __MODULE__})
     Req.Test.stub(__MODULE__, fn conn -> Req.Test.text(conn, @qwinto_xml) end)
@@ -148,6 +151,11 @@ defmodule D20Web.PageControllerTest do
       case original_google_config do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
         config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, config)
+      end
+
+      case original_steam_config do
+        nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Steam)
+        config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Steam, config)
       end
 
       case original_launch_config do
@@ -285,7 +293,8 @@ defmodule D20Web.PageControllerTest do
                apple: %{available: false},
                discord: %{available: true},
                facebook: %{available: false},
-               google: %{available: true}
+               google: %{available: true},
+               steam: %{available: false}
              }
            }
 
@@ -302,7 +311,8 @@ defmodule D20Web.PageControllerTest do
              apple: %{available: false},
              discord: %{available: true},
              facebook: %{available: false},
-             google: %{available: true}
+             google: %{available: true},
+             steam: %{available: false}
            }
 
     refute Map.has_key?(inertia_props(conn).auth, :client_id)
@@ -319,6 +329,7 @@ defmodule D20Web.PageControllerTest do
     )
 
     put_google_oauth_config(client_id: nil, client_secret: "google-client-secret")
+    put_steam_strategy_configured(true)
 
     conn = get(conn, ~p"/developers")
 
@@ -326,7 +337,8 @@ defmodule D20Web.PageControllerTest do
              apple: %{available: true},
              discord: %{available: false},
              facebook: %{available: true},
-             google: %{available: false}
+             google: %{available: false},
+             steam: %{available: true}
            }
   end
 
@@ -748,6 +760,45 @@ defmodule D20Web.PageControllerTest do
         nil -> Application.delete_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
         value -> Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, value)
       end
+    end)
+  end
+
+  defp put_steam_strategy_configured(configured?) do
+    previous_config = Application.fetch_env!(:ueberauth, Ueberauth)
+    previous_steam = Application.get_env(:ueberauth, Ueberauth.Strategy.Steam)
+
+    providers =
+      previous_config
+      |> Keyword.fetch!(:providers)
+      |> then(fn providers ->
+        if configured? do
+          Keyword.put(
+            providers,
+            :steam,
+            {Ueberauth.Strategy.Steam,
+             [request_path: "/auth/steam", callback_path: "/auth/steam/callback"]}
+          )
+        else
+          Keyword.delete(providers, :steam)
+        end
+      end)
+
+    Application.put_env(
+      :ueberauth,
+      Ueberauth,
+      Keyword.put(previous_config, :providers, providers)
+    )
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Steam,
+      api_key: if(configured?, do: "steam-api-key")
+    )
+
+    on_exit(fn ->
+      Application.put_env(:ueberauth, Ueberauth, previous_config)
+
+      if previous_steam,
+        do: Application.put_env(:ueberauth, Ueberauth.Strategy.Steam, previous_steam),
+        else: Application.delete_env(:ueberauth, Ueberauth.Strategy.Steam)
     end)
   end
 

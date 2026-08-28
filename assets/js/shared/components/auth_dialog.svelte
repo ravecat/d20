@@ -7,6 +7,7 @@
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
+  import steamIconSvg from "~/shared/icons/steam.svg?raw";
   import InlineNotification from "./inline_notification.svelte";
   import { auth } from "~/shared/stores/auth";
 
@@ -44,6 +45,9 @@
   );
   const facebookAuthUrl = $derived(
     `/auth/facebook?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
+  );
+  const steamAuthUrl = $derived(
+    `/auth/steam?return_to=${encodeURIComponent($authState.prompt?.returnTo ?? page.url)}${providerIntent}`,
   );
   const hasAvailableProvider = $derived(
     Object.values(page.props.auth.providers).some(({ available }) => available),
@@ -230,6 +234,13 @@
               facebookIconSvg,
               page.props.auth.providers.facebook.available,
               facebookAuthUrl,
+            )}
+            {@render provider(
+              "Sign up",
+              "Steam",
+              steamIconSvg,
+              page.props.auth.providers.steam.available,
+              steamAuthUrl,
             )}
           </div>
           <!-- eslint-enable svelte/no-at-html-tags -->
@@ -435,6 +446,13 @@
               facebookIconSvg,
               page.props.auth.providers.facebook.available,
               facebookAuthUrl,
+            )}
+            {@render provider(
+              "Sign in",
+              "Steam",
+              steamIconSvg,
+              page.props.auth.providers.steam.available,
+              steamAuthUrl,
             )}
           </div>
           <!-- eslint-enable svelte/no-at-html-tags -->

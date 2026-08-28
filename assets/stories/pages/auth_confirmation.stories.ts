@@ -17,6 +17,7 @@ const meta = {
         discord: { available: true },
         facebook: { available: false },
         google: { available: true },
+        steam: { available: false },
       },
     },
     email: "player@example.com",

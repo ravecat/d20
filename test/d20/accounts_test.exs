@@ -928,6 +928,73 @@ defmodule D20.AccountsTest do
     end
   end
 
+  describe "Steam provider-only accounts" do
+    @steam_id "76561198012345678"
+
+    test "atomically creates a completed account without email" do
+      assert {:ok, %User{email: nil, username: "steam_player", confirmed_at: confirmed_at} = user} =
+               Accounts.register_user_with_identity(
+                 %{email: nil, username: "steam_player"},
+                 :steam,
+                 @steam_id
+               )
+
+      assert confirmed_at
+      assert Accounts.get_user_by_identity(:steam, @steam_id).id == user.id
+    end
+
+    test "rolls back the user when the SteamID is malformed or non-canonical" do
+      for steam_id <- ["not-a-steamid", "0", "01234", "18446744073709551616"] do
+        assert {:error, :identity, changeset} =
+                 Accounts.register_user_with_identity(
+                   %{email: nil, username: "steam_invalid"},
+                   :steam,
+                   steam_id
+                 )
+
+        assert "must be a canonical unsigned 64-bit SteamID" in errors_on(changeset).provider_uid
+      end
+
+      refute Repo.get_by(User, username: "steam_invalid")
+    end
+
+    test "allows only one complete pair when the same SteamID registers concurrently" do
+      results =
+        ["steam_race_one", "steam_race_two"]
+        |> Task.async_stream(
+          &Accounts.register_user_with_identity(%{email: nil, username: &1}, :steam, @steam_id),
+          max_concurrency: 2,
+          ordered: false
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.count(results, &match?({:ok, %User{}}, &1)) == 1
+      assert Enum.count(results, &match?({:error, :identity, %Ecto.Changeset{}}, &1)) == 1
+      assert Repo.aggregate(User, :count) == 1
+      assert Repo.aggregate(UserIdentity, :count) == 1
+    end
+  end
+
+  describe "Steam authentication migration schema" do
+    test "defines only the canonical SteamID database constraint" do
+      assert [[definition]] =
+               Ecto.Adapters.SQL.query!(
+                 D20.Repo,
+                 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = $1",
+                 ["user_identities_steam_uid_check"]
+               ).rows
+
+      assert to_string(definition) =~ "provider_uid"
+      assert to_string(definition) =~ "18446744073709551615"
+
+      assert [[nil]] =
+               Ecto.Adapters.SQL.query!(
+                 D20.Repo,
+                 "SELECT to_regclass('public.openid_response_nonces')"
+               ).rows
+    end
+  end
+
   defp use_mailer_adapter(adapter, config \\ []) do
     previous_config = Application.fetch_env!(:d20, D20.Mailer)
 

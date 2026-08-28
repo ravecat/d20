@@ -1,10 +1,10 @@
 defmodule D20.RuntimeConfigTest do
   use ExUnit.Case, async: false
 
-  @facebook_env ~w(FACEBOOK_OAUTH_CLIENT_ID FACEBOOK_OAUTH_CLIENT_SECRET)
+  @provider_env ~w(FACEBOOK_OAUTH_CLIENT_ID FACEBOOK_OAUTH_CLIENT_SECRET STEAM_API_KEY)
 
   setup do
-    previous_env = Map.new(@facebook_env, &{&1, System.get_env(&1)})
+    previous_env = Map.new(@provider_env, &{&1, System.get_env(&1)})
 
     on_exit(fn -> restore_env(previous_env) end)
   end
@@ -26,12 +26,33 @@ defmodule D20.RuntimeConfigTest do
     assert facebook_config() == [client_id: nil, client_secret: nil]
   end
 
-  defp facebook_config do
-    runtime_config = Config.Reader.read!("config/runtime.exs", env: :test, target: :host)
+  test "normalizes the community Steam adapter API key" do
+    System.put_env("STEAM_API_KEY", "steam-api-key")
+    assert steam_config() == [api_key: "steam-api-key"]
 
-    runtime_config
+    for value <- ["", "   "] do
+      System.put_env("STEAM_API_KEY", value)
+      assert steam_config() == [api_key: nil]
+    end
+
+    System.delete_env("STEAM_API_KEY")
+    assert steam_config() == [api_key: nil]
+  end
+
+  defp facebook_config do
+    runtime_config()
     |> Keyword.fetch!(:ueberauth)
     |> Keyword.fetch!(Ueberauth.Strategy.Facebook.OAuth)
+  end
+
+  defp steam_config do
+    runtime_config()
+    |> Keyword.fetch!(:ueberauth)
+    |> Keyword.fetch!(Ueberauth.Strategy.Steam)
+  end
+
+  defp runtime_config do
+    Config.Reader.read!("config/runtime.exs", env: :test, target: :host)
   end
 
   defp restore_env(previous_env) do

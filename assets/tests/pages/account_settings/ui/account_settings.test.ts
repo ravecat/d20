@@ -13,6 +13,7 @@ const auth = {
     discord: { available: true },
     facebook: { available: false },
     google: { available: true },
+    steam: { available: false },
   },
 };
 
@@ -44,6 +45,13 @@ const providers = [
     id: "facebook",
     linked: false,
     name: "Facebook",
+  },
+  {
+    available: true,
+    href: "/users/settings/auth/steam",
+    id: "steam",
+    linked: false,
+    name: "Steam",
   },
 ] satisfies ComponentProps<typeof AccountSettingsPage>["providers"];
 
@@ -283,6 +291,45 @@ describe("account settings page", () => {
     expect(screen.queryByText("Discord")).toBeNull();
     expect(screen.queryByText("Unavailable")).toBeNull();
     expect(screen.queryByRole("link", { name: "Link Discord" })).toBeNull();
+  });
+
+  it("reports Steam linking states and uses a normal full-document anchor", () => {
+    const { unmount } = render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      providers,
+      username: "table_master",
+    });
+
+    const link = screen.getByRole("link", { name: "Link Steam" });
+    expect(link.getAttribute("href")).toBe("/users/settings/auth/steam");
+
+    unmount();
+    render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      providers: providers.map((provider) =>
+        provider.id === "steam" ? { ...provider, linked: true } : provider,
+      ),
+      username: "table_master",
+    });
+
+    expect(screen.queryByRole("link", { name: "Link Steam" })).toBeNull();
+  });
+
+  it("omits Steam while the provider is unavailable", () => {
+    render(AccountSettingsPage, {
+      auth,
+      email: "player@example.com",
+      providers: providers.map((provider) =>
+        provider.id === "steam" ? { ...provider, available: false, linked: true } : provider,
+      ),
+      username: "table_master",
+    });
+
+    expect(screen.queryByText("Steam")).toBeNull();
+    expect(screen.queryByText("Unavailable")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Link Steam" })).toBeNull();
   });
 
   it("omits Sign-in methods when every provider is unavailable", () => {

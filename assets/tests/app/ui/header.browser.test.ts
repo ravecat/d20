@@ -22,6 +22,7 @@ beforeEach(async () => {
           discord: { available: true },
           facebook: { available: false },
           google: { available: true },
+          steam: { available: false },
         },
       },
       errors: {},
@@ -260,6 +261,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -407,6 +409,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: true },
             google: { available: true },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -454,6 +457,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: false },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -482,6 +486,7 @@ describe("app header account dialog", () => {
             discord: { available: false },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -511,6 +516,7 @@ describe("app header account dialog", () => {
             discord: { available: false },
             facebook: { available: false },
             google: { available: false },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -541,6 +547,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -613,6 +620,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
         },
         errors: {},
@@ -647,6 +655,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
           prompt: {
             email: null,
@@ -699,6 +708,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
           prompt: {
             email: "player@example.com",
@@ -745,6 +755,7 @@ describe("app header account dialog", () => {
             discord: { available: true },
             facebook: { available: true },
             google: { available: true },
+            steam: { available: false },
           },
           prompt: {
             email: null,
@@ -788,6 +799,41 @@ describe("app header account dialog", () => {
     await openLoginMode();
 
     await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
+  });
+
+  it("shows Steam as a full-document link only when enabled", async () => {
+    inertiaMock.setPage({
+      url: "/games/qwinto?session=table-1",
+      props: {
+        auth: {
+          authenticated: false,
+          local: false,
+          prompt: null,
+          providers: {
+            apple: { available: false },
+            discord: { available: false },
+            facebook: { available: false },
+            google: { available: false },
+            steam: { available: true },
+          },
+        },
+        errors: {},
+      },
+    });
+    renderHeader();
+    await openRegistrationMode();
+
+    await expect.element(page.getByRole("link", { name: "Sign up with Steam" })).toBeVisible();
+    expect(
+      page.getByRole("link", { name: "Sign up with Steam" }).element().getAttribute("href"),
+    ).toBe("/auth/steam?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
+
+    await switchToLoginMode();
+
+    await expect.element(page.getByRole("link", { name: "Sign in with Steam" })).toBeVisible();
+    expect(
+      page.getByRole("link", { name: "Sign in with Steam" }).element().getAttribute("href"),
+    ).toBe("/auth/steam?return_to=%2Fgames%2Fqwinto%3Fsession%3Dtable-1");
   });
 });
 

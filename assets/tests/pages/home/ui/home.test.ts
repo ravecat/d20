@@ -16,6 +16,7 @@ const auth = {
     discord: { available: true },
     facebook: { available: false },
     google: { available: true },
+    steam: { available: false },
   },
 };
 

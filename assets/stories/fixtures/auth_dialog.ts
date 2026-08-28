@@ -22,6 +22,7 @@ export function prepareAuthDialog({ mode, outcome, prompt }: AuthDialogState) {
           discord: { available: true },
           facebook: { available: true },
           google: { available: true },
+          steam: { available: true },
         },
       },
       errors: {},

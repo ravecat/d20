@@ -48,6 +48,9 @@ config :ueberauth, Ueberauth.Strategy.Apple,
   private_key_base64: System.get_env("APPLE_PRIVATE_KEY_BASE64"),
   callback_url: System.get_env("APPLE_CALLBACK_URL")
 
+config :ueberauth, Ueberauth.Strategy.Steam,
+  api_key: normalize_oauth_credential.(System.get_env("STEAM_API_KEY"))
+
 if config_env() == :prod do
   if is_nil(bgg_api_key) or String.trim(bgg_api_key) == "" do
     raise """

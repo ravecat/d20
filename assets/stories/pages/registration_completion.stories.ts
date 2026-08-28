@@ -17,6 +17,7 @@ const meta = {
         discord: { available: true },
         facebook: { available: true },
         google: { available: true },
+        steam: { available: true },
       },
     },
     email: "player@example.com",
@@ -59,6 +60,17 @@ export const FacebookProviderOnly: Story = {
     email: null,
     submission: {
       action: "/auth/facebook/register",
+      credential: { type: "server_session" },
+    },
+  },
+};
+
+export const SteamProviderOnly: Story = {
+  args: {
+    cancelAction: "/auth/steam/register/cancel",
+    email: null,
+    submission: {
+      action: "/auth/steam/register",
       credential: { type: "server_session" },
     },
   },

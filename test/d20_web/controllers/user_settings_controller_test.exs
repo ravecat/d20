@@ -14,6 +14,7 @@ defmodule D20Web.UserSettingsControllerTest do
     original_facebook_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth)
 
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
+    original_steam_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Steam)
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, [])
 
@@ -32,6 +33,8 @@ defmodule D20Web.UserSettingsControllerTest do
       client_secret: "google-test-client-secret"
     )
 
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Steam, api_key: nil)
+
     on_exit(fn ->
       restore_application_env(:ueberauth, Ueberauth.Strategy.Apple, original_apple_config)
 
@@ -48,6 +51,7 @@ defmodule D20Web.UserSettingsControllerTest do
       )
 
       restore_application_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, original_google_config)
+      restore_application_env(:ueberauth, Ueberauth.Strategy.Steam, original_steam_config)
     end)
   end
 
@@ -90,6 +94,13 @@ defmodule D20Web.UserSettingsControllerTest do
                  id: "facebook",
                  linked: false,
                  name: "Facebook"
+               },
+               %{
+                 available: false,
+                 href: ~p"/users/settings/auth/steam",
+                 id: "steam",
+                 linked: false,
+                 name: "Steam"
                }
              ]
 
@@ -97,6 +108,46 @@ defmodule D20Web.UserSettingsControllerTest do
       refute Map.has_key?(props, :discord)
       refute Map.has_key?(props, :facebook)
       refute Map.has_key?(props, :google)
+      refute Map.has_key?(props, :steam)
+    end
+
+    test "reports a linked Steam method", %{conn: conn, user: user} do
+      put_steam_strategy_configured(true)
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :steam, "76561198012345678")
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert Enum.find(inertia_props(conn).providers, &(&1.id == "steam")) == %{
+               available: true,
+               href: ~p"/users/settings/auth/steam",
+               id: "steam",
+               linked: true,
+               name: "Steam"
+             }
+    end
+
+    test "omits Steam when its strategy is unavailable", %{conn: conn} do
+      put_steam_strategy_configured(false)
+
+      conn = get(conn, ~p"/users/settings")
+
+      refute Enum.any?(inertia_props(conn).providers, &(&1.id == "steam" and &1.available))
+    end
+
+    test "preserves a linked Steam identity while the strategy is unavailable", %{
+      conn: conn,
+      user: user
+    } do
+      put_steam_strategy_configured(true)
+      assert {:ok, _identity} = Accounts.link_user_identity(user, :steam, "76561198012345678")
+      put_steam_strategy_configured(false)
+
+      conn = get(conn, ~p"/users/settings")
+
+      assert %{available: false, linked: true} =
+               Enum.find(inertia_props(conn).providers, &(&1.id == "steam"))
+
+      assert Accounts.get_user_by_identity(:steam, "76561198012345678").id == user.id
     end
 
     test "renders provider-only settings with null email and linked identity" do
@@ -470,6 +521,42 @@ defmodule D20Web.UserSettingsControllerTest do
 
     on_exit(fn ->
       restore_application_env(:ueberauth, Ueberauth.Strategy.Apple, previous_config)
+    end)
+  end
+
+  defp put_steam_strategy_configured(configured?) do
+    previous_config = Application.fetch_env!(:ueberauth, Ueberauth)
+    previous_steam = Application.get_env(:ueberauth, Ueberauth.Strategy.Steam)
+
+    providers =
+      previous_config
+      |> Keyword.fetch!(:providers)
+      |> then(fn providers ->
+        if configured? do
+          Keyword.put(
+            providers,
+            :steam,
+            {Ueberauth.Strategy.Steam,
+             [request_path: "/auth/steam", callback_path: "/auth/steam/callback"]}
+          )
+        else
+          Keyword.delete(providers, :steam)
+        end
+      end)
+
+    Application.put_env(
+      :ueberauth,
+      Ueberauth,
+      Keyword.put(previous_config, :providers, providers)
+    )
+
+    Application.put_env(:ueberauth, Ueberauth.Strategy.Steam,
+      api_key: if(configured?, do: "steam-api-key")
+    )
+
+    on_exit(fn ->
+      Application.put_env(:ueberauth, Ueberauth, previous_config)
+      restore_application_env(:ueberauth, Ueberauth.Strategy.Steam, previous_steam)
     end)
   end
 

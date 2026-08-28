@@ -21,6 +21,9 @@ declare module "@inertiajs/core" {
           readonly google: {
             readonly available: boolean;
           };
+          readonly steam: {
+            readonly available: boolean;
+          };
         };
         readonly prompt: {
           readonly email: string | null;

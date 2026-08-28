@@ -7,6 +7,7 @@ defmodule D20Web.UserSettingsController do
   alias D20Web.Auth.Discord
   alias D20Web.Auth.Facebook
   alias D20Web.Auth.Google
+  alias D20Web.Auth.Steam
 
   def edit(conn, _params) do
     user = conn.assigns.current_user
@@ -40,6 +41,13 @@ defmodule D20Web.UserSettingsController do
         id: "facebook",
         linked: MapSet.member?(linked_providers, :facebook),
         name: "Facebook"
+      },
+      %{
+        available: Steam.available?(),
+        href: ~p"/users/settings/auth/steam",
+        id: "steam",
+        linked: MapSet.member?(linked_providers, :steam),
+        name: "Steam"
       }
     ]
 

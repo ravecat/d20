@@ -5,12 +5,14 @@
   import discordIconSvg from "~/shared/icons/discord.svg?raw";
   import facebookIconSvg from "~/shared/icons/facebook.svg?raw";
   import googleIconSvg from "~/shared/icons/google.svg?raw";
+  import steamIconSvg from "~/shared/icons/steam.svg?raw";
 
   const providerIcons = {
     apple: appleIconSvg,
     discord: discordIconSvg,
     facebook: facebookIconSvg,
     google: googleIconSvg,
+    steam: steamIconSvg,
   } as const;
 
   type FormSlotProps = FormComponentSlotProps<Record<string, string>>;

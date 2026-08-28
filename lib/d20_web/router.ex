@@ -111,6 +111,8 @@ defmodule D20Web.Router do
     get "/auth/facebook/callback", Auth.FacebookController, :callback
     get "/auth/google", Auth.GoogleController, :request
     get "/auth/google/callback", Auth.GoogleController, :callback
+    get "/auth/steam", Auth.SteamController, :request
+    get "/auth/steam/callback", Auth.SteamController, :callback
   end
 
   scope "/", D20Web do
@@ -134,6 +136,9 @@ defmodule D20Web.Router do
     get "/auth/google/register", Auth.GoogleController, :registration
     post "/auth/google/register", Auth.GoogleController, :complete_registration
     post "/auth/google/register/cancel", Auth.GoogleController, :cancel_registration
+    get "/auth/steam/register", Auth.SteamController, :registration
+    post "/auth/steam/register", Auth.SteamController, :complete_registration
+    post "/auth/steam/register/cancel", Auth.SteamController, :cancel_registration
   end
 
   scope "/", D20Web do
@@ -157,6 +162,7 @@ defmodule D20Web.Router do
     get "/users/settings/auth/discord", Auth.DiscordController, :link
     get "/users/settings/auth/facebook", Auth.FacebookController, :link
     get "/users/settings/auth/google", Auth.GoogleController, :link
+    get "/users/settings/auth/steam", Auth.SteamController, :link
   end
 
   scope "/", D20Web do

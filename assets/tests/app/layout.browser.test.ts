@@ -46,6 +46,7 @@ beforeEach(async () => {
           discord: { available: true },
           facebook: { available: false },
           google: { available: true },
+          steam: { available: false },
         },
       },
       errors: {},
@@ -70,6 +71,7 @@ describe("app layout", () => {
             discord: { available: true },
             facebook: { available: false },
             google: { available: true },
+            steam: { available: false },
           },
           prompt: {
             email: null,

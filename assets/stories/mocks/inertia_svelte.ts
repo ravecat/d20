@@ -20,6 +20,7 @@ const defaultPage = (): StoryPage => ({
         discord: { available: false },
         facebook: { available: false },
         google: { available: false },
+        steam: { available: false },
       },
     },
     errors: {},

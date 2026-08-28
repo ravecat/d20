@@ -39,6 +39,7 @@ defmodule D20.MixProject do
       {:ueberauth_facebook, "~> 0.10.0"},
       {:ueberauth_google, "~> 0.12.1"},
       {:ueberauth_apple, "~> 0.7.0"},
+      {:ueberauth_steam_strategy, "~> 0.2.1"},
       {:phoenix_vite, "~> 0.4"},
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.5"},
