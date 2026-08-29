@@ -248,7 +248,7 @@
     background: var(--color-base-100);
     padding: 0.25rem 0.4rem;
     color: var(--color-base-content);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     line-height: 1;
     pointer-events: none;
     text-transform: uppercase;

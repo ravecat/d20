@@ -24,6 +24,9 @@ const config: StorybookConfig = {
           "@inertiajs/svelte": fileURLToPath(
             new URL("../stories/mocks/inertia_svelte.ts", import.meta.url),
           ),
+          "phoenix-session": fileURLToPath(
+            new URL("../stories/mocks/phoenix_session.ts", import.meta.url),
+          ),
         },
       },
     }),
