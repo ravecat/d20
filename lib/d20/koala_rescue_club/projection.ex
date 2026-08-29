@@ -147,6 +147,7 @@ defmodule D20.KoalaRescueClub.Projection do
 
     for row <- 0..max_row do
       for column <- 0..max_column do
+        # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case Map.get(by_coordinate, {row, column}) do
           nil -> nil
           cell -> render_cell(player_sheet, cell)

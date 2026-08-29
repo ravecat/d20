@@ -162,6 +162,8 @@ defmodule D20.Games do
   end
 
   defp log_metadata_fallback(scope, reason) do
+    # Production logger metadata is outside this tooling-only change.
+    # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
     Logger.warning("Failed to enrich game metadata; using local fallback",
       source: :board_game_geek,
       scope: scope,

@@ -8,7 +8,7 @@ D20's backend validation currently relies on formatting and tests, so success-ty
 - Add one Mix backend quality command that runs warnings-as-errors compilation, backend formatting checks, tests, Credo/ExSlop, Dialyzer, ExDNA, and Reach with D20-specific configuration.
 - Calibrate existing-code findings with explicit configuration or a reviewed baseline instead of blanket suppression or an unexplained zero-finding assumption.
 - Configure Reach to enforce that the `D20.*` domain boundary does not depend on `D20Web.*`, while retaining useful architecture, code-flow, and OTP analysis.
-- Compose the backend gate into `just check` without removing frontend formatting, linting, tests, or type checking and without repeating backend formatting or tests.
+- Compose the backend gate into `just check` without removing the OpenSpec lifecycle check, frontend formatting, linting, tests, type checking, or Storybook build and without repeating backend formatting or tests.
 - Document local use, first-run Dialyzer cost, finding review, and the handoff to release workflow task #113.
 - Keep the standalone Vibe agent, Vibe web UI, Phoenix Replay, Exograph, application supervision, and production dependencies outside this change.
 

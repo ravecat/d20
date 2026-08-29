@@ -5,7 +5,7 @@ defmodule D20.ReachPolicyTest do
   adapter's intentional web dependency stays allowed.
   """
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   @policy_path Path.expand("../../.reach.exs", __DIR__)
   @policy @policy_path |> Code.eval_file() |> elem(0)

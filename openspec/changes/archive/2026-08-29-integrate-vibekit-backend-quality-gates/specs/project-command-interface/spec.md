@@ -23,6 +23,6 @@ The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named c
 
 - **WHEN** a developer runs `just check`
 - **THEN** the workflow runs the complete backend `mix ci` gate exactly once
-- **AND** then checks frontend formatting, linting, tests, and types in that order
+- **AND** then checks OpenSpec lifecycle, frontend formatting, linting, tests, types, and the Storybook build in that order
 - **AND** backend formatting and backend tests are not run a second time outside `mix ci`
 - **AND** the workflow does not check generated agent-skill metadata

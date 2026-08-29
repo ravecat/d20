@@ -219,6 +219,7 @@ defmodule D20Web.Auth.Discord do
     })
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp validate_intent(%{"action" => action, "issued_at" => issued_at} = intent)
        when action in ["authenticate", "link", "reauthenticate"] and is_integer(issued_at) do
     age = System.system_time(:second) - issued_at

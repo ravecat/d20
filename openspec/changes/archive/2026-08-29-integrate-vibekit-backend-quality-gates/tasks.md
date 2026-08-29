@@ -15,7 +15,7 @@
 ## 3. Compose Repository Gates
 
 - [x] 3.1 Add the ordered `mix ci` alias for warnings-as-errors compilation, formatting, tests, Credo/ExSlop, Dialyzer, budgeted ExDNA, and Reach, then verify it resolves to `MIX_ENV=test` and uses the existing database-aware test alias.
-- [x] 3.2 Update `just check` to run `mix ci` exactly once followed by frontend format, lint, test, and type checks, removing the separate duplicate backend format and test commands.
+- [x] 3.2 Update `just check` to run `mix ci` exactly once followed by the OpenSpec lifecycle check, frontend format, lint, test, and type checks, and the Storybook build, removing the separate duplicate backend format and test commands.
 - [x] 3.3 Verify production dependency and application metadata exclude VibeKit, Vibe, Credo, Dialyxir, ExDNA, ExSlop, and Reach and that the production application child set is unchanged.
 
 ## 4. Document the Workflow
@@ -28,4 +28,4 @@
 - [x] 5.1 Format the touched Elixir and configuration files and run Credo/ExSlop, Dialyzer, ExDNA, and Reach independently so each analyzer's result is attributable.
 - [x] 5.2 Run `mix ci`, production dependency isolation checks, and `openspec validate --all --strict --no-interactive`.
 - [x] 5.3 Confirm public APIs, Phoenix channel contracts, persistence, runtime supervision, game behavior, iframe contracts, and frontend checks remain unchanged; record any remaining tool limitation or follow-up in issue #179.
-- [ ] 5.4 Complete review, run the final cross-stack gate with the separately tracked Workspace fix from #254, then sync and archive the OpenSpec change.
+- [x] 5.4 Complete review, run the final cross-stack gate with the separately tracked Workspace fix from #254, then sync and archive the OpenSpec change.

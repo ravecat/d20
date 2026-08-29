@@ -206,8 +206,8 @@ mix reach.check --arch --smells
 
 Analyzer policy is reviewable project configuration, not blanket suppression:
 
-- `.credo.exs` keeps strict Credo with ExSlop's recommended checks. Two narrow disables are documented inline; nesting and cyclomatic-complexity findings stay enabled and advisory because they live in validated game-rule control flow (follow-up tracked in issue #179).
-- `.dialyzer_ignore.exs` holds exactly one documented opacity false positive (`Ecto.Multi.insert/3` pipelines). The first `mix dialyzer` run builds the PLT and takes several minutes; later runs reuse it.
+- `.credo.exs` keeps strict Credo with ExSlop's recommended checks. Existing nesting and cyclomatic-complexity findings in validated control flow have exact inline suppressions; the checks remain blocking everywhere else, and cleanup is tracked in issue #179.
+- `.dialyzer_ignore.exs` holds one exact file and warning-description filter for the documented `Ecto.Multi.insert/3` opacity false positive. The first `mix dialyzer` run builds the PLT and takes several minutes; later runs reuse it.
 - `.ex_dna.exs` plus the `--max-clones 14` budget record the reviewed baseline for the deliberately mirrored provider flows and independent game namespaces. New duplication fails the gate; lower the budget whenever accepted cleanup removes clones, and never raise it to admit new duplication.
 - `.reach.exs` forbids dependencies from pure `D20.*` domain modules on `D20Web.*`. `D20.Application` and `D20.Sessions.Server` are classified runtime adapters that intentionally publish through web-owned processes; heuristic smell findings are advisory.
 

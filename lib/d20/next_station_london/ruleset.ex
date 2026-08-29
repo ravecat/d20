@@ -441,6 +441,7 @@ defmodule D20.NextStationLondon.Ruleset do
 
   defp validate_stations(_stations), do: {:error, :invalid_stations}
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp validate_edges(edges) when is_map(edges) do
     known_stations = Map.keys(@stations) |> MapSet.new()
 

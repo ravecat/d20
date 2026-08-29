@@ -266,6 +266,7 @@ defmodule D20.Sessions.Server do
       with {:ok, online_session} <- Session.online(session, actor_id, attrs) do
         command = %Command{event: "join", actor_id: actor_id, attrs: attrs}
 
+        # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case Session.dispatch(online_session, engine, command) do
           {:ok, admitted_session} -> {:ok, admitted_session}
           {:error, _reason} -> {:ok, online_session}

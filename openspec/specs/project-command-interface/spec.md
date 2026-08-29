@@ -141,7 +141,9 @@ The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named c
 #### Scenario: Validation workflow runs
 
 - **WHEN** a developer runs `just check`
-- **THEN** the workflow checks formatting, OpenSpec lifecycle, asset formatting, asset linting, asset tests, frontend types, Storybook, and backend tests in the existing order
+- **THEN** the workflow runs the complete backend `mix ci` gate exactly once
+- **AND** then checks OpenSpec lifecycle, frontend formatting, linting, tests, types, and the Storybook build in that order
+- **AND** backend formatting and backend tests are not run a second time outside `mix ci`
 - **AND** the workflow does not check generated agent-skill metadata
 
 ### Requirement: Default command discovery remains available

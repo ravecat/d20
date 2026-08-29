@@ -332,6 +332,7 @@ defmodule D20.KoalaRescueClub.Game do
              not Rules.badge_satisfied?(map, player.sheet, badge) do
           player
         else
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
           award = if game.round == 1, do: :large, else: :small
           put_badge(player, badge_id, award)
         end
@@ -355,6 +356,7 @@ defmodule D20.KoalaRescueClub.Game do
         if first_achievers == [] do
           game
         else
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
           update_players(game, first_achievers, fn player ->
             put_badge(player, badge_id, :large)
           end)

@@ -45,6 +45,7 @@ defmodule D20.Accounts.UserIdentity do
   defp validate_steam_id(changeset) do
     if get_field(changeset, :provider) == :steam do
       validate_change(changeset, :provider_uid, fn :provider_uid, value ->
+        # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         with true <- Regex.match?(~r/\A[1-9][0-9]{0,19}\z/, value),
              {steam_id, ""} <- Integer.parse(value),
              true <- steam_id <= @max_steam_id do

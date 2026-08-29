@@ -441,6 +441,7 @@ defmodule D20.NextStationLondon.Rules do
   defp valid_power_setup?(_game, nil), do: true
   defp valid_power_setup?(_game, _powers), do: false
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp validate_power(game, player, color, event, attrs) do
     power = attrs.power
     line = Map.fetch!(player.lines, color)
@@ -688,6 +689,7 @@ defmodule D20.NextStationLondon.Rules do
     end
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp segments_intersect?(left, right) do
     a = Ruleset.station!(left.from)
     b = Ruleset.station!(left.to)

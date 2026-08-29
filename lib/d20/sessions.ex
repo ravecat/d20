@@ -49,6 +49,7 @@ defmodule D20.Sessions do
     |> Enum.flat_map(fn {pid, id} ->
       case state(pid) do
         {:ok, {%Session{id: ^id} = session, game_id}} ->
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
           if Map.has_key?(session.members, actor_id), do: [{pid, {session, game_id}}], else: []
 
         {:error, _reason} ->

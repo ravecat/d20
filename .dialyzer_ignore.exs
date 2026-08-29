@@ -1,6 +1,6 @@
 # Dialyzer warning filters.
 #
-# Entries must stay narrow: one exact file, warning type, and line. Do not add
+# Entries must stay narrow: one exact file and warning description. Do not add
 # blanket regexes or whole-file entries; the backend quality gate must keep
 # unrelated findings enabled.
 
@@ -8,4 +8,4 @@
 # known opacity-analysis false positive: the opaque `Ecto.Multi.t()` returned
 # by `new/0` is structurally expanded before `insert/3`'s opaque first
 # parameter is checked. The pipeline usage is correct Ecto API usage.
-[{"lib/d20/accounts.ex", :call_without_opaque}]
+[{"lib/d20/accounts.ex", "Type mismatch in call without opaque term in insert."}]

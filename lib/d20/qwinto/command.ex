@@ -30,6 +30,7 @@ defmodule D20.Qwinto.Command do
            max: Enum.max(@dice_count_range)
          )
          |> validate_change(:colors, fn :colors, colors ->
+           # credo:disable-for-next-line Credo.Check.Refactor.Nesting
            if Enum.uniq(colors) == colors, do: [], else: [colors: "has duplicate colors"]
          end)
          |> apply_action(:roll) do

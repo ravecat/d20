@@ -120,6 +120,7 @@ defmodule D20.KoalaRescueClub.Rules do
       Map.new(1..6, fn value ->
         {:ok, volunteer_cost} = Ruleset.volunteers_needed(game.roll.value, value)
 
+        # credo:disable-for-lines:2 Credo.Check.Refactor.Nesting
         marks =
           if volunteer_cost <= available_volunteers do
             turn_marks(rulesheet, player.sheet)
@@ -329,6 +330,7 @@ defmodule D20.KoalaRescueClub.Rules do
       sheet
       |> Ruleset.accessible_areas()
       |> Enum.flat_map(fn area ->
+        # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case Ruleset.shape_placements(rulesheet, area, die_value) do
           {:ok, placements} -> placements
           {:error, :invalid_die_value} -> []

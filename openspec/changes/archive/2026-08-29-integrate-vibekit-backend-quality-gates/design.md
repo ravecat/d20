@@ -44,7 +44,7 @@ The generated `mix ci` alias will run, in order:
 6. ExDNA with the reviewed project clone budget;
 7. Reach architecture and smell analysis.
 
-`def cli/0` will select `MIX_ENV=test` for `ci`, preserving access to ExUnit and the existing database-setup test alias. `just check` will invoke `mix ci` once, followed by the existing frontend formatting, linting, tests, and type checking in that order. This replaces the current interleaving of backend formatting and tests, but retains every check and avoids running either backend stage twice.
+`def cli/0` will select `MIX_ENV=test` for `ci`, preserving access to ExUnit and the existing database-setup test alias. `just check` will invoke `mix ci` once, followed by the existing OpenSpec lifecycle check, frontend formatting, linting, tests, type checking, and Storybook build in that order. This replaces the current interleaving of backend formatting and tests, but retains every check and avoids running either backend stage twice.
 
 Keeping separate ad hoc analyzer commands in `just check` was rejected because it would create two backend gate definitions. Replacing `just check` with `mix ci` was rejected because the Mix alias does not cover Svelte and TypeScript.
 
@@ -82,7 +82,7 @@ Credo, Dialyxir, ExDNA, ExSlop, and Reach are declared only for `[:dev, :test]` 
 2. Run Credo/ExSlop, Dialyzer, ExDNA, and Reach independently to characterize current findings.
 3. Fix in-scope findings and add only narrow, justified configuration or the measured ExDNA clone budget.
 4. Define `mix ci`, its preferred test environment, and the explicit Reach domain/web policy.
-5. Replace the separate backend format and test steps in `just check` with one `mix ci` invocation while retaining all frontend steps.
+5. Replace the separate backend format and test steps in `just check` with one `mix ci` invocation while retaining the OpenSpec lifecycle check and all frontend and Storybook steps.
 6. Document local use and validation, then run focused tool checks, `just check`, and strict OpenSpec validation.
 7. Hand the stable command to issue #113 for release-workflow gating and caching.
 

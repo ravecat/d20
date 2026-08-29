@@ -321,6 +321,7 @@ defmodule D20.KoalaRescueClub.Ruleset do
       if Enum.all?(translated, &MapSet.member?(coordinates, &1)) do
         placement =
           translated
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
           |> Enum.map(fn {column, row} -> %{area: area, row: row, column: column} end)
           |> Enum.sort_by(&{&1.row, &1.column})
 
