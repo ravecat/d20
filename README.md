@@ -76,9 +76,13 @@ Manual setup:
 just serve
 ```
 
-`just serve` checks EPMD for the requested Erlang short node name, `d20` by default. When that exact node is already registered, the command touches the active environment configuration so its existing Watchexec owner restarts IEx/Phoenix without starting a duplicate node. Otherwise it runs full setup once before starting the watcher: dependency resolution, database creation and migration, seeds, asset installation, and asset build. Every initial or replacement watcher child then runs `mix serve`, which starts Phoenix without repeating setup.
+`just serve` runs full setup first, force-stops the local BEAM process with the exact requested short node name, and starts a fresh watched IEx/Phoenix process in the current terminal. The default name is `d20`; pass `--sname <name>` to replace an explicit short name independently. Partial and different names remain untouched.
 
-Changes under `envs/` or `config/` restart Phoenix. Changes to `mix.exs`, `mix.lock`, or `priv/repo/migrations/` do not install dependencies, restart the runtime, or execute migrations automatically. Run `mix deps.get` after changing Elixir dependencies or `mix ecto.migrate` for pending migrations, then invoke `just serve` to restart the existing watcher when needed. Neither command resets, drops, or rolls development data back. After changing frontend dependencies, stop the active watcher and run `just serve` again so full setup installs them before Phoenix starts.
+Setup completes before takeover, so a setup failure leaves an existing runtime running. Takeover uses `pkill` from procps on Linux and the system utility on macOS, then sends `SIGKILL`, which deliberately skips orderly OTP shutdown. This behavior is only for the disposable local development server.
+
+Watchexec instances started by this workflow exit when a later invocation takes over their node. After updating from the earlier touch-to-restart workflow, stop its existing terminal once before using repeated takeover; that older Watchexec instance does not have the required exit behavior.
+
+Changes under `envs/` or `config/`, and changes to `mix.exs` or `mix.lock`, restart Phoenix inside the current Watchexec owner without repeating setup. Dependency installation and migrations are not run automatically during a watched restart. Run `mix deps.get` after changing Elixir dependencies or `mix ecto.migrate` for pending migrations. Changes under `priv/repo/migrations/` do not restart the runtime or execute migrations automatically. Neither command resets, drops, or rolls development data back.
 
 In development, Phoenix starts the Vite watcher. The asset dev server uses `STATIC_PORT` or defaults to `5174`.
 D20 automatically uses the first private IPv4 address for development asset URLs, so the application can also be opened from another device on the same network. Set `STATIC_URL_HOST` to override the detected address.
@@ -119,7 +123,7 @@ Use this workflow when you want the D20 shell and one or more local iframe modul
 just up
 ```
 
-`just up` starts the shared Traefik container through detached Docker Compose and then invokes the public `serve` workflow. If the requested node is absent, the watched Phoenix workflow remains in the foreground and retains normal interactive IEx shutdown behavior: press Ctrl+C to open the BREAK menu, then select `a` to abort the workflow. Watchexec and its IEx, Phoenix, Vite, and filesystem-watcher children exit with the foreground command. If the node is already registered, `serve` triggers its existing Watchexec owner and returns instead of starting a duplicate. `up` does not start Concurrently or Storybook. Detached Compose services remain running until `docker compose down` is called.
+`just up` starts the shared Traefik container through detached Docker Compose and then invokes the public `serve` workflow. Whether the requested node is absent or already running, the fresh watched Phoenix workflow remains in the current terminal. A repeated invocation force-stops only the BEAM process carrying the exact requested short name. Press Ctrl+C to open the IEx BREAK menu, then select `a` to abort the workflow. Watchexec and its IEx, Phoenix, Vite, and filesystem-watcher children exit with the foreground command. `up` does not start Concurrently or Storybook. Detached Compose services remain running until `docker compose down` is called.
 
 Each local module project should start its own Compose service and join the shared external `d20` Docker network. D20 derives iframe hosts from module slugs and the shell request host: when D20 is opened at `localhost:5000`, a module with slug `<module-slug>` resolves to `http://<module-slug>.localhost`.
 
@@ -169,7 +173,7 @@ The project exposes four composite `just` workflows, a standalone Storybook entr
 | `just`                           | List available project workflows and dispatchers.                          |
 | `just up`                        | Start Compose routing and the watched Phoenix server.                     |
 | `just format`                    | Format Elixir and frontend assets.                                         |
-| `just serve`                     | Restart the exact registered node through its watcher, or set up and start it. |
+| `just serve`                     | Set up, replace the exact requested local node, and own it in this terminal. |
 | `just storybook [args...]`       | Start Storybook independently and forward its CLI arguments.                |
 | `just check`                     | Run formatting, asset, type, and test checks.                              |
 | `just mix <task> [args...]`      | Run a Mix task at the project level from the repository root.              |

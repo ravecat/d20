@@ -79,33 +79,42 @@ The root `justfile` MUST NOT define the former `setup`, `start`, `down`, `test`,
 
 ### Requirement: Composite workflows retain their behavior
 
-The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named composite workflows, and each workflow MUST preserve its specified action order and command semantics without depending on a removed recipe.
+The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named composite workflows, and each workflow MUST preserve its specified action order and command semantics without depending on a removed public recipe or a repository process-management script.
 
-#### Scenario: Development server workflow runs
+#### Scenario: Development server workflow starts an absent node
 
-- **WHEN** a developer runs `just serve` with optional node name and Erlang distribution arguments and the exact requested node name is not registered with EPMD
-- **THEN** the workflow delegates to the private `start` helper
-- **AND** runs `mix setup` before starting Watchexec and IEx with the Phoenix `serve` Mix alias and the supplied or existing default values
-- **AND** it does not start Storybook
+- **WHEN** a developer runs `just serve` and no BEAM carries the requested `-sname`
+- **THEN** the workflow runs `mix setup` before starting Watchexec and IEx with the supplied or default values
+- **AND** remains attached to the interactive application workflow
+- **AND** does not start Storybook
 
-#### Scenario: Dependency or migration inputs change
+#### Scenario: Existing default server is requested again
 
-- **WHEN** a developer changes `mix.exs`, `mix.lock`, or a file under `priv/repo/migrations/`
-- **THEN** the watcher does not run dependency installation, full setup, or migrations automatically
-- **AND** the developer runs `mix deps.get` or `mix ecto.migrate` explicitly as applicable
-- **AND** can invoke `just serve` to restart the existing watched runtime afterward
+- **WHEN** a developer runs `just serve` and a BEAM carries `-sname d20`
+- **THEN** the workflow runs setup before force-stopping that BEAM
+- **AND** starts a new watched `d20` runtime in the invoking terminal
 
-#### Scenario: Existing watched server is requested again
+#### Scenario: Existing explicit server is requested again
 
-- **WHEN** a developer runs `just serve` and EPMD reports the exact requested short node name
-- **THEN** the workflow touches the active environment configuration file so the existing Watchexec owner restarts IEx/Phoenix
-- **AND** it does not run setup or attempt to start a duplicate node
-- **AND** it does not force-stop or unregister the existing node
+- **WHEN** a developer runs `just serve --sname d20_custom`
+- **THEN** the workflow replaces only the BEAM carrying `-sname d20_custom`
+- **AND** starts the new watched runtime in the invoking terminal with supplied Erlang arguments preserved
 
-#### Scenario: A partial or different node name is registered
+#### Scenario: Existing direct server is requested again
 
-- **WHEN** EPMD reports node names that do not exactly equal the requested short node name
-- **THEN** `just serve` follows the initial-start path for the requested name
+- **WHEN** the requested `-sname` belongs to a directly started local BEAM without Watchexec
+- **THEN** `serve` force-stops that BEAM without requiring its cookie or original terminal
+
+#### Scenario: Mix dependency manifest changes
+
+- **WHEN** `mix.exs` or `mix.lock` changes while the watched runtime is active
+- **THEN** Watchexec replaces its IEx/Phoenix child
+- **AND** does not run dependency installation, full setup, or migrations automatically
+
+#### Scenario: A partial or different node name is running
+
+- **WHEN** a BEAM carries `-sname d20_test` and the developer requests `d20`
+- **THEN** `d20_test` remains running
 
 #### Scenario: Routed development workflow runs
 
@@ -115,13 +124,14 @@ The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named c
 
 #### Scenario: Routed development workflow starts a missing node
 
-- **WHEN** `just up` invokes `serve` and the requested node is not registered
-- **THEN** the workflow remains attached to the interactive application workflow
+- **WHEN** `just up` invokes `serve` and no BEAM carries the requested `-sname`
+- **THEN** the workflow remains attached to the new interactive application workflow
 
-#### Scenario: Routed development workflow reuses an existing node
+#### Scenario: Routed development workflow replaces an existing node
 
-- **WHEN** `just up` invokes `serve` and the exact requested node is registered
-- **THEN** the workflow triggers its Watchexec restart and returns without starting a duplicate foreground process
+- **WHEN** `just up` invokes `serve` and a BEAM carries the requested `-sname`
+- **THEN** the workflow uses the same exact short-name takeover as direct `serve`
+- **AND** remains attached to the replacement in the invoking terminal
 
 #### Scenario: Formatting workflow runs
 
@@ -131,7 +141,7 @@ The root `justfile` SHALL retain `serve`, `up`, `format`, and `check` as named c
 #### Scenario: Validation workflow runs
 
 - **WHEN** a developer runs `just check`
-- **THEN** the workflow checks formatting, asset linting, asset tests, frontend types, Storybook, and backend tests in the existing order
+- **THEN** the workflow checks formatting, OpenSpec lifecycle, asset formatting, asset linting, asset tests, frontend types, Storybook, and backend tests in the existing order
 - **AND** the workflow does not check generated agent-skill metadata
 
 ### Requirement: Default command discovery remains available

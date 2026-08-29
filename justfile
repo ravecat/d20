@@ -16,17 +16,23 @@ assets +args:
 [arg("sname", long="sname")]
 [no-exit-message]
 serve sname="d20" erl="-proto_dist inet6_tcp":
-    if epmd -names | awk -v requested_name="{{ sname }}" '$1 == "name" && $2 == requested_name { found = 1 } END { exit !found }'; then touch "config/${MIX_ENV:-dev}.exs"; else exec just start --sname "{{ sname }}" --erl "{{ erl }}"; fi
-
-[arg("erl", long="erl")]
-[arg("sname", long="sname")]
-[no-exit-message]
-[private]
-start sname="d20" erl="-proto_dist inet6_tcp":
     mix setup
-    exec watchexec --restart --shell=none --wrap-process=none --ignore-nothing \
-        --watch envs --watch config -- \
-        direnv exec . iex --sname "{{ sname }}" --erl "{{ erl }}" -S mix serve
+    @pkill -9 -f "[b]eam.smp.* -sname {{ sname }} " || true
+    exec watchexec \
+        --exit-on-error \
+        --restart \
+        --watch envs \
+        --watch config \
+        --watch mix.exs \
+        --watch mix.lock \
+        --no-vcs-ignore \
+        --shell=none \
+        --wrap-process=none \
+        -- \
+        direnv exec . iex \
+            --sname "{{ sname }}" \
+            --erl "{{ erl }}" \
+            -S mix serve
 
 [no-exit-message]
 [positional-arguments]

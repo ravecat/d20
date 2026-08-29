@@ -5,29 +5,34 @@ TBD - created by archiving change restart-dev-server-on-config-change. Update Pu
 ## Requirements
 ### Requirement: Reproducible watcher tooling
 
-The project development shell SHALL provide the environment loader and file watcher required by the automatic development restart workflow.
+The project development shell SHALL provide the environment loader, file watcher, and process matcher required by the automatic development restart and repeated-start takeover workflows.
 
 #### Scenario: Developer enters the Nix environment
 
 - **WHEN** a developer enters the repository development shell
-- **THEN** both `direnv` and `watchexec` are available without an additional global installation
+- **THEN** `direnv`, `watchexec`, and `pkill` are available without an additional global installation
 
 ### Requirement: Initial development startup order
 
-The `just serve` workflow SHALL complete full project setup in a separate process before starting the watcher. After setup succeeds, the watcher SHALL launch the existing `serve` Mix alias for every initial or replacement interactive IEx/Phoenix child.
+The `just serve` workflow SHALL complete full project setup before force-stopping a BEAM with the requested short node name and launching the existing `serve` Mix alias through Watchexec.
 
-#### Scenario: Developer starts the server
+#### Scenario: Developer starts an absent server
 
-- **WHEN** a developer runs `just serve`
-- **THEN** full setup completes before the watcher starts
-- **AND** the watcher launches an interactive child through `mix serve`
-- **AND** the child starts a listening Phoenix endpoint
+- **WHEN** a developer runs `just serve` and no BEAM carries the requested `-sname`
+- **THEN** full setup completes before Watchexec starts
+- **AND** Watchexec launches an interactive child through `mix serve`
+
+#### Scenario: Developer replaces an existing server
+
+- **WHEN** a developer runs `just serve` and a BEAM carries the requested `-sname`
+- **THEN** full setup completes before that BEAM is force-stopped
+- **AND** a fresh watcher starts afterward
 
 #### Scenario: Watched input changes after startup
 
 - **WHEN** a supported environment or configuration input changes while the server is running
-- **THEN** the workflow replaces the interactive child through `mix serve`
-- **AND** full setup does not run again for that replacement
+- **THEN** the owning watcher replaces its interactive child through `mix serve`
+- **AND** full setup does not run again for that configuration-driven replacement
 
 ### Requirement: Development server aliases start Phoenix without setup
 
@@ -47,17 +52,23 @@ The `serve` Mix alias SHALL delegate directly to `phx.server`, and the backward-
 
 ### Requirement: Initial setup remains deliberate and failure-gated
 
-The `just serve` workflow SHALL run the complete `setup` alias once before starting the watcher. A setup failure MUST prevent the watcher and Phoenix child from starting. Watched replacements MUST NOT apply pending migrations or repeat dependency, seed, or asset preparation.
+The `just serve` workflow SHALL run the complete `setup` alias once before exact-node takeover and watcher startup. A setup failure MUST leave an existing node and watcher untouched and MUST prevent a replacement from starting. Watched replacements MUST NOT apply pending migrations or repeat dependency, seed, or asset preparation.
 
 #### Scenario: Initial setup succeeds
 
 - **WHEN** a developer runs `just serve` with a valid development environment
-- **THEN** dependency resolution, database setup, seeds, asset setup, and asset build complete before the watcher starts
+- **THEN** dependency resolution, database setup, seeds, asset setup, and asset build complete before takeover and watcher startup
 
-#### Scenario: Initial setup fails
+#### Scenario: Initial setup fails without an existing runtime
 
-- **WHEN** `mix setup` exits unsuccessfully during `just serve`
+- **WHEN** `mix setup` exits unsuccessfully during `just serve` and the requested node is absent
 - **THEN** the watcher and Phoenix child do not start
+
+#### Scenario: Initial setup fails with an existing runtime
+
+- **WHEN** `mix setup` exits unsuccessfully and the exact requested node is already running
+- **THEN** the workflow does not request shutdown of that node
+- **AND** does not start a replacement watcher
 
 #### Scenario: Migration file changes without another watched event
 
@@ -110,8 +121,29 @@ The `serve` workflow SHALL replace the running development process when any file
 
 #### Scenario: Path outside configuration directories changes
 
-- **WHEN** a path outside `envs/` and `config/` changes without another watched event
+- **WHEN** a path outside `envs/`, `config/`, `mix.exs`, and `mix.lock` changes without another watched event
 - **THEN** that change does not cause this watcher to replace the development process
+
+### Requirement: Mix dependency manifests trigger watched replacement
+
+The `serve` workflow SHALL observe `mix.exs` and `mix.lock` alongside the existing environment and configuration watch roots. A manifest change SHALL replace the watched IEx/Phoenix child without running full setup, dependency installation, or migrations automatically.
+
+#### Scenario: Mix project manifest changes
+
+- **WHEN** `mix.exs` changes while the development server is running
+- **THEN** Watchexec replaces the running IEx/Phoenix child
+- **AND** does not repeat full setup or dependency installation
+
+#### Scenario: Mix lockfile changes
+
+- **WHEN** `mix.lock` changes while the development server is running
+- **THEN** Watchexec replaces the running IEx/Phoenix child
+- **AND** does not repeat full setup or dependency installation
+
+#### Scenario: Migration changes
+
+- **WHEN** a file under `priv/repo/migrations/` changes without another watched event
+- **THEN** the watcher does not restart the runtime or apply the migration automatically
 
 ### Requirement: Replacement process receives current environment
 
@@ -146,53 +178,74 @@ The watched development process MUST retain terminal input and preserve each sup
 - **WHEN** the developer supplies a `serve` node-name option
 - **THEN** the watched IEx process uses the supplied short node name
 
+### Requirement: Explicit startup transfers exact short-name ownership
+
+Every explicit `just serve` invocation SHALL force-stop only the local BEAM command carrying the requested default or explicit `-sname`, then start a fresh watched IEx/Phoenix runtime in the invoking terminal. Partial and different short names MUST remain untouched.
+
+#### Scenario: Default node is already running
+
+- **WHEN** a developer runs `just serve` while a BEAM with `-sname d20` exists
+- **THEN** the workflow force-stops that BEAM
+- **AND** starts a fresh watched `d20` runtime in the invoking terminal
+
+#### Scenario: Explicit custom node is already running
+
+- **WHEN** a developer runs `just serve --sname d20_custom` while a BEAM with `-sname d20_custom` exists
+- **THEN** the workflow replaces that BEAM independently from `d20`
+- **AND** starts the fresh `d20_custom` runtime in the invoking terminal
+
+#### Scenario: Matching node was started directly
+
+- **WHEN** a developer or agent directly started a BEAM with the requested `-sname`
+- **THEN** a later `just serve` replaces it without requiring its cookie or original terminal
+
+#### Scenario: Similar node remains active
+
+- **WHEN** `d20_test` is active and the developer requests `d20`
+- **THEN** the workflow does not stop `d20_test`
+
+### Requirement: Revised watcher releases ownership after explicit takeover
+
+Watchexec processes started by the revised workflow SHALL exit when their matching IEx/Phoenix child is force-stopped, so the previous terminal cannot reclaim the node later.
+
+#### Scenario: Repeated startup replaces a revised watcher
+
+- **WHEN** repeated startup force-stops a child started by the revised workflow
+- **THEN** its Watchexec owner exits
+
+#### Scenario: Developer uses a watcher from the older workflow
+
+- **WHEN** a watcher was started before the revised nonzero-child exit behavior existed
+- **THEN** the migration documentation requires that watcher to be stopped manually once
+
+### Requirement: Latest invocation owns the interactive runtime
+
+After successful exact-name takeover, the new Watchexec and IEx/Phoenix process tree SHALL remain attached to the terminal that invoked the latest `just serve` or `just up` command.
+
+#### Scenario: Developer evaluates an expression after takeover
+
+- **WHEN** repeated startup completes and the developer enters an Elixir expression in the latest terminal
+- **THEN** the replacement IEx process evaluates the expression and prints its result there
+
+#### Scenario: Developer stops the replacement
+
+- **WHEN** the developer follows the documented interactive shutdown sequence in the latest terminal
+- **THEN** the replacement watcher and IEx/Phoenix child exit with that foreground workflow
+
 ### Requirement: Routed development startup inherits restart behavior
 
-The `up` workflow SHALL start Docker Compose routing before delegating to the private reuse-or-start decision, and the resulting new or reused development server SHALL use the same watched restart behavior.
+The `up` workflow SHALL start Docker Compose routing before invoking `serve`, and the resulting development server SHALL use the same exact short-name takeover and latest-terminal ownership behavior as direct `serve`.
 
-#### Scenario: Developer starts the routed workflow
+#### Scenario: Developer starts the routed workflow with no matching node
 
-- **WHEN** a developer runs `just up`
-- **THEN** Docker Compose services start before the workflow decides whether to restart the existing watcher or invoke `serve`
+- **WHEN** a developer runs `just up` and the requested short node name is absent
+- **THEN** Docker Compose services start before setup and the foreground watched server
 
-### Requirement: Routed startup reuses the existing default watcher
+#### Scenario: Developer starts the routed workflow with a matching node
 
-After Docker Compose routing starts, the `up` workflow SHALL check whether EPMD lists the exact local `d20` short node name. When that node is registered, the workflow SHALL update the active environment configuration file already watched by the development restart workflow and MUST NOT start a second `serve` workflow. When that node is not registered, the workflow SHALL invoke `serve` normally.
-
-#### Scenario: No existing default node is registered
-
-- **WHEN** a developer runs `just up` and EPMD does not list the exact `d20` short node name
-- **THEN** the workflow invokes the watched `serve` workflow after Docker Compose routing starts
-
-#### Scenario: Existing default node is registered
-
-- **WHEN** a developer runs `just up` and EPMD lists the exact `d20` short node name
-- **THEN** the workflow updates the active environment configuration file to trigger the existing watcher
-- **AND** it does not invoke another `serve` workflow
-
-#### Scenario: Similar node name is registered
-
-- **WHEN** EPMD lists a node such as `d20_test` but does not list the exact `d20` short node name
-- **THEN** the workflow treats the default node as absent and invokes `serve`
-
-#### Scenario: Default development environment is active
-
-- **WHEN** the existing `d20` node is registered and `MIX_ENV` is unset
-- **THEN** the workflow updates `config/dev.exs`
-
-#### Scenario: Explicit development environment is active
-
-- **WHEN** the existing `d20` node is registered and `MIX_ENV` names another environment
-- **THEN** the workflow updates the matching `config/<MIX_ENV>.exs` file
-
-### Requirement: Restart decision remains private to routed startup
-
-The reuse-or-start decision SHALL be implemented as a private project helper and MUST NOT add another public root command to the Just recipe listing.
-
-#### Scenario: Developer lists project commands
-
-- **WHEN** a developer runs `just --list`
-- **THEN** the private reuse-or-start helper is absent from the listed public recipes
+- **WHEN** a developer runs `just up` and the exact requested short node name is present
+- **THEN** Docker Compose services start before `serve` replaces that node
+- **AND** the new watched runtime remains attached to the invoking terminal
 
 ### Requirement: Automatic restart scope is development-only
 

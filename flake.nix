@@ -36,7 +36,7 @@
           # Phoenix uses PostgreSQL locally by default.
           pkgs.postgresql
           pkgs.watchexec
-        ];
+        ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.procps ];
       in {
         devShells.default = pkgs.mkShell {
           packages = hostPackages;
