@@ -276,6 +276,8 @@ Format touched files and broaden checks according to risk. Do not claim semantic
 
 For an in-scope client, run its native format, lint, type, browser-test, and production-build commands. Verify channel projection reconciliation, XState transitions and guards, mobile and desktop behavior, typography, accessibility, and game-state presentation against the real assets, not only isolated token values.
 
+Use deterministic screenshots as the primary evidence for visible game state and state transitions, independent of whether the client renders with HTML, Canvas, SVG, WebGL, or another technology. Capture and review representative required gameplay states and the before-and-after states of relevant transitions at supported mobile and desktop viewports. Do not verify visible game state through Canvas properties, DOM element properties, computed styles, or geometry assertions. Use structural and semantic assertions for appropriate nonvisual contracts, interaction behavior, and accessibility, but never as a substitute for required screenshot evidence. Block completion while any required visible state lacks reviewed screenshot verification.
+
 ## Completion Output
 
 Report:
