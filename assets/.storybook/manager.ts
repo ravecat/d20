@@ -8,4 +8,7 @@ addons.setConfig({
   layoutCustomisations: {
     showPanel: () => true,
   },
+  sidebar: {
+    renderLabel: ({ name }) => name.replace("∕", "/"),
+  },
 });
