@@ -93,7 +93,7 @@ Each non-expanded workspace session SHALL render as a centered content-sized com
 
 The Compact status badge, identifier lane, and named window-control group MUST be direct flex children of the Compact chrome. A separate native restore button MUST be their sibling, MUST span the row behind the visible content without wrapping it, and MUST NOT draw a button box around the status and identifier. Its keyboard focus MUST remain visible on the whole Compact chrome. The named window-control group MUST contain only Close and fullscreen in Compact. Theater MUST keep the Close, fullscreen, Layout DOM and sequential keyboard order. CSS SHALL determine mode-specific visual direction and order independently, and sequential keyboard order MAY differ from that visual order.
 
-The Compact dialog surface MUST use the theme content color as its background. Its session identifier MUST use pure white. Its status badge MUST use a pure-white background with theme-content text and a 5.25rem minimum inline size, approximately 50% wider than the original Live badge, while longer status labels remain able to grow. Compact controls MUST invert against the surface with a theme base background and theme content foreground. Theater and fullscreen surface and control colors MUST remain unchanged.
+The Compact dialog surface MUST use the theme content color as its background. Its session identifier MUST use pure white. Its status badge MUST use a pure-white background with theme-content text and one fixed inline size sufficient for Live, Finished, Reconnecting, and Failed. Every supported status MUST remain centered and unclipped within that shared size, and changing status MUST NOT move the identifier lane. Compact controls MUST invert against the surface with a theme base background and theme content foreground. Theater and fullscreen surface and control colors MUST remain unchanged.
 
 #### Scenario: Session becomes compact
 
@@ -112,8 +112,16 @@ The Compact dialog surface MUST use the theme content color as its background. I
 - **AND** the row's DOM and sequential keyboard order remains restore surface, Close, and Enter fullscreen
 - **AND** every Compact window-control SVG uses the same 0.9375rem square rendered size
 - **AND** the surface background uses the theme content color and the session identifier uses pure white
-- **AND** the status badge uses a white background, theme-content text, and a 5.25rem minimum inline size
+- **AND** the status badge uses a white background, theme-content text, and one fixed inline size shared by every supported status
 - **AND** Compact controls invert those colors again for their background and icon
+
+#### Scenario: Compact status changes
+
+- **WHEN** a Compact session changes among Live, Finished, Reconnecting, and Failed
+- **THEN** the status text and dot remain centered and unclipped
+- **AND** the status badge retains the same inline size
+- **AND** the adjacent session identifier retains the same inline start position
+- **AND** status and identifier remain centered on the row's block axis
 
 #### Scenario: Session expands again
 

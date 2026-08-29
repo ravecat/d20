@@ -252,6 +252,11 @@ export const Reconnecting: Story = {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByRole("status")).toHaveTextContent("Reconnecting to game");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Compact Game session reconnecting" }),
+    );
+    await expect(canvas.getByText("Reconnecting", { exact: true })).toBeVisible();
+    await expect(canvas.getByText("Session reconnecting", { exact: true })).toBeVisible();
 
     for (const animation of document.getAnimations()) {
       animation.cancel();
@@ -288,6 +293,9 @@ export const Failed: Story = {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByRole("status")).toHaveTextContent("Connection to game failed");
+    await userEvent.click(canvas.getByRole("button", { name: "Compact Game session failed" }));
+    await expect(canvas.getByText("Failed", { exact: true })).toBeVisible();
+    await expect(canvas.getByText("Session failed", { exact: true })).toBeVisible();
 
     for (const animation of document.getAnimations()) {
       animation.cancel();

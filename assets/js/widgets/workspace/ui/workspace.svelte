@@ -237,7 +237,7 @@
     position: relative;
     z-index: 1;
     display: inline-flex;
-    min-inline-size: 5.25rem;
+    inline-size: 9rem;
     block-size: 1.875rem;
     flex: none;
     align-items: center;
