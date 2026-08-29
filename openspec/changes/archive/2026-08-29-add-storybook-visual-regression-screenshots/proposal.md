@@ -11,7 +11,7 @@ Owning issue: https://github.com/ravecat/d20/issues/243
 - Compare the complete rendered story document after its render and optional `play` lifecycle against committed Vitest screenshot references.
 - Keep reviewed references under `assets/__screenshots__/stories/<story-file>/<viewport>/chromium/<story>.png`, with plain `desktop`, `tablet`, or `mobile` viewport directories and the single supported `chromium` browser directory, while ignoring actual, diff, trace, and HTML report output.
 - Use the pinned Linux Chromium reference environment without custom font, color-profile, or text-rendering launch overrides.
-- Pin the shared production and Storybook text font as a lockfile-managed self-hosted Fontsource variable font, and keep the global synthesis and smoothing declarations so glyph outlines no longer depend on host font lookup or a runtime Google Fonts request.
+- Pin the shared production and Storybook text font plus its mathematical-symbol fallback as lockfile-managed self-hosted Fontsource assets, and explicitly load declared web fonts before visual capture so glyph outlines no longer depend on host font lookup or font-loading timing.
 - Document only the essential Chromium setup, normal comparison, explicit baseline update, and reference-review workflow through existing repository commands.
 - Keep stories deterministic and independent from Phoenix, live channels, Inertia submissions, workspace transports, and external game iframes.
 
@@ -29,5 +29,5 @@ None.
 
 - Affects shared frontend CSS, dependencies, and artifacts under `assets/css/app.css`, `assets/package.json`, `assets/bun.lock`, `assets/.storybook/`, `assets/vite.config.mjs`, `assets/__screenshots__/`, ignore rules, and contributor documentation.
 - Adds version-aligned Storybook Vitest and Vitest UI development dependencies without adding a second browser runner or cloud service.
-- Expands `mix assets.test` and `just check` through the existing `assets` test script so visual drift fails repository validation.
-- Adds one pinned production font dependency and changes global production text rasterization without changing component structure or behavior, Phoenix routes or runtime, persistence, session contracts, iframe module contracts, migrations, or deployment behavior. Rollback removes the Storybook Vitest projects, shared screenshot hook, references, added development dependencies, font dependency, and global text-rendering declarations while leaving existing unit, browser, and static Storybook validation intact.
+- Expands `mix assets.test` and `just check` through the existing `assets` test script so visual drift fails repository validation, and serializes existing browser test files so Chromium and Firefox interactions remain stable under the larger Browser Mode workload.
+- Adds pinned production text and mathematical-symbol font dependencies and changes global production text rasterization without changing component structure or behavior, Phoenix routes or runtime, persistence, session contracts, iframe module contracts, migrations, or deployment behavior. Rollback removes the Storybook Vitest projects, shared screenshot hook, references, added dependencies, font-family changes, and global text-rendering declarations while leaving existing unit, browser, and static Storybook validation intact.

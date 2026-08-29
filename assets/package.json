@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-mono": "5.3.0",
+    "@fontsource/noto-sans-symbols-2": "5.3.0",
     "@inertiajs/svelte": "3.6.0",
     "@rvct/d20sdk": "1.2.0",
     "@sjsf/ajv8-validator": "3.8.0",

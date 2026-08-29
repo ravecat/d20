@@ -103,6 +103,7 @@ export default defineConfig({
         },
         test: {
           name: "browser",
+          fileParallelism: false,
           include: ["tests/**/*.browser.test.ts"],
           alias: {
             "@inertiajs/svelte": path.resolve(assetsDir, "tests/mocks/inertia_svelte.ts"),

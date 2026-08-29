@@ -17,9 +17,10 @@ The frontend package SHALL transform every story discovered by Storybook into a 
 - **THEN** Storybook establishes the project's named `1280x720`, `1024x640`, or `320x900` viewport before decorators, render, and optional `play` execution
 - **AND** the screenshot hook does not resize the story after `play`
 - **AND** the complete test document is compared through Vitest's native `toMatchScreenshot()` assertion
-- **AND** production and Storybook render text with the same lockfile-pinned self-hosted variable font asset without a runtime Google Fonts request or host font lookup
+- **AND** production and Storybook render ordinary text and mathematical symbols with the same lockfile-pinned self-hosted Fontsource assets without a runtime Google Fonts request or host font lookup
+- **AND** the screenshot hook explicitly loads every declared document font after the Storybook lifecycle and before visual capture
 - **AND** production and Storybook use the same global declarations that disable font synthesis and request legibility and grayscale smoothing
-- **AND** no screenshot-only wrapper, test-only CSS override, arbitrary delay, custom image comparator, custom Fontconfig file, Font Loading API wait in the hook, or Chromium font, color-profile, or text-rendering launch override changes the captured state
+- **AND** no screenshot-only wrapper, test-only CSS override, arbitrary delay, custom image comparator, custom Fontconfig file, or Chromium font, color-profile, or text-rendering launch override changes the captured state
 
 #### Scenario: An interaction story is captured after play
 

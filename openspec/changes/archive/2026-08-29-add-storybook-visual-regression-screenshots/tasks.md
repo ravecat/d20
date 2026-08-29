@@ -28,14 +28,15 @@
 - [x] 5.1 Run focused frontend formatting, ESLint, TypeScript, and Svelte diagnostics for the changed configuration and documentation.
 - [x] 5.2 Run the existing unit project, existing Chromium/Firefox browser project, each Storybook viewport project, and the complete frontend test command with normal comparison.
 - [x] 5.3 Generate the documented HTML report, verify its image evidence, and build the static Storybook catalog without Phoenix or a live backend.
-- [ ] 5.4 Run `just check`, `openspec validate --all --strict --no-interactive`, and `git diff --check`.
-- [ ] 5.5 Reconcile the new capability into the authoritative OpenSpec specifications and update GitHub issue #243 completion criteria and evidence before archival.
+- [x] 5.4 Run `just check`, `openspec validate --all --strict --no-interactive`, and `git diff --check`.
+- [x] 5.5 Reconcile the new capability into the authoritative OpenSpec specifications and update GitHub issue #243 completion criteria and evidence before archival.
 
 ## 6. Normalize the accepted reference environment
 
 - [x] 6.1 Remove the custom Fontconfig file and Chromium font, color-profile, and text-rendering launch overrides while retaining the shared `1280x900` browser context.
 - [x] 6.2 Name each generated browser project explicitly as `desktop`, `tablet`, or `mobile`, use that complete name directly in `assets/__screenshots__/<story-path>/<viewport>/<browser>/<story>.png` without runtime string rewriting, and update contributor commands.
-- [ ] 6.3 Regenerate and review all current references, run repeated normal visual comparisons plus the complete frontend suite, and confirm no stale references or runtime artifacts remain.
+- [x] 6.3 Regenerate and review all current references, run repeated normal visual comparisons plus the complete frontend suite, and confirm no stale references or runtime artifacts remain.
 - [x] 6.4 Allow the Browser Mode API server to select the next available port and verify a visual project starts while `63315` is already occupied.
-- [x] 6.5 Remove the unnecessary Font Loading API wait from the shared screenshot hook and verify visual capture still runs after the Storybook lifecycle.
-- [ ] 6.6 Pin the shared text font as an exact lockfile-managed Fontsource variable asset used by production and Storybook without Google Fonts or host font lookup, regenerate all references, and verify repeated unchanged comparisons do not produce text-only false positives.
+- [x] 6.5 Explicitly load every declared document font in the shared screenshot hook after the Storybook lifecycle and verify capture does not race `font-display: swap` under full-matrix load.
+- [x] 6.6 Pin the shared text font and mathematical-symbol fallback as exact lockfile-managed Fontsource assets used by production and Storybook without Google Fonts or host font lookup, then verify repeated unchanged comparisons do not produce text-only false positives.
+- [x] 6.7 Serialize the existing browser project's files without changing its Chromium/Firefox coverage so the aggregate frontend command remains stable alongside the three ordered visual projects.

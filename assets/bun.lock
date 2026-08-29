@@ -5,6 +5,7 @@
     "": {
       "dependencies": {
         "@fontsource-variable/noto-sans-mono": "5.3.0",
+        "@fontsource/noto-sans-symbols-2": "5.3.0",
         "@inertiajs/svelte": "3.6.0",
         "@rvct/d20sdk": "1.2.0",
         "@sjsf/ajv8-validator": "3.8.0",
@@ -389,6 +390,8 @@
     "@exodus/bytes": ["@exodus/bytes@1.15.0", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-UY0nlA+feH81UGSHv92sLEPLCeZFjXOuHhrIo0HQydScuQc8s0A7kL/UdgwgDq8g8ilksmuoF35YVTNphV2aBQ=="],
 
     "@fontsource-variable/noto-sans-mono": ["@fontsource-variable/noto-sans-mono@5.3.0", "", {}, "sha512-EgozyWG4nG2U1OT+zfdyHP1L8O0fUFMUBOilVF9urTshqIdfeGV9/FUQxaNHdPvHtV1cQCs1Ql0W1q93SiPK2w=="],
+
+    "@fontsource/noto-sans-symbols-2": ["@fontsource/noto-sans-symbols-2@5.3.0", "", {}, "sha512-hFnEnIXOIgLLJ61SO9icRXKoS+LSWoq7ZqKJQ/NaQR7ptdC6+7yW4ci6EuXgsS1S9JmWpciX6w0AFZkU1DKn1A=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 

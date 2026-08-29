@@ -14,7 +14,7 @@ The official `@storybook/addon-vitest` plugin transforms discovered stories into
 - Preserve the existing jsdom unit project and Chromium/Firefox browser project unchanged in purpose and coverage.
 - Keep committed references easy to review and generated failure evidence easy to inspect.
 - Keep the integration deterministic, local, account-free, and isolated from production services.
-- Pin one shared production and Storybook text font asset so reference glyph outlines do not depend on host font lookup or a runtime network font request.
+- Pin shared production and Storybook text and mathematical-symbol font assets so reference glyph outlines do not depend on host font lookup or a runtime network font request.
 
 **Non-Goals:**
 
@@ -42,20 +42,21 @@ Rejected alternatives:
 
 Define desktop (`1280x720`), tablet (`1024x640`), and mobile (`320x900`) options once in `.storybook/preview.ts`, with desktop as the interactive default. Each Storybook Vitest project selects its viewport through `storybookTest({ initialGlobals })`, so responsive layout is established before decorators, render, and `play` execute. The browser instance explicitly names the generated Vitest project `desktop`, `tablet`, or `mobile`; screenshot paths and `--project` filters use that complete name directly without parsing or rewriting a runtime-generated project label.
 
-The Storybook Chromium provider receives a `1280x900` host context and screen. This prevents the tallest mobile iframe from being scaled into Playwright's shorter default host. Storybook files run with `fileParallelism: false`, and the three viewport projects receive increasing `sequence.groupOrder` values after the existing projects to reduce browser resource contention and avoid trace or attachment collisions. Browser Mode explicitly disables strict API port binding so Vite selects the next available port when the default `63315` is occupied by another test run. The existing browser project's `1280x800` viewport and Chromium/Firefox instances remain unchanged.
+The Storybook Chromium provider receives a `1280x900` host context and screen. This prevents the tallest mobile iframe from being scaled into Playwright's shorter default host. Storybook files run with `fileParallelism: false`, and the three viewport projects receive increasing `sequence.groupOrder` values after the existing projects to reduce browser resource contention and avoid trace or attachment collisions. The existing browser project's files also run serially so its Chromium and Firefox interaction tests remain stable when the complete command shares Browser Mode resources with the visual projects; its include rules, aliases, instances, and `1280x800` viewport remain unchanged. Browser Mode explicitly disables strict API port binding so Vite selects the next available port when the default `63315` is occupied by another test run.
 
 Rejected alternative: resizing the page in the screenshot hook would occur after `play`, so interaction assertions and the captured responsive state could observe different layouts.
 
-### Pin the text font through a lockfile-managed Fontsource asset
+### Pin text and mathematical symbols through lockfile-managed Fontsource assets
 
 The D20 global stack (`ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace`) resolves through host Fontconfig on Linux because none of the named families is installed. The selected Noto fallback varies with the host font set, Fontconfig and FreeType versions, and Chromium rasterization state, so identical DOM and CSS can produce different glyph edge pixels between runs and environments. A baseline update cannot fix this: the next run can rasterize the same text differently again.
 
-Add `@fontsource-variable/noto-sans-mono` at an exact version in `assets/package.json` so `bun.lock` pins the exact WOFF2 and its integrity. `assets/css/app.css` imports the weight-axis stylesheet (`wght.css`) and uses the exact Fontsource family `Noto Sans Mono Variable` with a `monospace` fallback. Vite bundles the same hashed WOFF2 for production and for Storybook, which already imports the production stylesheet, so no Google Fonts request, network lookup, host font selection, or screenshot-hook font waiting is involved. The shared screenshot hook stays thin; Vitest's stable-screenshot retry absorbs the single bundled font load.
+Add `@fontsource-variable/noto-sans-mono` at an exact version in `assets/package.json` so `bun.lock` pins the exact WOFF2 and its integrity. Its Google Fonts subsets do not contain mathematical operators such as `≤` (`U+2264`), so add the exact `@fontsource/noto-sans-symbols-2` package and import only its math subset as the next family in the production font stack. Vite bundles both assets for production and Storybook, which already imports the production stylesheet, so ordinary text and mathematical symbols no longer use a runtime Google Fonts request or host font lookup.
 
 Rejected alternatives:
 
-- A runtime Google Fonts stylesheet can change the served font revision without a manifest change, depends on the network and cache, and reintroduces a font-loading race with the thin hook.
+- A runtime Google Fonts stylesheet can change the served font revision without a manifest change, depends on the network and cache, and reintroduces a font-loading race.
 - A Storybook-only stylesheet could make references quieter while diverging from the production UI they are intended to review.
+- Replacing mathematical symbols with test-only text or CSS would alter the visual contract instead of stabilizing production rendering.
 
 ### Normalize text rendering through shared production CSS
 
@@ -63,7 +64,7 @@ Keep `font-synthesis: none`, `text-rendering: optimizeLegibility`, `-webkit-font
 
 ### Capture the complete story test document in one shared hook
 
-Add `.storybook/vitest.setup.ts` with an asynchronous `afterEach` hook that runs `expect(document.documentElement).toMatchScreenshot()` without an explicit name. Storybook's generated test owns render and `play`; the project hook captures only after that lifecycle completes and before cleanup. The hook does not wait on the Font Loading API: Vitest's stable-screenshot retry absorbs the single bundled font load, and font rendering synchronization does not belong in the shared screenshot hook.
+Add `.storybook/vitest.setup.ts` with an asynchronous `afterEach` hook that explicitly loads every declared document font before running `expect(document.documentElement).toMatchScreenshot()` without an explicit name. Storybook's generated test owns render and `play`; the project hook captures only after that lifecycle completes and before cleanup. Explicit `FontFace.load()` calls are required because `font-display: swap` can otherwise leave a stable host fallback in place long enough for Vitest's screenshot retry to accept it under full-matrix load.
 
 The complete document is the intended contract because each story represents one isolated canvas and the request is to preserve the rendered Storybook state, including its story-level layout. The configured viewport project and browser remain visible as nested directories while the filename contains only Vitest's automatic test identity. No task-name inspection, screenshot-only CSS wrapper, arbitrary delay, manual viewport resize, custom comparator, custom Fontconfig file, or Chromium font, color-profile, or text-rendering launch override is introduced.
 
@@ -96,10 +97,10 @@ Keep the repository README focused on the pinned Chromium installation, normal c
 ## Risks / Trade-offs
 
 - [Baseline volume and runtime increase] -> Every new story adds three images and three Chromium tests; keep one automatic discovery boundary and run viewport projects in deterministic order.
-- [Platform rendering drift] -> Keep Linux Chromium as the single documented reference environment, encode Chromium once in each viewport's `chromium` directory, omit the redundant platform filename suffix, pin the Playwright version, and pin the text font through a lockfile-managed packaged asset instead of relying on host font lookup.
+- [Platform rendering drift] -> Keep Linux Chromium as the single documented reference environment, encode Chromium once in each viewport's `chromium` directory, omit the redundant platform filename suffix, pin the Playwright version, pin text and mathematical-symbol assets, and explicitly load declared web fonts before capture instead of relying on host fallback timing.
 - [Dynamic story content] -> Preserve the existing deterministic fixture rules and fix nondeterministic stories at their source rather than masking broad regions or loosening comparison thresholds.
 - [Hook lifecycle changes in dependency upgrades] -> Validate at least one story with a `play` function and one without whenever Storybook or Vitest is upgraded.
-- [Resource contention] -> Serialize files inside Storybook projects, order viewport projects, and retain traces only on failure.
+- [Resource contention] -> Serialize files in the existing browser and Storybook projects, order viewport projects, and retain traces only on failure.
 - [Accidental baseline acceptance] -> Require explicit `--update`, Git image review, and a subsequent normal run.
 - [Stale references after story deletion] -> Include screenshot-tree cleanup in baseline review and validation tasks.
 - [Local browser prerequisite] -> Document the pinned Chromium install command and fail clearly when it is absent rather than downloading browsers during ordinary tests.
@@ -110,8 +111,8 @@ Keep the repository README focused on the pinned Chromium installation, normal c
 2. Prove one story's baseline creation, normal comparison, deliberate mismatch evidence, HTML/UI review, trace retention, and explicit update lifecycle.
 3. Generate and review all current desktop, tablet, and mobile Linux Chromium references, then rerun normal comparison.
 4. Update ignore rules, Docker context exclusions, story conventions, and contributor commands.
-5. Pin the text font, regenerate all references, and verify repeated unchanged visual comparisons plus all frontend checks, static Storybook build, broad repository validation, and strict OpenSpec validation.
-6. Roll back by removing the three Storybook projects, setup hook, viewport globals, font dependency and font-family change, added dependencies, and reference tree. Existing unit/browser tests and static Storybook build then return to their current independent behavior.
+5. Pin the text and mathematical-symbol fonts, regenerate all references, and verify repeated unchanged visual comparisons plus all frontend checks, static Storybook build, broad repository validation, and strict OpenSpec validation.
+6. Roll back by removing the three Storybook projects, setup hook, viewport globals, font dependencies and font-family changes, added development dependencies, and reference tree. Existing unit/browser tests and static Storybook build then return to their current independent behavior.
 
 ## Open Questions
 
