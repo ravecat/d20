@@ -43,9 +43,6 @@ const preview: Preview = {
       },
     },
   },
-  initialGlobals: {
-    viewport: { value: "desktop" },
-  },
 };
 
 export default preview;

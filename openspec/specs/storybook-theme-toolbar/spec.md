@@ -35,4 +35,5 @@ The Storybook preview SHALL select the light theme by default instead of derivin
 #### Scenario: Existing Storybook configuration is preserved
 
 - **WHEN** the theme toolbar integration is active
-- **THEN** the existing viewport options, viewport initial globals, control matchers, story discovery, and registered addons behave as before
+- **THEN** the existing viewport options, explicit visual-test viewport globals, control matchers, story discovery, and registered addons behave as before
+- **AND** the interactive catalog retains the available-canvas viewport default independently of the theme selection
