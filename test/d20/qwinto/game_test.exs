@@ -84,7 +84,7 @@ defmodule D20.Qwinto.GameTest do
       rolled_values = Map.values(game.dices)
 
       assert MapSet.new(Map.keys(game.dices)) == MapSet.new([:orange, :purple])
-      assert length(rolled_values) == 2
+      assert Enum.count_until(rolled_values, 3) == 2
       assert Enum.all?(rolled_values, &(&1 in 1..6))
       assert game.sum == Enum.sum(rolled_values)
       assert game.players["p1"].status == :pending
@@ -269,7 +269,7 @@ defmodule D20.Qwinto.GameTest do
       rolled_values = Map.values(game.dices)
 
       assert MapSet.new(Map.keys(game.dices)) == MapSet.new([:yellow, :purple])
-      assert length(rolled_values) == 2
+      assert Enum.count_until(rolled_values, 3) == 2
       assert game.sum == Enum.sum(rolled_values)
     end
 

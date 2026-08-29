@@ -493,7 +493,7 @@ defmodule D20Web.SessionChannelTest do
         }
       }
 
-      assert length(objectives) == 2
+      assert Enum.count_until(objectives, 3) == 2
       assert map_size(powers) == 4
       assert current_color in LondonRuleset.colors()
       assert sections != []

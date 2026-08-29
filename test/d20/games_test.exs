@@ -109,7 +109,7 @@ defmodule D20.GamesTest do
 
     assert {:ok, games} = Games.list()
 
-    assert length(games) == 19
+    assert Enum.count_until(games, 20) == 19
 
     ordered_bgg_ids = [
       425_873,

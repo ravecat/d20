@@ -1,4 +1,8 @@
 defmodule D20Web.WorkspaceChannel do
+  @moduledoc """
+  Phoenix channel that publishes workspace-wide session state to the shell.
+  """
+
   use D20Web, :channel
 
   alias D20.Accounts.Scope

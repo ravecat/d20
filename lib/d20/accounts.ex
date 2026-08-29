@@ -72,7 +72,7 @@ defmodule D20.Accounts do
   @doc """
   Gets a single user by id.
   """
-  @spec get_user(term()) :: %User{} | nil
+  @spec get_user(term()) :: User.t() | nil
   def get_user(id), do: Repo.get(User, id)
 
   @doc """
@@ -80,7 +80,7 @@ defmodule D20.Accounts do
 
   Returns `nil` when the identity has not been linked.
   """
-  @spec get_user_by_identity(UserIdentity.provider(), String.t()) :: %User{} | nil
+  @spec get_user_by_identity(UserIdentity.provider(), String.t()) :: User.t() | nil
   def get_user_by_identity(provider, provider_uid) do
     Repo.one(
       from identity in UserIdentity,
@@ -96,8 +96,8 @@ defmodule D20.Accounts do
   The provider UID is treated as an opaque, case-sensitive identifier. Provider
   credentials and profile claims are intentionally not accepted by this API.
   """
-  @spec link_user_identity(%User{}, UserIdentity.provider(), String.t()) ::
-          {:ok, %UserIdentity{}} | {:error, Ecto.Changeset.t()}
+  @spec link_user_identity(User.t(), UserIdentity.provider(), String.t()) ::
+          {:ok, UserIdentity.t()} | {:error, Ecto.Changeset.t()}
   def link_user_identity(%User{} = user, provider, provider_uid) do
     %UserIdentity{user_id: user.id}
     |> UserIdentity.changeset(%{provider: provider, provider_uid: provider_uid})
@@ -107,7 +107,7 @@ defmodule D20.Accounts do
   @doc """
   Lists the external identities owned by a user.
   """
-  @spec list_user_identities(%User{}) :: [%UserIdentity{}]
+  @spec list_user_identities(User.t()) :: [UserIdentity.t()]
   def list_user_identities(%User{id: user_id}) do
     Repo.all(
       from identity in UserIdentity,
@@ -168,7 +168,7 @@ defmodule D20.Accounts do
   and credentials are not accepted by this context boundary.
   """
   @spec register_user_with_identity(map(), UserIdentity.provider(), String.t()) ::
-          {:ok, %User{}}
+          {:ok, User.t()}
           | {:error, :user | :identity, Ecto.Changeset.t()}
   def register_user_with_identity(attrs, provider, provider_uid) when is_map(attrs) do
     email = provider_email(attrs)

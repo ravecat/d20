@@ -38,25 +38,22 @@ defmodule D20.KoalaRescueClub.Rules do
   @spec validate(Game.t(), D20.Command.t()) :: :ok | {:error, reason()}
   def validate(game, %D20.Command{event: "join", actor_id: actor_id} = command) do
     with :ok <- require_actor(command),
-         :ok <- require_phase(game, [:setup, :ready]),
-         :ok <- require_player_count_in_range(game, actor_id) do
-      :ok
+         :ok <- require_phase(game, [:setup, :ready]) do
+      require_player_count_in_range(game, actor_id)
     end
   end
 
   def validate(game, %D20.Command{event: "start"} = command) do
     with :ok <- require_actor(command),
-         :ok <- require_phase(game, :ready),
-         :ok <- require_player_count_in_range(game) do
-      :ok
+         :ok <- require_phase(game, :ready) do
+      require_player_count_in_range(game)
     end
   end
 
   def validate(game, %D20.Command{event: "roll"} = command) do
     with :ok <- require_missing_actor(command),
-         :ok <- require_phase(game, :roll),
-         :ok <- require_missing_roll(game) do
-      :ok
+         :ok <- require_phase(game, :roll) do
+      require_missing_roll(game)
     end
   end
 
@@ -526,9 +523,8 @@ defmodule D20.KoalaRescueClub.Rules do
 
   defp apply_mark(map, sheet, :koala, cells) do
     Enum.reduce_while(cells, {:ok, sheet}, fn cell, {:ok, sheet} ->
-      with :ok <- require_koala_target(map, sheet, cell) do
-        {:cont, {:ok, %{sheet | koalas: add_refs(sheet.koalas, [cell])}}}
-      else
+      case require_koala_target(map, sheet, cell) do
+        :ok -> {:cont, {:ok, %{sheet | koalas: add_refs(sheet.koalas, [cell])}}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)

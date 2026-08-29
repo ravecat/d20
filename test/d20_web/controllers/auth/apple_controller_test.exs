@@ -430,7 +430,7 @@ defmodule D20Web.Auth.AppleControllerTest do
 
       assert redirected_to(second_conn) == "/users/settings"
       assert second_conn.resp_cookies[Apple.link_result_cookie()]
-      assert length(Accounts.list_user_identities(user)) == 1
+      assert Enum.count_until(Accounts.list_user_identities(user), 2) == 1
     end
 
     test "keeps ownership conflicts generic", %{conn: conn} do

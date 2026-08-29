@@ -175,10 +175,45 @@ The project exposes four composite `just` workflows, a standalone Storybook entr
 | `just format`                    | Format Elixir and frontend assets.                                         |
 | `just serve`                     | Set up, replace the exact requested local node, and own it in this terminal. |
 | `just storybook [args...]`       | Start Storybook independently and forward its CLI arguments.                |
-| `just check`                     | Run formatting, asset, type, and test checks.                              |
+| `just check`                     | Run the backend quality gate plus formatting, asset, type, and lifecycle checks. |
+| `mix ci`                         | Run the complete backend quality gate in the test environment.            |
 | `just mix <task> [args...]`      | Run a Mix task at the project level from the repository root.              |
 | `just assets <script> [args...]` | Run a Bun package script at the asset level from the `assets/` directory.  |
 | `just assets storybook:build`    | Build the static Storybook catalog for validation.                         |
+
+## Backend Quality Gate
+
+`mix ci` is the single complete backend quality command. It runs in the test environment (`def cli/0` prefers `MIX_ENV=test`) and stops at the first failing stage:
+
+1. compilation with warnings as errors (`mix compile --warnings-as-errors`);
+2. backend formatting verification (`mix format --check-formatted`);
+3. backend tests through the existing database-aware `mix test` alias, which creates and migrates the test PostgreSQL database before ExUnit runs;
+4. strict Credo with the ExSlop plugin (`mix credo --strict`);
+5. Dialyzer (`mix dialyzer`);
+6. ExDNA with the checked-in clone budget (`mix ex_dna lib --max-clones 14`);
+7. Reach architecture policy and advisory smells (`mix reach.check --arch --smells`).
+
+`just check` runs `mix ci` once, then the OpenSpec lifecycle check, frontend formatting, frontend linting, frontend tests, frontend type checking, and the Storybook catalog build. Backend formatting and backend tests never run twice.
+
+Run each analyzer independently when investigating a failure:
+
+```sh
+mix credo --strict
+mix dialyzer
+mix ex_dna lib --max-clones 14
+mix reach.check --arch --smells
+```
+
+Analyzer policy is reviewable project configuration, not blanket suppression:
+
+- `.credo.exs` keeps strict Credo with ExSlop's recommended checks. Two narrow disables are documented inline; nesting and cyclomatic-complexity findings stay enabled and advisory because they live in validated game-rule control flow (follow-up tracked in issue #179).
+- `.dialyzer_ignore.exs` holds exactly one documented opacity false positive (`Ecto.Multi.insert/3` pipelines). The first `mix dialyzer` run builds the PLT and takes several minutes; later runs reuse it.
+- `.ex_dna.exs` plus the `--max-clones 14` budget record the reviewed baseline for the deliberately mirrored provider flows and independent game namespaces. New duplication fails the gate; lower the budget whenever accepted cleanup removes clones, and never raise it to admit new duplication.
+- `.reach.exs` forbids dependencies from pure `D20.*` domain modules on `D20Web.*`. `D20.Application` and `D20.Sessions.Server` are classified runtime adapters that intentionally publish through web-owned processes; heuristic smell findings are advisory.
+
+Rollback removes the development/test tool dependencies, `.credo.exs`, `.dialyzer_ignore.exs`, `.ex_dna.exs`, `.reach.exs`, the `mix ci` alias with its `def cli/0` preference, the Dialyzer PLT options, and the `just check` delegation, restoring the previous explicit backend format and test steps. No data, runtime, protocol, or client rollback is required.
+
+This local gate is deliberately separate from release publication: release-workflow issue #113 owns when published images consume `mix ci` and how its Dialyzer PLT is cached in automation.
 
 ## OpenSpec Change Completion
 

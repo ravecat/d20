@@ -49,11 +49,10 @@ format:
     mix assets.format
 
 check:
-    mix format.check
+    mix ci
     mix openspec.check
     mix assets.format.check
     mix assets.lint
     mix assets.test
     mix typecheck
     mix assets.storybook
-    mix test

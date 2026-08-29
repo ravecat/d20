@@ -144,13 +144,14 @@ defmodule D20Web.Auth.Steam do
     token = get_session(conn, @completion_token_session_key)
     session_nonce = get_session(conn, @completion_nonce_session_key)
 
-    with {:ok, %{provider_uid: provider_uid, nonce: ^session_nonce}} <-
-           Phoenix.Token.verify(D20Web.Endpoint, @completion_salt, token,
-             max_age: @completion_max_age
-           ) do
-      {:ok, %{provider_uid: provider_uid}}
-    else
-      _ -> {:error, :invalid_or_expired_completion}
+    case Phoenix.Token.verify(D20Web.Endpoint, @completion_salt, token,
+           max_age: @completion_max_age
+         ) do
+      {:ok, %{provider_uid: provider_uid, nonce: ^session_nonce}} ->
+        {:ok, %{provider_uid: provider_uid}}
+
+      _ ->
+        {:error, :invalid_or_expired_completion}
     end
   end
 

@@ -30,7 +30,7 @@
 | Environment variable template | [`envs/.env.example`](envs/.env.example) |
 | Frontend scripts, dependencies, and browser support policy | [`assets/package.json`](assets/package.json) |
 | Frontend compiler and build configuration | [`assets/tsconfig.json`](assets/tsconfig.json), [`assets/vite.config.mjs`](assets/vite.config.mjs), [`assets/svelte.config.mjs`](assets/svelte.config.mjs) |
-| Elixir formatting and static checks | [`.formatter.exs`](.formatter.exs), [`.recode.exs`](.recode.exs) |
+| Elixir formatting and static checks | [`.formatter.exs`](.formatter.exs), [`.recode.exs`](.recode.exs), [`.credo.exs`](.credo.exs), [`.dialyzer_ignore.exs`](.dialyzer_ignore.exs), [`.ex_dna.exs`](.ex_dna.exs), [`.reach.exs`](.reach.exs) |
 | Frontend formatting and linting | [`assets/.oxfmtrc.json`](assets/.oxfmtrc.json), [`assets/eslint.config.mjs`](assets/eslint.config.mjs) |
 | OpenSpec workflow configuration | [`openspec/config.yaml`](openspec/config.yaml) |
 | Dependency-managed agent skills | [`mix.exs`](mix.exs), [`.agents/skills/`](.agents/skills/) |

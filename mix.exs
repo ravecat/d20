@@ -12,7 +12,11 @@ defmodule D20.MixProject do
       deps: deps(),
       usage_rules: usage_rules(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      # Dialyzer policy: the test PLT includes ExUnit and Mix because custom
+      # Mix tasks live in lib/mix/tasks. The single filtered warning is
+      # documented in `.dialyzer_ignore.exs`; every other finding stays enabled.
+      dialyzer: [plt_add_apps: [:ex_unit, :mix]]
     ]
   end
 
@@ -21,6 +25,10 @@ defmodule D20.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [mod: {D20.Application, []}, extra_applications: [:crypto, :logger, :runtime_tools]]
+  end
+
+  def cli do
+    [preferred_envs: [ci: :test]]
   end
 
   # Specifies which paths to compile per environment.
@@ -72,6 +80,11 @@ defmodule D20.MixProject do
       {:bandit, "~> 1.5"},
       {:backpex, "~> 0.20.0"},
       {:bodyguard, "~> 2.4.3"},
+      {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:ex_dna, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
+      {:reach, "~> 2.0", only: [:dev, :test], runtime: false},
       {:igniter, "~> 0.6", only: [:dev], runtime: false},
       {:recode, "~> 0.8", only: [:dev, :test], runtime: false},
       {:usage_rules, "~> 1.2", only: [:dev], runtime: false},
@@ -120,7 +133,16 @@ defmodule D20.MixProject do
       "assets.check": ["bun assets run check"],
       "assets.build": ["bun vite build"],
       "assets.deploy": ["assets.build"],
-      deploy: ["deps.get --only prod", "compile", "assets.setup", "assets.deploy"]
+      deploy: ["deps.get --only prod", "compile", "assets.setup", "assets.deploy"],
+      ci: [
+        "compile --warnings-as-errors",
+        "format --check-formatted",
+        "test",
+        "credo --strict",
+        "dialyzer",
+        "ex_dna lib --max-clones 14",
+        "reach.check --arch --smells"
+      ]
     ]
   end
 end

@@ -6,6 +6,7 @@ defmodule D20.Accounts.User do
   @type id :: TypeID.t()
   @type email :: String.t() | nil
   @type role :: :user | :admin
+  @type t :: %__MODULE__{}
 
   schema "users" do
     field :email, :string

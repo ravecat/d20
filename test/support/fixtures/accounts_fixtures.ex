@@ -26,7 +26,7 @@ defmodule D20.AccountsFixtures do
   def user_fixture(attrs \\ %{}) do
     attrs = Map.new(attrs)
     user = unconfirmed_user_fixture(attrs)
-    username = Map.get(attrs, :username) || Map.get(attrs, "username") || unique_user_username()
+    username = fixture_attr(attrs, :username) || unique_user_username()
 
     token = extract_user_token(fn url -> Accounts.deliver_login_instructions(user, url) end)
 
@@ -38,10 +38,10 @@ defmodule D20.AccountsFixtures do
 
   def provider_user_fixture(attrs \\ %{}, provider \\ :google) do
     attrs = Map.new(attrs)
-    username = Map.get(attrs, :username) || Map.get(attrs, "username") || unique_user_username()
+    username = fixture_attr(attrs, :username) || unique_user_username()
 
     provider_uid =
-      Map.get(attrs, :provider_uid) || "#{provider}-#{System.unique_integer([:positive])}"
+      fixture_attr(attrs, :provider_uid) || "#{provider}-#{System.unique_integer([:positive])}"
 
     user_attrs =
       attrs |> Map.drop([:provider_uid, "provider_uid"]) |> Map.put(:username, username)
@@ -49,6 +49,8 @@ defmodule D20.AccountsFixtures do
     {:ok, user} = Accounts.register_user_with_identity(user_attrs, provider, provider_uid)
     user
   end
+
+  defp fixture_attr(attrs, key), do: Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
 
   def actor_scope_fixture do
     user = user_fixture()

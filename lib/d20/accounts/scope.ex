@@ -29,7 +29,7 @@ defmodule D20.Accounts.Scope do
   @doc """
   Creates a scope for the given actor.
   """
-  @spec for_actor(%User{} | Anonymous.t() | Actor.t()) :: t()
+  @spec for_actor(User.t() | Anonymous.t() | Actor.t()) :: t()
   def for_actor(%User{} = user), do: %__MODULE__{actor: Actor.new(user)}
   def for_actor(%Anonymous{} = anonymous), do: %__MODULE__{actor: Actor.new(anonymous)}
   def for_actor(%Actor{} = actor), do: %__MODULE__{actor: actor}

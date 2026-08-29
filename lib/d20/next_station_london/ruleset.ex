@@ -403,9 +403,8 @@ defmodule D20.NextStationLondon.Ruleset do
   def validate_static(data \\ static_data()) do
     with :ok <- validate_stations(data[:stations]),
          :ok <- validate_edges(data[:edges]),
-         :ok <- validate_cards(data[:cards]),
-         :ok <- validate_scores(data[:tourist_scores], data[:interchange_scores]) do
-      :ok
+         :ok <- validate_cards(data[:cards]) do
+      validate_scores(data[:tourist_scores], data[:interchange_scores])
     end
   end
 
@@ -467,7 +466,7 @@ defmodule D20.NextStationLondon.Ruleset do
   defp validate_cards(cards) when is_list(cards) do
     ids = Enum.map(cards, & &1.id)
 
-    if length(cards) == 11 and MapSet.size(MapSet.new(ids)) == 11 and
+    if Enum.count_until(cards, 12) == 11 and MapSet.size(MapSet.new(ids)) == 11 and
          Enum.sort(ids) == Enum.sort(card_ids()) do
       :ok
     else

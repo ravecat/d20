@@ -20,8 +20,6 @@ defmodule D20Web.ModuleSocket do
         |> Scope.put_game(claims.game_id)
 
       {:ok, assign(socket, :scope, scope)}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 

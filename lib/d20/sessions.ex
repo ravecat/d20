@@ -107,12 +107,10 @@ defmodule D20.Sessions do
   def stop(id, reason \\ :normal, timeout \\ :infinity)
 
   def stop(id, reason, timeout) do
-    try do
-      :gen_statem.stop(via(id), reason, timeout)
-    catch
-      :exit, :noproc -> :ok
-      :exit, {:noproc, _details} -> :ok
-    end
+    :gen_statem.stop(via(id), reason, timeout)
+  catch
+    :exit, :noproc -> :ok
+    :exit, {:noproc, _details} -> :ok
   end
 
   defp call(id, request) do

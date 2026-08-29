@@ -16,7 +16,7 @@ defmodule D20.Actors.Actor do
   @type type :: :user | :anonymous
   @type t :: %__MODULE__{id: id(), type: type()}
 
-  @spec new(Anonymous.t() | %User{}) :: t()
+  @spec new(Anonymous.t() | User.t()) :: t()
   def new(%Anonymous{id: id}) do
     %__MODULE__{id: id, type: :anonymous}
   end

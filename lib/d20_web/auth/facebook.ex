@@ -55,8 +55,8 @@ defmodule D20Web.Auth.Facebook do
         extra: %Ueberauth.Auth.Extra{raw_info: %{user: raw_user}}
       })
       when provider in [:facebook, "facebook"] and is_map(raw_user) do
-    raw_uid = raw_user["id"] || raw_user[:id]
-    raw_email = raw_user["email"] || raw_user[:email]
+    raw_uid = raw_claim(raw_user, :id)
+    raw_email = raw_claim(raw_user, :email)
 
     with :ok <- validate_provider_uid(provider_uid),
          true <- raw_uid == provider_uid do
@@ -216,6 +216,11 @@ defmodule D20Web.Auth.Facebook do
   end
 
   defp normalize_email_candidate(_info_email, _raw_email), do: nil
+
+  # Ueberauth strategies expose raw provider claim maps with either atom or string
+  # keys depending on the HTTP client, so the variance is resolved in one lookup.
+  defp raw_claim(raw_user, key) when is_atom(key),
+    do: Map.get(raw_user, key) || Map.get(raw_user, Atom.to_string(key))
 
   defp validate_provider_uid(provider_uid)
        when is_binary(provider_uid) and byte_size(provider_uid) > 0 and

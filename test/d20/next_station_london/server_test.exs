@@ -47,7 +47,7 @@ defmodule D20.NextStationLondon.ServerTest do
                       game: %Game{phase: :turn, objectives: objectives, powers: powers} = game
                     } = prepared}
 
-    assert length(objectives) == 2
+    assert Enum.count_until(objectives, 3) == 2
     assert MapSet.new(Map.keys(powers)) == MapSet.new(Ruleset.colors())
     assert MapSet.new(Map.values(powers)) == MapSet.new(Ruleset.power_ids())
     assert game.players["owner"].pencil_offset == 0

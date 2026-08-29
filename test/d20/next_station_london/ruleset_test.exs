@@ -73,7 +73,7 @@ defmodule D20.NextStationLondon.RulesetTest do
   test "exposes the exact Station deck" do
     cards = Ruleset.cards()
 
-    assert length(cards) == 11
+    assert Enum.count_until(cards, 12) == 11
     assert Enum.count(cards, &(&1.kind == :street)) == 6
     assert Enum.count(cards, &(&1.kind == :underground)) == 5
     assert Enum.count(cards, &(&1.destination == :joker)) == 2

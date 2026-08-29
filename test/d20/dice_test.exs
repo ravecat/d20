@@ -7,7 +7,7 @@ defmodule D20.DiceTest do
     test "rolls a single die alias roll set" do
       assert {:ok, %{sum: sum, d10: values}} = Dice.roll(d10: 2)
 
-      assert length(values) == 2
+      assert Enum.count_until(values, 3) == 2
       assert Enum.all?(values, &(&1 in 1..10))
       assert sum == Enum.sum(values)
     end
@@ -15,9 +15,9 @@ defmodule D20.DiceTest do
     test "rolls heterogeneous keyword roll sets" do
       assert {:ok, %{sum: sum, d6: d6_values, d10: d10_values}} = Dice.roll(d6: 3, d10: 2)
 
-      assert length(d6_values) == 3
+      assert Enum.count_until(d6_values, 4) == 3
       assert Enum.all?(d6_values, &(&1 in 1..6))
-      assert length(d10_values) == 2
+      assert Enum.count_until(d10_values, 3) == 2
       assert Enum.all?(d10_values, &(&1 in 1..10))
       assert sum == Enum.sum(d6_values) + Enum.sum(d10_values)
     end

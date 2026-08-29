@@ -16,16 +16,15 @@ defmodule D20.Module.Token do
   @type context :: Phoenix.Token.context()
 
   @spec sign(context(), claims()) :: String.t()
-  def sign(context, %{game_id: %TypeID{} = game_id} = claims) do
+  def sign(context, %{game_id: game_id} = claims) do
     claims = Map.put(claims, :game_id, TypeID.to_string(game_id))
     Phoenix.Token.sign(context, salt(), claims)
   end
 
   @spec verify(context(), String.t()) :: {:ok, claims()} | {:error, term()}
   def verify(context, token) when is_binary(token) do
-    with {:ok, claims} <- Phoenix.Token.verify(context, salt(), token, max_age: max_age()),
-         {:ok, claims} <- validate_claims(claims) do
-      {:ok, claims}
+    with {:ok, claims} <- Phoenix.Token.verify(context, salt(), token, max_age: max_age()) do
+      validate_claims(claims)
     end
   end
 
@@ -36,7 +35,7 @@ defmodule D20.Module.Token do
          actor: %Actor{} = actor
        })
        when is_binary(endpoint) and is_binary(game_id) and is_binary(topic) do
-    with {:ok, %TypeID{} = game_id} <- TypeID.from_string(game_id),
+    with {:ok, game_id} <- TypeID.from_string(game_id),
          "game" <- TypeID.prefix(game_id) do
       {:ok, %{endpoint: endpoint, game_id: game_id, topic: topic, actor: actor}}
     else

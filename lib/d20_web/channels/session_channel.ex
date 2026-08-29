@@ -1,4 +1,8 @@
 defmodule D20Web.SessionChannel do
+  @moduledoc """
+  Phoenix channel that serves a single game session to embedded game modules.
+  """
+
   use D20Web, :channel
 
   alias D20.Accounts
@@ -25,9 +29,8 @@ defmodule D20Web.SessionChannel do
           assigns: %{scope: %{session: %{id: session_id}, game: %{id: game_id}}}
         } = socket
       ) do
-    with {:ok, {session, ^game_id}} <- Sessions.get(session_id) do
-      join_to_session(socket, session)
-    else
+    case Sessions.get(session_id) do
+      {:ok, {session, ^game_id}} -> join_to_session(socket, session)
       {:ok, {_session, _session_game_id}} -> join_error({:error, :forbidden})
       {:error, reason} -> join_error({:error, reason})
     end
@@ -42,14 +45,16 @@ defmodule D20Web.SessionChannel do
         _payload,
         %{assigns: %{scope: %{actor: %{id: _actor_id}}}} = socket
       ) do
-    with {:ok, {session, game_id}} <- Sessions.get(session_id) do
-      scope = socket.assigns.scope |> Scope.put_session(session.id) |> Scope.put_game(game_id)
+    case Sessions.get(session_id) do
+      {:ok, {session, game_id}} ->
+        scope = socket.assigns.scope |> Scope.put_session(session.id) |> Scope.put_game(game_id)
 
-      socket = assign(socket, :scope, scope)
+        socket = assign(socket, :scope, scope)
 
-      join_to_session(socket, session)
-    else
-      {:error, reason} -> join_error({:error, reason})
+        join_to_session(socket, session)
+
+      {:error, reason} ->
+        join_error({:error, reason})
     end
   end
 

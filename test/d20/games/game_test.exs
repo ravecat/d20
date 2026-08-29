@@ -82,7 +82,7 @@ defmodule D20.Games.GameTest do
       ids = Enum.map(games, &TypeID.to_string(&1.id))
 
       assert Enum.map(games, & &1.bgg_id) == expected_bgg_ids
-      assert length(Enum.uniq(ids)) == 19
+      assert Enum.count_until(Enum.uniq(ids), 20) == 19
       assert ids == Enum.sort(ids)
 
       assert Enum.all?(

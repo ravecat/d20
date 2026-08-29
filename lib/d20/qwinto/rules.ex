@@ -30,31 +30,27 @@ defmodule D20.Qwinto.Rules do
   @spec validate(D20.Qwinto.Game.t(), D20.Command.t()) ::
           :ok | {:error, reason()}
   def validate(game, %D20.Command{event: "join", actor_id: actor_id}) do
-    with :ok <- require_phase(game, [:setup, :ready]),
-         :ok <- require_player_capacity(game, actor_id) do
-      :ok
+    with :ok <- require_phase(game, [:setup, :ready]) do
+      require_player_capacity(game, actor_id)
     end
   end
 
   def validate(game, %D20.Command{event: "start"}) do
-    with :ok <- require_phase(game, :ready),
-         :ok <- require_player_count(game) do
-      :ok
+    with :ok <- require_phase(game, :ready) do
+      require_player_count(game)
     end
   end
 
   def validate(game, %D20.Command{event: "roll", actor_id: actor_id}) do
-    with :ok <- require_phase(game, :roll),
-         :ok <- require_active_player(game, actor_id) do
-      :ok
+    with :ok <- require_phase(game, :roll) do
+      require_active_player(game, actor_id)
     end
   end
 
   def validate(game, %D20.Command{event: "reroll", actor_id: actor_id}) do
     with :ok <- require_phase(game, :write_or_pass),
-         :ok <- require_active_player(game, actor_id),
-         :ok <- require_attempt(game, 1) do
-      :ok
+         :ok <- require_active_player(game, actor_id) do
+      require_attempt(game, 1)
     end
   end
 
@@ -68,9 +64,8 @@ defmodule D20.Qwinto.Rules do
          :ok <- require_player_status(game, actor_id, :pending),
          :ok <- require_valid_slot(game, row, slot),
          :ok <- require_available_slot(game, actor_id, row, slot),
-         :ok <- require_valid_order(game, actor_id, row, slot),
-         :ok <- require_column_unique(game, actor_id, row, slot) do
-      :ok
+         :ok <- require_valid_order(game, actor_id, row, slot) do
+      require_column_unique(game, actor_id, row, slot)
     end
   end
 
@@ -83,9 +78,8 @@ defmodule D20.Qwinto.Rules do
          :ok <- require_player_status(game, actor_id, :pending),
          :ok <- require_valid_slot(game, row, slot),
          :ok <- require_available_slot(game, actor_id, row, slot),
-         :ok <- require_valid_order(game, actor_id, row, slot),
-         :ok <- require_column_unique(game, actor_id, row, slot) do
-      :ok
+         :ok <- require_valid_order(game, actor_id, row, slot) do
+      require_column_unique(game, actor_id, row, slot)
     end
   end
 
@@ -94,18 +88,16 @@ defmodule D20.Qwinto.Rules do
   def validate(game, %D20.Command{event: "pass", actor_id: actor_id}) do
     with :ok <- require_player(game, actor_id),
          :ok <- require_passive_player(game, actor_id),
-         :ok <- require_phase(game, :result),
-         :ok <- require_player_status(game, actor_id, :pending) do
-      :ok
+         :ok <- require_phase(game, :result) do
+      require_player_status(game, actor_id, :pending)
     end
   end
 
   def validate(game, %D20.Command{event: "penalize", actor_id: actor_id}) do
     with :ok <- require_player(game, actor_id),
          :ok <- require_active_player(game, actor_id),
-         :ok <- require_phase(game, [:write_or_pass, :result]),
-         :ok <- require_player_status(game, actor_id, :pending) do
-      :ok
+         :ok <- require_phase(game, [:write_or_pass, :result]) do
+      require_player_status(game, actor_id, :pending)
     end
   end
 

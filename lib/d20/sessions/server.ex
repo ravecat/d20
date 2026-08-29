@@ -328,9 +328,6 @@ defmodule D20.Sessions.Server do
         else
           {:next_state, next_state, data, [idle_action()]}
         end
-
-      {:error, _reason} ->
-        {:keep_state_and_data, [idle_action()]}
     end
   end
 end

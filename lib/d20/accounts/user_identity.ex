@@ -17,6 +17,7 @@ defmodule D20.Accounts.UserIdentity do
 
   @type id :: TypeID.t()
   @type provider :: :google | :facebook | :apple | :discord | :steam
+  @type t :: %__MODULE__{}
 
   schema "user_identities" do
     field :provider, Ecto.Enum, values: @providers

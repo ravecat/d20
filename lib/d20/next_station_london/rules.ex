@@ -83,16 +83,14 @@ defmodule D20.NextStationLondon.Rules do
   def validate(_game, %D20.Command{event: "left"}), do: :ok
 
   def validate(game, %D20.Command{event: "start", actor_id: player_id}) do
-    with :ok <- require_participant(game, player_id),
-         :ok <- require_ready(game) do
-      :ok
+    with :ok <- require_participant(game, player_id) do
+      require_ready(game)
     end
   end
 
   def validate(game, %D20.Command{event: "reveal", actor_id: actor_id, attrs: attrs}) do
-    with :ok <- require_system_actor(actor_id),
-         :ok <- validate_reveal(game, attrs) do
-      :ok
+    with :ok <- require_system_actor(actor_id) do
+      validate_reveal(game, attrs)
     end
   end
 
@@ -103,9 +101,8 @@ defmodule D20.NextStationLondon.Rules do
          {:ok, player} <- require_pending_player(game, player_id),
          {:ok, color} <- current_color(game, player_id),
          :ok <- validate_power(game, player, color, event, attrs),
-         :ok <- validate_section_count(event, attrs),
-         {:ok, player} <- apply_action(game, player, color, event, attrs) do
-      {:ok, player}
+         :ok <- validate_section_count(event, attrs) do
+      apply_action(game, player, color, event, attrs)
     end
   end
 
@@ -132,7 +129,7 @@ defmodule D20.NextStationLondon.Rules do
   def current_color(game, player_id) do
     with {:ok, player} <- Map.fetch(game.players, player_id),
          offset when is_integer(offset) <- player.pencil_offset,
-         true <- length(game.pencil_cycle) == 4 do
+         [_first, _second, _third, _fourth] <- game.pencil_cycle do
       {:ok, Enum.at(game.pencil_cycle, rem(offset + game.round - 1, 4))}
     else
       :error -> {:error, :not_joined}
@@ -151,7 +148,7 @@ defmodule D20.NextStationLondon.Rules do
       turn: length(draws),
       cards: cards,
       destination: destination_card.destination,
-      switch: length(cards) == 2 and length(draws) > 2,
+      switch: match?([_, _], cards) and match?([_, _, _ | _], draws),
       final: underground_count(draws) == 5
     }
   end
@@ -368,7 +365,7 @@ defmodule D20.NextStationLondon.Rules do
       |> Enum.map(&elem(&1, 0))
       |> Enum.sort()
 
-    %{mode: :multiplayer, winners: winners, shared: length(winners) > 1}
+    %{mode: :multiplayer, winners: winners, shared: match?([_, _ | _], winners)}
   end
 
   @spec achieved_objectives([Ruleset.objective_id()], Game.player()) :: [Ruleset.objective_id()]
@@ -411,7 +408,7 @@ defmodule D20.NextStationLondon.Rules do
     expected_offsets = 0..3 |> Enum.take(player_count) |> MapSet.new()
 
     player_count in Ruleset.player_range() and is_list(attrs.pencil_cycle) and
-      length(attrs.pencil_cycle) == 4 and
+      match?([_, _, _, _], attrs.pencil_cycle) and
       MapSet.new(attrs.pencil_cycle) == MapSet.new(Ruleset.colors()) and is_map(offsets) and
       MapSet.new(Map.keys(offsets)) == MapSet.new(Map.keys(game.players)) and
       MapSet.new(Map.values(offsets)) == expected_offsets
@@ -424,7 +421,7 @@ defmodule D20.NextStationLondon.Rules do
   defp valid_objective_setup?(%{round: 1, objectives: nil}, nil), do: true
 
   defp valid_objective_setup?(%{round: 1, objectives: []}, objective_ids) do
-    is_list(objective_ids) and length(objective_ids) == 2 and
+    is_list(objective_ids) and match?([_, _], objective_ids) and
       MapSet.size(MapSet.new(objective_ids)) == 2 and
       Enum.all?(objective_ids, &(&1 in Ruleset.objective_ids()))
   end
@@ -498,9 +495,8 @@ defmodule D20.NextStationLondon.Rules do
              destination,
              attrs.chosen_symbol,
              switch?
-           ),
-         {:ok, player} <- apply_power_result(player, color, attrs.power, attrs.power_target) do
-      {:ok, player}
+           ) do
+      apply_power_result(player, color, attrs.power, attrs.power_target)
     end
   end
 
@@ -593,8 +589,6 @@ defmodule D20.NextStationLondon.Rules do
            ) do
       updated_line = %{line | edges: line.edges ++ [edge_id]}
       {:ok, put_in(player.lines[color], updated_line)}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 

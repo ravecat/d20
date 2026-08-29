@@ -79,8 +79,8 @@ defmodule D20.NextStationLondon.GameTest do
 
         assert map_size(prepared.players) == count
         assert Enum.all?(prepared.players, fn {_id, player} -> player.status == :pending end)
-        assert length(prepared.draws) == 1
-        assert length(prepared.remaining_deck) == 10
+        assert Enum.count_until(prepared.draws, 2) == 1
+        assert Enum.count_until(prepared.remaining_deck, 11) == 10
 
         offsets = prepared.players |> Map.values() |> Enum.map(& &1.pencil_offset)
         assert MapSet.new(offsets) == MapSet.new(0..(count - 1))
@@ -151,7 +151,7 @@ defmodule D20.NextStationLondon.GameTest do
       assert Enum.all?(game.players, fn {_id, player} -> player.status == :submitted end)
 
       assert {:ok, %Game{phase: :turn} = game} = dispatch(game, "reveal", nil)
-      assert length(game.draws) == 2
+      assert Enum.count_until(game.draws, 3) == 2
       assert Enum.all?(game.players, fn {_id, player} -> player.status == :pending end)
     end
 
@@ -173,18 +173,18 @@ defmodule D20.NextStationLondon.GameTest do
 
       assert game.players["p1"].lines.green.edges == []
       assert game.players["p1"].status == :pending
-      assert length(game.draws) == 1
+      assert Enum.count_until(game.draws, 2) == 1
 
       assert {:ok, game} =
                dispatch(game, "draw", "p1", %{"sections" => [%{"from" => "r2c3", "to" => "r1c3"}]})
 
       assert game.players["p1"].lines.green.edges == ["r1c3-r2c3"]
       assert game.phase == :reveal
-      assert length(game.draws) == 1
+      assert Enum.count_until(game.draws, 2) == 1
 
       assert {:ok, game} = dispatch(game, "reveal", nil)
       assert game.phase == :turn
-      assert length(game.draws) == 2
+      assert Enum.count_until(game.draws, 3) == 2
     end
 
     test "ends on the fifth Underground card and finishes only after round four" do

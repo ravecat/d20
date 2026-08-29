@@ -1,4 +1,8 @@
 defmodule D20.Accounts.UserNotifier do
+  @moduledoc """
+  Delivers account notifications by email through the configured mailer.
+  """
+
   import Swoosh.Email
 
   alias D20.Accounts.User

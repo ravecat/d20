@@ -139,7 +139,7 @@ defmodule D20.KoalaRescueClub.RulesetTest do
 
       assert %{axis: :row, index: 0, bonus: %{kind: :skybridge, to: :b}} in dharug.bonuses.a
       assert %{axis: :column, index: 0, bonus: %{kind: :tree}} in dharug.bonuses.a
-      assert length(dharug.skybridges) == 4
+      assert Enum.count_until(dharug.skybridges, 5) == 4
       assert %{from: :a, to: :b} in dharug.skybridges
       assert map_size(dharug.badges) == 3
       assert Map.has_key?(dharug.badges, :tree_lover)
@@ -152,7 +152,7 @@ defmodule D20.KoalaRescueClub.RulesetTest do
       assert Map.has_key?(yugambeh.areas, :g)
       assert yugambeh.areas.g == %{access: false, rows: [0..3, 0..3]}
       assert %{axis: :row, index: 0, bonus: %{kind: :koala}} in yugambeh.bonuses.g
-      assert length(yugambeh.skybridges) == 6
+      assert Enum.count_until(yugambeh.skybridges, 7) == 6
       assert map_size(yugambeh.badges) == 3
       assert Map.has_key?(yugambeh.badges, :tree_lover)
 
