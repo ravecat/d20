@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { AuthConfirmationPage } from "~/pages/auth_confirmation";
-import { withLayout } from "../../decorators/layout";
+import { withLayout } from "~stories/decorators/layout";
 
 const meta = {
   title: "Pages/Public/∕users∕log-in∕:token",

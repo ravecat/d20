@@ -20,7 +20,7 @@
 
 - [x] 4.1 Add Facebook shared availability and linked state, normal full-document Register/Login/Account Settings actions, and omit Facebook when unavailable without exposing credentials.
 - [x] 4.2 Keep the provider-neutral registration-completion page username-only for Facebook, Google, Discord, and Apple while displaying any server-owned email candidate as read-only text.
-- [x] 4.3 Add focused frontend tests and deterministic Storybook workflows for Facebook available, unavailable, username-only completion with and without email, linked, and unlinked states.
+- [x] 4.3 Add focused frontend tests for Facebook username-only completion with and without email, use the generic Auth Provider story for the shared completion UI, and keep deterministic Facebook available, unavailable, linked, and unlinked Storybook states.
 - [x] 4.4 Validate affected UI in supported desktop and mobile viewports with `chrome-devtools` MCP and record any fallback limitations.
 
 ## 5. Automated Validation and Specification Reconciliation
@@ -50,4 +50,5 @@
 - The first `just check` run reached the complete frontend suite but re-optimized Vite dependencies mid-run, causing two unrelated browser import failures and the previously observed 8-pixel `Maximum Only` mobile screenshot difference. The exact isolated browser tests passed 14/14 and the unrelated mobile visual test passed 4/4 without source or baseline changes. A second complete `just check` then passed with 188 frontend tests, production Storybook build, typecheck, lint, formatting, OpenSpec lifecycle checks, and 729 backend tests.
 - Removing either Facebook credential remains the operational rollback. Existing provider-only Facebook users require another linked authentication method before provider removal can serve as a complete recovery path.
 - A real unpublished Meta application is configured with the current administrator as an eligible role, automatic Development-mode localhost redirects, the exact `https://d20.ravecat.io/auth/facebook/callback` production redirect, strict redirect matching, `email` permission ready for testing, and both runtime credentials supplied outside version control.
+- Issue #260 consolidated Registration Completion visual coverage to Magic Link and the generic Auth Provider story. Facebook completion with and without an email candidate remains covered by focused frontend and controller tests instead of provider-specific visual baselines.
 - Tasks 6.2-6.3 remain open pending the complete real-provider journey matrix and staging verification. The change stays active and MUST NOT be archived or called production-ready until those tasks are verified.

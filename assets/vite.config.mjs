@@ -38,6 +38,7 @@ export default defineConfig({
     conditions: ["svelte", "browser", "import", "default"],
     alias: {
       "~": path.resolve(assetsDir, "js"),
+      "~stories": path.resolve(assetsDir, "stories"),
       "phoenix-colocated": `${process.env.MIX_BUILD_PATH}/phoenix-colocated`,
     },
   },

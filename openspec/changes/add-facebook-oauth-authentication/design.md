@@ -66,7 +66,7 @@ Initial authentication and link intents use issued-at session state and expire a
 
 Magic Link continues to render its pending email as read-only text and submit its confirmation token. Google, Discord, Apple, and Facebook all ask only for username, display an optional server-owned email candidate when present, and remain completable when it is absent. Provider identity, credentials, authorization codes, tokens, and raw callback data never appear in page props or form fields.
 
-The removed editable-email and check-email branches simplify autofocus, button copy, validation, tests, Storybook states, and mobile completion. The username remains a labelled required input with `autocomplete="username"` and `enterkeyhint="done"`.
+The removed editable-email and check-email branches simplify autofocus, button copy, validation, tests, Storybook states, and mobile completion. The username remains a labelled required input with `autocomplete="username"` and `enterkeyhint="done"`. Storybook uses the generic Auth Provider Registration Completion story for this shared page; focused frontend and controller tests retain Facebook-specific coverage with and without an email candidate instead of duplicating visual stories.
 
 ### Derive Facebook availability from runtime credentials
 

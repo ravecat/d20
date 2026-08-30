@@ -42,7 +42,7 @@
 - [x] 5.3 Extend shared `auth.providers`, TypeScript declarations, Register controls, and Login controls with conditional Steam availability and full-document navigation.
 - [x] 5.4 Update backend/frontend availability helpers for strategy plus `STEAM_API_KEY` and rerun Steam UI plus Apple, Discord, Google, email, password, Magic Link, linking, sudo, and nullable-email regressions.
 - [x] 5.5 Revalidate current provider-only Register, Login, registration-completion, and Account Settings states with configured Chrome DevTools at supported mobile and desktop viewports, including keyboard focus, accessible names, failure guidance, and no browser warnings.
-- [x] 5.6 Represent Steam in the shared Register/Login and Account Settings Storybook states, including available, linked, unavailable, and provider-only completion scenarios, and update their visual references.
+- [x] 5.6 Represent Steam in the shared Register/Login and Account Settings Storybook states, including available, linked, and unavailable scenarios, and use the generic null-email Auth Provider story for provider-only completion.
 
 ## 6. Configuration, Operations, And Data Safety
 
@@ -74,4 +74,5 @@
 - GitHub issue #241 now records the approved community adapter, `STEAM_API_KEY`, transient profile behavior, operation-minimal trust boundary, and data-minimization behavior; staging criteria remain unchecked.
 - Configured Chrome DevTools validation passes at 390x844 and 1440x900 for Register, Login, provider-only registration completion, provider-only Account Settings, and the live Steam Account Settings link, including keyboard reachability, accessible names, and no browser warnings.
 - GitHub issue #241 records the operation-minimal adapter trust boundary and accepted replay-persistence tradeoff. Staging deployment, issue completion evidence, broad `just check`, and archive remain open.
+- Issue #260 consolidated Registration Completion visual coverage to Magic Link and the generic null-email Auth Provider story. Steam-specific completion behavior remains covered by controller and frontend tests instead of a duplicate visual baseline.
 - Original detached implementation remains recoverable from Git stash `steam-worktree-backup-before-rebase-to-master-2534454` until final review.

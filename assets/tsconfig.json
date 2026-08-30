@@ -20,7 +20,8 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "paths": {
-      "~/*": ["./js/*"]
+      "~/*": ["./js/*"],
+      "~stories/*": ["./stories/*"]
     }
   },
   "include": [

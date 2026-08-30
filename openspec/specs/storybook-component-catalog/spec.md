@@ -101,9 +101,10 @@ The Storybook catalog SHALL organize production authentication surfaces under co
 #### Scenario: Inspect registration completion states
 
 - **WHEN** a contributor opens the Registration Completion stories
-- **THEN** the production page can be inspected for the distinct Magic Link and Auth Provider completion states
+- **THEN** the catalog contains exactly the distinct Magic Link and Auth Provider completion states
 - **AND** the Auth Provider state exposes the production action for choosing another registration method
 - **AND** the Auth Provider state represents every provider-backed completion that has the same user-visible behavior
+- **AND** no provider-specific Registration Completion story is present
 - **AND** no provider credential, callback payload, or live form submission is required
 
 #### Scenario: Inspect Magic Link login confirmation states

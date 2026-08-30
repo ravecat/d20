@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { RegistrationCompletionPage } from "~/pages/registration_completion";
-import { withLayout } from "../../decorators/layout";
+import { withLayout } from "~stories/decorators/layout";
 
 const meta = {
   title: "Pages/Public/∕users∕register∕complete",
@@ -39,41 +39,9 @@ export const MagicLink: Story = {};
 export const AuthProvider: Story = {
   args: {
     cancelAction: "/auth/google/register/cancel",
+    email: null,
     submission: {
       action: "/auth/google/register",
-      credential: { type: "server_session" },
-    },
-  },
-};
-
-export const FacebookWithEmail: Story = {
-  args: {
-    cancelAction: "/auth/facebook/register/cancel",
-    email: "facebook-candidate@example.com",
-    submission: {
-      action: "/auth/facebook/register",
-      credential: { type: "server_session" },
-    },
-  },
-};
-
-export const FacebookProviderOnly: Story = {
-  args: {
-    cancelAction: "/auth/facebook/register/cancel",
-    email: null,
-    submission: {
-      action: "/auth/facebook/register",
-      credential: { type: "server_session" },
-    },
-  },
-};
-
-export const SteamProviderOnly: Story = {
-  args: {
-    cancelAction: "/auth/steam/register/cancel",
-    email: null,
-    submission: {
-      action: "/auth/steam/register",
       credential: { type: "server_session" },
     },
   },

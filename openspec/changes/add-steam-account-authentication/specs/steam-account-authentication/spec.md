@@ -187,12 +187,13 @@ Steam linking SHALL be offered only while available and unlinked. Start and call
 
 ### Requirement: Storybook represents Steam authentication states
 
-The maintained Storybook catalog SHALL represent Steam in the shared Register and Login provider choices, Account Settings available and linked provider rows, the unavailable-provider state, and provider-only registration completion with null email. These references MUST reuse the production provider data shapes and generic pages rather than introducing Steam-only UI components.
+The maintained Storybook catalog SHALL represent Steam in the shared Register and Login provider choices, Account Settings available and linked provider rows, and the unavailable-provider state. The generic Auth Provider Registration Completion story SHALL represent provider-only completion with null email. These references MUST reuse the production provider data shapes and generic pages, and the catalog MUST NOT introduce a Steam-specific Registration Completion story.
 
 #### Scenario: Steam reference states are reviewed
 
 - **WHEN** the authentication and Account Settings Storybook stories render
-- **THEN** available Steam registration, login, linking, linked identity, and provider-only completion states are directly inspectable
+- **THEN** available Steam registration, login, linking, and linked identity states are directly inspectable
+- **AND** the generic Auth Provider story exposes provider-only completion with null email
 - **AND** the unavailable-provider story still omits unavailable provider rows
 
 ### Requirement: Steam failures fail closed and remain usable

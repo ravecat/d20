@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import Layout from "~/app/layout.svelte";
-import { usePage } from "../../stories/mocks/inertia_svelte";
-import accountSettings from "../../stories/pages/authenticated/account_settings.stories";
-import authenticatedAuthConfirmation from "../../stories/pages/authenticated/auth_confirmation.stories";
-import authenticatedHome from "../../stories/pages/authenticated/home.stories";
+import { usePage } from "~stories/mocks/inertia_svelte";
+import accountSettings from "~stories/pages/authenticated/account_settings.stories";
+import authenticatedAuthConfirmation from "~stories/pages/authenticated/auth_confirmation.stories";
+import authenticatedHome from "~stories/pages/authenticated/home.stories";
 import publicAuthConfirmation, {
   Login as confirmation,
-} from "../../stories/pages/public/auth_confirmation.stories";
-import publicHome from "../../stories/pages/public/home.stories";
-import registrationCompletion from "../../stories/pages/public/registration_completion.stories";
-import playerCountLabel from "../../stories/shared/player_count_label.stories";
-import workspace from "../../stories/widgets/workspace.stories";
+} from "~stories/pages/public/auth_confirmation.stories";
+import publicHome from "~stories/pages/public/home.stories";
+import registrationCompletion, * as registrationCompletionStories from "~stories/pages/public/registration_completion.stories";
+import playerCountLabel from "~stories/shared/player_count_label.stories";
+import workspace from "~stories/widgets/workspace.stories";
 
 describe("Storybook page layout", () => {
   it("registers matching production layout context on every complete routed page", () => {
@@ -77,6 +77,15 @@ describe("Storybook page layout", () => {
 
     expect(usePage().url).toBe("/users/log-in/storybook-login-token");
     expect(usePage().props.auth.authenticated).toBe(true);
+  });
+
+  it("keeps Registration Completion focused on distinct workflows", () => {
+    expect(Object.keys(registrationCompletionStories).sort()).toEqual([
+      "AuthProvider",
+      "MagicLink",
+      "default",
+    ]);
+    expect(registrationCompletionStories.AuthProvider.args?.email).toBeNull();
   });
 
   it("leaves shared and widget stories undecorated", () => {

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { Workspace } from "~/widgets/workspace";
-import { clear, set, setStatus } from "../mocks/phoenix_session";
+import { clear, set, setStatus } from "~stories/mocks/phoenix_session";
 
 const meta = {
   title: "Widgets/Workspace",

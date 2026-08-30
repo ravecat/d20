@@ -66,7 +66,7 @@ A provider-only user may later add and verify email through issue #242's indepen
 
 Returning login resolves only `(:steam, canonical_steam_id)`. Steam data never updates username or email. Reauthentication accepts only a SteamID linked to the current user and cannot switch accounts. Linking requires the same current user and sudo proof; same-user repeats are idempotent and other ownership conflicts are generic.
 
-Shared `auth.providers` and TypeScript declarations include `steam.available`. Existing Register/Login provider groups render full-document Steam links only when the expected strategy and API key are configured. Account Settings uses its generic provider collection and icon map. Storybook keeps Steam visible in the available Register/Login and Account Settings reference states, represents unavailable and linked states through the existing generic provider data, and includes a provider-only Steam registration-completion scenario with null email.
+Shared `auth.providers` and TypeScript declarations include `steam.available`. Existing Register/Login provider groups render full-document Steam links only when the expected strategy and API key are configured. Account Settings uses its generic provider collection and icon map. Storybook keeps Steam visible in the available Register/Login and Account Settings reference states and represents unavailable and linked states through the existing generic provider data. The generic Auth Provider Registration Completion story carries null email for the shared provider-only UI instead of adding a Steam-specific visual story.
 
 ### Use standard Phoenix logging and telemetry boundaries
 

@@ -213,10 +213,11 @@ The repository SHALL document the exact `/auth/facebook/callback`, `FACEBOOK_OAU
 
 ### Requirement: Storybook represents Facebook authentication states
 
-Storybook authentication workflows SHALL include deterministic Facebook available, unavailable, username-only registration completion with and without an email candidate, linked, and unlinked states without contacting Meta or embedding credentials. Stories SHALL reuse production components and typed fixtures.
+Storybook authentication workflows SHALL include deterministic Facebook available, unavailable, linked, and unlinked states without contacting Meta or embedding credentials. The generic Auth Provider Registration Completion story SHALL represent Facebook's provider-neutral completion UI, while focused frontend and controller tests SHALL cover provider-specific completion data with and without an email candidate. The catalog MUST NOT add Facebook-specific Registration Completion stories.
 
 #### Scenario: Developer reviews Facebook workflows in Storybook
 
 - **WHEN** the authentication stories are built
-- **THEN** Facebook account choices and username-only registration states can be reviewed with deterministic fixtures
-- **AND** no external provider request or secret is required
+- **THEN** Facebook account choices and Account Settings states can be reviewed with deterministic fixtures
+- **AND** the generic Auth Provider story represents the shared username-only completion UI
+- **AND** no Facebook-specific Registration Completion story, external provider request, or secret is required

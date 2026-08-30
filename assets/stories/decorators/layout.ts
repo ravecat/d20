@@ -1,5 +1,5 @@
 import Layout from "~/app/layout.svelte";
-import { reset, set } from "../mocks/inertia_svelte";
+import { reset, set } from "~stories/mocks/inertia_svelte";
 
 type Options = {
   url: string;

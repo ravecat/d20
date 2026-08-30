@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { HomePage } from "~/pages/home";
 import { auth } from "~/shared/stores";
-import { homeGames } from "../../fixtures/home";
-import { withLayout } from "../../decorators/layout";
+import { homeGames } from "~stories/fixtures/home";
+import { withLayout } from "~stories/decorators/layout";
 
 const meta = {
   id: "home",
