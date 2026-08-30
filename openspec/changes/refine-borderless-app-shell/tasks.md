@@ -66,4 +66,4 @@
 
 ## 14. Modal Scroll Validation
 
-- [ ] 14.1 Run focused frontend tests, formatting, linting, type checks, production asset build, strict OpenSpec validation, and Chrome DevTools validation on the overflowing Home login dialog.
+- [x] 14.1 Run focused frontend tests, formatting, linting, type checks, production asset build, strict OpenSpec validation, and Chrome DevTools validation on the overflowing Home login dialog.
