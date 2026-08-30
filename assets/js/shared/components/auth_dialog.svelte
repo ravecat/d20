@@ -32,6 +32,10 @@
     activeEmailInput?.focus();
   }
 
+  function dismiss(event: MouseEvent) {
+    if (event.target === event.currentTarget) dialog?.close();
+  }
+
   const reauthenticate = $derived($authState.prompt?.reauthenticate ?? false);
   const providerIntent = $derived(reauthenticate ? "&intent=reauthenticate" : "");
   const googleAuthUrl = $derived(
@@ -78,6 +82,7 @@
   class="auth-dialog"
   aria-labelledby="auth-dialog-title"
   closedby="any"
+  onclick={dismiss}
   onclose={() => auth.trigger.close()}
 >
   <section class="auth-panel">
@@ -471,23 +476,26 @@
 
 <style>
   .auth-dialog {
+    position: fixed;
+    inset: 0;
     box-sizing: border-box;
-    inline-size: min(calc(100% - 2rem), 34rem);
-    block-size: fit-content;
+    inline-size: 100%;
+    block-size: 100dvh;
     max-inline-size: none;
-    max-block-size: calc(100dvh - 2rem);
-    margin: auto;
-    overflow: hidden;
-    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, transparent);
-    border-radius: var(--radius-box);
-    background: var(--color-base-100);
-    padding: 0;
+    max-block-size: none;
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 0;
+    background: transparent;
+    padding: 1rem;
     color: var(--color-base-content);
-    box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 0.38);
+    scrollbar-gutter: stable both-edges;
   }
 
   .auth-dialog[open] {
     display: flex;
+    align-items: center;
     flex-direction: column;
   }
 
@@ -498,19 +506,20 @@
   .auth-panel {
     display: flex;
     box-sizing: border-box;
-    inline-size: 100%;
-    block-size: fit-content;
+    inline-size: min(100%, 34rem);
+    block-size: max-content;
     min-block-size: 0;
-    max-block-size: 100%;
-    flex: 0 1 auto;
+    max-block-size: none;
+    flex: none;
     flex-direction: column;
     gap: 0.625rem;
-    overflow: hidden;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+    margin-block: auto;
+    overflow: visible;
+    border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, transparent);
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
     padding: 0;
-    box-shadow: none;
+    box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 0.38);
   }
 
   .auth-panel__title-row {
@@ -565,8 +574,7 @@
     flex-direction: column;
     gap: 0.625rem;
     min-block-size: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: visible;
     padding-block-end: 1.5rem;
     padding-inline: 1.5rem;
   }
@@ -773,14 +781,10 @@
 
   @media (max-width: 34rem) {
     .auth-dialog {
-      inset-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
-      inset-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
-      inset-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
-      inset-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
-      inline-size: auto;
-      block-size: auto;
-      max-block-size: none;
-      margin: 0;
+      padding-block-start: max(0.5rem, env(safe-area-inset-top, 0px));
+      padding-inline-end: max(0.5rem, env(safe-area-inset-right, 0px));
+      padding-block-end: max(0.5rem, env(safe-area-inset-bottom, 0px));
+      padding-inline-start: max(0.5rem, env(safe-area-inset-left, 0px));
     }
 
     .auth-panel__title-row {

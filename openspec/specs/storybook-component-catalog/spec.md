@@ -80,12 +80,16 @@ The catalog SHALL provide generated documentation, controls, viewport selection,
 
 ### Requirement: Authentication workflows are inspectable in isolation
 
-The Storybook catalog SHALL organize production authentication surfaces under `Sign In` and `Sign Up` workflow groups. It SHALL expose the production AuthDialog, Account Settings, Registration Completion, and Auth Confirmation components through typed deterministic stories. The stories SHALL render without Phoenix or a live Inertia submission boundary and MUST prevent form interaction from contacting an application server.
+The Storybook catalog SHALL organize production authentication surfaces under complete Home stories and route-labelled `Sign In` and `Sign Up` pages. It SHALL expose the production AuthDialog, Account Settings, Registration Completion, and Auth Confirmation components through typed deterministic stories. The stories SHALL render without Phoenix or a live Inertia submission boundary and MUST prevent form interaction from contacting an application server.
 
 #### Scenario: Inspect authentication dialog states
 
-- **WHEN** a contributor browses the `Sign In` and `Sign Up` workflow groups
-- **THEN** the production authentication dialog can be inspected for initial sign-in, initial registration, email request completion, Magic Link request completion, and sudo reauthentication
+- **WHEN** a contributor browses the Home, `Sign In`, and `Sign Up` story groups
+- **THEN** Home Sign In and Home Sign Up cover the initial AuthDialog states through the production Header
+- **AND** Home Sign In Sent Magic Link covers the Magic Link request completion state in the complete page context
+- **AND** Home Confirmation With Magic Link covers email-backed sudo reauthentication through the production Header prompt
+- **AND** Home Sign Up With Email covers sign-up email request completion through the production Header
+- **AND** no standalone Sign In or Sign Up authentication-dialog group remains
 - **AND** each state uses deterministic page and authentication-store state without a live backend
 
 #### Scenario: Inspect Account Settings states

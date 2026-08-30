@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { AccountSettingsPage } from "~/pages/account_settings";
+import { withLayout } from "../decorators/layout";
 
 const meta = {
   title: "Pages/∕settings",
   id: "pages-settings",
   component: AccountSettingsPage,
+  decorators: [withLayout({ url: "/users/settings" })],
   parameters: {
     layout: "fullscreen",
   },

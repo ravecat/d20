@@ -9,6 +9,6 @@ addons.setConfig({
     showPanel: () => true,
   },
   sidebar: {
-    renderLabel: ({ name }) => name.replace("∕", "/"),
+    renderLabel: ({ name }) => name.replace(/∕/g, "/"),
   },
 });

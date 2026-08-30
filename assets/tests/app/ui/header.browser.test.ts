@@ -113,7 +113,7 @@ describe("app header account dialog", () => {
     expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe("");
   });
 
-  it("delegates backdrop light dismissal to the native modal dialog", async () => {
+  it("dismisses the dialog from the shaded modal layer", async () => {
     renderHeader();
 
     const login = page
@@ -127,7 +127,7 @@ describe("app header account dialog", () => {
     expect(dialogElement.getAttribute("closedby")).toBe("any");
     expect(dialogElement.matches(":modal")).toBe(true);
 
-    await login.click({ force: true });
+    dialogElement.click();
 
     await expect.poll(() => dialogElement.open).toBe(false);
   });

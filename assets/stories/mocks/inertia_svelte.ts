@@ -29,11 +29,11 @@ const defaultPage = (): StoryPage => ({
 
 const page = defaultPage();
 
-export function setStoryPage(nextPage: StoryPage) {
+export function set(nextPage: StoryPage) {
   Object.assign(page, nextPage);
 }
 
-export function resetStoryPage() {
+export function reset() {
   Object.assign(page, defaultPage());
 }
 
