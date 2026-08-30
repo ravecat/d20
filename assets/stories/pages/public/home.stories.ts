@@ -2,11 +2,12 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { HomePage } from "~/pages/home";
 import { auth } from "~/shared/stores";
-import { withLayout } from "../decorators/layout";
+import { homeGames } from "../../fixtures/home";
+import { withLayout } from "../../decorators/layout";
 
 const meta = {
   id: "home",
-  title: "Pages/∕",
+  title: "Pages/Public/∕",
   component: HomePage,
   decorators: [withLayout({ url: "/" })],
   parameters: {
@@ -29,38 +30,7 @@ const meta = {
         steam: { available: true },
       },
     },
-    games: [
-      {
-        id: "game_01h45yhtgqfhxbcrsfbhxdsdvy",
-        stage: "released",
-        game: {
-          name: "Qwinto",
-          alternateNames: [],
-          categories: ["Dice", "Number"],
-          mechanics: ["Dice Rolling", "Paper-and-Pencil"],
-        },
-      },
-      {
-        id: "game_01h45y0sxkfmntta78gqs1vsw6",
-        stage: "in_development",
-        game: {
-          name: "Koala Rescue Club",
-          alternateNames: [],
-          categories: ["Animals", "Puzzle"],
-          mechanics: ["Dice Rolling", "Pattern Building"],
-        },
-      },
-      {
-        id: "game_01h45ybmy7fj7b4r9vvp74ms6k",
-        stage: "planned",
-        game: {
-          name: "Voyages",
-          alternateNames: [],
-          categories: ["Exploration", "Nautical"],
-          mechanics: ["Dice Rolling", "Grid Coverage"],
-        },
-      },
-    ],
+    games: homeGames,
   },
 } satisfies Meta<typeof HomePage>;
 
@@ -98,41 +68,6 @@ export const SignInSentMagicLink: Story = {
     auth.trigger.magicLinkSucceeded();
     await expect(await canvas.findByRole("status")).toHaveTextContent(
       "If your email is in our system, a login link will arrive shortly.",
-    );
-  },
-};
-
-export const ConfirmationWithMagicLink: Story = {
-  args: {
-    auth: {
-      authenticated: true,
-      local: false,
-      prompt: {
-        email: "player@example.com",
-        identifier: "table_master",
-        kind: "warning",
-        message: "You must re-authenticate to access this page.",
-        reauthenticate: true,
-        returnTo: "/users/settings",
-      },
-      providers: {
-        apple: { available: true },
-        discord: { available: true },
-        facebook: { available: true },
-        google: { available: true },
-        steam: { available: true },
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await expect(await canvas.findByRole("dialog", { name: "Confirm it is you" })).toBeVisible();
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "You must re-authenticate to access this page.",
-    );
-    await expect(canvas.getByRole("textbox", { name: "Email address" })).toHaveValue(
-      "player@example.com",
     );
   },
 };

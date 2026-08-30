@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { RegistrationCompletionPage } from "~/pages/registration_completion";
-import { withLayout } from "../decorators/layout";
+import { withLayout } from "../../decorators/layout";
 
 const meta = {
-  title: "Pages/∕users∕register∕complete",
+  title: "Pages/Public/∕users∕register∕complete",
   id: "pages-sign-up-registration-completion",
   component: RegistrationCompletionPage,
   decorators: [withLayout({ url: "/users/register/complete" })],
