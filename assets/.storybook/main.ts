@@ -13,6 +13,7 @@ const config: StorybookConfig = {
   framework: "@storybook/svelte-vite",
   core: {
     disableTelemetry: true,
+    disableWhatsNewNotifications: true,
   },
   features: {
     sidebarOnboardingChecklist: false,

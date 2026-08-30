@@ -78,6 +78,16 @@ The catalog SHALL provide generated documentation, controls, viewport selection,
 - **THEN** they can inspect its generated documentation and editable controls
 - **AND** they can explicitly select a narrow viewport and run the configured accessibility inspection
 
+### Requirement: Catalog release notifications remain disabled
+
+The interactive Storybook catalog SHALL disable Storybook's built-in What's New notifications through the maintained project configuration. This suppression MUST NOT depend on browser-local dismissal state and MUST NOT change application, story, or addon notifications.
+
+#### Scenario: Reload the development catalog
+
+- **WHEN** a contributor starts or reloads the interactive Storybook catalog
+- **THEN** Storybook does not present its built-in What's New notification
+- **AND** existing stories, addons, and manager layout remain available
+
 ### Requirement: Authentication workflows are inspectable in isolation
 
 The Storybook catalog SHALL organize production authentication surfaces under complete Home stories and route-labelled `Sign In` and `Sign Up` pages. It SHALL expose the production AuthDialog, Account Settings, Registration Completion, and Auth Confirmation components through typed deterministic stories. The stories SHALL render without Phoenix or a live Inertia submission boundary and MUST prevent form interaction from contacting an application server.
