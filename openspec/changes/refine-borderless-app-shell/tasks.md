@@ -58,3 +58,12 @@
 ## 12. Global Scroll Validation
 
 - [x] 12.1 Run focused frontend tests, formatting, linting, type checks, the production asset build, strict OpenSpec validation, and Chrome DevTools validation on overflowing Account Settings content.
+
+## 13. Modal Document Scroll Lock
+
+- [x] 13.1 Tie document scrolling-element overflow suspension and exact restoration to the mounted `AuthDialog` lifecycle while preserving the dialog-owned viewport scroller.
+- [x] 13.2 Add focused browser coverage for the scroll lock, dialog reachability, document position preservation, and cleanup over overflowing and non-overflowing pages.
+
+## 14. Modal Scroll Validation
+
+- [ ] 14.1 Run focused frontend tests, formatting, linting, type checks, production asset build, strict OpenSpec validation, and Chrome DevTools validation on the overflowing Home login dialog.

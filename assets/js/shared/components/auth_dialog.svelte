@@ -23,6 +23,16 @@
 
   onMount(() => {
     dialog?.showModal();
+
+    const scrollingElement = document.scrollingElement;
+    if (!(scrollingElement instanceof HTMLElement)) return;
+
+    const previousOverflow = scrollingElement.style.overflow;
+    scrollingElement.style.overflow = "hidden";
+
+    return () => {
+      scrollingElement.style.overflow = previousOverflow;
+    };
   });
 
   async function switchMode(nextMode: Mode) {

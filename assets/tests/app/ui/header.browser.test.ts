@@ -34,6 +34,8 @@ afterEach(async () => {
   await cleanup?.();
   cleanup = undefined;
   document.body.innerHTML = "";
+  document.documentElement.style.removeProperty("overflow");
+  window.scrollTo(0, 0);
 });
 
 describe("app header account dialog", () => {
@@ -93,6 +95,44 @@ describe("app header account dialog", () => {
     await expect.element(page.getByRole("dialog", { name: "Log in" })).toBeVisible();
     expect((page.getByLabelText("Email address").element() as HTMLInputElement).value).toBe("");
     await expect.element(page.getByLabelText("Password", { exact: true })).toBeVisible();
+  });
+
+  it("suspends and restores document scrolling while the dialog is open", async () => {
+    await page.viewport(1280, 600);
+
+    const longPage = document.createElement("div");
+    longPage.style.minBlockSize = "75rem";
+    document.body.append(longPage);
+
+    const scrollingElement = document.scrollingElement as HTMLElement;
+    scrollingElement.style.overflow = "scroll";
+    scrollingElement.scrollTop = 120;
+    await expect.poll(() => scrollingElement.scrollTop).toBeCloseTo(120, 0);
+
+    renderHeader();
+    await openLoginMode();
+
+    const dialog = page.getByRole("dialog", { name: "Log in" });
+    await expect.element(dialog).toBeVisible();
+    expect(scrollingElement.style.overflow).toBe("hidden");
+    expect(scrollingElement.scrollTop).toBeCloseTo(120, 0);
+
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await expect.poll(() => scrollingElement.style.overflow).toBe("scroll");
+    expect(scrollingElement.scrollTop).toBeCloseTo(120, 0);
+  });
+
+  it("restores default document scrolling after closing over a short page", async () => {
+    renderHeader();
+    await openLoginMode();
+
+    const scrollingElement = document.scrollingElement as HTMLElement;
+    expect(scrollingElement.style.overflow).toBe("hidden");
+
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await expect.poll(() => scrollingElement.style.overflow).toBe("");
   });
 
   it("routes the explicit close action through the native dialog", async () => {

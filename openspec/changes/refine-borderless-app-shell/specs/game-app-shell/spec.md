@@ -14,6 +14,24 @@ The Inertia game application SHALL render one fixed header, one main content reg
 - **THEN** the shell still fills the viewport
 - **AND** the footer rests at the viewport end after the main region
 
+### Requirement: Modal authentication suspends background document scrolling
+While the native modal authentication dialog is open, the shell SHALL preserve the document's current scroll position but MUST suspend user scrolling and hide the document scrollbar. The full-viewport dialog SHALL remain the only active visible vertical scroll container when its content exceeds the viewport. Closing the dialog SHALL restore the document scrolling element's prior inline overflow state without changing the document scroll position.
+
+#### Scenario: Login opens over an overflowing page
+- **WHEN** a user opens the authentication dialog while the document is taller than the viewport
+- **THEN** the document scrollbar is no longer visible or user-scrollable
+- **AND** the authentication dialog remains vertically scrollable
+- **AND** the dialog is the only active visible vertical scroll container
+
+#### Scenario: Login closes over an overflowing page
+- **WHEN** the user closes the authentication dialog after opening it over an overflowing page
+- **THEN** the document scrolling element restores its prior inline overflow state
+- **AND** the document remains at its pre-dialog scroll position
+
+#### Scenario: Login opens over a short page
+- **WHEN** a user opens and closes the authentication dialog while the document does not overflow
+- **THEN** the same modal scroll-lock lifecycle runs without introducing page overflow or a layout regression
+
 ### Requirement: The fixed brand compacts with global document scrolling
 The shell SHALL keep the fixed header at the top of the viewport, SHALL reserve its expanded responsive height before main content, and SHALL give the document matching block-start scroll padding. In browsers with complete scroll-driven animation support, the shell SHALL use the root document scroll timeline to compact both the D20 mark and its visible label over the first 24 pixels without JavaScript scroll state. The reserve MUST prevent content jumps and initial interactive-content overlap and MUST scroll away without leaving a permanent gap after compaction. The scroll padding MUST keep root-aligned fragment, focus, and programmatic scroll targets below the fixed header, including when the expanded fallback is active. In browsers without complete support and for users who prefer reduced motion, the shell SHALL retain the expanded header as a functional fallback.
 

@@ -2,7 +2,7 @@
 
 The Svelte Inertia shell uses a three-row `header / main / footer` grid and compacts the D20 brand after the page scrolls beyond 24 pixels. It currently fixes that grid to `100dvh`, makes only the middle region scrollable, and binds the compact animation to that nested region. When the document also overflows, long routes such as Account Settings expose two independent vertical scrollbars and the header follows only the nested one.
 
-The refinement must preserve Inertia document scroll restoration, responsive brand dimensions, pinned-header behavior, and keyboard accessibility while making the document root the only page-level scroll container.
+The refinement must preserve Inertia document scroll restoration, responsive brand dimensions, pinned-header behavior, and keyboard accessibility while making the document root the only page-level scroll container. That global page-scroll correction exposes a modal edge case on long routes: the root remains visibly scrollable behind the full-viewport authentication dialog, so Chromium paints the root scrollbar beside the dialog scrollbar even though native modal semantics make the page interaction-inert.
 
 The footer currently links to the GitHub source repository. The product direction now treats the footer as the entry point for engineers who want to build compatible clients from game AsyncAPI contracts. Songy and Moda already establish a small Phoenix Plug pattern that serves raw YAML and renders an interactive reference with the standalone AsyncAPI React component. D20 can adapt that pattern for its two existing specifications without introducing a separate static-site build.
 
@@ -14,6 +14,7 @@ The footer currently links to the GitHub source repository. The product directio
 - Remove the rectangular outline around the D20 brand while keeping keyboard focus unmistakable.
 - Keep the existing default, narrow-screen, and compact brand dimensions.
 - Make the global document scroll position drive compact presentation without Svelte component state.
+- Keep the document position stable but temporarily suspend root scrolling while the modal authentication dialog owns interaction and overflow.
 - Make D20 dimensions explicit in the D20 component instead of passing them through CSS custom properties.
 - Make `/developers` a clear internal destination from every game-shell footer.
 - Present a polished index for the existing Qwinto and Koala Rescue Club AsyncAPI contracts.
@@ -26,6 +27,7 @@ The footer currently links to the GitHub source repository. The product directio
 - Redesign page cards, game-detail panels, or intentional component-local overflow regions.
 - Change the compact threshold or add a custom replacement for Inertia's document scroll contract.
 - Add a runtime scroll-timeline polyfill or retain a JavaScript fallback for the decorative compact state.
+- Add a general modal manager, global dialog selector, root-state class, or nested authentication-content scroller for the single authentication dialog.
 - Remove color custom properties from the D20 artwork.
 - Parse AsyncAPI metadata at runtime or expose files whose slugs are not registered games.
 - Add multi-version specification URLs or move `info.version` into the filename.
@@ -89,6 +91,12 @@ The header will bind its component-scoped keyframes directly to `scroll(block ro
 
 Keeping an in-flow sticky header was rejected because changing its layout dimensions from the root scroll timeline changes that timeline's own range; Chromium deactivates the animation to avoid the resulting layout cycle. Keeping a named timeline was rejected because it requires a nested or named scroll source when the root already expresses the application-wide contract. Keeping the JavaScript handler as a fallback was rejected because it would restore presentation state and component coupling. Adding `scroll-timeline-polyfill` was rejected because the cosmetic enhancement does not justify a runtime CSS parser and its compatibility risks.
 
+### 9. Let the authentication dialog own a scoped document scroll lock
+
+`AuthDialog` is mounted only while the authentication store is open. Its existing synchronous `onMount` lifecycle will capture the document scrolling element's current inline `overflow`, set it to `hidden`, and open the native modal dialog. The lifecycle teardown will restore that exact inline value when the dialog closes and the component unmounts. The document keeps its scroll position while the full-viewport dialog retains `overflow-y: auto`, so short pages receive no visual change and long pages expose only the active dialog scrollbar.
+
+This is an external DOM side effect because the standards-mode document scrolling element is outside the Svelte component tree. Tying it to `onMount` teardown keeps ownership local and SSR-safe without introducing reactive state synchronization. A global `:has(dialog:modal)` selector, root-state class, and reusable lock manager were rejected because the application currently mounts one authentication modal and does not need global modal coordination. Hiding the dialog scrollbar was rejected because it would leave the inactive page scrollbar visible while concealing the active scroll position.
+
 ## Risks / Trade-offs
 
 - [The sticky chrome may blend into similarly colored content] -> This is the requested seamless treatment; the fixed grid position still communicates the shell boundary spatially.
@@ -101,6 +109,7 @@ Keeping an in-flow sticky header was rejected because changing its layout dimens
 - [The footer is no longer persistently visible on long pages] -> Keep it after the main region in ordinary document order and at the viewport end on short pages; the request preserves pinned-header behavior, not a second bounded scrollport.
 - [The expanded header reserve could leave empty space after compaction] -> Keep the reserve in document flow so ordinary scrolling consumes it, and verify the first interactive content meets the compact header without a persistent gap or jump at desktop and mobile widths.
 - [Animating layout dimensions can require layout work during the first 24 pixels of scrolling] -> Keep the fixed header outside the root scroll range, limit the range to the small pinned surface, and avoid a JavaScript scroll callback that would add component updates to the same path.
+- [Mobile Safari can differ in viewport and root-scroll behavior around the virtual keyboard] -> Use the standards-mode `document.scrollingElement`, keep the dialog as the independent `100dvh` scroller, and validate supported desktop browsers plus the available mobile viewport while retaining real-device iOS verification as a residual risk.
 
 ## Migration Plan
 

@@ -8,6 +8,7 @@ The Inertia game shell now keeps content between a persistent header and footer,
 - Keep the header, footer, and brand free of visible surrounding borders or edge shadows in normal, compact, pointer, and keyboard states.
 - Preserve a visible keyboard-focus indicator for the home brand without drawing a rectangle around the mark or label.
 - Keep the header pinned and compact-on-scroll behavior while making the document root the only page-level scroll container and timeline source.
+- Suspend document-root scrolling while the modal authentication dialog is open so the dialog is the only active visible scroll container, then restore the document's prior scroll state when it closes.
 - Replace D20 size custom properties with explicit component size declarations while retaining color custom properties.
 - Replace the footer source link with an internal `for developers` link to `/developers`.
 - Add a developer page that introduces client implementation and derives a compact reference/YAML list from registered games with matching static specifications.
@@ -26,7 +27,7 @@ The Inertia game shell now keeps content between a persistent header and footer,
 
 ## Impact
 
-- Affected frontend files: app-shell components, a new Inertia page, its server-owned specification prop, and nearby tests.
+- Affected frontend files: app-shell components, the shared authentication dialog, a new Inertia page, its server-owned specification prop, and nearby tests.
 - Adds a read-only Phoenix route for `/developers` plus two dynamic rendered/raw AsyncAPI route patterns shared by every configured specification.
 - No session, persistence, or iframe module contract changes.
 - No new dependencies or migrations.
