@@ -40,11 +40,7 @@
 
     {#if page.props.auth.authenticated}
       <nav class="header__actions" aria-label="Account">
-        <a
-          class="header__account-link"
-          href="/users/settings"
-          use:inertia={{ href: "/users/settings" }}
-        >
+        <a class="header__account-link" href="/profile" use:inertia={{ href: "/profile" }}>
           Settings
         </a>
         <Form class="header__logout-form" method="delete" action="/users/log-out">

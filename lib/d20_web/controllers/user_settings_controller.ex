@@ -16,35 +16,35 @@ defmodule D20Web.UserSettingsController do
     providers = [
       %{
         available: Google.available?(),
-        href: ~p"/users/settings/auth/google",
+        href: ~p"/profile/auth/google",
         id: "google",
         linked: MapSet.member?(linked_providers, :google),
         name: "Google"
       },
       %{
         available: Apple.available?(),
-        href: ~p"/users/settings/auth/apple",
+        href: ~p"/profile/auth/apple",
         id: "apple",
         linked: MapSet.member?(linked_providers, :apple),
         name: "Apple"
       },
       %{
         available: Discord.available?(),
-        href: ~p"/users/settings/auth/discord",
+        href: ~p"/profile/auth/discord",
         id: "discord",
         linked: MapSet.member?(linked_providers, :discord),
         name: "Discord"
       },
       %{
         available: Facebook.available?(),
-        href: ~p"/users/settings/auth/facebook",
+        href: ~p"/profile/auth/facebook",
         id: "facebook",
         linked: MapSet.member?(linked_providers, :facebook),
         name: "Facebook"
       },
       %{
         available: Steam.available?(),
-        href: ~p"/users/settings/auth/steam",
+        href: ~p"/profile/auth/steam",
         id: "steam",
         linked: MapSet.member?(linked_providers, :steam),
         name: "Steam"
@@ -67,7 +67,7 @@ defmodule D20Web.UserSettingsController do
         Accounts.deliver_user_update_email_instructions(
           Ecto.Changeset.apply_action!(changeset, :insert),
           user.email,
-          &url(~p"/users/settings/confirm-email/#{&1}")
+          &url(~p"/profile/confirm-email/#{&1}")
         )
 
         message =
@@ -77,7 +77,7 @@ defmodule D20Web.UserSettingsController do
 
         conn
         |> put_flash(:info, message)
-        |> redirect(to: ~p"/users/settings")
+        |> redirect(to: ~p"/profile")
 
       changeset ->
         conn |> assign_errors(%{changeset | action: :insert}) |> redirect_to_settings()
@@ -92,7 +92,7 @@ defmodule D20Web.UserSettingsController do
       {:ok, {user, _}} ->
         conn
         |> put_flash(:info, "Password updated successfully.")
-        |> put_session(:return_to, ~p"/users/settings")
+        |> put_session(:return_to, ~p"/profile")
         |> Auth.log_in_user(user)
 
       {:error, changeset} ->
@@ -103,25 +103,23 @@ defmodule D20Web.UserSettingsController do
   def confirm_email(conn, %{"token" => token}) do
     case Accounts.update_user_email(conn.assigns.current_user, token) do
       {:ok, _user} ->
-        conn
-        |> put_flash(:info, "Email changed successfully.")
-        |> redirect(to: ~p"/users/settings")
+        conn |> put_flash(:info, "Email changed successfully.") |> redirect(to: ~p"/profile")
 
       {:error, %Ecto.Changeset{}} ->
         conn
         |> put_flash(:error, "That email address is no longer available.")
-        |> redirect(to: ~p"/users/settings")
+        |> redirect(to: ~p"/profile")
 
       {:error, _reason} ->
         conn
         |> put_flash(:error, "Email change link is invalid or it has expired.")
-        |> redirect(to: ~p"/users/settings")
+        |> redirect(to: ~p"/profile")
     end
   end
 
   defp redirect_to_settings(conn) do
     conn
     |> put_status(:see_other)
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 end

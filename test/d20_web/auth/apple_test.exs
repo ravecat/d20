@@ -83,7 +83,7 @@ defmodule D20Web.Auth.AppleTest do
       link_response =
         Apple.put_attempt(build_conn(), %{
           action: :link,
-          return_to: "/users/settings",
+          return_to: "/profile",
           user_id: "user_123"
         })
 
@@ -95,7 +95,7 @@ defmodule D20Web.Auth.AppleTest do
       reauthenticate_response =
         Apple.put_attempt(build_conn(), %{
           action: :reauthenticate,
-          return_to: "/users/settings",
+          return_to: "/profile",
           user_id: "user_123"
         })
 
@@ -111,11 +111,7 @@ defmodule D20Web.Auth.AppleTest do
       assert {_, {:error, :invalid_flow_state}} = Apple.consume_attempt(tampered_request)
 
       invalid_response =
-        Apple.put_attempt(build_conn(), %{
-          action: :link,
-          return_to: "/users/settings",
-          user_id: nil
-        })
+        Apple.put_attempt(build_conn(), %{action: :link, return_to: "/profile", user_id: nil})
 
       invalid_request = request_with_cookie(Apple.flow_cookie(), cookie_value(invalid_response))
       assert {_, {:error, :invalid_flow_state}} = Apple.consume_attempt(invalid_request)
@@ -200,7 +196,7 @@ defmodule D20Web.Auth.AppleTest do
       assert cookie.secure
       assert cookie.http_only
       assert cookie.same_site == "Lax"
-      assert cookie.path == "/users/settings"
+      assert cookie.path == "/profile"
       assert cookie.max_age == 600
 
       consumed =
@@ -211,7 +207,7 @@ defmodule D20Web.Auth.AppleTest do
         |> Apple.call(:link_result)
 
       assert consumed.halted
-      assert redirected_to(consumed) == "/users/settings"
+      assert redirected_to(consumed) == "/profile"
       assert consumed.resp_cookies[Apple.link_result_cookie()].max_age == 0
 
       assert Phoenix.Flash.get(consumed.assigns.flash, :error) ==

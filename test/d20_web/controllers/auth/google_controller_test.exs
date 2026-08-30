@@ -77,7 +77,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
       conn =
         conn
         |> log_in_user(user)
-        |> get(~p"/auth/google?intent=reauthenticate&return_to=/users/settings")
+        |> get(~p"/auth/google?intent=reauthenticate&return_to=/profile")
 
       assert redirected_to(conn, 302) =~ "https://accounts.google.com/o/oauth2/v2/auth?"
       assert {:ok, {:reauthenticate, user_id}} = Google.fetch_intent(conn)
@@ -159,12 +159,12 @@ defmodule D20Web.Auth.GoogleControllerTest do
 
       conn =
         conn
-        |> direct_callback_conn(user, return_to: "/users/settings")
+        |> direct_callback_conn(user, return_to: "/profile")
         |> Google.put_reauthenticate_intent(user)
         |> assign(:ueberauth_auth, google_auth("reauth-subject", nil, false))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert session_user(conn).id == user.id
       assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Identity confirmed."
     end
@@ -176,12 +176,12 @@ defmodule D20Web.Auth.GoogleControllerTest do
 
       conn =
         conn
-        |> direct_callback_conn(current_user, return_to: "/users/settings")
+        |> direct_callback_conn(current_user, return_to: "/profile")
         |> Google.put_reauthenticate_intent(current_user)
         |> assign(:ueberauth_auth, google_auth("other-subject", nil, false))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert session_user(conn).id == current_user.id
       assert get_session(conn, :auth_prompt).reauthenticate
     end
@@ -408,9 +408,9 @@ defmodule D20Web.Auth.GoogleControllerTest do
     end
   end
 
-  describe "GET /users/settings/auth/google" do
+  describe "GET /profile/auth/google" do
     test "requires authentication and sudo mode", %{conn: conn} do
-      conn = get(conn, ~p"/users/settings/auth/google")
+      conn = get(conn, ~p"/profile/auth/google")
       assert redirected_to(conn) == ~p"/"
       assert get_session(conn, :auth_prompt).reauthenticate == false
 
@@ -420,7 +420,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
       stale_conn =
         build_conn()
         |> log_in_user(user, token_authenticated_at: old_authentication)
-        |> get(~p"/users/settings/auth/google")
+        |> get(~p"/profile/auth/google")
 
       assert redirected_to(stale_conn) == ~p"/"
       assert get_session(stale_conn, :auth_prompt).reauthenticate == true
@@ -429,7 +429,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
     test "stores a user-bound link intent and starts only through Google request", %{conn: conn} do
       user = user_fixture()
 
-      conn = conn |> log_in_user(user) |> get(~p"/users/settings/auth/google")
+      conn = conn |> log_in_user(user) |> get(~p"/profile/auth/google")
 
       assert redirected_to(conn) == ~p"/auth/google"
       assert {:ok, {:link, user_id}} = Google.fetch_intent(conn)
@@ -446,7 +446,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
         |> assign(:ueberauth_auth, google_auth("linked-subject", nil, false))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Accounts.get_user_by_identity(:google, "linked-subject").id == user.id
       assert session_user(conn).id == user.id
     end
@@ -462,7 +462,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
         |> assign(:ueberauth_auth, google_auth("linked-subject", nil, false))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "linked successfully"
       assert D20.Repo.get!(UserIdentity, identity.id).user_id == user.id
       assert D20.Repo.aggregate(UserIdentity, :count) == 1
@@ -480,7 +480,7 @@ defmodule D20Web.Auth.GoogleControllerTest do
         |> assign(:ueberauth_auth, google_auth("owned-subject", nil, false))
         |> GoogleController.callback(%{})
 
-      assert redirected_to(conflict_conn) == ~p"/users/settings"
+      assert redirected_to(conflict_conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(conflict_conn.assigns.flash, :error) ==
                "Google could not be linked to this account."

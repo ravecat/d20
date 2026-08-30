@@ -27,7 +27,7 @@ const meta = {
         kind: "warning" as const,
         message: "You must re-authenticate to access this page.",
         reauthenticate: true,
-        returnTo: "/users/settings",
+        returnTo: "/profile",
       },
       providers: {
         apple: { available: true },

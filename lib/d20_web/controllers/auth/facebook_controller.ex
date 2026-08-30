@@ -98,7 +98,7 @@ defmodule D20Web.Auth.FacebookController do
     if facebook_linked?(user) do
       conn
       |> put_flash(:info, "Facebook is already linked to your account.")
-      |> redirect(to: ~p"/users/settings")
+      |> redirect(to: ~p"/profile")
     else
       conn
       |> Facebook.put_link_intent(user)
@@ -209,13 +209,13 @@ defmodule D20Web.Auth.FacebookController do
   defp linked_response(conn) do
     conn
     |> put_flash(:info, "Facebook linked successfully.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp link_conflict_response(conn) do
     conn
     |> put_flash(:error, "Facebook could not be linked to this account.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp completion_failure(conn, reason) do
@@ -239,7 +239,7 @@ defmodule D20Web.Auth.FacebookController do
         if to_string(current_user.id) == user_id do
           conn
           |> put_flash(:error, "Facebook is temporarily unavailable. Try again later.")
-          |> redirect(to: ~p"/users/settings")
+          |> redirect(to: ~p"/profile")
         else
           authentication_failure_response(conn, :provider_unavailable)
         end
@@ -262,7 +262,7 @@ defmodule D20Web.Auth.FacebookController do
         if to_string(current_user.id) == user_id do
           conn
           |> put_flash(:error, "Facebook could not be linked to this account.")
-          |> redirect(to: ~p"/users/settings")
+          |> redirect(to: ~p"/profile")
         else
           authentication_failure_response(conn, reason)
         end

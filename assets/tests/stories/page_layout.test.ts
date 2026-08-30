@@ -17,7 +17,7 @@ describe("Storybook page layout", () => {
     const pages = [
       { authenticated: false, meta: publicHome, url: "/" },
       { authenticated: true, meta: authenticatedHome, url: "/" },
-      { authenticated: true, meta: accountSettings, url: "/users/settings" },
+      { authenticated: true, meta: accountSettings, url: "/profile" },
       {
         authenticated: false,
         meta: publicAuthConfirmation,
@@ -59,7 +59,7 @@ describe("Storybook page layout", () => {
     expect(authenticatedAuthConfirmation.id).toBe(
       "pages-authenticated-sign-in-magic-link-confirmation",
     );
-    expect(accountSettings.title).toBe("Pages/Authenticated/∕settings");
+    expect(accountSettings.title).toBe("Pages/Authenticated/∕profile");
     expect(accountSettings.id).toBe("pages-settings");
   });
 

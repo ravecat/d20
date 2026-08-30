@@ -79,7 +79,7 @@ describe("app layout", () => {
             kind: "warning",
             message: "You must log in to access this page.",
             reauthenticate: false,
-            returnTo: "/users/settings",
+            returnTo: "/profile",
           },
         },
         errors: {},

@@ -98,7 +98,7 @@ defmodule D20Web.Auth.DiscordController do
     if discord_linked?(user) do
       conn
       |> put_flash(:info, "Discord is already linked to your account.")
-      |> redirect(to: ~p"/users/settings")
+      |> redirect(to: ~p"/profile")
     else
       conn
       |> Discord.put_link_intent(user)
@@ -201,13 +201,13 @@ defmodule D20Web.Auth.DiscordController do
   defp linked_response(conn) do
     conn
     |> put_flash(:info, "Discord linked successfully.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp link_conflict_response(conn) do
     conn
     |> put_flash(:error, "Discord could not be linked to this account.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp completion_failure(conn, reason) do
@@ -231,7 +231,7 @@ defmodule D20Web.Auth.DiscordController do
         if to_string(current_user.id) == user_id do
           conn
           |> put_flash(:error, "Discord is temporarily unavailable. Try again later.")
-          |> redirect(to: ~p"/users/settings")
+          |> redirect(to: ~p"/profile")
         else
           discord_unavailable_response(conn)
         end
@@ -254,7 +254,7 @@ defmodule D20Web.Auth.DiscordController do
         if to_string(current_user.id) == user_id do
           conn
           |> put_flash(:error, "Discord could not be linked to this account.")
-          |> redirect(to: ~p"/users/settings")
+          |> redirect(to: ~p"/profile")
         else
           authentication_failure_response(conn)
         end

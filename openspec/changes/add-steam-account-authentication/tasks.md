@@ -37,7 +37,7 @@
 
 ## 5. Explicit Linking And Shared Provider UI
 
-- [x] 5.1 Add the sudo-protected `/users/settings/auth/steam` link route and same-user callback behavior, including idempotent same-identity linking and generic ownership conflicts.
+- [x] 5.1 Add the sudo-protected `/profile/auth/steam` link route and same-user callback behavior, including idempotent same-identity linking and generic ownership conflicts.
 - [x] 5.2 Add Steam availability and linked state to the existing ordered Account Settings provider collection without provider-specific top-level props or unlink action.
 - [x] 5.3 Extend shared `auth.providers`, TypeScript declarations, Register controls, and Login controls with conditional Steam availability and full-document navigation.
 - [x] 5.4 Update backend/frontend availability helpers for strategy plus `STEAM_API_KEY` and rerun Steam UI plus Apple, Discord, Google, email, password, Magic Link, linking, sudo, and nullable-email regressions.

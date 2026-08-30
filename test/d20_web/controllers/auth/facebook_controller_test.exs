@@ -80,7 +80,7 @@ defmodule D20Web.Auth.FacebookControllerTest do
       conn =
         conn
         |> log_in_user(user)
-        |> get(~p"/auth/facebook?intent=reauthenticate&return_to=/users/settings")
+        |> get(~p"/auth/facebook?intent=reauthenticate&return_to=/profile")
 
       assert redirected_to(conn, 302) =~ "https://www.facebook.com/dialog/oauth?"
       assert {:ok, {:reauthenticate, user_id}} = Facebook.fetch_intent(conn)
@@ -136,12 +136,12 @@ defmodule D20Web.Auth.FacebookControllerTest do
 
       conn =
         conn
-        |> direct_callback_conn(user, return_to: "/users/settings")
+        |> direct_callback_conn(user, return_to: "/profile")
         |> Facebook.put_reauthenticate_intent(user)
         |> assign(:ueberauth_auth, facebook_auth(provider_uid, nil))
         |> FacebookController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert session_user(conn).id == user.id
       assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Identity confirmed."
     end
@@ -153,12 +153,12 @@ defmodule D20Web.Auth.FacebookControllerTest do
 
       conn =
         conn
-        |> direct_callback_conn(current_user, return_to: "/users/settings")
+        |> direct_callback_conn(current_user, return_to: "/profile")
         |> Facebook.put_reauthenticate_intent(current_user)
         |> assign(:ueberauth_auth, facebook_auth(other_uid, nil))
         |> FacebookController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert session_user(conn).id == current_user.id
       assert get_session(conn, :auth_prompt).reauthenticate
     end
@@ -382,7 +382,7 @@ defmodule D20Web.Auth.FacebookControllerTest do
         |> assign(:ueberauth_auth, facebook_auth("link-subject", nil))
         |> FacebookController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Accounts.get_user_by_identity(:facebook, "link-subject").id == user.id
       assert session_user(conn).id == user.id
     end
@@ -397,7 +397,7 @@ defmodule D20Web.Auth.FacebookControllerTest do
         |> assign(:ueberauth_auth, facebook_auth("provider-only-link-subject", nil))
         |> FacebookController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Accounts.get_user_by_identity(:facebook, "provider-only-link-subject").id == user.id
       assert is_nil(Accounts.get_user!(user.id).email)
     end
@@ -430,7 +430,7 @@ defmodule D20Web.Auth.FacebookControllerTest do
         |> assign(:ueberauth_auth, facebook_auth("owned-subject", nil))
         |> FacebookController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "could not be linked"
       assert Accounts.get_user_by_identity(:facebook, "owned-subject").id == owner.id
     end

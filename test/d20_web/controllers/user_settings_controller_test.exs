@@ -55,9 +55,25 @@ defmodule D20Web.UserSettingsControllerTest do
     end)
   end
 
-  describe "GET /users/settings" do
+  describe "removed /users/settings route family" do
+    test "does not route the page or nested flows" do
+      for path <- [
+            "/users/settings",
+            "/users/settings/auth/google",
+            "/users/settings/confirm-email/token"
+          ] do
+        assert get(build_conn(), path).status == 404
+      end
+    end
+
+    test "does not route account updates" do
+      assert put(build_conn(), "/users/settings", %{}).status == 404
+    end
+  end
+
+  describe "GET /profile" do
     test "renders settings as an Inertia page", %{conn: conn, user: user} do
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert html_response(conn, 200) =~ ~s(id="app")
       assert inertia_component(conn) == "account_settings"
@@ -69,35 +85,35 @@ defmodule D20Web.UserSettingsControllerTest do
       assert props.providers == [
                %{
                  available: true,
-                 href: ~p"/users/settings/auth/google",
+                 href: ~p"/profile/auth/google",
                  id: "google",
                  linked: false,
                  name: "Google"
                },
                %{
                  available: false,
-                 href: ~p"/users/settings/auth/apple",
+                 href: ~p"/profile/auth/apple",
                  id: "apple",
                  linked: false,
                  name: "Apple"
                },
                %{
                  available: true,
-                 href: ~p"/users/settings/auth/discord",
+                 href: ~p"/profile/auth/discord",
                  id: "discord",
                  linked: false,
                  name: "Discord"
                },
                %{
                  available: true,
-                 href: ~p"/users/settings/auth/facebook",
+                 href: ~p"/profile/auth/facebook",
                  id: "facebook",
                  linked: false,
                  name: "Facebook"
                },
                %{
                  available: false,
-                 href: ~p"/users/settings/auth/steam",
+                 href: ~p"/profile/auth/steam",
                  id: "steam",
                  linked: false,
                  name: "Steam"
@@ -115,11 +131,11 @@ defmodule D20Web.UserSettingsControllerTest do
       put_steam_strategy_configured(true)
       assert {:ok, _identity} = Accounts.link_user_identity(user, :steam, "76561198012345678")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "steam")) == %{
                available: true,
-               href: ~p"/users/settings/auth/steam",
+               href: ~p"/profile/auth/steam",
                id: "steam",
                linked: true,
                name: "Steam"
@@ -129,7 +145,7 @@ defmodule D20Web.UserSettingsControllerTest do
     test "omits Steam when its strategy is unavailable", %{conn: conn} do
       put_steam_strategy_configured(false)
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       refute Enum.any?(inertia_props(conn).providers, &(&1.id == "steam" and &1.available))
     end
@@ -142,7 +158,7 @@ defmodule D20Web.UserSettingsControllerTest do
       assert {:ok, _identity} = Accounts.link_user_identity(user, :steam, "76561198012345678")
       put_steam_strategy_configured(false)
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert %{available: false, linked: true} =
                Enum.find(inertia_props(conn).providers, &(&1.id == "steam"))
@@ -153,7 +169,7 @@ defmodule D20Web.UserSettingsControllerTest do
     test "renders provider-only settings with null email and linked identity" do
       user = provider_user_fixture(%{username: "provider_only"}, :google)
 
-      conn = build_conn() |> log_in_user(user) |> get(~p"/users/settings")
+      conn = build_conn() |> log_in_user(user) |> get(~p"/profile")
 
       assert %{email: nil, username: "provider_only", providers: providers} = inertia_props(conn)
       assert Enum.find(providers, &(&1.id == "google")).linked
@@ -163,11 +179,11 @@ defmodule D20Web.UserSettingsControllerTest do
       put_apple_auth_config()
       assert {:ok, _identity} = Accounts.link_user_identity(user, :apple, "settings-subject")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "apple")) == %{
                available: true,
-               href: ~p"/users/settings/auth/apple",
+               href: ~p"/profile/auth/apple",
                id: "apple",
                linked: true,
                name: "Apple"
@@ -180,7 +196,7 @@ defmodule D20Web.UserSettingsControllerTest do
 
       conn = get_settings_with_apple_result(conn, :linked)
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert conn.resp_cookies[Apple.link_result_cookie()].max_age == 0
       assert Phoenix.Flash.get(conn.assigns.flash, :info) == "Apple was linked to this account."
     end
@@ -188,7 +204,7 @@ defmodule D20Web.UserSettingsControllerTest do
     test "does not trust an Apple result query parameter", %{conn: conn} do
       put_apple_auth_config()
 
-      conn = get(conn, ~p"/users/settings?apple=linked")
+      conn = get(conn, ~p"/profile?apple=linked")
 
       assert html_response(conn, 200) =~ ~s(id="app")
       assert inertia_component(conn) == "account_settings"
@@ -198,14 +214,14 @@ defmodule D20Web.UserSettingsControllerTest do
     test "keeps provider-owned Apple failures generic", %{conn: conn} do
       conflict_conn = get_settings_with_apple_result(conn, :conflict)
 
-      assert redirected_to(conflict_conn) == ~p"/users/settings"
+      assert redirected_to(conflict_conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(conflict_conn.assigns.flash, :error) ==
                "Apple could not be linked because that identity is unavailable."
 
       failed_conn = get_settings_with_apple_result(conn, :failed)
 
-      assert redirected_to(failed_conn) == ~p"/users/settings"
+      assert redirected_to(failed_conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(failed_conn.assigns.flash, :error) ==
                "Apple could not be linked. Try again."
@@ -222,11 +238,11 @@ defmodule D20Web.UserSettingsControllerTest do
     test "reports a linked Discord method", %{conn: conn, user: user} do
       assert {:ok, _identity} = Accounts.link_user_identity(user, :discord, "settings-subject")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "discord")) == %{
                available: true,
-               href: ~p"/users/settings/auth/discord",
+               href: ~p"/profile/auth/discord",
                id: "discord",
                linked: true,
                name: "Discord"
@@ -247,11 +263,11 @@ defmodule D20Web.UserSettingsControllerTest do
 
       assert {:ok, _identity} = Accounts.link_user_identity(user, :discord, "settings-subject")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "discord")) == %{
                available: false,
-               href: ~p"/users/settings/auth/discord",
+               href: ~p"/profile/auth/discord",
                id: "discord",
                linked: true,
                name: "Discord"
@@ -261,11 +277,11 @@ defmodule D20Web.UserSettingsControllerTest do
     test "reports a linked Facebook method", %{conn: conn, user: user} do
       assert {:ok, _identity} = Accounts.link_user_identity(user, :facebook, "settings-subject")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "facebook")) == %{
                available: true,
-               href: ~p"/users/settings/auth/facebook",
+               href: ~p"/profile/auth/facebook",
                id: "facebook",
                linked: true,
                name: "Facebook"
@@ -275,11 +291,11 @@ defmodule D20Web.UserSettingsControllerTest do
     test "reports a linked Google method", %{conn: conn, user: user} do
       assert {:ok, _identity} = Accounts.link_user_identity(user, :google, "settings-subject")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "google")) == %{
                available: true,
-               href: ~p"/users/settings/auth/google",
+               href: ~p"/profile/auth/google",
                id: "google",
                linked: true,
                name: "Google"
@@ -300,11 +316,11 @@ defmodule D20Web.UserSettingsControllerTest do
 
       assert {:ok, _identity} = Accounts.link_user_identity(user, :google, "settings-subject")
 
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
 
       assert Enum.find(inertia_props(conn).providers, &(&1.id == "google")) == %{
                available: false,
-               href: ~p"/users/settings/auth/google",
+               href: ~p"/profile/auth/google",
                id: "google",
                linked: true,
                name: "Google"
@@ -313,25 +329,25 @@ defmodule D20Web.UserSettingsControllerTest do
 
     test "redirects if user is not logged in" do
       conn = build_conn()
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
       assert redirected_to(conn) == ~p"/"
       assert get_session(conn, :auth_prompt).reauthenticate == false
-      assert get_session(conn, :auth_prompt).return_to == "/users/settings"
+      assert get_session(conn, :auth_prompt).return_to == "/profile"
     end
 
     @tag token_authenticated_at: DateTime.add(DateTime.utc_now(:second), -11, :minute)
     test "redirects if user is not in sudo mode", %{conn: conn} do
-      conn = get(conn, ~p"/users/settings")
+      conn = get(conn, ~p"/profile")
       assert redirected_to(conn) == ~p"/"
       assert get_session(conn, :auth_prompt).reauthenticate == true
-      assert get_session(conn, :auth_prompt).return_to == "/users/settings"
+      assert get_session(conn, :auth_prompt).return_to == "/profile"
     end
   end
 
-  describe "PUT /users/settings (change password form)" do
+  describe "PUT /profile (change password form)" do
     test "updates the user password and resets tokens", %{conn: conn, user: user} do
       new_password_conn =
-        put(conn, ~p"/users/settings", %{
+        put(conn, ~p"/profile", %{
           "action" => "update_password",
           "user" => %{
             "password" => "new valid password",
@@ -339,7 +355,7 @@ defmodule D20Web.UserSettingsControllerTest do
           }
         })
 
-      assert redirected_to(new_password_conn) == ~p"/users/settings"
+      assert redirected_to(new_password_conn) == ~p"/profile"
 
       assert get_session(new_password_conn, :user_token) != get_session(conn, :user_token)
 
@@ -355,7 +371,7 @@ defmodule D20Web.UserSettingsControllerTest do
       conn =
         build_conn()
         |> log_in_user(user)
-        |> put(~p"/users/settings", %{
+        |> put(~p"/profile", %{
           "action" => "update_password",
           "user" => %{
             "password" => "new valid password",
@@ -363,7 +379,7 @@ defmodule D20Web.UserSettingsControllerTest do
           }
         })
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Accounts.get_user_by_identifier_and_password("provider_only", "new valid password")
       assert Accounts.get_user!(user.id).email == nil
     end
@@ -372,12 +388,12 @@ defmodule D20Web.UserSettingsControllerTest do
       old_password_conn =
         conn
         |> inertia_request()
-        |> put(~p"/users/settings", %{
+        |> put(~p"/profile", %{
           "action" => "update_password",
           "user" => %{"password" => "too short", "password_confirmation" => "does not match"}
         })
 
-      assert redirected_to(old_password_conn, 303) == ~p"/users/settings"
+      assert redirected_to(old_password_conn, 303) == ~p"/profile"
 
       response_conn = follow_inertia_redirect(old_password_conn)
 
@@ -390,16 +406,16 @@ defmodule D20Web.UserSettingsControllerTest do
     end
   end
 
-  describe "PUT /users/settings (change email form)" do
+  describe "PUT /profile (change email form)" do
     @tag :capture_log
     test "updates the user email", %{conn: conn, user: user} do
       conn =
-        put(conn, ~p"/users/settings", %{
+        put(conn, ~p"/profile", %{
           "action" => "update_email",
           "user" => %{"email" => unique_user_email()}
         })
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~
                "A link to confirm your email"
@@ -415,17 +431,17 @@ defmodule D20Web.UserSettingsControllerTest do
       conn =
         build_conn()
         |> log_in_user(user)
-        |> put(~p"/users/settings", %{"action" => "update_email", "user" => %{"email" => email}})
+        |> put(~p"/profile", %{"action" => "update_email", "user" => %{"email" => email}})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "confirm your email"
       assert Accounts.get_user!(user.id).email == nil
 
       assert_receive {:email, %Swoosh.Email{text_body: body}}
-      [_, token] = Regex.run(~r{/users/settings/confirm-email/([^\s]+)}, body)
+      [_, token] = Regex.run(~r{/profile/confirm-email/([^\s]+)}, body)
 
-      confirmed_conn = conn |> recycle() |> get(~p"/users/settings/confirm-email/#{token}")
-      assert redirected_to(confirmed_conn) == ~p"/users/settings"
+      confirmed_conn = conn |> recycle() |> get(~p"/profile/confirm-email/#{token}")
+      assert redirected_to(confirmed_conn) == ~p"/profile"
       assert Accounts.get_user!(user.id).email == email
     end
 
@@ -433,12 +449,9 @@ defmodule D20Web.UserSettingsControllerTest do
       conn =
         conn
         |> inertia_request()
-        |> put(~p"/users/settings", %{
-          "action" => "update_email",
-          "user" => %{"email" => "with spaces"}
-        })
+        |> put(~p"/profile", %{"action" => "update_email", "user" => %{"email" => "with spaces"}})
 
-      assert redirected_to(conn, 303) == ~p"/users/settings"
+      assert redirected_to(conn, 303) == ~p"/profile"
 
       response_conn = follow_inertia_redirect(conn)
 
@@ -446,7 +459,7 @@ defmodule D20Web.UserSettingsControllerTest do
     end
   end
 
-  describe "GET /users/settings/confirm-email/:token" do
+  describe "GET /profile/confirm-email/:token" do
     setup %{user: user} do
       email = unique_user_email()
 
@@ -459,8 +472,8 @@ defmodule D20Web.UserSettingsControllerTest do
     end
 
     test "updates the user email once", %{conn: conn, user: user, token: token, email: email} do
-      conn = get(conn, ~p"/users/settings/confirm-email/#{token}")
-      assert redirected_to(conn) == ~p"/users/settings"
+      conn = get(conn, ~p"/profile/confirm-email/#{token}")
+      assert redirected_to(conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~
                "Email changed successfully"
@@ -468,17 +481,17 @@ defmodule D20Web.UserSettingsControllerTest do
       refute Accounts.get_user_by_email(user.email)
       assert Accounts.get_user_by_email(email)
 
-      conn = get(conn, ~p"/users/settings/confirm-email/#{token}")
+      conn = get(conn, ~p"/profile/confirm-email/#{token}")
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
                "Email change link is invalid or it has expired"
     end
 
     test "does not update email with invalid token", %{conn: conn, user: user} do
-      conn = get(conn, ~p"/users/settings/confirm-email/oops")
-      assert redirected_to(conn) == ~p"/users/settings"
+      conn = get(conn, ~p"/profile/confirm-email/oops")
+      assert redirected_to(conn) == ~p"/profile"
 
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
                "Email change link is invalid or it has expired"
@@ -488,10 +501,10 @@ defmodule D20Web.UserSettingsControllerTest do
 
     test "redirects if user is not logged in", %{token: token} do
       conn = build_conn()
-      conn = get(conn, ~p"/users/settings/confirm-email/#{token}")
+      conn = get(conn, ~p"/profile/confirm-email/#{token}")
       assert redirected_to(conn) == ~p"/"
       assert get_session(conn, :auth_prompt).reauthenticate == false
-      assert get_session(conn, :auth_prompt).return_to == "/users/settings/confirm-email/#{token}"
+      assert get_session(conn, :auth_prompt).return_to == "/profile/confirm-email/#{token}"
     end
   end
 
@@ -568,7 +581,7 @@ defmodule D20Web.UserSettingsControllerTest do
 
     conn
     |> put_req_cookie(Apple.link_result_cookie(), cookie)
-    |> get(~p"/users/settings")
+    |> get(~p"/profile")
   end
 
   defp restore_application_env(application, key, nil),

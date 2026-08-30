@@ -100,7 +100,7 @@
       </p>
     </div>
 
-    <Form class="settings-form" method="put" action="/users/settings" disableWhileProcessing>
+    <Form class="settings-form" method="put" action="/profile" disableWhileProcessing>
       {#snippet children({ errors, processing }: FormSlotProps)}
         <input type="hidden" name="action" value="update_email" />
 
@@ -145,7 +145,7 @@
       </p>
     </div>
 
-    <Form class="settings-form" method="put" action="/users/settings" disableWhileProcessing>
+    <Form class="settings-form" method="put" action="/profile" disableWhileProcessing>
       {#snippet children({ errors, processing }: FormSlotProps)}
         <input type="hidden" name="action" value="update_password" />
 

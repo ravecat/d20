@@ -82,7 +82,7 @@ defmodule D20Web.Auth.AppleController do
     if apple_linked?(user) do
       conn
       |> put_flash(:info, "Apple is already linked to your account.")
-      |> redirect(to: ~p"/users/settings")
+      |> redirect(to: ~p"/profile")
     else
       redirect(conn, to: ~p"/auth/apple?intent=link")
     end
@@ -294,7 +294,7 @@ defmodule D20Web.Auth.AppleController do
   defp link_result(conn, result) do
     conn
     |> Apple.put_link_result(result)
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp require_apple_available(conn, _opts) do
@@ -321,7 +321,7 @@ defmodule D20Web.Auth.AppleController do
     |> Enum.any?(&(&1.provider == :apple))
   end
 
-  defp default_return(:link), do: ~p"/users/settings"
+  defp default_return(:link), do: ~p"/profile"
   defp default_return(:reauthenticate), do: ~p"/"
   defp default_return(:authenticate), do: ~p"/"
 

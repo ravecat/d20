@@ -7,7 +7,7 @@ const prompt: NonNullable<InertiaProps["auth"]["prompt"]> = {
   kind: "warning",
   message: "You must log in to access this page.",
   reauthenticate: false,
-  returnTo: "/users/settings",
+  returnTo: "/profile",
 };
 
 beforeEach(() => {

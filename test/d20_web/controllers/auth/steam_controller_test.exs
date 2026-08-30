@@ -68,9 +68,7 @@ defmodule D20Web.Auth.SteamControllerTest do
       user = user_fixture()
 
       conn =
-        conn
-        |> log_in_user(user)
-        |> get(~p"/auth/steam?intent=reauthenticate&return_to=/users/settings")
+        conn |> log_in_user(user) |> get(~p"/auth/steam?intent=reauthenticate&return_to=/profile")
 
       assert redirected_to(conn, 302) =~ "https://steamcommunity.com/openid/login?"
       assert {:ok, {:reauthenticate, user_id}} = Steam.fetch_intent(conn)
@@ -148,24 +146,24 @@ defmodule D20Web.Auth.SteamControllerTest do
 
       success =
         conn
-        |> direct_callback_conn(user, return_to: "/users/settings")
+        |> direct_callback_conn(user, return_to: "/profile")
         |> Steam.put_reauthenticate_intent(user)
         |> assign(:ueberauth_auth, steam_auth())
         |> SteamController.callback(%{})
 
-      assert redirected_to(success) == ~p"/users/settings"
+      assert redirected_to(success) == ~p"/profile"
       assert session_user(success).id == user.id
 
       other = authenticated_user(user_fixture())
 
       failure =
         build_conn()
-        |> direct_callback_conn(other, return_to: "/users/settings")
+        |> direct_callback_conn(other, return_to: "/profile")
         |> Steam.put_reauthenticate_intent(other)
         |> assign(:ueberauth_auth, steam_auth())
         |> SteamController.callback(%{})
 
-      assert redirected_to(failure) == ~p"/users/settings"
+      assert redirected_to(failure) == ~p"/profile"
       assert session_user(failure).id == other.id
       assert get_session(failure, :auth_prompt).reauthenticate
     end
@@ -290,9 +288,9 @@ defmodule D20Web.Auth.SteamControllerTest do
     end
   end
 
-  describe "GET /users/settings/auth/steam" do
+  describe "GET /profile/auth/steam" do
     test "requires authentication and sudo mode", %{conn: conn} do
-      conn = get(conn, ~p"/users/settings/auth/steam")
+      conn = get(conn, ~p"/profile/auth/steam")
       assert redirected_to(conn) == ~p"/"
 
       old_authentication = DateTime.add(DateTime.utc_now(:second), -11, :minute)
@@ -301,7 +299,7 @@ defmodule D20Web.Auth.SteamControllerTest do
       stale_conn =
         build_conn()
         |> log_in_user(user, token_authenticated_at: old_authentication)
-        |> get(~p"/users/settings/auth/steam")
+        |> get(~p"/profile/auth/steam")
 
       assert redirected_to(stale_conn) == ~p"/"
       assert get_session(stale_conn, :auth_prompt).reauthenticate
@@ -309,7 +307,7 @@ defmodule D20Web.Auth.SteamControllerTest do
 
     test "stores a user-bound link intent", %{conn: conn} do
       user = user_fixture()
-      conn = conn |> log_in_user(user) |> get(~p"/users/settings/auth/steam")
+      conn = conn |> log_in_user(user) |> get(~p"/profile/auth/steam")
 
       assert redirected_to(conn) == ~p"/auth/steam"
       assert {:ok, {:link, user_id}} = Steam.fetch_intent(conn)
@@ -326,7 +324,7 @@ defmodule D20Web.Auth.SteamControllerTest do
         |> assign(:ueberauth_auth, steam_auth())
         |> SteamController.callback(%{})
 
-      assert redirected_to(linked) == ~p"/users/settings"
+      assert redirected_to(linked) == ~p"/profile"
       assert Accounts.get_user_by_identity(:steam, @steam_id).id == user.id
 
       other = authenticated_user(user_fixture())
@@ -338,7 +336,7 @@ defmodule D20Web.Auth.SteamControllerTest do
         |> assign(:ueberauth_auth, steam_auth())
         |> SteamController.callback(%{})
 
-      assert redirected_to(conflict) == ~p"/users/settings"
+      assert redirected_to(conflict) == ~p"/profile"
       assert Phoenix.Flash.get(conflict.assigns.flash, :error) =~ "could not be linked"
       assert Accounts.get_user_by_identity(:steam, @steam_id).id == user.id
     end

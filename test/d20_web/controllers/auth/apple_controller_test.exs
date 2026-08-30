@@ -73,7 +73,7 @@ defmodule D20Web.Auth.AppleControllerTest do
     test "requires a sudo-valid session and binds linking to that exact user", %{conn: conn} do
       user = user_fixture()
 
-      signed_out_conn = get(conn, ~p"/users/settings/auth/apple")
+      signed_out_conn = get(conn, ~p"/profile/auth/apple")
       assert redirected_to(signed_out_conn) == ~p"/"
       refute signed_out_conn.resp_cookies[Apple.flow_cookie()]
 
@@ -82,12 +82,12 @@ defmodule D20Web.Auth.AppleControllerTest do
         |> log_in_user(user,
           token_authenticated_at: DateTime.add(DateTime.utc_now(), -11, :minute)
         )
-        |> get(~p"/users/settings/auth/apple")
+        |> get(~p"/profile/auth/apple")
 
       assert redirected_to(stale_conn) == ~p"/"
       refute stale_conn.resp_cookies[Apple.flow_cookie()]
 
-      link_conn = build_conn() |> log_in_user(user) |> get(~p"/users/settings/auth/apple")
+      link_conn = build_conn() |> log_in_user(user) |> get(~p"/profile/auth/apple")
       assert redirected_to(link_conn) == ~p"/auth/apple?intent=link"
 
       linked_conn = link_conn |> recycle() |> get(redirected_to(link_conn))
@@ -100,7 +100,7 @@ defmodule D20Web.Auth.AppleControllerTest do
           linked_conn.resp_cookies[Apple.flow_cookie()].value
         )
 
-      assert {_, {:ok, %{action: :link, return_to: "/users/settings", user_id: user_id}}} =
+      assert {_, {:ok, %{action: :link, return_to: "/profile", user_id: user_id}}} =
                Apple.consume_attempt(request)
 
       assert user_id == to_string(user.id)
@@ -110,9 +110,7 @@ defmodule D20Web.Auth.AppleControllerTest do
       user = user_fixture()
 
       conn =
-        conn
-        |> log_in_user(user)
-        |> get(~p"/auth/apple?intent=reauthenticate&return_to=/users/settings")
+        conn |> log_in_user(user) |> get(~p"/auth/apple?intent=reauthenticate&return_to=/profile")
 
       request =
         request_with_cookie(Apple.flow_cookie(), conn.resp_cookies[Apple.flow_cookie()].value)
@@ -160,13 +158,13 @@ defmodule D20Web.Auth.AppleControllerTest do
         conn
         |> callback_conn(%{
           action: :reauthenticate,
-          return_to: "/users/settings",
+          return_to: "/profile",
           user_id: to_string(user.id)
         })
         |> assign(:ueberauth_auth, apple_auth("000321.reauth", nil))
         |> AppleController.callback(%{})
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/profile"
 
       assert {session_user, _inserted_at} =
                Accounts.get_user_by_session_token(get_session(conn, :user_token))
@@ -183,7 +181,7 @@ defmodule D20Web.Auth.AppleControllerTest do
         conn
         |> callback_conn(%{
           action: :reauthenticate,
-          return_to: "/users/settings",
+          return_to: "/profile",
           user_id: to_string(current_user.id)
         })
         |> put_session(:user_token, Accounts.generate_user_session_token(current_user))
@@ -263,11 +261,7 @@ defmodule D20Web.Auth.AppleControllerTest do
       attempt_response =
         conn
         |> init_test_session(%{})
-        |> Apple.put_attempt(%{
-          action: :link,
-          return_to: "/users/settings",
-          user_id: to_string(user.id)
-        })
+        |> Apple.put_attempt(%{action: :link, return_to: "/profile", user_id: to_string(user.id)})
 
       conn =
         build_conn()
@@ -278,7 +272,7 @@ defmodule D20Web.Auth.AppleControllerTest do
         |> put_req_cookie("ueberauth.state_param", "apple-state")
         |> post(~p"/auth/apple/callback", %{"error" => "user_cancelled", "state" => "apple-state"})
 
-      assert redirected_to(conn) == "/users/settings"
+      assert redirected_to(conn) == "/profile"
       assert conn.resp_cookies[Apple.link_result_cookie()]
       refute conn.resp_cookies["_d20_key"]
     end
@@ -405,30 +399,22 @@ defmodule D20Web.Auth.AppleControllerTest do
 
       conn =
         conn
-        |> callback_conn(%{
-          action: :link,
-          return_to: "/users/settings",
-          user_id: to_string(user.id)
-        })
+        |> callback_conn(%{action: :link, return_to: "/profile", user_id: to_string(user.id)})
         |> assign(:ueberauth_auth, apple_auth("000321.link", user.email))
         |> AppleController.callback(%{})
 
-      assert redirected_to(conn) == "/users/settings"
+      assert redirected_to(conn) == "/profile"
       assert conn.resp_cookies[Apple.link_result_cookie()]
       assert Accounts.get_user_by_identity(:apple, "000321.link").id == user.id
       refute get_session(conn, :user_token)
 
       second_conn =
         build_conn()
-        |> callback_conn(%{
-          action: :link,
-          return_to: "/users/settings",
-          user_id: to_string(user.id)
-        })
+        |> callback_conn(%{action: :link, return_to: "/profile", user_id: to_string(user.id)})
         |> assign(:ueberauth_auth, apple_auth("000321.link", nil))
         |> AppleController.callback(%{})
 
-      assert redirected_to(second_conn) == "/users/settings"
+      assert redirected_to(second_conn) == "/profile"
       assert second_conn.resp_cookies[Apple.link_result_cookie()]
       assert Enum.count_until(Accounts.list_user_identities(user), 2) == 1
     end
@@ -442,13 +428,13 @@ defmodule D20Web.Auth.AppleControllerTest do
         conn
         |> callback_conn(%{
           action: :link,
-          return_to: "/users/settings",
+          return_to: "/profile",
           user_id: to_string(requester.id)
         })
         |> assign(:ueberauth_auth, apple_auth("000321.owned", requester.email))
         |> AppleController.callback(%{})
 
-      assert redirected_to(conn) == "/users/settings"
+      assert redirected_to(conn) == "/profile"
       assert conn.resp_cookies[Apple.link_result_cookie()]
       assert Accounts.get_user_by_identity(:apple, "000321.owned").id == owner.id
       refute get_session(conn, :user_token)

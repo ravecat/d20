@@ -631,7 +631,7 @@ describe("app header account dialog", () => {
     expect(page.getByRole("button", { name: "Log in", exact: true }).elements()).toHaveLength(0);
     expect(page.getByRole("button", { name: "Register", exact: true }).elements()).toHaveLength(0);
     expect(page.getByRole("link", { name: "Settings" }).element().getAttribute("href")).toBe(
-      "/users/settings",
+      "/profile",
     );
 
     await page.getByRole("button", { name: "Log out" }).click();
@@ -663,7 +663,7 @@ describe("app header account dialog", () => {
             kind: "warning",
             message: "You must log in to access this page.",
             reauthenticate: false,
-            returnTo: "/users/settings",
+            returnTo: "/profile",
           },
         },
         errors: {},
@@ -687,7 +687,7 @@ describe("app header account dialog", () => {
     const data = new FormData(form);
 
     expect(data.get("response_to")).toBe("/games/qwinto");
-    expect(data.get("return_to")).toBe("/users/settings");
+    expect(data.get("return_to")).toBe("/profile");
 
     await userEvent.keyboard("{Escape}");
 
@@ -716,7 +716,7 @@ describe("app header account dialog", () => {
             kind: "warning",
             message: "You must re-authenticate to access this page.",
             reauthenticate: true,
-            returnTo: "/users/settings",
+            returnTo: "/profile",
           },
         },
         errors: {},
@@ -763,7 +763,7 @@ describe("app header account dialog", () => {
             kind: "warning",
             message: "You must re-authenticate to access this page.",
             reauthenticate: true,
-            returnTo: "/users/settings",
+            returnTo: "/profile",
           },
         },
         errors: {},

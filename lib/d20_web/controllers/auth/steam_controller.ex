@@ -99,12 +99,12 @@ defmodule D20Web.Auth.SteamController do
       not Steam.available?() ->
         conn
         |> put_flash(:error, "Steam is temporarily unavailable. Try again later.")
-        |> redirect(to: ~p"/users/settings")
+        |> redirect(to: ~p"/profile")
 
       steam_linked?(user) ->
         conn
         |> put_flash(:info, "Steam is already linked to your account.")
-        |> redirect(to: ~p"/users/settings")
+        |> redirect(to: ~p"/profile")
 
       true ->
         conn |> Steam.put_link_intent(user) |> redirect(to: ~p"/auth/steam")
@@ -208,13 +208,13 @@ defmodule D20Web.Auth.SteamController do
   defp linked_response(conn) do
     conn
     |> put_flash(:info, "Steam linked successfully.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp link_conflict_response(conn) do
     conn
     |> put_flash(:error, "Steam could not be linked to this account.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
   end
 
   defp completion_failure(conn, reason) do
@@ -238,7 +238,7 @@ defmodule D20Web.Auth.SteamController do
         if to_string(current_user.id) == user_id do
           conn
           |> put_flash(:error, "Steam is temporarily unavailable. Try again later.")
-          |> redirect(to: ~p"/users/settings")
+          |> redirect(to: ~p"/profile")
         else
           steam_unavailable_response(conn)
         end
@@ -261,7 +261,7 @@ defmodule D20Web.Auth.SteamController do
         if to_string(current_user.id) == user_id do
           conn
           |> put_flash(:error, "Steam could not be linked to this account.")
-          |> redirect(to: ~p"/users/settings")
+          |> redirect(to: ~p"/profile")
         else
           authentication_failure_response(conn)
         end
@@ -347,7 +347,7 @@ defmodule D20Web.Auth.SteamController do
   defp signed_in_request_guard(conn) do
     conn
     |> put_flash(:info, "You are already signed in. Link Steam from Account Settings instead.")
-    |> redirect(to: ~p"/users/settings")
+    |> redirect(to: ~p"/profile")
     |> halt()
   end
 

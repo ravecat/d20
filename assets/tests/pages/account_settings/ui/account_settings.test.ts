@@ -20,35 +20,35 @@ const auth = {
 const providers = [
   {
     available: true,
-    href: "/users/settings/auth/google",
+    href: "/profile/auth/google",
     id: "google",
     linked: false,
     name: "Google",
   },
   {
     available: true,
-    href: "/users/settings/auth/apple",
+    href: "/profile/auth/apple",
     id: "apple",
     linked: false,
     name: "Apple",
   },
   {
     available: true,
-    href: "/users/settings/auth/discord",
+    href: "/profile/auth/discord",
     id: "discord",
     linked: false,
     name: "Discord",
   },
   {
     available: true,
-    href: "/users/settings/auth/facebook",
+    href: "/profile/auth/facebook",
     id: "facebook",
     linked: false,
     name: "Facebook",
   },
   {
     available: true,
-    href: "/users/settings/auth/steam",
+    href: "/profile/auth/steam",
     id: "steam",
     linked: false,
     name: "Steam",
@@ -77,7 +77,7 @@ describe("account settings page", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Change email" }));
 
     expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
-      action: "/users/settings",
+      action: "/profile",
       method: "put",
       data: { action: "update_email", user: { email: "next@example.com" } },
     });
@@ -87,7 +87,7 @@ describe("account settings page", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
     expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
-      action: "/users/settings",
+      action: "/profile",
       method: "put",
       data: {
         action: "update_password",
@@ -118,7 +118,7 @@ describe("account settings page", () => {
       screen.getByText("Add a password for username sign-in while email recovery is unavailable."),
     ).not.toBeNull();
     expect(screen.getByRole("link", { name: "Link Facebook" }).getAttribute("href")).toBe(
-      "/users/settings/auth/facebook",
+      "/profile/auth/facebook",
     );
 
     const email = screen.getByRole("textbox", { name: "Email address" });
@@ -129,7 +129,7 @@ describe("account settings page", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Add email" }));
 
     expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
-      action: "/users/settings",
+      action: "/profile",
       method: "put",
       data: { action: "update_email", user: { email: "provider@example.com" } },
     });
@@ -186,7 +186,7 @@ describe("account settings page", () => {
     });
 
     const link = screen.getByRole("link", { name: "Link Facebook" });
-    expect(link.getAttribute("href")).toBe("/users/settings/auth/facebook");
+    expect(link.getAttribute("href")).toBe("/profile/auth/facebook");
 
     unmount();
     render(AccountSettingsPage, {
@@ -239,7 +239,7 @@ describe("account settings page", () => {
     });
 
     const link = screen.getByRole("link", { name: "Link Apple" });
-    expect(link.getAttribute("href")).toBe("/users/settings/auth/apple");
+    expect(link.getAttribute("href")).toBe("/profile/auth/apple");
 
     unmount();
     render(AccountSettingsPage, {
@@ -263,7 +263,7 @@ describe("account settings page", () => {
     });
 
     const link = screen.getByRole("link", { name: "Link Discord" });
-    expect(link.getAttribute("href")).toBe("/users/settings/auth/discord");
+    expect(link.getAttribute("href")).toBe("/profile/auth/discord");
 
     unmount();
     render(AccountSettingsPage, {
@@ -302,7 +302,7 @@ describe("account settings page", () => {
     });
 
     const link = screen.getByRole("link", { name: "Link Steam" });
-    expect(link.getAttribute("href")).toBe("/users/settings/auth/steam");
+    expect(link.getAttribute("href")).toBe("/profile/auth/steam");
 
     unmount();
     render(AccountSettingsPage, {

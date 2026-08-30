@@ -380,7 +380,7 @@ defmodule D20Web.PageControllerTest do
       kind: :warning,
       message: "You must log in to access this page.",
       reauthenticate: false,
-      return_to: "/users/settings"
+      return_to: "/profile"
     }
 
     conn = conn |> init_test_session(auth_prompt: prompt) |> get(~p"/developers")
@@ -390,7 +390,7 @@ defmodule D20Web.PageControllerTest do
              kind: :warning,
              message: "You must log in to access this page.",
              reauthenticate: false,
-             returnTo: "/users/settings"
+             returnTo: "/profile"
            }
 
     refute get_session(conn, :auth_prompt)

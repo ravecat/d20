@@ -96,6 +96,6 @@ Magic Link confirmation and Account Settings SHALL remain directly accessible an
 - **AND** successful password, Magic Link, or provider reauthentication remains bound to the current account
 
 #### Scenario: Provider-only user opens settings
-- **WHEN** a recently authenticated user with null email navigates to `/users/settings`
+- **WHEN** a recently authenticated user with null email navigates to `/profile`
 - **THEN** the Inertia settings page exposes an Add email form and the independent password form
 - **AND** it does not render null as an email value or claim that Magic Link recovery is available

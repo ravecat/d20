@@ -155,14 +155,14 @@ defmodule D20Web.Router do
       {D20Web.Auth.Apple, :link_result}
     ]
 
-    get "/users/settings", UserSettingsController, :edit
-    put "/users/settings", UserSettingsController, :update
-    get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
-    get "/users/settings/auth/apple", Auth.AppleController, :link
-    get "/users/settings/auth/discord", Auth.DiscordController, :link
-    get "/users/settings/auth/facebook", Auth.FacebookController, :link
-    get "/users/settings/auth/google", Auth.GoogleController, :link
-    get "/users/settings/auth/steam", Auth.SteamController, :link
+    get "/profile", UserSettingsController, :edit
+    put "/profile", UserSettingsController, :update
+    get "/profile/confirm-email/:token", UserSettingsController, :confirm_email
+    get "/profile/auth/apple", Auth.AppleController, :link
+    get "/profile/auth/discord", Auth.DiscordController, :link
+    get "/profile/auth/facebook", Auth.FacebookController, :link
+    get "/profile/auth/google", Auth.GoogleController, :link
+    get "/profile/auth/steam", Auth.SteamController, :link
   end
 
   scope "/", D20Web do

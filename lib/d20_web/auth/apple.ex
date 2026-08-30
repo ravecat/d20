@@ -23,7 +23,7 @@ defmodule D20Web.Auth.Apple do
   @link_result_cookie "_d20_apple_link_result"
   @link_result_max_age 600
   @link_result_secret "d20 apple link result"
-  @link_result_cookie_path "/users/settings"
+  @link_result_cookie_path "/profile"
   @reauthentication_result_cookie "_d20_apple_reauthentication_result"
   @reauthentication_result_max_age 600
   @reauthentication_result_secret "d20 apple reauthentication result"
