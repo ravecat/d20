@@ -43,13 +43,13 @@ describe("Layout", () => {
     expect(gamePage.layout).toEqual({ variant: "wide" });
   });
 
-  it("marks page content as an Inertia scroll region and links developers", () => {
+  it("leaves page scrolling to the document and links developers", () => {
     render(Layout);
 
     const content = screen.getByRole("main");
     const developerLink = screen.getByRole("link", { name: "for developers" });
 
-    expect(content.hasAttribute("scroll-region")).toBe(true);
+    expect(content.hasAttribute("scroll-region")).toBe(false);
     expect(content.getAttribute("tabindex")).toBe("-1");
     expect(developerLink.textContent).toBe("for developers");
     expect(developerLink.getAttribute("href")).toBe("/developers");

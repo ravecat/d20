@@ -67,12 +67,13 @@
 
 <style>
   .header {
-    position: sticky;
+    position: fixed;
     inset-block-start: 0;
+    inset-inline: 0;
     z-index: 20;
     width: 100%;
     overflow: hidden;
-    scrollbar-gutter: stable both-edges;
+    background: var(--color-base-100);
   }
 
   .header--overlay {
@@ -207,37 +208,34 @@
     }
   }
 
-  @supports (
-    (animation-timeline: scroll()) and (animation-range: 0% 100%) and
-      (scroll-timeline: --app-shell-scroll block) and (timeline-scope: --app-shell-scroll)
-  ) {
+  @supports ((animation-timeline: scroll()) and (animation-range: 0% 100%)) {
     .header__inner {
       animation: compact-header-inner auto linear both;
-      animation-timeline: --app-shell-scroll;
+      animation-timeline: scroll(block root);
       animation-range: 0px 24px;
     }
 
     .brand {
       animation: compact-header-brand auto linear both;
-      animation-timeline: --app-shell-scroll;
+      animation-timeline: scroll(block root);
       animation-range: 0px 24px;
     }
 
     .brand__mark {
       animation: compact-header-mark auto linear both;
-      animation-timeline: --app-shell-scroll;
+      animation-timeline: scroll(block root);
       animation-range: 0px 24px;
     }
 
     .brand__label {
       animation: compact-header-label auto linear both;
-      animation-timeline: --app-shell-scroll;
+      animation-timeline: scroll(block root);
       animation-range: 0px 24px;
     }
 
     .header__login {
       animation: compact-header-login auto linear both;
-      animation-timeline: --app-shell-scroll;
+      animation-timeline: scroll(block root);
       animation-range: 0px 24px;
     }
 

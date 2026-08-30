@@ -1,31 +1,40 @@
 ## ADDED Requirements
 
-### Requirement: Game pages use a bounded application shell
-The Inertia game application SHALL render one header, one main content region, and one footer in a viewport-bounded shell, and SHALL keep only the main region vertically scrollable.
+### Requirement: Game pages use one global document scroller
+The Inertia game application SHALL render one fixed header, one main content region, and one footer in a document-scrolling shell with a viewport-height minimum and an expanded-header reserve. The document root SHALL be the only page-level vertical scrolling element; the main region MUST NOT create a nested page scrollport or register as an Inertia scroll region.
 
 #### Scenario: Content exceeds the available viewport
-- **WHEN** an Inertia game page is taller than the space between the header and footer
-- **THEN** the main region scrolls while the header and footer remain visible
-- **AND** document scrolling remains at the viewport origin
-- **AND** the main region is registered as an Inertia scroll region
+- **WHEN** an Inertia game page is taller than the viewport
+- **THEN** the document root scrolls through the header, main region, and footer
+- **AND** the main region does not scroll independently
+- **AND** the fixed header remains at the top of the viewport
 
-### Requirement: The sticky brand compacts with content scrolling
-The shell SHALL keep the header at the top of the viewport. In browsers with complete named scroll-driven animation support, the shell SHALL use the main content scroll timeline to compact both the D20 mark and its visible label over the first 24 pixels without JavaScript scroll state. In browsers without complete support and for users who prefer reduced motion, the shell SHALL retain the expanded header as a functional fallback.
+#### Scenario: Content is shorter than the available viewport
+- **WHEN** an Inertia game page is shorter than the viewport
+- **THEN** the shell still fills the viewport
+- **AND** the footer rests at the viewport end after the main region
+
+### Requirement: The fixed brand compacts with global document scrolling
+The shell SHALL keep the fixed header at the top of the viewport, SHALL reserve its expanded responsive height before main content, and SHALL give the document matching block-start scroll padding. In browsers with complete scroll-driven animation support, the shell SHALL use the root document scroll timeline to compact both the D20 mark and its visible label over the first 24 pixels without JavaScript scroll state. The reserve MUST prevent content jumps and initial interactive-content overlap and MUST scroll away without leaving a permanent gap after compaction. The scroll padding MUST keep root-aligned fragment, focus, and programmatic scroll targets below the fixed header, including when the expanded fallback is active. In browsers without complete support and for users who prefer reduced motion, the shell SHALL retain the expanded header as a functional fallback.
 
 #### Scenario: Supporting browser scrolls down through game content
-- **WHEN** the main content scroll position progresses from zero to 24 pixels in a browser with complete named scroll-driven animation support
-- **THEN** the header remains at the top of the viewport
+- **WHEN** the document scroll position progresses from zero to 24 pixels in a browser with complete scroll-driven animation support
+- **THEN** the fixed header remains at the top of the viewport
 - **AND** the header presentation progresses from its default dimensions to its compact dimensions
 - **AND** no JavaScript scroll state or handler is required
 
 #### Scenario: User returns to the top
-- **WHEN** the main content scroll position returns to zero
+- **WHEN** the document scroll position returns to zero
 - **THEN** the D20 mark and visible label return to their default dimensions
 
+#### Scenario: Browser aligns content to the root scrollport
+- **WHEN** fragment navigation, focus scrolling, or a programmatic scroll aligns a main-content target to block start
+- **THEN** responsive document scroll padding keeps the target below the fixed header
+
 #### Scenario: Browser lacks complete scroll timeline support
-- **WHEN** the application runs in a browser without complete support for named scroll timelines and animation ranges
+- **WHEN** the application runs in a browser without complete support for root scroll timelines and animation ranges
 - **THEN** the header remains expanded
-- **AND** navigation and main content scrolling remain usable
+- **AND** navigation and document scrolling remain usable
 
 #### Scenario: User prefers reduced motion
 - **WHEN** the user requests reduced motion
@@ -35,12 +44,12 @@ The shell SHALL keep the header at the top of the viewport. In browsers with com
 The header and footer SHALL render without visible surrounding borders, divider lines, or edge shadows in both default and compact states.
 
 #### Scenario: Shell renders at the top of a page
-- **WHEN** the main content scroll position is zero
+- **WHEN** the document scroll position is zero
 - **THEN** the computed header and footer edge border widths are zero
 - **AND** neither surface draws an edge shadow
 
 #### Scenario: Header enters compact state
-- **WHEN** the main content scroll position exceeds 24 pixels
+- **WHEN** the document scroll position exceeds 24 pixels
 - **THEN** the header remains free of divider lines and edge shadows
 - **AND** the footer remains free of divider lines and edge shadows
 

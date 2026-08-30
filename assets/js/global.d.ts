@@ -38,12 +38,6 @@ declare module "@inertiajs/core" {
   }
 }
 
-declare module "svelte/elements" {
-  interface HTMLAttributes<T extends EventTarget> {
-    "scroll-region"?: boolean | "";
-  }
-}
-
 declare global {
   type InertiaProps<Props extends object = Record<string, never>> = SharedPageProps & Props;
 

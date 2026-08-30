@@ -27,7 +27,6 @@
   .footer {
     width: 100%;
     overflow: hidden;
-    scrollbar-gutter: stable both-edges;
   }
 
   .footer__inner {

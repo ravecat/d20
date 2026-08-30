@@ -49,3 +49,12 @@
 ## 10. CSS Timeline Validation
 
 - [x] 10.1 Run focused browser coverage, frontend formatting, linting, type checks, the production asset build, and strict OpenSpec validation.
+
+## 11. Global Page Scroll Correction
+
+- [x] 11.1 Make the document root the only page-level vertical scroller, remove the main region's nested Inertia scroll boundary, and bind an out-of-flow fixed header to the root scroll timeline with a responsive expanded-height reserve.
+- [x] 11.2 Add focused unit and Chromium browser coverage for the single global scrolling element, root-scroll header compaction, and fixed-header-safe root alignment.
+
+## 12. Global Scroll Validation
+
+- [x] 12.1 Run focused frontend tests, formatting, linting, type checks, the production asset build, strict OpenSpec validation, and Chrome DevTools validation on overflowing Account Settings content.

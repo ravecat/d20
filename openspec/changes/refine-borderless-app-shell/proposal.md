@@ -4,10 +4,10 @@ The Inertia game shell now keeps content between a persistent header and footer,
 
 ## What Changes
 
-- Formalize the bounded, scrollable game app shell as an explicit capability.
+- Formalize the document-scrolling game app shell as an explicit capability.
 - Keep the header, footer, and brand free of visible surrounding borders or edge shadows in normal, compact, pointer, and keyboard states.
 - Preserve a visible keyboard-focus indicator for the home brand without drawing a rectangle around the mark or label.
-- Keep the sticky header, persistent footer, and internal Inertia scroll region while moving the decorative compact-on-scroll behavior from Svelte state to a named CSS scroll timeline with an expanded fallback.
+- Keep the header pinned and compact-on-scroll behavior while making the document root the only page-level scroll container and timeline source.
 - Replace D20 size custom properties with explicit component size declarations while retaining color custom properties.
 - Replace the footer source link with an internal `for developers` link to `/developers`.
 - Add a developer page that introduces client implementation and derives a compact reference/YAML list from registered games with matching static specifications.
@@ -17,12 +17,12 @@ The Inertia game shell now keeps content between a persistent header and footer,
 
 ### New Capabilities
 
-- `game-app-shell`: Defines the persistent header/footer shell, bounded content scrolling, compact brand behavior, and borderless chrome treatment for Inertia game pages.
+- `game-app-shell`: Defines the sticky-header application shell, global document scrolling, compact brand behavior, and borderless chrome treatment for Inertia game pages.
 - `developer-resources-page`: Defines the developer entry route, footer navigation, game specification index, and public AsyncAPI reference endpoints.
 
 ### Modified Capabilities
 
-None.
+- `responsive-game-detail-spacing`: Keeps game-detail edge protection and symmetric shell insets while overflowing pages move to global document scrolling.
 
 ## Impact
 
@@ -31,4 +31,5 @@ None.
 - No session, persistence, or iframe module contract changes.
 - No new dependencies or migrations.
 - Rollback is limited to restoring the previous component styles and D20 sizing implementation, removing the developer routes and page, and restoring the previous footer link.
-- The CSS scroll timeline correction is tracked by [GitHub issue #85](https://github.com/ravecat/d20/issues/85), and its remaining lifecycle reconciliation is tracked by [GitHub issue #153](https://github.com/ravecat/d20/issues/153).
+- The original CSS scroll timeline correction is tracked by [GitHub issue #85](https://github.com/ravecat/d20/issues/85), and its remaining lifecycle reconciliation is tracked by [GitHub issue #153](https://github.com/ravecat/d20/issues/153).
+- The global page-scroll correction is tracked by [GitHub issue #261](https://github.com/ravecat/d20/issues/261).

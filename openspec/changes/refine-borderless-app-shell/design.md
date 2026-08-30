@@ -1,8 +1,8 @@
 ## Context
 
-The Svelte Inertia shell already uses a three-row `header / main / footer` grid, keeps only the middle region scrollable, and compacts the D20 brand after the content scrolls beyond 24 pixels. The compact state is currently derived by a Svelte scroll handler and propagated to the header as a boolean prop even though it controls presentation only. The current compact header adds a bottom border and shadow, the footer adds a top border, and the brand link uses a rectangular focus outline. The D20 component also reads its dimensions from CSS custom properties supplied by the header wrapper.
+The Svelte Inertia shell uses a three-row `header / main / footer` grid and compacts the D20 brand after the page scrolls beyond 24 pixels. It currently fixes that grid to `100dvh`, makes only the middle region scrollable, and binds the compact animation to that nested region. When the document also overflows, long routes such as Account Settings expose two independent vertical scrollbars and the header follows only the nested one.
 
-The refinement must preserve the shell geometry, Inertia scroll restoration, responsive brand dimensions, and keyboard accessibility while making the surrounding chrome visually seamless.
+The refinement must preserve Inertia document scroll restoration, responsive brand dimensions, pinned-header behavior, and keyboard accessibility while making the document root the only page-level scroll container.
 
 The footer currently links to the GitHub source repository. The product direction now treats the footer as the entry point for engineers who want to build compatible clients from game AsyncAPI contracts. Songy and Moda already establish a small Phoenix Plug pattern that serves raw YAML and renders an interactive reference with the standalone AsyncAPI React component. D20 can adapt that pattern for its two existing specifications without introducing a separate static-site build.
 
@@ -13,7 +13,7 @@ The footer currently links to the GitHub source repository. The product directio
 - Remove visible edge borders and shadows from the header and footer in every scroll state.
 - Remove the rectangular outline around the D20 brand while keeping keyboard focus unmistakable.
 - Keep the existing default, narrow-screen, and compact brand dimensions.
-- Make the internal content scroll position drive compact presentation without Svelte component state.
+- Make the global document scroll position drive compact presentation without Svelte component state.
 - Make D20 dimensions explicit in the D20 component instead of passing them through CSS custom properties.
 - Make `/developers` a clear internal destination from every game-shell footer.
 - Present a polished index for the existing Qwinto and Koala Rescue Club AsyncAPI contracts.
@@ -23,8 +23,8 @@ The footer currently links to the GitHub source repository. The product directio
 
 **Non-Goals:**
 
-- Redesign page cards, game-detail panels, or nested scroll regions.
-- Change the compact threshold or Inertia scroll contract.
+- Redesign page cards, game-detail panels, or intentional component-local overflow regions.
+- Change the compact threshold or add a custom replacement for Inertia's document scroll contract.
 - Add a runtime scroll-timeline polyfill or retain a JavaScript fallback for the decorative compact state.
 - Remove color custom properties from the D20 artwork.
 - Parse AsyncAPI metadata at runtime or expose files whose slugs are not registered games.
@@ -79,13 +79,15 @@ Specification filenames will use the registry slug verbatim, including hyphens. 
 
 Bundling the React renderer into the Svelte application was rejected because these reference pages are independent documents and doing so would add React-specific application dependencies. The raw YAML remains useful if the CDN renderer is unavailable.
 
-### 8. Drive compact presentation with a named CSS scroll timeline
+### 8. Drive compact presentation with the root CSS scroll timeline
 
-The layout will expose a named block-axis scroll timeline from its existing Inertia content scroller and extend that timeline's scope to the shared layout ancestor. The header will bind component-scoped keyframes to the named timeline and interpolate its padding, brand gap, mark dimensions, and label dimensions over the first 24 pixels of content scrolling. This keeps the existing scroll container and compact endpoint dimensions while removing the `compactHeader` rune, scroll event handler, and `compact` prop.
+The layout will use normal document flow with a `100dvh` minimum block size instead of fixing a viewport-sized grid around a nested main scroller. The main region will no longer declare page-level overflow, overscroll containment, a stable scrollbar gutter, or Inertia's `scroll-region` attribute. Short pages still place the footer at the viewport end through the grid's flexible middle row; long pages expand that row and place the footer after the content. The document root becomes the only page-level scrolling element.
 
-The timeline declarations and animations will be gated by feature detection for `animation-timeline`, `animation-range`, `scroll-timeline`, and `timeline-scope`. The expanded header remains the base style, so browsers without complete named scroll-timeline support retain a usable static header. Reduced-motion users also retain the expanded state instead of receiving continuous scroll-linked resizing.
+The header will be fixed out of document flow and the layout will reserve its expanded responsive block size (`5rem` normally and `4.5rem` through the existing `34rem` breakpoint). The document will use the same responsive values as block-start scroll padding so fragment navigation, focus scrolling, and `scrollIntoView()` targets remain below the fixed surface, including in the expanded fallback. This keeps the header pinned without making its animated dimensions part of the root scroll range. The static reserve prevents content jumps and initial interactive-content overlap; it scrolls away with the page instead of becoming a permanent gap after compaction. The header receives the shell background so page content can pass behind it without painting through the fixed surface. Header and footer stop reserving companion scrollbar gutters because the root scrollbar already reduces the common viewport once for every shell region.
 
-Keeping the JavaScript handler as a fallback was rejected because it would preserve the presentation state and component coupling this change removes. Adding `scroll-timeline-polyfill` was rejected because the cosmetic enhancement does not justify a runtime CSS parser and its compatibility risks.
+The header will bind its component-scoped keyframes directly to `scroll(block root)` and interpolate padding, brand gap, mark dimensions, and label dimensions over the first 24 pixels of document scrolling. Feature detection will require both `animation-timeline: scroll()` and `animation-range` support. The expanded header remains the base style for unsupported browsers, and reduced-motion users retain the expanded state instead of receiving continuous scroll-linked resizing.
+
+Keeping an in-flow sticky header was rejected because changing its layout dimensions from the root scroll timeline changes that timeline's own range; Chromium deactivates the animation to avoid the resulting layout cycle. Keeping a named timeline was rejected because it requires a nested or named scroll source when the root already expresses the application-wide contract. Keeping the JavaScript handler as a fallback was rejected because it would restore presentation state and component coupling. Adding `scroll-timeline-polyfill` was rejected because the cosmetic enhancement does not justify a runtime CSS parser and its compatibility risks.
 
 ## Risks / Trade-offs
 
@@ -96,7 +98,9 @@ Keeping the JavaScript handler as a fallback was rejected because it would prese
 - [Filesystem checks happen when the developer page is requested] -> Check only the bounded registry entries and regular slug-matching files; do not parse document contents or call external metadata providers.
 - [A dynamic file-serving route could expose unintended files] -> Resolve the slug through the registry before deriving the static application-relative path, and return not found for unknown or missing specifications.
 - [Firefox and Safari before 26 do not apply the compact enhancement] -> Keep the expanded header as the complete functional fallback and gate every timeline declaration with feature detection.
-- [Animating layout dimensions can require layout work during the first 24 pixels of scrolling] -> Limit the range to the small persistent header and avoid a JavaScript scroll callback that would add component updates to the same path.
+- [The footer is no longer persistently visible on long pages] -> Keep it after the main region in ordinary document order and at the viewport end on short pages; the request preserves pinned-header behavior, not a second bounded scrollport.
+- [The expanded header reserve could leave empty space after compaction] -> Keep the reserve in document flow so ordinary scrolling consumes it, and verify the first interactive content meets the compact header without a persistent gap or jump at desktop and mobile widths.
+- [Animating layout dimensions can require layout work during the first 24 pixels of scrolling] -> Keep the fixed header outside the root scroll range, limit the range to the small pinned surface, and avoid a JavaScript scroll callback that would add component updates to the same path.
 
 ## Migration Plan
 
