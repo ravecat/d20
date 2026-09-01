@@ -76,7 +76,7 @@ defmodule D20.KoalaRescueClub.Rules do
   @spec submit_allowed?(Game.t(), Game.player_id()) :: boolean()
   def submit_allowed?(%Game{} = game, player_id) do
     with :ok <- require_phase(game, :submit),
-         {:ok, player} <- Game.fetch_player(game, player_id),
+         {:ok, player} <- Map.fetch(game.players, player_id),
          :ok <- require_player_status(player, :pending),
          :ok <- require_roll(game) do
       true
@@ -113,7 +113,7 @@ defmodule D20.KoalaRescueClub.Rules do
           %{optional(Ruleset.die_value()) => turn_option()}
   def turn_options(%Game{} = game, player_id) do
     with true <- submit_allowed?(game, player_id),
-         {:ok, player} <- Game.fetch_player(game, player_id) do
+         {:ok, player} <- Map.fetch(game.players, player_id) do
       rulesheet = Ruleset.sheet!(game.sheet)
       available_volunteers = Enum.count(player.sheet.volunteers, &(&1 == :available))
 
@@ -198,7 +198,7 @@ defmodule D20.KoalaRescueClub.Rules do
   defp pending_player(game, player_id) do
     with :ok <- require_phase(game, :submit),
          :ok <- require_roll(game),
-         {:ok, player} <- Game.fetch_player(game, player_id),
+         {:ok, player} <- Map.fetch(game.players, player_id),
          :ok <- require_player_status(player, :pending) do
       {:ok, player, Ruleset.sheet!(game.sheet)}
     else
@@ -389,11 +389,11 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_missing_actor(%D20.Command{actor_id: nil}), do: :ok
   defp require_missing_actor(%D20.Command{}), do: {:error, :invalid_identity}
 
-  defp require_player_count_in_range(%Game{players: players} = game, player_id \\ nil) do
+  defp require_player_count_in_range(%Game{players: players}, player_id \\ nil) do
     count =
       cond do
         is_nil(player_id) -> map_size(players)
-        match?({:ok, _player}, Game.fetch_player(game, player_id)) -> map_size(players)
+        match?({:ok, _player}, Map.fetch(players, player_id)) -> map_size(players)
         true -> map_size(players) + 1
       end
 

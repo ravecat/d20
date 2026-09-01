@@ -1,23 +1,4 @@
-# koala-pathex-state-mutations Specification
-
-## Purpose
-Define Koala Rescue Club aggregate mutation through direct Pathex field, keyed-player, and collection paths while preserving gameplay behavior.
-
-## Requirements
-
-### Requirement: Koala paths do not duplicate schema metadata
-`D20.KoalaRescueClub.Game` SHALL use Pathex `path/1` supplied by `use D20.Game` directly for aggregate field references. The shared path configuration SHALL address map fields without maintaining a second enumeration of embedded-schema fields or depending on Ecto's internal compile-time field attributes.
-
-#### Scenario: Reducer addresses a declared aggregate field
-- **WHEN** reducer code creates a path for a declared Koala aggregate field
-- **THEN** the path addresses that field on the `Game` struct
-- **AND** Koala does not define or import a duplicate field-path DSL
-- **AND** the generated traversal is compatible with struct and map values
-
-#### Scenario: Reducer executes an invalid internal field path
-- **WHEN** reducer code executes a bang operation with a field absent from the aggregate
-- **THEN** the traversal fails as a programmer defect
-- **AND** the failure does not become a new domain error or dispatch result
+## MODIFIED Requirements
 
 ### Requirement: Command application is expressed as path-based aggregate mutation
 Public `dispatch/2` SHALL be a thin adapter that calls private `execute/2`, propagates its errors, and reduces its successful ordered transition list through private `apply/2`. Every accepted state-changing public Koala command SHALL be validated and resolved by `execute/2` into private, data-only internal transition facts before authoritative aggregate mutation. Private `apply/2` SHALL be the single seam that accepts a `Game.t()` and returns a transformed `Game.t()`. Every `apply/2` clause SHALL update aggregate fields through direct Pathex field, keyed-player, or collection paths and SHALL NOT delegate aggregate mutation to another helper. One-use command decisions and transition sequencing SHALL remain inline in their matching `execute/2` clauses. Retained calculation helpers MAY derive players or scores, but SHALL be meaningful leaf functions that do not call other local helpers and SHALL NOT return a transformed `Game.t()`. When Rules derives data required by a transition, execute MUST pass that accepted result to the application seam without repeating rule resolution.

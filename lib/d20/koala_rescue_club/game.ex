@@ -7,7 +7,7 @@ defmodule D20.KoalaRescueClub.Game do
   use Ecto.Schema
 
   import Ecto.Changeset, only: [cast: 3, validate_required: 2]
-  import Function, only: [identity: 1]
+  import Kernel, except: [apply: 2]
 
   alias D20.Dice
   alias D20.KoalaRescueClub.Command
@@ -76,6 +76,17 @@ defmodule D20.KoalaRescueClub.Game do
           scores: %{optional(player_id()) => score()}
         }
   @type reason :: :finished | :invalid_phase
+  @typep players :: %{optional(player_id()) => player()}
+  @typep transition ::
+           {:player_joined, players(), phase()}
+           | {:player_left, players(), phase()}
+           | {:game_started, mode()}
+           | {:die_rolled, Ruleset.die_value()}
+           | {:turn_submitted, player_id(), player()}
+           | {:badges_awarded, players()}
+           | {:round_scored, players()}
+           | {:turn_advanced, Ruleset.round(), Ruleset.turn()}
+           | {:game_finished, %{optional(player_id()) => score()}}
 
   @impl D20.Game
   @spec init(D20.Game.attrs()) :: {:ok, t()}
@@ -95,46 +106,119 @@ defmodule D20.KoalaRescueClub.Game do
   @spec dispatch(t(), D20.Command.t()) ::
           {:ok, t()}
           | {:error, Ecto.Changeset.t() | Rules.reason() | Command.reason() | reason()}
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "join"} = command)
-      when phase in [:setup, :ready] do
-    with {:ok, command} <- Command.validate(command),
-         :ok <- Rules.validate(game, command) do
-      {:ok, apply_command(game, command)}
+  def dispatch(%__MODULE__{} = game, %D20.Command{} = command) do
+    with {:ok, transitions} <- execute(game, command) do
+      game = Enum.reduce(transitions, game, fn transition, game -> apply(game, transition) end)
+      {:ok, game}
     end
   end
 
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: event})
-      when event in ["join", "left"] and phase in [:roll, :submit],
-      do: {:ok, game}
-
-  def dispatch(%__MODULE__{phase: phase} = game, %D20.Command{event: "left"} = command)
-      when phase in [:setup, :ready] do
-    {:ok, apply_command(game, command)}
-  end
-
-  def dispatch(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"} = command) do
+  defp execute(%__MODULE__{phase: phase} = game, %D20.Command{event: "join"} = command)
+       when phase in [:setup, :ready] do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
-      {:ok, apply_command(game, command)}
+      players =
+        Map.put_new_lazy(game.players, command.actor_id, fn ->
+          rulesheet = Ruleset.sheet!(game.sheet)
+
+          volunteers =
+            List.duplicate(:available, rulesheet.volunteers) ++
+              List.duplicate(:locked, Ruleset.volunteer() - rulesheet.volunteers)
+
+          sheet = %{
+            trees: [],
+            koalas: [],
+            areas:
+              rulesheet.areas
+              |> Enum.filter(fn {_id, area} -> area.access end)
+              |> Map.new(fn {id, _area} -> {id, true} end),
+            volunteers: volunteers,
+            hospitals: Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end),
+            skybridges: [],
+            bonuses: []
+          }
+
+          %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
+        end)
+
+      phase = if map_size(players) in Ruleset.player_count_range(), do: :ready, else: :setup
+      {:ok, [{:player_joined, players, phase}]}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"} = command) do
+  defp execute(%__MODULE__{phase: phase}, %D20.Command{event: event})
+       when event in ["join", "left"] and phase in [:roll, :submit],
+       do: {:ok, []}
+
+  defp execute(%__MODULE__{phase: phase} = game, %D20.Command{event: "left"} = command)
+       when phase in [:setup, :ready] do
+    players = Map.delete(game.players, command.actor_id)
+    phase = if map_size(players) in Ruleset.player_count_range(), do: :ready, else: :setup
+
+    {:ok, [{:player_left, players, phase}]}
+  end
+
+  defp execute(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"} = command) do
     with {:ok, command} <- Command.validate(command),
          :ok <- Rules.validate(game, command) do
-      {:ok, apply_command(game, command)}
+      mode =
+        case map_size(game.players) do
+          1 -> :solo
+          count when count > 1 -> :multiplayer
+        end
+
+      {:ok, [{:game_started, mode}]}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{} = command) do
+  defp execute(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"} = command) do
+    with {:ok, command} <- Command.validate(command),
+         :ok <- Rules.validate(game, command) do
+      %{d6: [value]} = Dice.roll!(d6: 1)
+      {:ok, [{:die_rolled, value}]}
+    end
+  end
+
+  defp execute(%__MODULE__{phase: :submit} = game, %D20.Command{} = command) do
     with {:ok, command} <- Command.validate(command),
          {:ok, player} <- Rules.resolve_turn(game, command) do
-      {:ok, apply_command(game, command, player)}
+      player = %{player | turns: player.turns ++ [command.attrs.die_value]}
+      players = Map.put(game.players, command.actor_id, player)
+      submitted = {:turn_submitted, command.actor_id, player}
+
+      transitions =
+        if Enum.all?(players, fn {_player_id, player} -> player.status == :submitted end) do
+          rulesheet = Ruleset.sheet!(game.sheet)
+          players = award_badges(rulesheet, game.mode, game.round, players)
+          transitions = [submitted, {:badges_awarded, players}]
+
+          {players, transitions} =
+            if Ruleset.round_end_turn?(game.turn) do
+              players = score_round(rulesheet, players)
+              {players, transitions ++ [{:round_scored, players}]}
+            else
+              {players, transitions}
+            end
+
+          if Ruleset.final_turn?(game.turn) do
+            scores = score_players(game.mode, rulesheet, players)
+            transitions ++ [{:game_finished, scores}]
+          else
+            next_turn = game.turn + 1
+            {:ok, next_round} = Ruleset.round(next_turn)
+
+            transitions ++ [{:turn_advanced, next_round, next_turn}]
+          end
+        else
+          [submitted]
+        end
+
+      {:ok, transitions}
     end
   end
 
-  def dispatch(%__MODULE__{phase: :finished}, %D20.Command{}), do: {:error, :finished}
-  def dispatch(%__MODULE__{}, %D20.Command{}), do: {:error, :invalid_phase}
+  defp execute(%__MODULE__{phase: :finished}, %D20.Command{}), do: {:error, :finished}
+  defp execute(%__MODULE__{}, %D20.Command{}), do: {:error, :invalid_phase}
 
   @impl D20.Game
   @spec preview(t(), D20.Command.t()) ::
@@ -153,57 +237,21 @@ defmodule D20.KoalaRescueClub.Game do
   def finished?(%__MODULE__{phase: :finished}), do: true
   def finished?(%__MODULE__{}), do: false
 
-  @doc "Fetches a player from the game by id."
-  @spec fetch_player(t(), player_id()) :: {:ok, player()} | :error
-  def fetch_player(%__MODULE__{players: players}, player_id), do: Map.fetch(players, player_id)
-
-  defp apply_command(game, %D20.Command{event: "join", actor_id: actor_id}) do
-    rulesheet = game |> Pathex.view!(path(:sheet)) |> Ruleset.sheet!()
-
-    volunteers =
-      List.duplicate(:available, rulesheet.volunteers) ++
-        List.duplicate(:locked, Ruleset.volunteer() - rulesheet.volunteers)
-
-    sheet = %{
-      trees: [],
-      koalas: [],
-      areas:
-        rulesheet.areas
-        |> Enum.filter(fn {_id, area} -> area.access end)
-        |> Map.new(fn {id, _area} -> {id, true} end),
-      volunteers: volunteers,
-      hospitals: Map.new(rulesheet.hospitals, fn {id, _hospital} -> {id, 0} end),
-      skybridges: [],
-      bonuses: []
-    }
-
-    player = %{status: :ready, sheet: sheet, rounds: [], badges: %{}, turns: []}
-
-    game = Pathex.force_over!(game, path(:players) ~> path(actor_id), &identity/1, player)
-
-    phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
-
-    Pathex.set!(game, path(:phase), phase)
+  @spec apply(t(), transition()) :: t()
+  defp apply(game, {:player_joined, players, phase}) do
+    game
+    |> Pathex.set!(path(:players), players)
+    |> Pathex.set!(path(:phase), phase)
   end
 
-  defp apply_command(game, %D20.Command{event: "left", actor_id: actor_id}) do
-    game =
-      Pathex.over!(game, path(:players), fn players -> Pathex.without(players, path(actor_id)) end)
-
-    phase = if Rules.ready_to_start?(game), do: :ready, else: :setup
-
-    Pathex.set!(game, path(:phase), phase)
+  defp apply(game, {:player_left, players, phase}) do
+    game
+    |> Pathex.set!(path(:players), players)
+    |> Pathex.set!(path(:phase), phase)
   end
 
-  defp apply_command(%__MODULE__{phase: :ready} = game, %D20.Command{event: "start"}) do
-    players = Pathex.view!(game, path(:players))
+  defp apply(game, {:game_started, mode}) do
     each_player = path(:players) ~> all()
-
-    mode =
-      case map_size(players) do
-        1 -> :solo
-        count when count > 1 -> :multiplayer
-      end
 
     game
     |> Pathex.set!(path(:phase), :roll)
@@ -216,215 +264,145 @@ defmodule D20.KoalaRescueClub.Game do
     |> Pathex.set!(each_player ~> path(:turns), [])
   end
 
-  defp apply_command(%__MODULE__{phase: :roll} = game, %D20.Command{event: "roll"}) do
-    %{d6: [value]} = Dice.roll!(d6: 1)
-
+  defp apply(game, {:die_rolled, value}) do
     game
     |> Pathex.set!(path(:phase), :submit)
     |> Pathex.set!(path(:roll), %{value: value})
     |> Pathex.set!(path(:players) ~> all() ~> path(:status), :pending)
   end
 
-  defp apply_command(
-         %__MODULE__{phase: :submit} = game,
-         %D20.Command{event: "submit", actor_id: actor_id, attrs: %{die_value: value}},
-         player
-       ) do
-    player = Pathex.force_over!(player, path(:turns), &(&1 ++ [value]), [value])
+  defp apply(game, {:turn_submitted, player_id, player}) do
+    Pathex.set!(game, path(:players) ~> path(player_id), player)
+  end
 
+  defp apply(game, {:badges_awarded, players}) do
+    Pathex.set!(game, path(:players), players)
+  end
+
+  defp apply(game, {:round_scored, players}) do
+    Pathex.set!(game, path(:players), players)
+  end
+
+  defp apply(game, {:turn_advanced, round, turn}) do
     game
-    |> Pathex.set!(path(:players) ~> path(actor_id), player)
-    |> maybe_resolve_turn()
+    |> Pathex.set!(path(:phase), :roll)
+    |> Pathex.set!(path(:round), round)
+    |> Pathex.set!(path(:turn), turn)
+    |> Pathex.set!(path(:roll), nil)
+    |> Pathex.set!(path(:players) ~> all() ~> path(:status), :ready)
   end
 
-  defp maybe_resolve_turn(game) do
-    if Rules.turn_complete?(game) do
-      game
-      |> award_badges()
-      |> maybe_score_round()
-      |> maybe_finish()
-    else
-      game
-    end
+  defp apply(game, {:game_finished, scores}) do
+    game
+    |> Pathex.set!(path(:phase), :finished)
+    |> Pathex.set!(path(:scores), scores)
   end
 
-  defp maybe_score_round(game) do
-    if Ruleset.round_end_turn?(game.turn), do: score_round(game), else: game
-  end
-
-  defp maybe_finish(game) do
-    turn = Pathex.view!(game, path(:turn))
-
-    if Ruleset.final_turn?(turn) do
-      scores = score_players(game)
-
-      game
-      |> Pathex.set!(path(:phase), :finished)
-      |> Pathex.set!(path(:scores), scores)
-    else
-      next_turn = turn + 1
-      {:ok, next_round} = Ruleset.round(next_turn)
-
-      game
-      |> Pathex.set!(path(:phase), :roll)
-      |> Pathex.set!(path(:round), next_round)
-      |> Pathex.set!(path(:turn), next_turn)
-      |> Pathex.set!(path(:roll), nil)
-      |> Pathex.set!(path(:players) ~> all() ~> path(:status), :ready)
-    end
-  end
-
-  defp score_round(game) do
-    rulesheet = Ruleset.sheet!(game.sheet)
-
-    players =
-      Map.new(game.players, fn {player_id, player} ->
-        round = score_round_for_player(rulesheet, player)
-
-        {player_id, %{player | rounds: player.rounds ++ [round]}}
-      end)
-
-    %{game | players: players}
-  end
-
-  defp score_round_for_player(rulesheet, player) do
-    trees = score_complete_areas(rulesheet, player.sheet, &Ruleset.trees_complete?/3)
-    koalas = score_complete_areas(rulesheet, player.sheet, &Ruleset.koalas_complete?/3)
-
-    hospitals = rulesheet.hospitals |> Enum.map(&score_hospital(player.sheet, &1)) |> Enum.sum()
-
-    %{trees: trees, koalas: koalas, hospitals: hospitals, total: trees + koalas + hospitals}
-  end
-
-  defp score_complete_areas(rulesheet, player_sheet, complete?) do
-    rulesheet.areas
-    |> Map.keys()
-    |> Enum.count(&complete?.(rulesheet, player_sheet, &1))
-  end
-
-  defp score_hospital(player_sheet, {hospital_id, hospital}) do
-    filled = Map.get(player_sheet.hospitals, hospital_id, 0)
-
-    hospital = hospital |> Map.take([:size, :score, :penalty]) |> Map.put(:filled, filled)
-
-    {:ok, score} = Ruleset.score_hospital(hospital)
-    score
-  end
-
-  defp award_badges(game) do
-    rulesheet = Ruleset.sheet!(game.sheet)
-
-    award_badges(game, rulesheet)
-  end
-
-  defp award_badges(%__MODULE__{mode: :solo} = game, rulesheet),
-    do: award_solo_badges(game, rulesheet)
-
-  defp award_badges(%__MODULE__{mode: :multiplayer} = game, rulesheet),
-    do: award_multiplayer_badges(game, rulesheet)
-
-  defp award_solo_badges(game, map) do
-    [{player_id, player}] = Map.to_list(game.players)
+  defp award_badges(rulesheet, :solo, round, players) do
+    [{player_id, player}] = Map.to_list(players)
 
     player =
-      Enum.reduce(map.badges, player, fn {badge_id, badge}, player ->
+      Enum.reduce(rulesheet.badges, player, fn {badge_id, badge}, player ->
         if Map.has_key?(player.badges, badge_id) or
-             not Rules.badge_satisfied?(map, player.sheet, badge) do
+             not Rules.badge_satisfied?(rulesheet, player.sheet, badge) do
           player
         else
-          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-          award = if game.round == 1, do: :large, else: :small
-          put_badge(player, badge_id, award)
+          award = if round == 1, do: :large, else: :small
+          %{player | badges: Map.put(player.badges, badge_id, award)}
         end
       end)
 
-    put_in(game.players[player_id], player)
+    Map.put(players, player_id, player)
   end
 
-  defp award_multiplayer_badges(game, map) do
-    Enum.reduce(map.badges, game, fn {badge_id, badge}, game ->
-      if large_badge_awarded?(game, badge_id) do
-        award_late_badges(game, map, badge_id, badge)
-      else
-        first_achievers =
-          game.players
-          |> Enum.filter(fn {_player_id, player} ->
-            Rules.badge_satisfied?(map, player.sheet, badge)
-          end)
-          |> Enum.map(fn {player_id, _player} -> player_id end)
+  defp award_badges(rulesheet, :multiplayer, _round, players) do
+    Enum.reduce(rulesheet.badges, players, fn {badge_id, badge}, players ->
+      large_awarded? =
+        Enum.any?(players, fn {_player_id, player} ->
+          Map.get(player.badges, badge_id) == :large
+        end)
 
-        if first_achievers == [] do
-          game
+      {player_ids, award} =
+        if large_awarded? do
+          player_ids =
+            players
+            |> Enum.filter(fn {_player_id, player} ->
+              not Map.has_key?(player.badges, badge_id) and
+                Rules.badge_satisfied?(rulesheet, player.sheet, badge)
+            end)
+            |> Enum.map(fn {player_id, _player} -> player_id end)
+
+          {player_ids, :small}
         else
-          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-          update_players(game, first_achievers, fn player ->
-            put_badge(player, badge_id, :large)
-          end)
+          player_ids =
+            players
+            |> Enum.filter(fn {_player_id, player} ->
+              Rules.badge_satisfied?(rulesheet, player.sheet, badge)
+            end)
+            |> Enum.map(fn {player_id, _player} -> player_id end)
+
+          {player_ids, :large}
         end
-      end
-    end)
-  end
 
-  defp award_late_badges(game, map, badge_id, badge) do
-    late_achievers =
-      game.players
-      |> Enum.filter(fn {_player_id, player} ->
-        not Map.has_key?(player.badges, badge_id) and
-          Rules.badge_satisfied?(map, player.sheet, badge)
+      Enum.reduce(player_ids, players, fn player_id, players ->
+        Map.update!(players, player_id, fn player ->
+          %{player | badges: Map.put(player.badges, badge_id, award)}
+        end)
       end)
-      |> Enum.map(fn {player_id, _player} -> player_id end)
-
-    update_players(game, late_achievers, fn player -> put_badge(player, badge_id, :small) end)
-  end
-
-  defp large_badge_awarded?(game, badge_name) do
-    Enum.any?(game.players, fn {_player_id, player} ->
-      Map.get(player.badges, badge_name) == :large
     end)
   end
 
-  defp put_badge(player, badge_id, award) do
-    put_in(player.badges[badge_id], award)
-  end
+  defp score_round(rulesheet, players) do
+    Map.new(players, fn {player_id, player} ->
+      trees =
+        rulesheet.areas
+        |> Map.keys()
+        |> Enum.count(&Ruleset.trees_complete?(rulesheet, player.sheet, &1))
 
-  defp score_players(game) do
-    rulesheet = Ruleset.sheet!(game.sheet)
+      koalas =
+        rulesheet.areas
+        |> Map.keys()
+        |> Enum.count(&Ruleset.koalas_complete?(rulesheet, player.sheet, &1))
 
-    Map.new(game.players, fn {player_id, _player} ->
-      {player_id, score_player(game, rulesheet, player_id)}
+      hospitals =
+        rulesheet.hospitals
+        |> Enum.map(fn {hospital_id, hospital} ->
+          filled = Map.get(player.sheet.hospitals, hospital_id, 0)
+          hospital = hospital |> Map.take([:size, :score, :penalty]) |> Map.put(:filled, filled)
+          {:ok, score} = Ruleset.score_hospital(hospital)
+          score
+        end)
+        |> Enum.sum()
+
+      round = %{
+        trees: trees,
+        koalas: koalas,
+        hospitals: hospitals,
+        total: trees + koalas + hospitals
+      }
+
+      {player_id, %{player | rounds: player.rounds ++ [round]}}
     end)
   end
 
-  defp score_player(game, rulesheet, player_id) do
-    player = Map.fetch!(game.players, player_id)
-    badge_total = badge_total(rulesheet, player)
-    round_total = player.rounds |> Enum.map(& &1.total) |> Enum.sum()
-    total = round_total + badge_total
-    rank = solo_rank(game, rulesheet, total)
+  defp score_players(mode, rulesheet, players) do
+    Map.new(players, fn {player_id, player} ->
+      badge_total =
+        Enum.reduce(player.badges, 0, fn {badge_id, award}, total ->
+          badge = Map.fetch!(rulesheet.badges, badge_id)
+          total + Map.fetch!(badge.awards, award)
+        end)
 
-    %{total: total, rank: rank}
-  end
+      round_total = player.rounds |> Enum.map(& &1.total) |> Enum.sum()
+      total = round_total + badge_total
 
-  defp badge_total(rulesheet, player) do
-    player.badges
-    |> Enum.map(fn {badge_id, award} ->
-      rulesheet.badges |> Map.fetch!(badge_id) |> points_for_badge(award)
-    end)
-    |> Enum.sum()
-  end
+      rank =
+        if mode == :solo do
+          {:ok, %{rank: rank}} = Ruleset.solo_rating(rulesheet, total)
+          rank
+        end
 
-  defp points_for_badge(badge, award), do: Map.fetch!(badge.awards, award)
-
-  defp solo_rank(%__MODULE__{mode: :solo}, rulesheet, total) do
-    {:ok, %{rank: rank}} = Ruleset.solo_rating(rulesheet, total)
-    rank
-  end
-
-  defp solo_rank(%__MODULE__{}, _rulesheet, _total), do: nil
-
-  defp update_players(game, player_ids, fun) do
-    Enum.reduce(player_ids, game, fn player_id, game ->
-      update_in(game.players[player_id], fun)
+      {player_id, %{total: total, rank: rank}}
     end)
   end
 end

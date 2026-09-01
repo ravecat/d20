@@ -58,16 +58,6 @@ defmodule D20.KoalaRescueClub.GameTest do
     end
   end
 
-  describe "fetch_player/2" do
-    test "returns the requested player or :error" do
-      assert {:ok, game} = D20.Game.init(Game)
-      assert {:ok, game} = dispatch(game, "join", "p1")
-
-      assert {:ok, %{status: :ready}} = Game.fetch_player(game, "p1")
-      assert :error = Game.fetch_player(game, "missing")
-    end
-  end
-
   describe "dispatch/2" do
     test "checks actor requirements per command" do
       assert {:ok, game} = D20.Game.init(Game)
