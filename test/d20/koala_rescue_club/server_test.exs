@@ -140,8 +140,9 @@ defmodule D20.KoalaRescueClub.ServerTest do
 
     cells = rulesheet |> Rules.legal_shape_placements(player_sheet, :tree, value) |> List.first()
 
-    assert {:ok, %{submit_ready: true, resolution: :shape, selected_cells: ^cells}} =
-             Sessions.preview(scope(session.id), "draft", %{
+    assert {:ok, ^rolled_session,
+            {:draft, %{submit_ready: true, resolution: :shape, selected_cells: ^cells}}} =
+             Sessions.dispatch(scope(session.id), "draft", %{
                "mark" => "tree",
                "die_value" => value,
                "selected_cells" => cells

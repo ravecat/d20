@@ -9,8 +9,8 @@ The selection is not a committed game outcome. It is an ephemeral interaction dr
 **Goals:**
 
 - Keep the game aggregate limited to committed authoritative facts.
-- Let a client evaluate a complete primary draft against current server state without mutation or broadcast.
-- Return enough caller-specific guidance that the client never computes placement legality.
+- Let a client evaluate a complete primary draft against current server state through the generic dispatch boundary without mutation or broadcast.
+- Return enough caller-specific guidance through the game projection boundary that the client never computes placement legality.
 - Revalidate and commit the complete turn atomically through `submit`.
 - Remove all staged cell-edit commands and the normal projected selection.
 - Define state, transition, command, predicate, and visibility models before runtime edits.
@@ -41,7 +41,7 @@ This state exists only for the current connection and pending turn. Changing mar
 
 Keeping the draft in `Game` was rejected because every click became an authoritative mutation even though no shared game fact changed.
 
-### `draft` is a synchronous stateless preview request
+### `draft` is a synchronous response from the unified dispatch path
 
 The request payload is always complete:
 
@@ -53,7 +53,7 @@ The request payload is always complete:
 }
 ```
 
-The success reply is a caller-specific read model:
+The success reply remains a caller-specific read model:
 
 ```json
 {
@@ -69,21 +69,36 @@ The success reply is a caller-specific read model:
 }
 ```
 
-Actual arrays and values are derived by Rules. `draft` validates structure through `Command`, validates caller and current-state legality through `Rules`, and returns a value without changing `Session` or `Game`. It produces no session publication.
+Rules exposes independent state-dependent validations and derivations without defining a combined draft analysis or response shape. `draft` validates structure through `Command`, composes those rules, and assembles the complete game-specific reply data inline in `Game.dispatch/2` without changing `Session` or `Game`. It produces no session publication.
 
-The shared read path is:
+The game dispatch contract preserves `:ok` and `:error` as its only status atoms:
 
 ```text
-SessionChannel draft
--> Sessions.preview
--> Game.Server current Session
--> Session.preview
--> Game.preview
--> Command and Rules
--> caller-only reply
+{:ok, updated_game}
+{:ok, unchanged_game, reply}
+{:error, reason}
 ```
 
-Adding draft data to the normal projection was rejected because projection cannot receive a client candidate and must stay a pure render of committed state. Sending `draft` through normal mutation dispatch was rejected because accepted dispatches publish state and require an aggregate transition.
+The second element of every accepted result remains the game state. The three-element form adds a game-specific reply without introducing a nested result status and is valid only when the returned game is exactly the source game. `D20.Sessions.Session` propagates it as `{:ok, unchanged_session, reply}`. `D20.Sessions.Server` returns that result without storing state or broadcasting. This keeps the reply behind the existing `D20.Sessions.dispatch/3` API instead of adding another public session operation.
+
+The shared request path is:
+
+```text
+SessionChannel generic handle_in
+-> Sessions.dispatch
+-> Sessions.Server current Session
+-> Session.dispatch
+-> Game.dispatch
+-> Command and Rules
+-> unchanged Session plus game-specific reply
+-> D20Web.Projection.reply/3
+-> KoalaRescueClub.Projection.reply/3
+-> caller-only channel reply
+```
+
+The Koala engine returns `{:draft, data}`: the atom identifies the game-specific reply and `data` is the complete response map produced by the engine from the Rules result. It does not duplicate the actor id because `D20.Sessions.dispatch/3` creates the command from the caller's `Scope` and the synchronous channel reply remains correlated to that caller. The unchanged Session is passed only as routing context. `KoalaRescueClub.Projection.reply/3` trusts and returns `data` unchanged instead of filtering or rebuilding an engine-owned response.
+
+Adding draft data to the normal session projection was rejected because that projection has no request candidate and must stay a pure render of committed state. A second public preview API and a command-specific channel clause were rejected because they duplicate authorization, OTP request, error, and reply paths. Treating the draft as a state transition was rejected because no authoritative fact changes.
 
 ### `submit` carries and commits the complete candidate
 
@@ -184,11 +199,12 @@ The all-submitted combination is not externally stored. The last accepted submit
 | Predicate | Inputs | Return shape | Owner | Consumers | Failure precedence |
 | --- | --- | --- | --- | --- | --- |
 | `pending_player` | game, actor id | player and rulesheet or reason | Rules | draft, submit, permission, options | phase, roll, membership, status |
-| `volunteer_cost` | roll, adjusted value | integer or reason | Ruleset | draft, submit, options | die domain before availability |
-| `legal_initial_targets` | rulesheet, sheet, mark, value | cells | Rules | projection options, candidate evaluation | area and occupancy rules |
-| `compatible_shape_placements` | rulesheet, sheet, mark, value, cells | placements | Rules | candidate evaluation | cell validity before geometry |
-| `classify_candidate` | cells, shape size, compatible placements | `single`, `partial`, `shape`, or reason | Rules | draft and submit | cardinality before bonus derivation |
-| `draft_details` | game, actor id, candidate | reply or reason | Rules | Game preview and submit preparation | pending player, die, cells, placement |
+| `available_volunteer_cost` | player sheet, roll, adjusted value | integer or reason | Rules | draft and submit | die domain before availability |
+| `legal_initial_targets` | rulesheet, sheet, mark | cells | Rules | projection options, candidate validation | area and occupancy rules |
+| `validate_selection_cells` | cells, shape size | ok or reason | Rules | draft and submit | cardinality before geometry |
+| `compatible_shape_placements` | rulesheet, sheet, selection | placements or reason | Rules | draft and submit | cell validity before geometry |
+| `classify_selection` | cells, shape size, compatible placements | readiness and resolution | Rules | draft and submit | cardinality before bonus derivation |
+| `unlocked_bonuses_after_selection` | rulesheet, sheet, selection, resolution | bonus entries | Rules | Game draft reply assembly | primary resolution before unlock derivation |
 | `apply_bonus_actions` | candidate player, ordered actions | player or reason | Rules | submit preparation | unlock order and target legality |
 | `turn_complete?` | game players | boolean | Rules | Game | after accepted submit only |
 
@@ -215,18 +231,18 @@ On reconnect the client receives no server draft. It resets local primary and bo
 
 - A reconnect loses unsubmitted work. This is intentional because the draft is presentation state.
 - A preview can become stale before submit. Full submit revalidation preserves authority and atomicity.
-- A shared preview callback expands the D20 engine contract. A default unsupported implementation preserves existing engines.
+- The dispatch callback gains an optional game-specific reply as a third element while retaining only `:ok` and `:error` status atoms. Existing engines retain their two-element results, while Session enforces unchanged state for reply-bearing results.
 - A malformed or failed draft has no broadcast to carry errors. The direct channel reply carries the same stable error formatting as dispatch.
 - Backend and old client are incompatible. Both artifacts must be released and rolled back together.
 
 ## Migration Plan
 
-1. Add and test the shared synchronous preview boundary with a default unsupported engine implementation.
-2. Replace Koala staged commands and aggregate selection with `draft` preview and full `submit`.
-3. Remove `selection` from normal projection and update AsyncAPI.
-4. Move primary draft ownership into the separate client and consume draft replies.
+1. Replace the separate preview stack with the unified dispatch outcome and generic SessionChannel handler.
+2. Route Koala `draft` through `Game.dispatch/2` and pass its engine-owned `{:draft, data}` reply unchanged through `Projection.reply/3`.
+3. Preserve the existing draft and submit wire schemas while updating AsyncAPI descriptions and focused contract coverage.
+4. Verify the separate client still correlates and consumes the unchanged draft reply shape.
 5. Run focused and full checks in both repositories, then validate real UI states.
-6. Deploy both artifacts together and restart active Koala sessions.
+6. Deploy compatible artifacts together and restart active Koala sessions.
 
 Rollback restores the prior backend and client artifacts together. No persisted data migration is required.
 

@@ -62,10 +62,11 @@ channels:
       Stateful channel for one game session. A successful channel join returns
       the initial session projection and then tracks transport presence, which
       adds or refreshes the caller as a session member and asks the game engine
-      to admit the actor as a player. Accepted state-changing game commands
-      receive an empty success response and publish the resulting caller-specific
-      projection. A `draft` request instead returns caller-specific placement
-      guidance without changing or publishing the session.
+      to admit the actor as a player. Every inbound game event uses the shared
+      session dispatch path. Accepted state-changing commands receive an empty
+      success response and publish the resulting caller-specific projection.
+      An accepted `draft` returns caller-specific projected placement guidance
+      from the same dispatch path without changing or publishing the session.
     servers:
       - $ref: "#/servers/userProduction"
       - $ref: "#/servers/userDevelopment"
@@ -160,9 +161,11 @@ operations:
     summary: Evaluate the caller's complete local primary draft
     description: |
       A pending player sends the complete local mark, adjusted die value, and
-      ordered selected cells. The server evaluates the candidate against current
-      committed state and returns legal continuations and submit guidance without
-      storing the candidate or publishing a session projection.
+      ordered selected cells through the same session dispatch boundary as every
+      other game event. The server evaluates the candidate against current
+      committed state and projects legal continuations and submit guidance only
+      for the requester, without storing the candidate or publishing a session
+      projection.
     messages:
       - $ref: "#/channels/gameSession/messages/draft"
     reply:
@@ -292,7 +295,7 @@ components:
     draftReply:
       name: phx_reply
       title: Draft Reply
-      summary: Derived guidance or a stable error for one draft request
+      summary: Caller-specific projected guidance or a stable error for one draft request
       tags:
         - name: channel-protocol
       contentType: application/json

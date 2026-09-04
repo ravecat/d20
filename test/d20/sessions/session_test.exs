@@ -35,13 +35,17 @@ defmodule D20.Sessions.SessionTest do
     def dispatch(_state, %Command{event: "start"}), do: {:error, :invalid_player_count}
     def dispatch(state, %Command{event: "finish"}), do: {:ok, %{state | finished?: true}}
     def dispatch(state, %Command{event: "noop"}), do: {:ok, state}
+
+    def dispatch(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs})
+        when is_binary(actor_id) and actor_id != "" do
+      reply = {:inspect, %{actor_id: actor_id, attrs: attrs, event_count: length(state.players)}}
+
+      {:ok, state, reply}
+    end
+
+    def dispatch(_state, %Command{event: "inspect"}), do: {:error, :invalid_identity}
     def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
     def dispatch(_state, %Command{}), do: {:error, :invalid_command}
-
-    @impl D20.Game
-    def preview(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs}) do
-      {:ok, %{actor_id: actor_id, attrs: attrs, event_count: length(state.players)}}
-    end
 
     @impl D20.Game
     def finished?(%{finished?: true}), do: true
@@ -275,20 +279,20 @@ defmodule D20.Sessions.SessionTest do
   end
 
   describe "game events" do
-    test "previews only in progress with a valid actor and does not change the session" do
+    test "returns a request reply only in progress with a valid actor" do
       {:ok, waiting} = Session.new(TestGame, "p1")
 
       assert {:error, :invalid_phase} =
-               Session.preview(waiting, TestGame, command("inspect", "p1", %{}))
+               Session.dispatch(waiting, TestGame, command("inspect", "p1", %{}))
 
       {:ok, session} = Session.dispatch(waiting, TestGame, command("join", "p1"))
       {:ok, session} = Session.dispatch(session, TestGame, command("start", "p1"))
 
-      assert {:ok, %{actor_id: "p1", attrs: %{value: 1}, event_count: 1}} =
-               Session.preview(session, TestGame, command("inspect", "p1", %{value: 1}))
+      assert {:ok, ^session, {:inspect, %{actor_id: "p1", attrs: %{value: 1}, event_count: 1}}} =
+               Session.dispatch(session, TestGame, command("inspect", "p1", %{value: 1}))
 
       assert {:error, :invalid_identity} =
-               Session.preview(session, TestGame, command("inspect", "", %{}))
+               Session.dispatch(session, TestGame, command("inspect", "", %{}))
 
       assert session.game.players == ["p1"]
     end
@@ -340,8 +344,8 @@ defmodule D20.Sessions.SessionTest do
 
       value = session.game.roll.value
 
-      assert {:ok, preview} =
-               Session.preview(
+      assert {:ok, ^session, {:draft, draft}} =
+               Session.dispatch(
                  session,
                  KoalaGame,
                  command("draft", "p1", %{
@@ -351,7 +355,7 @@ defmodule D20.Sessions.SessionTest do
                  })
                )
 
-      assert %{submit_ready: true, resolution: :single} = preview
+      assert %{submit_ready: true, resolution: :single} = draft
 
       assert {:ok,
               %Session{phase: :in_progress, game: %KoalaGame{phase: :roll, mode: :solo, turn: 2}}} =

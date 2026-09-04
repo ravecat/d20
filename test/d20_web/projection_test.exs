@@ -321,15 +321,8 @@ defmodule D20Web.ProjectionTest do
 
       value = game.roll.value
 
-      assert {:ok,
-              %{
-                mark: :tree,
-                die_value: ^value,
-                selected_cells: [%{area: :a, row: 0, column: 0}],
-                submit_ready: true,
-                resolution: :single
-              }} =
-               KoalaGame.preview(game, %Command{
+      assert {:ok, ^game, {:draft, draft_data} = reply} =
+               KoalaGame.dispatch(game, %Command{
                  event: "draft",
                  actor_id: "owner",
                  attrs: %{
@@ -338,6 +331,14 @@ defmodule D20Web.ProjectionTest do
                    "selected_cells" => [%{"area" => "a", "row" => 0, "column" => 0}]
                  }
                })
+
+      assert %{
+               mark: :tree,
+               die_value: ^value,
+               selected_cells: [%{area: :a, row: 0, column: 0}],
+               submit_ready: true,
+               resolution: :single
+             } = draft_data
 
       session = %Session{
         id: "session-1",
@@ -350,6 +351,15 @@ defmodule D20Web.ProjectionTest do
       owner_scope = Scope.for_actor(%Actor{id: "owner", type: :anonymous})
       other_scope = Scope.for_actor(%Actor{id: "p2", type: :anonymous})
       spectator_scope = Scope.for_actor(%Actor{id: "spectator", type: :anonymous})
+
+      assert {:ok, ^draft_data} = Projection.reply(owner_scope, session, reply)
+
+      reply_data = Map.put(draft_data, :internal, :preserved)
+      assert {:ok, ^reply_data} = Projection.reply(owner_scope, session, {:draft, reply_data})
+      assert {:error, :forbidden} = Projection.reply(%Scope{}, session, reply)
+
+      assert {:error, :unknown_command} =
+               Projection.reply(owner_scope, session, {:raw, draft_data})
 
       owner_projection = Projection.render(owner_scope, session)
       other_projection = Projection.render(other_scope, session)

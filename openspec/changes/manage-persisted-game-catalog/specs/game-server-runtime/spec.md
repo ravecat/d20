@@ -1,17 +1,27 @@
 ## MODIFIED Requirements
 
 ### Requirement: Default game server preserves shared session lifecycle behavior
-The default Session server SHALL preserve state access, command dispatch, Presence membership and admission, actor attachment and detachment, publication, idle expiration, registration, supervision, and temporary restart semantics while carrying stable local game id. Attachment mutations SHALL be serialized by the Session process and SHALL remain distinct from engine commands.
+The default Session server SHALL preserve state access, command dispatch, Presence membership and admission, actor attachment and detachment, publication, idle expiration, registration, supervision, and temporary restart semantics while carrying stable local game id. Attachment mutations SHALL be serialized by the Session process and SHALL remain distinct from engine commands. Accepted dispatches SHALL use only `:ok` and `:error` result status atoms and SHALL represent either an authoritative Session result or the exact unchanged Session plus a game-specific reply.
 
 #### Scenario: Session state is requested
 - **WHEN** `D20.Sessions.get/1` resolves a running default Session server
 - **THEN** it returns the current live Session and captured `game` TypeID through the public API
 
-#### Scenario: Command is accepted
-- **WHEN** the engine accepts a dispatched command
+#### Scenario: State-changing command is accepted
+- **WHEN** the engine accepts a dispatched command with an updated game
 - **THEN** the default Session server stores the updated Session
 - **AND** replies with and publishes the same authoritative Session
 - **AND** derives its next state name from the shared Session lifecycle phase
+
+#### Scenario: Idempotent command is accepted
+- **WHEN** the engine accepts a dispatched command with the exact unchanged game and no reply
+- **THEN** the default Session server returns the unchanged authoritative Session
+- **AND** it does not store a replacement or publish a Session projection
+
+#### Scenario: Request-scoped calculation is accepted
+- **WHEN** the engine accepts a dispatched command with the exact unchanged game plus a game-specific reply
+- **THEN** the default Session server returns the exact unchanged Session plus that reply through dispatch
+- **AND** it does not store a replacement, publish a Session projection, or retain the reply
 
 #### Scenario: Command is rejected
 - **WHEN** the engine rejects a dispatched command
@@ -56,7 +66,7 @@ The default Session server SHALL preserve state access, command dispatch, Presen
 - **THEN** it inherits game-id state, attach, detach, Presence, publication, and idle behavior
 
 ### Requirement: Public session APIs remain runtime-implementation agnostic
-The system SHALL expose runtime-agnostic `D20.Sessions` create, list, get, attach, detach, dispatch, preview, lookup, and stop contracts without exposing raw `:gen_statem` or Registry operations. Session creation SHALL resolve its canonical `game` TypeID through the persisted game boundary and accept a validated engine. Scope mutation and server initialization SHALL trust that resolved id without duplicate guards, and Session/runtime types SHALL reference the Game schema's owning id type directly rather than defining proxy aliases. The server behaviour SHALL NOT duplicate attachment and detachment as caller-facing callbacks.
+The system SHALL expose runtime-agnostic `D20.Sessions` create, list, get, attach, detach, dispatch, lookup, and stop contracts without exposing raw `:gen_statem` or Registry operations. `dispatch` SHALL be the sole public command boundary for state-changing and request-scoped game events. Session creation SHALL resolve its canonical `game` TypeID through the persisted game boundary and accept a validated engine. Scope mutation and server initialization SHALL trust that resolved id without duplicate guards, and Session/runtime types SHALL reference the Game schema's owning id type directly rather than defining proxy aliases. The server behaviour SHALL NOT duplicate attachment and detachment as caller-facing callbacks and SHALL NOT expose a separate preview callback or client function.
 
 #### Scenario: Session is created for a persisted game
 - **WHEN** a caller creates a Session with local game id, validated engine, owner, and attrs
@@ -74,13 +84,19 @@ The system SHALL expose runtime-agnostic `D20.Sessions` create, list, get, attac
 
 #### Scenario: Server contract is inspected
 - **WHEN** a default or custom Session server implements the shared runtime behaviour
-- **THEN** `attach/2` and `detach/2` are not behaviour callbacks or generated client delegates
+- **THEN** `attach/2`, `detach/2`, and `preview/2` are not behaviour callbacks or generated client delegates
 - **AND** attachment calls enter through `D20.Sessions`
+- **AND** every game event enters through dispatch
 
 #### Scenario: Caller uses shared Session API
 - **WHEN** a caller interacts with either a default or custom server
 - **THEN** `D20.Sessions` resolves the registered server implementation
 - **AND** returns the same success and error shapes regardless of concrete server
+
+#### Scenario: Caller dispatches a request-scoped calculation
+- **WHEN** a caller dispatches an accepted non-mutating calculation through `D20.Sessions.dispatch/3`
+- **THEN** the result contains the exact unchanged Session plus a game-specific reply
+- **AND** no separate public preview operation is required
 
 #### Scenario: Caller stops a Session
 - **WHEN** a caller stops a running Session through `D20.Sessions.stop/3`
@@ -88,5 +104,5 @@ The system SHALL expose runtime-agnostic `D20.Sessions` create, list, get, attac
 - **AND** treating an already stopped process remains idempotent
 
 #### Scenario: Caller uses existing Session APIs
-- **WHEN** a caller gets, dispatches, previews, or stops a Session
+- **WHEN** a caller gets, dispatches, or stops a Session
 - **THEN** success and error shapes remain independent of the concrete server module

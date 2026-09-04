@@ -22,7 +22,17 @@ For every adjusted die value reachable with the pending player's volunteers, the
 
 ### Requirement: Draft evaluates a complete candidate without mutation
 
-The system SHALL accept a synchronous `draft` request from a pending player with `mark`, `die_value`, and non-empty ordered unique `selected_cells`. It SHALL validate the complete candidate against the latest committed game and return caller-specific derived guidance without changing or publishing the session.
+The system SHALL accept a synchronous `draft` request from a pending player with `mark`, `die_value`, and non-empty ordered unique `selected_cells`. It SHALL route the request through the same game-agnostic Session dispatch path as every other inbound game event, validate the complete candidate against the latest committed game, and return caller-specific derived guidance through `D20Web.Projection.reply/3` and the game projection's `reply/3` function without changing or publishing the session. The shared channel, public Sessions API, Session server contract, and game behaviour MUST NOT expose a draft-specific handler or a separate preview operation.
+
+#### Scenario: Draft uses the shared dispatch boundary
+
+- **WHEN** a pending player sends `draft` through SessionChannel
+- **THEN** the generic inbound handler calls `D20.Sessions.dispatch/3`
+- **AND** `Game.dispatch/2` composes independent Rules validations and derivations and assembles the complete reply `data` inline
+- **AND** the game returns `{:ok, unchanged_game, {:draft, data}}` without duplicating the actor id or introducing a result status other than `:ok` or `:error`
+- **AND** `D20Web.Projection.reply/3` delegates to the caller-specific game projection's `reply/3` function
+- **AND** the game projection returns the engine-produced `data` unchanged
+- **AND** no shared layer matches the `draft` event name or invokes a preview operation
 
 #### Scenario: One-cell draft is evaluated
 

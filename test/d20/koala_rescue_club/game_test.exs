@@ -208,15 +208,15 @@ defmodule D20.KoalaRescueClub.GameTest do
       assert {:ok, %Game{phase: :setup, mode: nil, players: %{}}} = dispatch(game, "left", "p1")
     end
 
-    test "previews without storing a selection and submits the complete draft atomically" do
+    test "returns a draft reply without storing a selection and submits atomically" do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
       for event <- ~w(select deselect reset plant_trees rehome_koalas circle_tree circle_koala) do
         assert {:error, :unknown_command} = dispatch(game, event, "p1")
       end
 
-      assert {:ok, preview} =
-               Game.preview(game, %Command{
+      assert {:ok, ^game, {:draft, draft}} =
+               Game.dispatch(game, %Command{
                  event: "draft",
                  actor_id: "p1",
                  attrs: %{
@@ -226,7 +226,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                  }
                })
 
-      assert %{submit_ready: true, resolution: :shape} = preview
+      assert %{submit_ready: true, resolution: :shape} = draft
       refute Map.has_key?(game.players["p1"], :selection)
       assert game.players["p1"].sheet.trees == []
 
@@ -243,7 +243,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
       assert {:error, :invalid_target} =
-               Game.preview(game, %Command{
+               Game.dispatch(game, %Command{
                  event: "draft",
                  actor_id: "p1",
                  attrs: %{
@@ -325,7 +325,7 @@ defmodule D20.KoalaRescueClub.GameTest do
       game = "dharug" |> started_game() |> force_submit_turn(1, 1, 1)
 
       assert {:error, :invalid_target} =
-               Game.preview(game, %Command{
+               Game.dispatch(game, %Command{
                  event: "draft",
                  actor_id: "p1",
                  attrs: %{
@@ -336,7 +336,7 @@ defmodule D20.KoalaRescueClub.GameTest do
                })
 
       assert {:error, :insufficient_volunteers} =
-               Game.preview(game, %Command{
+               Game.dispatch(game, %Command{
                  event: "draft",
                  actor_id: "p1",
                  attrs: %{
@@ -634,8 +634,9 @@ defmodule D20.KoalaRescueClub.GameTest do
         |> force_submit_turn(1, 1, 1)
         |> select_mark("p1", :koala, 1, Enum.drop(row_1, 2))
 
-      assert {:ok, %{submit_ready: true, resolution: :shape, bonus_options: bonus_options}} =
-               Game.preview(game, %Command{
+      assert {:ok, ^game,
+              {:draft, %{submit_ready: true, resolution: :shape, bonus_options: bonus_options}}} =
+               Game.dispatch(game, %Command{
                  event: "draft",
                  actor_id: "p1",
                  attrs: %{

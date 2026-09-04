@@ -118,11 +118,14 @@ defmodule D20.KoalaRescueClub.RulesTest do
   end
 
   defp preview(game, actor_id, mark, value, cells) do
-    Rules.draft_details(game, %Command{
-      event: "draft",
-      actor_id: actor_id,
-      attrs: %{mark: mark, die_value: value, selected_cells: cells}
-    })
+    case Game.dispatch(game, %Command{
+           event: "draft",
+           actor_id: actor_id,
+           attrs: %{mark: mark, die_value: value, selected_cells: cells}
+         }) do
+      {:ok, ^game, {:draft, data}} -> {:ok, data}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp cell(area, row, column), do: %{area: area, row: row, column: column}

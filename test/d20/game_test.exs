@@ -72,9 +72,8 @@ defmodule D20.GameTest do
     assert D20.Game.server(CustomServerGame) == CustomServer
   end
 
-  test "provides an unsupported default preview callback" do
-    assert {:error, :unknown_command} =
-             TestGame.preview(%{phase: :setup}, %D20.Command{event: "draft"})
+  test "does not add a preview callback to game engines" do
+    refute function_exported?(TestGame, :preview, 2)
   end
 
   test "returns an empty attrs changeset for engines without creation fields" do

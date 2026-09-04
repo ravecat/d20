@@ -28,9 +28,9 @@ defmodule D20.Sessions.Server do
   @callback start_link(opts()) :: :gen_statem.start_ret()
   @callback get(:gen_statem.server_ref()) :: {:ok, {Session.t(), Game.id()}}
   @callback dispatch(:gen_statem.server_ref(), Command.t()) ::
-              {:ok, Session.t()} | {:error, Session.reason()}
-  @callback preview(:gen_statem.server_ref(), Command.t()) ::
-              {:ok, map()} | {:error, Session.reason()}
+              {:ok, Session.t()}
+              | {:ok, Session.t(), term()}
+              | {:error, Session.reason()}
 
   defmacro __using__([]) do
     quote do
@@ -57,16 +57,11 @@ defmodule D20.Sessions.Server do
 
       @impl D20.Sessions.Server
       @spec dispatch(:gen_statem.server_ref(), D20.Command.t()) ::
-              {:ok, D20.Sessions.Session.t()} | {:error, D20.Sessions.Session.reason()}
+              {:ok, D20.Sessions.Session.t()}
+              | {:ok, D20.Sessions.Session.t(), term()}
+              | {:error, D20.Sessions.Session.reason()}
       def dispatch(server, %D20.Command{} = command) do
         D20.Sessions.Server.dispatch(server, command)
-      end
-
-      @impl D20.Sessions.Server
-      @spec preview(:gen_statem.server_ref(), D20.Command.t()) ::
-              {:ok, map()} | {:error, D20.Sessions.Session.reason()}
-      def preview(server, %D20.Command{} = command) do
-        D20.Sessions.Server.preview(server, command)
       end
 
       @impl :gen_statem
@@ -76,7 +71,6 @@ defmodule D20.Sessions.Server do
                      start_link: 1,
                      get: 1,
                      dispatch: 2,
-                     preview: 2,
                      callback_mode: 0
     end
   end
@@ -136,15 +130,11 @@ defmodule D20.Sessions.Server do
   def get(server), do: :gen_statem.call(server, :get)
 
   @spec dispatch(:gen_statem.server_ref(), Command.t()) ::
-          {:ok, Session.t()} | {:error, Session.reason()}
+          {:ok, Session.t()}
+          | {:ok, Session.t(), term()}
+          | {:error, Session.reason()}
   def dispatch(server, %Command{} = command) do
     :gen_statem.call(server, {:dispatch, command})
-  end
-
-  @spec preview(:gen_statem.server_ref(), Command.t()) ::
-          {:ok, map()} | {:error, Session.reason()}
-  def preview(server, %Command{} = command) do
-    :gen_statem.call(server, {:preview, command})
   end
 
   @impl :gen_statem
@@ -201,6 +191,9 @@ defmodule D20.Sessions.Server do
         {game_id, engine, session}
       ) do
     case Session.dispatch(session, engine, command) do
+      {:ok, ^session, reply} ->
+        {:keep_state_and_data, [{:reply, from, {:ok, session, reply}}, idle_action()]}
+
       {:ok, ^session} ->
         {:keep_state_and_data, [{:reply, from, {:ok, session}}, idle_action()]}
 
@@ -224,23 +217,15 @@ defmodule D20.Sessions.Server do
   end
 
   def handle_event(
-        {:call, from},
-        {:preview, %Command{} = command},
-        _state,
-        {_game_id, engine, session}
-      ) do
-    reply = Session.preview(session, engine, command)
-
-    {:keep_state_and_data, [{:reply, from, reply}, idle_action()]}
-  end
-
-  def handle_event(
         :internal,
         {:dispatch, %Command{} = command},
         state,
         {game_id, engine, session}
       ) do
     case Session.dispatch(session, engine, command) do
+      {:ok, ^session, _reply} ->
+        {:keep_state_and_data, [idle_action()]}
+
       {:ok, ^session} ->
         {:keep_state_and_data, [idle_action()]}
 

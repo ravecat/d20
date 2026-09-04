@@ -24,13 +24,13 @@ defmodule D20.SessionsTest do
     @impl D20.Game
     def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
 
-    def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
-      {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
+    def dispatch(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs}) do
+      reply = {:inspect, %{actor_id: actor_id, attrs: attrs, event_count: length(state.events)}}
+      {:ok, state, reply}
     end
 
-    @impl D20.Game
-    def preview(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs}) do
-      {:ok, %{actor_id: actor_id, attrs: attrs, event_count: length(state.events)}}
+    def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
+      {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
     end
 
     @impl D20.Game
@@ -68,6 +68,10 @@ defmodule D20.SessionsTest do
 
     @impl D20.Game
     def dispatch(_state, %Command{event: "fail"}), do: {:error, :invalid_command}
+
+    def dispatch(state, %Command{event: "inspect", actor_id: actor_id, attrs: attrs}) do
+      {:ok, state, {:inspect, %{actor_id: actor_id, attrs: attrs}}}
+    end
 
     def dispatch(state, %Command{event: event, actor_id: actor_id, attrs: attrs}) do
       {:ok, update_in(state.events, &(&1 ++ [{event, actor_id, attrs}]))}
@@ -123,8 +127,10 @@ defmodule D20.SessionsTest do
   describe "game server contract" do
     test "keeps game-specific hooks out of the default and generated servers" do
       assert Enum.sort(Server.behaviour_info(:callbacks)) ==
-               Enum.sort(start_link: 1, get: 1, dispatch: 2, preview: 2)
+               Enum.sort(start_link: 1, get: 1, dispatch: 2)
 
+      refute function_exported?(Sessions, :preview, 3)
+      refute function_exported?(Session, :preview, 3)
       refute function_exported?(Server, :handle_event, 5)
       refute function_exported?(Server, :transition, 5)
 
@@ -134,7 +140,7 @@ defmodule D20.SessionsTest do
       end
 
       for server <- [Server, CustomServer, SharedDefaultServer],
-          {client, arity} <- [attach: 2, detach: 2] do
+          {client, arity} <- [attach: 2, detach: 2, preview: 2] do
         refute function_exported?(server, client, arity)
       end
 
@@ -231,6 +237,11 @@ defmodule D20.SessionsTest do
                session_ref |> scope("p1") |> Sessions.dispatch("start", %{})
 
       assert {"start", "p1", %{server: :custom}} in session.game.events
+
+      assert {:ok, ^session,
+              {:inspect, %{actor_id: "p1", attrs: %{candidate: 1, server: :custom}}}} =
+               session_ref |> scope("p1") |> Sessions.dispatch("inspect", %{candidate: 1})
+
       assert {:ok, {^session, ^game_id}} = Sessions.get(session_ref)
     end
 
@@ -457,22 +468,18 @@ defmodule D20.SessionsTest do
     end
   end
 
-  describe "preview/3" do
+  describe "request-scoped dispatch responses" do
     setup do
       start_test_session(TestGame, "p1")
     end
 
-    test "serializes a caller-scoped read without storing or publishing", %{
-      ref: ref,
-      pid: pid,
-      game_id: game_id
-    } do
+    test "returns a reply without storing or publishing", %{ref: ref, pid: pid, game_id: game_id} do
       assert {:ok, %Session{}} = Sessions.dispatch(scope(ref, "p1"), "start", %{})
       assert {:ok, {before, ^game_id}} = Sessions.get(ref)
       assert :ok = Phoenix.PubSub.subscribe(D20.PubSub, SessionChannel.topic(ref))
 
-      assert {:ok, %{actor_id: "p2", attrs: %{candidate: 1}, event_count: 1}} =
-               Sessions.preview(scope(ref, "p2"), "inspect", %{candidate: 1})
+      assert {:ok, ^before, {:inspect, %{actor_id: "p2", attrs: %{candidate: 1}, event_count: 1}}} =
+               Sessions.dispatch(scope(ref, "p2"), "inspect", %{candidate: 1})
 
       refute_receive {:session, %Session{}}, 50
       assert {:ok, {^before, ^game_id}} = Sessions.get(ref)
@@ -480,7 +487,7 @@ defmodule D20.SessionsTest do
     end
 
     test "requires session and actor context" do
-      assert {:error, :forbidden} = Sessions.preview(%Scope{}, "inspect", %{})
+      assert {:error, :forbidden} = Sessions.dispatch(%Scope{}, "inspect", %{})
     end
   end
 

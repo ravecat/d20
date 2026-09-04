@@ -1,6 +1,6 @@
 defmodule D20.KoalaRescueClub.Projection do
   @moduledoc """
-  Renders caller-specific Koala Rescue Club projection fields.
+  Renders caller-specific Koala Rescue Club session projections and game replies.
   """
 
   alias D20.Accounts.Scope
@@ -85,6 +85,21 @@ defmodule D20.KoalaRescueClub.Projection do
       options: render_options(game, actor_id),
       game: render_game(rulesheet, game)
     }
+  end
+
+  @spec reply(Scope.t(), Session.t(), term()) ::
+          {:ok, map()} | {:error, :forbidden | :unknown_command}
+  def reply(%Scope{actor: %{id: actor_id}}, %Session{game: %Game{}}, {:draft, data})
+      when is_binary(actor_id) do
+    {:ok, data}
+  end
+
+  def reply(%Scope{}, %Session{game: %Game{}}, {:draft, _data}) do
+    {:error, :forbidden}
+  end
+
+  def reply(%Scope{}, %Session{game: %Game{}}, _reply) do
+    {:error, :unknown_command}
   end
 
   defp render_options(game, actor_id) do

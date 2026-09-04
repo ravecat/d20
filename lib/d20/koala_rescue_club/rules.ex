@@ -96,16 +96,10 @@ defmodule D20.KoalaRescueClub.Rules do
           required(:volunteer_cost) => non_neg_integer(),
           required(:marks) => %{optional(Ruleset.mark()) => turn_mark_option()}
         }
-  @type draft_details :: %{
+  @type selection :: %{
           required(:mark) => Ruleset.mark(),
-          required(:die_value) => Ruleset.die_value(),
-          required(:volunteers_used) => non_neg_integer(),
-          required(:required_cells) => pos_integer(),
-          required(:selected_cells) => [Ruleset.cell()],
-          required(:available_cells) => [Ruleset.cell()],
-          required(:submit_ready) => boolean(),
-          required(:resolution) => :single | :shape | nil,
-          required(:bonus_options) => [Ruleset.bonus_entry()]
+          required(:value) => Ruleset.die_value(),
+          required(:cells) => [Ruleset.cell()]
         }
 
   @doc "Returns caller-specific die values and legal primary marks for the pending turn."
@@ -135,23 +129,15 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  @doc "Evaluates a complete caller-owned primary draft against committed game state."
-  @spec draft_details(Game.t(), D20.Command.t()) :: {:ok, draft_details()} | {:error, reason()}
-  def draft_details(%Game{} = game, %D20.Command{actor_id: actor_id, attrs: attrs} = command) do
-    with :ok <- require_actor(command),
-         {:ok, _player, _rulesheet, _selection, details} <-
-           evaluate_candidate(game, actor_id, attrs) do
-      {:ok, details}
-    end
-  end
-
   @spec resolve_turn(Game.t(), D20.Command.t()) ::
           {:ok, Game.player()} | {:error, reason()}
   def resolve_turn(%Game{} = game, %D20.Command{event: "submit", actor_id: actor_id, attrs: attrs}) do
-    with {:ok, player, rulesheet, selection, details} <- evaluate_candidate(game, actor_id, attrs),
-         :ok <- require_submit_ready(details),
+    with {:ok, player, rulesheet, selection, analysis} <-
+           evaluate_candidate(game, actor_id, attrs),
+         :ok <- require_submit_ready(analysis),
          {:ok, sheet} <- spend_volunteers(player.sheet, game.roll.value, selection.value),
-         {:ok, sheet} <- apply_primary_resolution(rulesheet, sheet, selection, details.resolution),
+         {:ok, sheet} <-
+           apply_primary_resolution(rulesheet, sheet, selection, analysis.resolution),
          {:ok, sheet} <- apply_bonus_actions(rulesheet, player.sheet, sheet, attrs.bonus_actions) do
       {:ok, %{player | sheet: sheet, status: :submitted}}
     end
@@ -195,7 +181,13 @@ defmodule D20.KoalaRescueClub.Rules do
 
   def badge_satisfied?(_rulesheet, _player_sheet, _badge), do: false
 
-  defp pending_player(game, player_id) do
+  @doc "Returns the pending player and selected rulesheet."
+  @spec pending_player(Game.t(), Game.player_id()) ::
+          {:ok, Game.player(), Sheet.t()} | {:error, reason()}
+  def pending_player(_game, player_id) when not is_player_id(player_id),
+    do: {:error, :invalid_identity}
+
+  def pending_player(game, player_id) do
     with :ok <- require_phase(game, :submit),
          :ok <- require_roll(game),
          {:ok, player} <- Map.fetch(game.players, player_id),
@@ -209,54 +201,24 @@ defmodule D20.KoalaRescueClub.Rules do
 
   defp evaluate_candidate(game, actor_id, attrs) do
     with {:ok, player, rulesheet} <- pending_player(game, actor_id),
-         {:ok, volunteers_used} <-
+         {:ok, _volunteers_used} <-
            available_volunteer_cost(player.sheet, game.roll.value, attrs.die_value),
          selection = %{mark: attrs.mark, value: attrs.die_value, cells: attrs.selected_cells},
-         {:ok, details} <- analyze_selection(rulesheet, player.sheet, selection) do
-      {:ok, player, rulesheet, selection, Map.put(details, :volunteers_used, volunteers_used)}
-    end
-  end
-
-  defp analyze_selection(rulesheet, sheet, selection) do
-    with {:ok, required_cells} <- Ruleset.shape_size(selection.value),
-         :ok <- require_selection_cells(selection.cells, required_cells),
-         {:ok, compatible_placements} <- compatible_shape_placements(rulesheet, sheet, selection),
+         {:ok, required_cells} <- Ruleset.shape_size(selection.value),
+         :ok <- validate_selection_cells(selection.cells, required_cells),
+         {:ok, compatible_placements} <-
+           compatible_shape_placements(rulesheet, player.sheet, selection),
          {:ok, submit_ready, resolution} <-
            classify_selection(selection.cells, required_cells, compatible_placements) do
-      selected = MapSet.new(selection.cells)
-
-      available_cells =
-        if resolution == :shape do
-          []
-        else
-          compatible_placements
-          |> List.flatten()
-          |> Enum.reject(&MapSet.member?(selected, &1))
-          |> sort_cells()
-        end
-
-      details = %{
-        mark: selection.mark,
-        die_value: selection.value,
-        required_cells: required_cells,
-        selected_cells: selection.cells,
-        available_cells: available_cells,
-        submit_ready: submit_ready,
-        resolution: resolution
-      }
-
-      {:ok,
-       Map.put(
-         details,
-         :bonus_options,
-         selection_bonus_options(rulesheet, sheet, selection, details)
-       )}
+      {:ok, player, rulesheet, selection, %{submit_ready: submit_ready, resolution: resolution}}
     end
   end
 
-  defp require_selection_cells([], _required_cells), do: {:error, :no_legal_placement}
+  @doc "Validates the selected cell count for a die shape."
+  @spec validate_selection_cells([Ruleset.cell()], pos_integer()) :: :ok | {:error, reason()}
+  def validate_selection_cells([], _required_cells), do: {:error, :no_legal_placement}
 
-  defp require_selection_cells(cells, required_cells) do
+  def validate_selection_cells(cells, required_cells) do
     cond do
       Enum.uniq(cells) != cells -> {:error, :invalid_target}
       length(cells) > required_cells -> {:error, :invalid_shape}
@@ -264,7 +226,10 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp compatible_shape_placements(rulesheet, sheet, selection) do
+  @doc "Returns legal shape placements compatible with the selected cells."
+  @spec compatible_shape_placements(Sheet.t(), Game.sheet(), selection()) ::
+          {:ok, [[Ruleset.cell()]]} | {:error, reason()}
+  def compatible_shape_placements(rulesheet, sheet, selection) do
     selected = MapSet.new(selection.cells)
 
     placements =
@@ -288,10 +253,13 @@ defmodule D20.KoalaRescueClub.Rules do
     end
   end
 
-  defp classify_selection([_cell], _required_cells, _placements),
+  @doc "Classifies a valid selection as a fallback, complete shape, or partial shape."
+  @spec classify_selection([Ruleset.cell()], pos_integer(), [[Ruleset.cell()]]) ::
+          {:ok, boolean(), :single | :shape | nil}
+  def classify_selection([_cell], _required_cells, _placements),
     do: {:ok, true, :single}
 
-  defp classify_selection(cells, required_cells, placements) do
+  def classify_selection(cells, required_cells, placements) do
     if length(cells) == required_cells and placements != [] do
       {:ok, true, :shape}
     else
@@ -306,10 +274,16 @@ defmodule D20.KoalaRescueClub.Rules do
     |> Map.new(fn {mark, cells} -> {mark, %{available_cells: cells}} end)
   end
 
-  defp selection_bonus_options(_rulesheet, _sheet, _selection, %{submit_ready: false}),
-    do: []
+  @doc "Returns bonuses unlocked by applying a resolved selection."
+  @spec unlocked_bonuses_after_selection(
+          Sheet.t(),
+          Game.sheet(),
+          selection(),
+          :single | :shape | nil
+        ) :: [Ruleset.bonus_entry()]
+  def unlocked_bonuses_after_selection(_rulesheet, _sheet, _selection, nil), do: []
 
-  defp selection_bonus_options(rulesheet, sheet, selection, %{resolution: resolution}) do
+  def unlocked_bonuses_after_selection(rulesheet, sheet, selection, resolution) do
     case apply_primary_resolution(rulesheet, sheet, selection, resolution) do
       {:ok, simulated_sheet} ->
         rulesheet
@@ -420,7 +394,10 @@ defmodule D20.KoalaRescueClub.Rules do
   defp require_submit_ready(%{submit_ready: true}), do: :ok
   defp require_submit_ready(%{submit_ready: false}), do: {:error, :incomplete_turn_selection}
 
-  defp available_volunteer_cost(sheet, value, die_value) do
+  @doc "Returns the available volunteer cost for an adjusted die value."
+  @spec available_volunteer_cost(Game.sheet(), Ruleset.die_value(), Ruleset.die_value()) ::
+          {:ok, non_neg_integer()} | {:error, reason()}
+  def available_volunteer_cost(sheet, value, die_value) do
     with {:ok, needed} <- Ruleset.volunteers_needed(value, die_value),
          true <- Enum.count(sheet.volunteers, &(&1 == :available)) >= needed do
       {:ok, needed}

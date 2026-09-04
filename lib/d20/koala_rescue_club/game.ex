@@ -105,7 +105,54 @@ defmodule D20.KoalaRescueClub.Game do
   @impl D20.Game
   @spec dispatch(t(), D20.Command.t()) ::
           {:ok, t()}
+          | {:ok, t(), term()}
           | {:error, Ecto.Changeset.t() | Rules.reason() | Command.reason() | reason()}
+  def dispatch(%__MODULE__{phase: :submit} = game, %D20.Command{event: "draft"} = command) do
+    with {:ok, command} <- Command.validate(command),
+         {:ok, player, rulesheet} <- Rules.pending_player(game, command.actor_id),
+         {:ok, volunteers_used} <-
+           Rules.available_volunteer_cost(player.sheet, game.roll.value, command.attrs.die_value),
+         selection = %{
+           mark: command.attrs.mark,
+           value: command.attrs.die_value,
+           cells: command.attrs.selected_cells
+         },
+         {:ok, required_cells} <- Ruleset.shape_size(selection.value),
+         :ok <- Rules.validate_selection_cells(selection.cells, required_cells),
+         {:ok, compatible_placements} <-
+           Rules.compatible_shape_placements(rulesheet, player.sheet, selection),
+         {:ok, submit_ready, resolution} <-
+           Rules.classify_selection(selection.cells, required_cells, compatible_placements) do
+      selected = MapSet.new(selection.cells)
+
+      available_cells =
+        if resolution == :shape do
+          []
+        else
+          compatible_placements
+          |> List.flatten()
+          |> Enum.reject(&MapSet.member?(selected, &1))
+          |> Enum.uniq()
+          |> Enum.sort_by(&{&1.area, &1.row, &1.column})
+        end
+
+      data = %{
+        mark: selection.mark,
+        die_value: selection.value,
+        selected_cells: selection.cells,
+        available_cells: available_cells,
+        required_cells: required_cells,
+        volunteers_used: volunteers_used,
+        submit_ready: submit_ready,
+        resolution: resolution,
+        bonus_options:
+          Rules.unlocked_bonuses_after_selection(rulesheet, player.sheet, selection, resolution)
+      }
+
+      {:ok, game, {:draft, data}}
+    end
+  end
+
   def dispatch(%__MODULE__{} = game, %D20.Command{} = command) do
     with {:ok, transitions} <- execute(game, command) do
       game = Enum.reduce(transitions, game, fn transition, game -> apply(game, transition) end)
@@ -219,18 +266,6 @@ defmodule D20.KoalaRescueClub.Game do
 
   defp execute(%__MODULE__{phase: :finished}, %D20.Command{}), do: {:error, :finished}
   defp execute(%__MODULE__{}, %D20.Command{}), do: {:error, :invalid_phase}
-
-  @impl D20.Game
-  @spec preview(t(), D20.Command.t()) ::
-          {:ok, Rules.draft_details()}
-          | {:error, Ecto.Changeset.t() | Rules.reason() | Command.reason() | reason()}
-  def preview(%__MODULE__{} = game, %D20.Command{event: "draft"} = command) do
-    with {:ok, command} <- Command.validate(command) do
-      Rules.draft_details(game, command)
-    end
-  end
-
-  def preview(%__MODULE__{}, %D20.Command{}), do: {:error, :unknown_command}
 
   @impl D20.Game
   @spec finished?(t()) :: boolean()

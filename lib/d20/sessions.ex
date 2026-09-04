@@ -84,7 +84,9 @@ defmodule D20.Sessions do
   end
 
   @spec dispatch(Scope.t(), Session.event(), term()) ::
-          {:ok, Session.t()} | {:error, reason()}
+          {:ok, Session.t()}
+          | {:ok, Session.t(), term()}
+          | {:error, reason()}
   def dispatch(%Scope{session: %{id: id}, actor: %{id: actor_id}}, event, attrs)
       when is_binary(id) and is_binary(actor_id) do
     command = %Command{event: event, actor_id: actor_id, attrs: attrs}
@@ -93,16 +95,6 @@ defmodule D20.Sessions do
   end
 
   def dispatch(%Scope{}, _event, _attrs), do: {:error, :forbidden}
-
-  @spec preview(Scope.t(), Session.event(), term()) :: {:ok, map()} | {:error, reason()}
-  def preview(%Scope{session: %{id: id}, actor: %{id: actor_id}}, event, attrs)
-      when is_binary(id) and is_binary(actor_id) do
-    command = %Command{event: event, actor_id: actor_id, attrs: attrs}
-
-    call(id, {:preview, command})
-  end
-
-  def preview(%Scope{}, _event, _attrs), do: {:error, :forbidden}
 
   @spec stop(Session.id(), term(), timeout()) :: :ok
   def stop(id, reason \\ :normal, timeout \\ :infinity)

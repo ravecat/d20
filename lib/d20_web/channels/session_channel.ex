@@ -95,16 +95,14 @@ defmodule D20Web.SessionChannel do
   end
 
   @impl true
-  def handle_in("draft", payload, socket) do
-    case Sessions.preview(socket.assigns.scope, "draft", payload) do
-      {:ok, preview} -> {:reply, {:ok, preview}, socket}
-      {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
-    end
-  end
-
   def handle_in(event, payload, socket) do
-    case Sessions.dispatch(socket.assigns.scope, event, payload) do
-      {:ok, _session} -> {:reply, :ok, socket}
+    scope = socket.assigns.scope
+
+    with {:ok, %Session{} = session, reply} <- Sessions.dispatch(scope, event, payload),
+         {:ok, response} <- Projection.reply(scope, session, reply) do
+      {:reply, {:ok, response}, socket}
+    else
+      {:ok, %Session{}} -> {:reply, :ok, socket}
       {:error, reason} -> {:reply, {:error, %{reason: format_reason(reason)}}, socket}
     end
   end

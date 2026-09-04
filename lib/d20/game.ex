@@ -3,7 +3,9 @@ defmodule D20.Game do
   Behaviour for game modules hosted by `D20.Sessions.Session`.
 
   The session owns table lifecycle. A game module owns setup validation,
-  game-specific state, and internal transitions.
+  game-specific state, and internal transitions. A dispatch may return a
+  game-specific reply only alongside a game state equal to its input; the
+  session runtime does not persist or publish that reply.
 
   Games can choose a process wrapper with:
 
@@ -33,17 +35,14 @@ defmodule D20.Game do
       @impl D20.Game
       def server, do: unquote(server)
 
-      @impl D20.Game
-      def preview(_state, %D20.Command{}), do: {:error, :unknown_command}
-
-      defoverridable server: 0, preview: 2
+      defoverridable server: 0
     end
   end
 
   @callback changeset(map()) :: Ecto.Changeset.t()
   @callback init(attrs()) :: {:ok, term()} | {:error, term()}
-  @callback dispatch(term(), D20.Command.t()) :: {:ok, term()} | {:error, term()}
-  @callback preview(term(), D20.Command.t()) :: {:ok, map()} | {:error, term()}
+  @callback dispatch(term(), D20.Command.t()) ::
+              {:ok, term()} | {:ok, term(), term()} | {:error, term()}
   @callback finished?(term()) :: boolean()
   @callback server() :: module()
 

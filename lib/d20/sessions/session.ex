@@ -57,7 +57,8 @@ defmodule D20.Sessions.Session do
     end
   end
 
-  @spec dispatch(t(), D20.Game.engine(), Command.t()) :: {:ok, t()} | {:error, reason()}
+  @spec dispatch(t(), D20.Game.engine(), Command.t()) ::
+          {:ok, t()} | {:ok, t(), term()} | {:error, reason()}
   def dispatch(
         %__MODULE__{phase: phase} = session,
         engine,
@@ -81,27 +82,19 @@ defmodule D20.Sessions.Session do
     end
   end
 
-  def dispatch(%__MODULE__{phase: :in_progress} = session, engine, %Command{} = command) do
-    case engine.dispatch(session.game, command) do
-      {:ok, game} -> {:ok, maybe_finish(%{session | game: game}, engine)}
+  def dispatch(
+        %__MODULE__{phase: :in_progress, game: game} = session,
+        engine,
+        %Command{} = command
+      ) do
+    case engine.dispatch(game, command) do
+      {:ok, ^game, reply} -> {:ok, session, reply}
+      {:ok, updated_game} -> {:ok, maybe_finish(%{session | game: updated_game}, engine)}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def dispatch(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
-
-  @spec preview(t(), D20.Game.engine(), Command.t()) :: {:ok, map()} | {:error, reason()}
-  def preview(
-        %__MODULE__{phase: :in_progress, game: game},
-        engine,
-        %Command{actor_id: actor_id} = command
-      ) do
-    with :ok <- require_identity(actor_id) do
-      engine.preview(game, command)
-    end
-  end
-
-  def preview(%__MODULE__{}, _engine, %Command{}), do: {:error, :invalid_phase}
 
   @spec online(t(), player_id(), map()) :: {:ok, t()}
   def online(%__MODULE__{} = session, actor_id, attrs) when is_map(attrs) do
