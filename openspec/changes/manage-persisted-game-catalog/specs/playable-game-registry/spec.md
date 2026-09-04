@@ -1,60 +1,73 @@
 ## RENAMED Requirements
 
 - FROM: `Implemented games are declared in a game registry`
-- TO: `Games are persisted with stable local identity`
+- TO: `Games are persisted with internal and external identity`
 - FROM: `Game lookup uses the internal slug`
-- TO: `Game lookup uses the stable local id`
+- TO: `Game lookup separates external slug and local id`
 - FROM: `Session engine lookup uses the game registry`
 - TO: `Session engine lookup uses the persisted game record`
 
 ## MODIFIED Requirements
 
-### Requirement: Games are persisted with stable local identity
-The system SHALL declare catalog games as persisted rows keyed by string-backed TypeID `games.id` values with prefix `game`. Each row SHALL contain only the stable local identity and operational bindings `bgg_id`, `stage`, `enabled`, and optional `engine`; it SHALL NOT contain iframe sandbox policy or provider-derived presentation metadata.
+### Requirement: Games are persisted with internal and external identity
+The system SHALL declare every catalog game as a persisted row with an environment-local string-backed `game` TypeID primary key and a required operator-assigned slug. Each row SHALL contain only the identities and operational bindings `id`, `slug`, `bgg_id`, `stage`, `enabled`, and optional `engine`; it SHALL NOT contain iframe sandbox policy or provider-derived presentation metadata. Slug SHALL remain stable across environments and SHALL NOT be derived from TypeID, BoardGameGeek metadata, or engine module name.
 
 #### Scenario: Persisted record declares a playable game
-- **WHEN** the application loads the local Qwinto row by its `game` TypeID
-- **THEN** the row includes engine `D20.Qwinto.Game`
+- **WHEN** the application loads the local Qwinto row
+- **THEN** the row includes an environment-local `game` TypeID
+- **AND** slug `qwinto`
+- **AND** engine `D20.Qwinto.Game`
 - **AND** BGG id `183006`
 - **AND** stage `released`
 - **AND** enabled true
-- **AND** it does not include a stored slug or iframe sandbox policy
+- **AND** it does not include iframe sandbox policy
+
+#### Scenario: Planned game is persisted
+- **WHEN** a planned game has no engine or client repository yet
+- **THEN** its persisted row still has a required unique slug
+- **AND** the slug can identify future engine, repository, and deployment work
 
 #### Scenario: Persisted record excludes provider-derived metadata
 - **WHEN** the application loads any game row
-- **THEN** title, public slug, preview URL, description, player counts, and other BGG-derived fields are absent from persisted game data
+- **THEN** title, preview URL, description, player counts, and other BGG-derived fields are absent from persisted game data
+- **AND** slug remains a local operational field rather than runtime metadata
 
-### Requirement: Game lookup uses the stable local id
-The system SHALL resolve games by canonical `game` TypeID `games.id` values across database, public route, Session, engine, Workspace, module, and token boundaries. The Game schema SHALL own the TypeID id type, and other contexts SHALL reference it directly. The system SHALL NOT derive or expose a public game slug.
+### Requirement: Game lookup separates external slug and local id
+The system SHALL resolve catalog pages and public game navigation by persisted slug. It SHALL resolve database relations, Session ownership, engine selection after route resolution, Workspace descriptors, module HTTP requests, socket scope, and signed module claims by canonical `game` TypeID. The Game schema SHALL own both types of lookup without treating either BGG id or runtime title as identity.
 
-#### Scenario: Existing local id is found
-- **WHEN** a caller fetches Qwinto's persisted `game` TypeID
-- **THEN** the system returns the persisted Qwinto game
+#### Scenario: Existing game slug is found
+- **WHEN** a caller fetches persisted slug `qwinto`
+- **THEN** the system returns the persisted Qwinto game and its local TypeID
 
-#### Scenario: Unknown valid local id is rejected
-- **WHEN** a caller fetches a well-formed `game` TypeID absent from persistence
+#### Scenario: Unknown game slug is rejected
+- **WHEN** a caller fetches a slug absent from persistence
 - **THEN** the system returns a game-not-found result
 
-#### Scenario: Malformed local id uses TypeID/Ecto casting
-- **WHEN** a caller fetches a malformed TypeID or a valid TypeID whose prefix is not `game`
-- **THEN** Ecto raises `Ecto.Query.CastError`
-- **AND** Phoenix.Ecto maps that exception to `400 Bad Request` at the HTTP boundary
+#### Scenario: Existing local id is found
+- **WHEN** an internal runtime boundary fetches Qwinto's persisted `game` TypeID
+- **THEN** the system returns the same persisted Qwinto row
+
+#### Scenario: Database is recreated
+- **WHEN** another environment assigns a different TypeID to the Qwinto row
+- **THEN** its slug remains `qwinto`
+- **AND** its public game route and module host remain unchanged
 
 #### Scenario: BGG name changes
 - **WHEN** the provider-derived Qwinto name changes
-- **THEN** its persisted `game` TypeID remains unchanged
+- **THEN** both its persisted slug and local TypeID remain unchanged
 
 ### Requirement: Session engine lookup uses the persisted game record
-The system SHALL resolve the engine for new Session creation from the persisted game selected by local id and SHALL capture that loaded module in the new Session process.
+The system SHALL resolve the engine for new Session creation from the persisted game selected by slug at the browser boundary or by TypeID at the module boundary, then SHALL capture that loaded module and the game's TypeID in the new Session process.
 
-#### Scenario: Engine is resolved for a new Session
-- **WHEN** a new Session is created for Qwinto's persisted `game` TypeID
-- **THEN** the system loads `D20.Qwinto.Game` from engine integer `4`
-- **AND** validates it through `D20.Game.ensure_engine/1`
+#### Scenario: Engine is resolved from a slug route
+- **WHEN** a user creates a Session from `/games/qwinto`
+- **THEN** the system resolves the persisted Qwinto row by slug
+- **AND** loads `D20.Qwinto.Game` from engine integer `4`
+- **AND** creates the Session under Qwinto's local TypeID
 
 #### Scenario: Engine is changed while a Session runs
 - **WHEN** an operator edits a game's engine after a Session has started
-- **THEN** the running Session retains its captured engine
+- **THEN** the running Session retains its captured TypeID and engine
 - **AND** only later Session creation uses the edited engine
 
 #### Scenario: Required engine is absent
@@ -62,13 +75,13 @@ The system SHALL resolve the engine for new Session creation from the persisted 
 - **THEN** record validation rejects the configuration before Session creation
 
 ### Requirement: BGG id is an external metadata binding
-The system SHALL treat `bgg_id` as an editable unique positive BGG metadata binding and SHALL NOT use it as local application identity.
+The system SHALL treat `bgg_id` as an editable unique positive BGG metadata binding and SHALL NOT use it as application, route, Session, or deployment identity.
 
 #### Scenario: Metadata lookup uses BGG id
-- **WHEN** runtime metadata is requested for Qwinto's persisted `game` TypeID
+- **WHEN** runtime metadata is requested for the persisted Qwinto game
 - **THEN** the system requests BGG id `183006`
 
 #### Scenario: BGG id is corrected
 - **WHEN** an administrator changes the BGG id of a persisted game
 - **THEN** later metadata reads use the new BGG id
-- **AND** routes, running Sessions, Workspace association, and module identity remain bound to its unchanged `game` TypeID
+- **AND** slug, public routes, iframe host, TypeID, running Sessions, and Workspace association remain unchanged

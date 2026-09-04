@@ -2,9 +2,11 @@ defmodule D20.Games do
   @moduledoc """
   Persisted game catalog boundary.
 
-  This context owns project-level game records. Local games are keyed by stable
-  `games.id`. Presentation metadata is resolved at runtime from BoardGameGeek
-  using each row's current `bgg_id` and is never persisted.
+  This context owns project-level game records. Local games carry a stable
+  environment-local `games.id` TypeID for internal boundaries and a required
+  immutable external `games.slug` for public navigation. Presentation metadata
+  is resolved at runtime from BoardGameGeek using each row's current `bgg_id`
+  and is never persisted.
   """
 
   require Logger
@@ -18,6 +20,7 @@ defmodule D20.Games do
 
   @type catalog_entry :: %{
           id: Game.id(),
+          slug: String.t(),
           stage: :planned | :in_development | :released,
           metadata: Metadata.t()
         }
@@ -41,7 +44,7 @@ defmodule D20.Games do
       Enum.map(games, fn game ->
         metadata = catalog_metadata(game, metadata_by_bgg_id, metadata_status)
 
-        %{id: game.id, stage: game.stage, metadata: metadata}
+        %{id: game.id, slug: game.slug, stage: game.stage, metadata: metadata}
       end)
 
     {:ok, entries}
@@ -65,6 +68,30 @@ defmodule D20.Games do
   @spec get(term()) :: {:ok, Game.t()} | {:error, term()}
   def get(id) do
     case Repo.get(Game, id) do
+      %Game{} = game -> {:ok, game}
+      nil -> {:error, :game_not_found}
+    end
+  end
+
+  @doc """
+  Loads one persisted catalog game by required external slug, resolving runtime
+  metadata from its current `bgg_id`.
+  """
+  @spec fetch_by_slug(String.t()) :: {:ok, {Game.t(), Metadata.t()}} | {:error, term()}
+  def fetch_by_slug(slug) when is_binary(slug) do
+    case Repo.get_by(Game, slug: slug) do
+      %Game{} = game -> {:ok, {game, fetch_game_metadata(game)}}
+      nil -> {:error, :game_not_found}
+    end
+  end
+
+  @doc """
+  Loads one persisted catalog game by required external slug without enriching
+  metadata.
+  """
+  @spec get_by_slug(String.t()) :: {:ok, Game.t()} | {:error, term()}
+  def get_by_slug(slug) when is_binary(slug) do
+    case Repo.get_by(Game, slug: slug) do
       %Game{} = game -> {:ok, game}
       nil -> {:error, :game_not_found}
     end

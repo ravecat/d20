@@ -24,9 +24,9 @@ defmodule D20Web.Module do
           required(:token) => String.t()
         }
 
-  @spec entry(Plug.Conn.t() | Phoenix.Socket.t(), Game.id()) :: entry()
-  def entry(source, game_id) do
-    embed_url = source |> request_context() |> embed_url(game_id)
+  @spec entry(Plug.Conn.t() | Phoenix.Socket.t(), Game.t()) :: entry()
+  def entry(source, %Game{} = game) do
+    embed_url = source |> request_context() |> embed_url(game.slug)
 
     %{embed_url: embed_url, allowed_origins: [origin(embed_url)], sandbox: sandbox()}
   end
@@ -79,10 +79,10 @@ defmodule D20Web.Module do
     %{actor: actor, uri: uri}
   end
 
-  @spec embed_url(request_context(), Game.id()) :: String.t()
-  defp embed_url(context, game_id) do
+  @spec embed_url(request_context(), String.t()) :: String.t()
+  defp embed_url(context, slug) do
     context
-    |> module_uri(game_id)
+    |> module_uri(slug)
     |> Map.put(:path, "/")
     |> URI.to_string()
   end
@@ -98,9 +98,9 @@ defmodule D20Web.Module do
     |> URI.to_string()
   end
 
-  @spec module_uri(request_context(), Game.id()) :: URI.t()
-  defp module_uri(%{uri: %URI{scheme: scheme, host: host}}, game_id) do
-    %URI{scheme: http_scheme(scheme), host: "game-#{TypeID.suffix(game_id)}.#{host}"}
+  @spec module_uri(request_context(), String.t()) :: URI.t()
+  defp module_uri(%{uri: %URI{scheme: scheme, host: host}}, slug) do
+    %URI{scheme: http_scheme(scheme), host: "#{slug}.#{host}"}
   end
 
   @spec module_endpoint(request_context()) :: String.t()

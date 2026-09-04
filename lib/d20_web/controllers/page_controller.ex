@@ -26,16 +26,16 @@ defmodule D20Web.PageController do
   end
 
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
-  def game(conn, %{"game_id" => game_id} = params) do
-    with {:ok, {%Game{} = game, metadata}} <- Games.fetch_by_id(game_id),
-         {:ok, session} <- resolve_game_session(game.id, params["session"]) do
+  def game(conn, %{"slug" => slug} = params) do
+    with {:ok, {%Game{} = game, metadata}} <- Games.fetch_by_slug(slug),
+         {:ok, session} <- resolve_game_session(game, params["session"]) do
       render_game(conn, game, metadata, session)
     else
       {:error, :session_not_found} ->
-        redirect_to_game_with_error(conn, game_id, "Session not found.")
+        redirect_to_game_with_error(conn, slug, "Session not found.")
 
       {:error, :session_game_mismatch} ->
-        redirect_to_game_with_error(conn, game_id, "Session not found.")
+        redirect_to_game_with_error(conn, slug, "Session not found.")
 
       {:error, :game_not_found} ->
         send_not_found(conn)
@@ -46,17 +46,17 @@ defmodule D20Web.PageController do
   end
 
   @spec create_game_session(Plug.Conn.t(), params()) :: Plug.Conn.t()
-  def create_game_session(conn, %{"game_id" => game_id} = params) do
+  def create_game_session(conn, %{"slug" => slug} = params) do
     actor = conn.assigns.scope.actor
-    attrs = Map.delete(params, "game_id")
+    attrs = Map.delete(params, "slug")
 
-    with {:ok, %Game{} = game} <- Games.get(game_id),
+    with {:ok, %Game{} = game} <- Games.get_by_slug(slug),
          :ok <- authorize_session_launch(game),
          {:ok, engine} <- Games.engine(game),
          {:ok, session} <- Sessions.create(game.id, engine, actor.id, attrs) do
       conn
       |> put_status(303)
-      |> redirect(to: ~p"/games/#{game.id}?session=#{session.id}")
+      |> redirect(to: ~p"/games/#{game.slug}?session=#{session.id}")
     else
       {:error, :game_not_found} ->
         send_not_found(conn)
@@ -67,26 +67,26 @@ defmodule D20Web.PageController do
         |> send_resp(:forbidden, "Game sessions are unavailable.")
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        redirect_to_game_with_errors(conn, game_id, changeset)
+        redirect_to_game_with_errors(conn, slug, changeset)
 
       {:error, _reason} ->
-        redirect_to_game_with_error(conn, game_id, "Could not start session.")
+        redirect_to_game_with_error(conn, slug, "Could not start session.")
     end
   end
 
   @spec redirect_to_game_with_error(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
-  defp redirect_to_game_with_error(conn, game_id, message) do
+  defp redirect_to_game_with_error(conn, slug, message) do
     conn
     |> assign_errors(%{session: message})
     |> put_status(303)
-    |> redirect(to: ~p"/games/#{game_id}")
+    |> redirect(to: ~p"/games/#{slug}")
   end
 
-  defp redirect_to_game_with_errors(conn, game_id, changeset) do
+  defp redirect_to_game_with_errors(conn, slug, changeset) do
     conn
     |> assign_errors(changeset)
     |> put_status(303)
-    |> redirect(to: ~p"/games/#{game_id}")
+    |> redirect(to: ~p"/games/#{slug}")
   end
 
   defp render_game(conn, game, metadata, session) do
@@ -101,6 +101,7 @@ defmodule D20Web.PageController do
 
     conn
     |> assign_prop(:id, TypeID.to_string(game.id))
+    |> assign_prop(:slug, game.slug)
     |> assign_prop(:stage, game.stage)
     |> assign_prop(:can_launch_game, can_launch_game)
     |> assign_prop(:game, Map.from_struct(metadata))
@@ -115,8 +116,8 @@ defmodule D20Web.PageController do
     assign_prop(
       conn,
       :games,
-      Enum.map(games, fn %{id: id, stage: stage, metadata: game} ->
-        %{id: TypeID.to_string(id), stage: stage, game: Map.from_struct(game)}
+      Enum.map(games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
+        %{id: TypeID.to_string(id), slug: slug, stage: stage, game: Map.from_struct(game)}
       end)
     )
   end
@@ -135,15 +136,16 @@ defmodule D20Web.PageController do
     |> Map.put("default", defaults)
   end
 
-  defp resolve_game_session(_game_id, nil), do: {:ok, nil}
+  defp resolve_game_session(_game, nil), do: {:ok, nil}
 
-  defp resolve_game_session(game_id, session_id) do
+  defp resolve_game_session(%Game{id: game_id, slug: slug}, session_id) do
     case Sessions.get(session_id) do
       {:ok, {_session, ^game_id}} ->
         {:ok,
          %{
            id: session_id,
            game_id: TypeID.to_string(game_id),
+           slug: slug,
            topic: SessionChannel.topic(session_id)
          }}
 

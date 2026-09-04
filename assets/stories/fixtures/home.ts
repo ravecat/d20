@@ -3,6 +3,7 @@ import type { GameCatalogEntry } from "~/shared/types/game";
 export const homeGames: GameCatalogEntry[] = [
   {
     id: "game_01h45yhtgqfhxbcrsfbhxdsdvy",
+    slug: "qwinto",
     stage: "released",
     game: {
       name: "Qwinto",
@@ -13,6 +14,7 @@ export const homeGames: GameCatalogEntry[] = [
   },
   {
     id: "game_01h45y0sxkfmntta78gqs1vsw6",
+    slug: "koala-rescue-club",
     stage: "in_development",
     game: {
       name: "Koala Rescue Club",
@@ -23,6 +25,7 @@ export const homeGames: GameCatalogEntry[] = [
   },
   {
     id: "game_01h45ybmy7fj7b4r9vvp74ms6k",
+    slug: "voyages",
     stage: "planned",
     game: {
       name: "Voyages",

@@ -204,8 +204,7 @@ defmodule D20Web.PageControllerTest do
     ]
 
     assert Enum.map(games, & &1.id) == Enum.map(ordered_bgg_ids, &game_id_string/1)
-
-    refute Enum.any?(games, &Map.has_key?(&1, :slug))
+    assert Enum.map(games, & &1.slug) == Enum.map(ordered_bgg_ids, &slug_by_bgg_id/1)
 
     assert %{stage: :planned} = Enum.find(games, &(&1.id == game_id_string(360_471)))
     assert %{stage: :released} = Enum.find(games, &(&1.id == game_id_string(425_873)))
@@ -409,17 +408,18 @@ defmodule D20Web.PageControllerTest do
     refute "sessions" in inertia_shared_props(conn)
   end
 
-  test "GET /games/:game_id renders metadata without creating a session", %{conn: conn} do
+  test "GET /games/:slug renders metadata without creating a session", %{conn: conn} do
     stub_bgg_game(@resolved_qwinto_xml)
     game_id = game_id(183_006)
     game_id_string = TypeID.to_string(game_id)
 
-    conn = get(conn, ~p"/games/#{game_id}")
+    conn = get(conn, ~p"/games/qwinto")
 
     assert inertia_component(conn) == "game"
 
     assert %{
              id: ^game_id_string,
+             slug: "qwinto",
              session: nil,
              game: game,
              schema: %{"type" => "object", "properties" => %{}, "default" => %{}}
@@ -427,10 +427,6 @@ defmodule D20Web.PageControllerTest do
 
     refute Map.has_key?(inertia_props(conn), :module)
     refute Map.has_key?(inertia_props(conn), :connection)
-    refute Map.has_key?(inertia_props(conn), :slug)
-
-    assert %{stage: :released, canLaunchGame: true} = inertia_props(conn)
-
     refute Map.has_key?(game, :slug)
     refute Map.has_key?(game, :bggId)
     assert game[:name] == "Resolved Qwinto"
@@ -445,41 +441,43 @@ defmodule D20Web.PageControllerTest do
     assert game[:rating] == 7.42
   end
 
-  test "GET /games/:game_id renders planned game metadata without an engine", %{conn: conn} do
+  test "GET /games/:slug renders planned game metadata without an engine", %{conn: conn} do
     stub_bgg_game(@voyages_xml, "350736")
-    game_id = game_id(350_736)
-    game_id_string = TypeID.to_string(game_id)
 
-    conn = get(conn, ~p"/games/#{game_id}")
+    conn = get(conn, ~p"/games/voyages")
 
     assert inertia_component(conn) == "game"
 
     assert %{
-             id: ^game_id_string,
+             id: id,
+             slug: "voyages",
              stage: :planned,
              canLaunchGame: false,
              schema: nil,
              game: %{name: "Voyages", description: "Draw maps and chart a course."}
            } = inertia_props(conn)
+
+    assert String.starts_with?(id, "game_")
   end
 
-  test "GET /games/:game_id keeps Koala launch available when in-development launch is disabled",
-       %{conn: conn} do
+  test "GET /games/:slug keeps Koala launch available when in-development launch is disabled", %{
+    conn: conn
+  } do
     Application.put_env(:d20, :allow_launch_in_development, false)
     stub_bgg_game(@koala_xml, "425873")
 
-    conn = get(conn, ~p"/games/#{game_id(425_873)}")
+    conn = get(conn, ~p"/games/koala-rescue-club")
 
     assert %{stage: :released, canLaunchGame: true} = inertia_props(conn)
   end
 
-  test "GET /games/:game_id allows Next Station launch when in-development launch is enabled", %{
+  test "GET /games/:slug allows Next Station launch when in-development launch is enabled", %{
     conn: conn
   } do
     Application.put_env(:d20, :allow_launch_in_development, true)
     stub_bgg_game(@next_station_xml, "353545")
 
-    conn = get(conn, ~p"/games/#{game_id(353_545)}")
+    conn = get(conn, ~p"/games/next-station-london")
 
     assert %{
              stage: :in_development,
@@ -498,20 +496,21 @@ defmodule D20Web.PageControllerTest do
     assert Enum.sort(required) == ["objectives", "powers"]
   end
 
-  test "GET /games/:game_id disables Next Station launch when in-development launch is disabled",
-       %{conn: conn} do
+  test "GET /games/:slug disables Next Station launch when in-development launch is disabled", %{
+    conn: conn
+  } do
     Application.put_env(:d20, :allow_launch_in_development, false)
     stub_bgg_game(@next_station_xml, "353545")
 
-    conn = get(conn, ~p"/games/#{game_id(353_545)}")
+    conn = get(conn, ~p"/games/next-station-london")
 
     assert %{stage: :in_development, canLaunchGame: false, schema: nil} = inertia_props(conn)
   end
 
-  test "GET /games/:game_id renders a game-owned creation form schema", %{conn: conn} do
+  test "GET /games/:slug renders a game-owned creation form schema", %{conn: conn} do
     stub_bgg_game(@koala_xml, "425873")
 
-    conn = get(conn, ~p"/games/#{game_id(425_873)}")
+    conn = get(conn, ~p"/games/koala-rescue-club")
 
     assert %{
              schema: %{
@@ -525,20 +524,19 @@ defmodule D20Web.PageControllerTest do
            } = inertia_props(conn)
   end
 
-  test "GET /games/:game_id renders fallback metadata and launch controls without BGG credentials",
+  test "GET /games/:slug renders fallback metadata and launch controls without BGG credentials",
        %{conn: conn} do
     Application.delete_env(:d20, BoardGameGeek)
 
     capture_log(fn ->
-      game_id = game_id(425_873)
-      game_id_string = TypeID.to_string(game_id)
-      conn = get(conn, ~p"/games/#{game_id}")
+      conn = get(conn, ~p"/games/koala-rescue-club")
 
       assert html_response(conn, 200) =~ ~s(id="app")
       assert inertia_component(conn) == "game"
 
       assert %{
-               id: ^game_id_string,
+               id: id,
+               slug: "koala-rescue-club",
                stage: :released,
                canLaunchGame: true,
                game: %{name: nil, imageUrl: nil},
@@ -552,64 +550,73 @@ defmodule D20Web.PageControllerTest do
                },
                session: nil
              } = inertia_props(conn)
+
+      assert String.starts_with?(id, "game_")
     end)
   end
 
-  test "GET /games/:game_id rejects a missing waiting session", %{conn: conn} do
+  test "GET /games/:slug rejects a missing waiting session", %{conn: conn} do
     session_id = Ecto.UUID.generate()
-    game_id = game_id(183_006)
     stub_bgg_game(@resolved_qwinto_xml)
 
-    conn = get(conn, ~p"/games/#{game_id}?session=#{session_id}")
+    conn = get(conn, ~p"/games/qwinto?session=#{session_id}")
 
-    assert redirected_to(conn, 303) == ~p"/games/#{game_id}"
+    assert redirected_to(conn, 303) == ~p"/games/qwinto"
     assert inertia_errors(conn) == %{session: "Session not found."}
   end
 
-  test "GET /games/:game_id rejects a waiting session from another game", %{conn: conn} do
-    qwinto_id = game_id(183_006)
+  test "GET /games/:slug rejects a waiting session from another game", %{conn: conn} do
     assert {:ok, session} = D20.Sessions.create(game_id(425_873), D20.Qwinto.Game, "owner")
     on_exit(fn -> D20.Sessions.stop(session.id) end)
     stub_bgg_game(@resolved_qwinto_xml)
 
-    conn = get(conn, ~p"/games/#{qwinto_id}?session=#{session.id}")
+    conn = get(conn, ~p"/games/qwinto?session=#{session.id}")
 
-    assert redirected_to(conn, 303) == ~p"/games/#{qwinto_id}"
+    assert redirected_to(conn, 303) == ~p"/games/qwinto"
     assert inertia_errors(conn) == %{session: "Session not found."}
   end
 
-  test "GET /games/:game_id returns 404 for unknown games", %{conn: conn} do
+  test "GET /games/:slug returns 404 for unknown slugs", %{conn: conn} do
+    conn = get(conn, ~p"/games/missing")
+
+    assert html_response(conn, 404) == "Not Found"
+  end
+
+  test "GET /games/:slug returns 404 when a TypeID is supplied as the public route value", %{
+    conn: conn
+  } do
     conn = get(conn, ~p"/games/#{TypeID.new("game")}")
 
     assert html_response(conn, 404) == "Not Found"
   end
 
-  test "GET /games/:game_id returns 400 for malformed and wrong-prefix ids", %{conn: conn} do
-    assert_error_sent :bad_request, fn -> get(conn, "/games/not-a-typeid") end
-    assert_error_sent :bad_request, fn -> get(conn, ~p"/games/#{TypeID.new("user")}") end
-  end
-
-  test "GET /games/:game_id/:slug is not routed", %{conn: conn} do
-    conn = get(conn, "/games/#{game_id(183_006)}/qwinto")
-
-    assert conn.status == 404
-  end
-
-  test "GET /games/:game_id with a session returns 404 for unknown games", %{conn: conn} do
-    conn = get(conn, ~p"/games/#{TypeID.new("game")}?session=#{Ecto.UUID.generate()}")
+  test "GET /games/:slug returns 404 for malformed ids supplied as slugs", %{conn: conn} do
+    conn = get(conn, "/games/not-a-typeid")
 
     assert html_response(conn, 404) == "Not Found"
   end
 
-  test "POST /games/:game_id/sessions creates a session and redirects to its lobby", %{conn: conn} do
+  test "GET /games/:slug/:extra is not routed", %{conn: conn} do
+    conn = get(conn, "/games/qwinto/qwinto")
+
+    assert conn.status == 404
+  end
+
+  test "GET /games/:slug with a session returns 404 for unknown slugs", %{conn: conn} do
+    conn = get(conn, ~p"/games/missing?session=#{Ecto.UUID.generate()}")
+
+    assert html_response(conn, 404) == "Not Found"
+  end
+
+  test "POST /games/:slug/sessions creates a session and redirects to its lobby", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_development, false)
     game_id = game_id(183_006)
     game_id_string = TypeID.to_string(game_id)
 
-    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/#{game_id}/sessions")
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
     redirect = redirected_to(conn, 303)
-    assert String.starts_with?(redirect, "/games/#{game_id}?session=")
+    assert String.starts_with?(redirect, "/games/qwinto?session=")
     %URI{query: query} = URI.parse(redirect)
     %{"session" => session_id} = URI.decode_query(query)
     on_exit(fn -> D20.Sessions.stop(session_id) end)
@@ -621,6 +628,7 @@ defmodule D20Web.PageControllerTest do
              session: %{
                id: ^session_id,
                gameId: ^game_id_string,
+               slug: "qwinto",
                topic: "session:" <> ^session_id
              }
            } = inertia_props(conn)
@@ -630,17 +638,17 @@ defmodule D20Web.PageControllerTest do
     refute inspect(inertia_props(conn)) =~ "token"
   end
 
-  test "POST /games/:game_id/sessions creates a Koala session with submitted attrs", %{conn: conn} do
+  test "POST /games/:slug/sessions creates a Koala session with submitted attrs", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_development, false)
     game_id = game_id(425_873)
 
     conn =
       conn
       |> put_req_header("x-inertia", "true")
-      |> post(~p"/games/#{game_id}/sessions", %{sheet: "yugambeh"})
+      |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "yugambeh"})
 
     redirect = redirected_to(conn, 303)
-    assert String.starts_with?(redirect, "/games/#{game_id}?session=")
+    assert String.starts_with?(redirect, "/games/koala-rescue-club?session=")
     %URI{query: query} = URI.parse(redirect)
     %{"session" => session_id} = URI.decode_query(query)
 
@@ -650,18 +658,16 @@ defmodule D20Web.PageControllerTest do
              D20.Sessions.get(session_id)
   end
 
-  test "GET /games/:game_id renders a live waiting session without module credentials", %{
-    conn: conn
-  } do
+  test "GET /games/:slug renders a live waiting session without module credentials", %{conn: conn} do
     game_id = game_id(183_006)
     game_id_string = TypeID.to_string(game_id)
     assert {:ok, session} = D20.Sessions.create(game_id, D20.Qwinto.Game, "owner")
     on_exit(fn -> D20.Sessions.stop(session.id) end)
     stub_bgg_game(@resolved_qwinto_xml)
 
-    conn = get(conn, ~p"/games/#{game_id}?session=#{session.id}")
+    conn = get(conn, ~p"/games/qwinto?session=#{session.id}")
 
-    assert %{session: %{id: session_id, gameId: ^game_id_string, topic: topic}} =
+    assert %{session: %{id: session_id, gameId: ^game_id_string, slug: "qwinto", topic: topic}} =
              inertia_props(conn)
 
     assert session_id == session.id
@@ -670,19 +676,16 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(inertia_props(conn), :connection)
   end
 
-  test "POST /games/:game_id/sessions forbids planned games", %{conn: conn} do
+  test "POST /games/:slug/sessions forbids planned games", %{conn: conn} do
     before_count = Elixir.Registry.count(D20.Registry)
 
-    conn =
-      conn |> put_req_header("x-inertia", "true") |> post(~p"/games/#{game_id(350_736)}/sessions")
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/voyages/sessions")
 
     assert text_response(conn, 403) == "Game sessions are unavailable."
     assert Elixir.Registry.count(D20.Registry) == before_count
   end
 
-  test "POST /games/:game_id/sessions forbids in-development launch when configured", %{
-    conn: conn
-  } do
+  test "POST /games/:slug/sessions forbids in-development launch when configured", %{conn: conn} do
     Application.put_env(:d20, :allow_launch_in_development, false)
 
     game_id = game_id(183_006)
@@ -691,33 +694,49 @@ defmodule D20Web.PageControllerTest do
 
     before_count = Elixir.Registry.count(D20.Registry)
 
-    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/#{game_id}/sessions")
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
 
     assert text_response(conn, 403) == "Game sessions are unavailable."
     assert Elixir.Registry.count(D20.Registry) == before_count
   end
 
-  test "POST /games/:game_id/sessions redirects with errors when creation attrs are invalid", %{
+  test "POST /games/:slug/sessions forbids a disabled game while an existing session runs", %{
+    conn: conn
+  } do
+    game_id = game_id(183_006)
+    assert {:ok, session} = D20.Sessions.create(game_id, D20.Qwinto.Game, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+
+    {:ok, game} = D20.Games.get(game_id)
+    {:ok, _updated} = D20.Games.update(game, %{enabled: false})
+
+    before_count = Elixir.Registry.count(D20.Registry)
+
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/qwinto/sessions")
+
+    assert text_response(conn, 403) == "Game sessions are unavailable."
+    assert Elixir.Registry.count(D20.Registry) == before_count
+
+    assert {:ok, {%Session{phase: :waiting_for_players}, ^game_id}} = D20.Sessions.get(session.id)
+  end
+
+  test "POST /games/:slug/sessions redirects with errors when creation attrs are invalid", %{
     conn: conn
   } do
     before_count = Elixir.Registry.count(D20.Registry)
-    game_id = game_id(425_873)
 
     conn =
       conn
       |> put_req_header("x-inertia", "true")
-      |> post(~p"/games/#{game_id}/sessions", %{sheet: "missing"})
+      |> post(~p"/games/koala-rescue-club/sessions", %{sheet: "missing"})
 
-    assert redirected_to(conn, 303) == ~p"/games/#{game_id}"
+    assert redirected_to(conn, 303) == ~p"/games/koala-rescue-club"
     assert inertia_errors(conn) == %{sheet: "is invalid"}
     assert Elixir.Registry.count(D20.Registry) == before_count
   end
 
-  test "POST /games/:game_id/sessions returns 404 for unknown games", %{conn: conn} do
-    conn =
-      conn
-      |> put_req_header("x-inertia", "true")
-      |> post(~p"/games/#{TypeID.new("game")}/sessions")
+  test "POST /games/:slug/sessions returns 404 for unknown slugs", %{conn: conn} do
+    conn = conn |> put_req_header("x-inertia", "true") |> post(~p"/games/missing/sessions")
 
     assert html_response(conn, 404) == "Not Found"
   end
@@ -884,4 +903,24 @@ defmodule D20Web.PageControllerTest do
   end
 
   defp game_id_string(bgg_id), do: bgg_id |> game_id() |> TypeID.to_string()
+
+  defp slug_by_bgg_id(360_471), do: "aquamarine"
+  defp slug_by_bgg_id(342_200), do: "confusing-lands"
+  defp slug_by_bgg_id(322_703), do: "death-valley"
+  defp slug_by_bgg_id(169_654), do: "deep-sea-adventure"
+  defp slug_by_bgg_id(420_087), do: "flip-7"
+  defp slug_by_bgg_id(352_418), do: "fliptown"
+  defp slug_by_bgg_id(425_873), do: "koala-rescue-club"
+  defp slug_by_bgg_id(50), do: "lost-cities"
+  defp slug_by_bgg_id(361_850), do: "nimalia"
+  defp slug_by_bgg_id(353_545), do: "next-station-london"
+  defp slug_by_bgg_id(245_654), do: "railroad-ink"
+  defp slug_by_bgg_id(183_006), do: "qwinto"
+  defp slug_by_bgg_id(131_260), do: "qwixx"
+  defp slug_by_bgg_id(302_280), do: "shifting-stones"
+  defp slug_by_bgg_id(373_106), do: "sky-team"
+  defp slug_by_bgg_id(352_454), do: "trailblazers"
+  defp slug_by_bgg_id(283_864), do: "trails-of-tucana"
+  defp slug_by_bgg_id(350_736), do: "voyages"
+  defp slug_by_bgg_id(388_329), do: "waypoints"
 end

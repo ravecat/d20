@@ -45,13 +45,13 @@ A Session SHALL be eligible only when its runtime is alive, phase is `in_progres
 - **AND** its captured Session engine remains unchanged
 
 ### Requirement: Descriptors contain module bootstrap and handoff state
-Every descriptor SHALL contain Session `id`, string `game_id` with a canonical `game` TypeID, phase, module framing, and fresh actor-bound connection, and SHALL omit cosmetic slug and `handoff_ready`. Descriptor generation SHALL use the authenticated actor and socket request context.
+Every descriptor SHALL contain Session `id`, string `game_id` with a canonical `game` TypeID, phase, module framing, and fresh actor-bound connection, and SHALL omit a duplicate top-level slug and `handoff_ready`. Descriptor generation SHALL use the authenticated actor, socket request context, and persisted game resolved by captured TypeID.
 
 #### Scenario: Eligible descriptor is projected
 - **WHEN** Workspace reports an eligible Session
 - **THEN** `connection.topic` identifies that existing SessionChannel
 - **AND** `connection.token` is signed for the authenticated actor, Session topic, and local game id
-- **AND** module URLs use the browser-facing socket scheme and stable DNS-safe `game-<typeid-suffix>` host
+- **AND** module URLs use the browser-facing socket scheme and the persisted game's `<slug>.<shell-host>` origin
 
 #### Scenario: TLS terminates before Phoenix
 - **GIVEN** the browser connects securely through the trusted production proxy
@@ -68,14 +68,14 @@ Every descriptor SHALL contain Session `id`, string `game_id` with a canonical `
 - **AND** does not recreate the retained iframe or SDK bridge
 
 ### Requirement: Waiting sessions remain page-owned
-Successful creation SHALL redirect with status 303 to `/games/:game_id?session=<id>`. A valid query-selected waiting Session SHALL render in Lobby and SHALL NOT appear in Workspace. The detail GET SHALL remain on the id-only URL without a cosmetic redirect.
+Successful page creation SHALL redirect with status 303 to `/games/:slug?session=<id>`. A valid query-selected waiting Session SHALL render in Lobby only when its captured TypeID matches the persisted game resolved by that slug, and SHALL NOT appear in Workspace.
 
 #### Scenario: Successful creation opens Lobby
-- **WHEN** Session creation succeeds
-- **THEN** the redirect selects the live waiting Session on its matching local game id page
+- **WHEN** Session creation succeeds from persisted slug `qwinto`
+- **THEN** the redirect selects the live waiting Session on `/games/qwinto`
 - **AND** Lobby presents waiting controls and member state
 
 #### Scenario: Invalid selected Session
 - **WHEN** the selected Session is missing or carries another local game id
-- **THEN** the page does not expose it as Lobby state
+- **THEN** the slug detail page does not expose it as Lobby state
 - **AND** page props expose no module token

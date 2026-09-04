@@ -90,7 +90,7 @@ defmodule D20.GamesTest do
     stub_bgg_game(@qwinto_xml)
     qwinto_id = game_id(183_006)
 
-    assert {:ok, {%Game{id: ^qwinto_id, bgg_id: 183_006}, %Metadata{} = metadata}} =
+    assert {:ok, {%Game{id: ^qwinto_id, slug: "qwinto", bgg_id: 183_006}, %Metadata{} = metadata}} =
              Games.fetch_by_id(qwinto_id)
 
     assert metadata.name == "Qwinto"
@@ -102,6 +102,22 @@ defmodule D20.GamesTest do
     assert metadata.complexity == 1.47
     assert metadata.rating == 7.42
     refute Map.has_key?(metadata, :slug)
+  end
+
+  test "fetches persisted game metadata by slug" do
+    stub_bgg_game(@qwinto_xml)
+    qwinto_id = game_id(183_006)
+
+    assert {:ok, {%Game{id: ^qwinto_id, slug: "qwinto"}, %Metadata{} = metadata}} =
+             Games.fetch_by_slug("qwinto")
+
+    assert metadata.name == "Qwinto"
+    assert {:error, :game_not_found} = Games.fetch_by_slug("missing")
+  end
+
+  test "resolves persisted games by slug without metadata" do
+    assert {:ok, %Game{slug: "qwinto"}} = Games.get_by_slug("qwinto")
+    assert {:error, :game_not_found} = Games.get_by_slug("missing")
   end
 
   test "lists persisted games ordered by implementation stage and local id" do
@@ -140,17 +156,25 @@ defmodule D20.GamesTest do
     next_station_id = game_id(353_545)
     voyages_id = game_id(350_736)
 
-    assert %{stage: :released} = Enum.find(games, &(&1.id == qwinto_id))
-    assert %{stage: :released} = Enum.find(games, &(&1.id == koala_id))
-    assert %{stage: :in_development} = Enum.find(games, &(&1.id == next_station_id))
-    assert %{stage: :planned} = Enum.find(games, &(&1.id == voyages_id))
+    assert %{id: ^qwinto_id, slug: "qwinto", stage: :released} =
+             Enum.find(games, &(&1.id == qwinto_id))
+
+    assert %{slug: "koala-rescue-club", stage: :released} = Enum.find(games, &(&1.id == koala_id))
+
+    assert %{slug: "next-station-london", stage: :in_development} =
+             Enum.find(games, &(&1.id == next_station_id))
+
+    assert %{slug: "voyages", stage: :planned} = Enum.find(games, &(&1.id == voyages_id))
     assert %Metadata{name: "Qwinto"} = Enum.find(games, &(&1.id == qwinto_id)).metadata
   end
 
-  test "omits public slugs from catalog entries" do
+  test "carries the persisted slug on catalog entries" do
     stub_registered_bgg_games()
     assert {:ok, games} = Games.list()
-    refute Map.has_key?(Enum.find(games, &(&1.id == game_id(183_006))), :slug)
+
+    entry = Enum.find(games, &(&1.id == game_id(183_006)))
+    assert entry.slug == "qwinto"
+    assert Enum.count_until(Enum.uniq(Enum.map(games, & &1.slug)), 20) == 19
   end
 
   test "lists empty fallback metadata when the batch request fails" do
@@ -161,7 +185,7 @@ defmodule D20.GamesTest do
         assert {:ok, games} = Games.list()
         assert length(games) == map_size(@bgg_names)
         assert Enum.find(games, &(&1.id == game_id(183_006))).metadata.name == nil
-        refute Map.has_key?(Enum.find(games, &(&1.id == game_id(183_006))), :slug)
+        assert Enum.find(games, &(&1.id == game_id(183_006))).slug == "qwinto"
       end)
 
     assert log =~ "Failed to enrich game metadata; using local fallback"
@@ -191,6 +215,11 @@ defmodule D20.GamesTest do
 
     assert_raise Ecto.Query.CastError, fn -> Games.fetch_by_id("not-a-typeid") end
     assert_raise Ecto.Query.CastError, fn -> Games.get(TypeID.new("user")) end
+  end
+
+  test "slug lookup never treats a TypeID as a persisted slug" do
+    assert {:error, :game_not_found} = Games.get_by_slug(TypeID.to_string(game_id(183_006)))
+    assert {:error, :game_not_found} = Games.get_by_slug("not-a-typeid")
   end
 
   test "allows released and Next Station launch when in-development launch is enabled" do

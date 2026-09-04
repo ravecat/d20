@@ -45,15 +45,15 @@ The game detail data contract SHALL expose whether new Session launch is allowed
 - **THEN** its detail remains available with `can_launch_game` false and schema null
 
 ### Requirement: Session launch policy is enforced server-side
-The id-based page and standalone-module Session-creation endpoints MUST independently enforce the complete launch policy before resolving an engine or creating a process. The standalone-module endpoint MAY return bootstrap data for an existing matching Session regardless of current stage, enabled, BGG, or engine edits.
+The slug-based page endpoint and TypeID-based standalone-module endpoint MUST independently enforce the complete launch policy before resolving an engine or creating a process. The standalone-module endpoint MAY return bootstrap data for an existing matching Session regardless of current stage, enabled, BGG, or engine edits.
 
 #### Scenario: Direct planned launch request
-- **WHEN** a client posts to `/games/:game_id/sessions` for a planned game
+- **WHEN** a client posts to `/games/:slug/sessions` for a planned game
 - **THEN** the endpoint returns `403 Forbidden`
 - **AND** creates no Session
 
 #### Scenario: Direct disabled launch request
-- **WHEN** a client posts to `/games/:game_id/sessions` for a disabled game
+- **WHEN** a client posts to `/games/:slug/sessions` for a disabled game
 - **THEN** the endpoint returns `403 Forbidden`
 - **AND** creates no Session
 
@@ -63,7 +63,7 @@ The id-based page and standalone-module Session-creation endpoints MUST independ
 - **AND** creates no Session
 
 #### Scenario: In-development production launch request
-- **WHEN** a client posts to either id-based creation endpoint for an in-development game in production
+- **WHEN** a client posts to either creation endpoint for an in-development game in production
 - **THEN** the endpoint returns `403 Forbidden`
 - **AND** creates no Session
 

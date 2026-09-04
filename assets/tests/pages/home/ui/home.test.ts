@@ -6,7 +6,6 @@ import type { GameMetadata } from "~/shared/types/game";
 const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
 const voyagesId = "game_01h45ybmy7fj7b4r9vvp74ms6k";
 const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
-
 const auth = {
   authenticated: false,
   local: false,
@@ -21,12 +20,13 @@ const auth = {
 };
 
 describe("home page", () => {
-  it("renders game tiles with preview images and id-only links", () => {
+  it("renders game tiles with preview images and slug links", () => {
     render(HomePage, {
       auth,
       games: [
         {
           id: qwintoId,
+          slug: "qwinto",
           stage: "released",
           game: gameMetadata({
             name: "Qwinto",
@@ -44,7 +44,7 @@ describe("home page", () => {
     const title = link?.querySelector("h2");
     const visibleText = link?.textContent ?? "";
 
-    expect(link?.getAttribute("href")).toBe(`/games/${qwintoId}`);
+    expect(link?.getAttribute("href")).toBe("/games/qwinto");
     expect(title?.textContent).toBe("Qwinto");
     expect(image?.getAttribute("src")).toBe("https://example.invalid/qwinto-image.jpg");
     expect(visibleText).toContain("Qwinto");
@@ -62,6 +62,7 @@ describe("home page", () => {
       games: [
         {
           id: voyagesId,
+          slug: "voyages",
           stage: "planned",
           game: gameMetadata({ thumbnailUrl: null, imageUrl: null }),
         },
@@ -72,7 +73,7 @@ describe("home page", () => {
 
     expect(link?.textContent).toContain("Qwinto");
     expect(document.images).toHaveLength(0);
-    expect(link?.getAttribute("href")).toBe(`/games/${voyagesId}`);
+    expect(link?.getAttribute("href")).toBe("/games/voyages");
     expect(link?.textContent).not.toContain("Planned");
     expect(link?.textContent).not.toContain("In development");
   });
@@ -83,6 +84,7 @@ describe("home page", () => {
       games: [
         {
           id: koalaId,
+          slug: "koala-rescue-club",
           stage: "in_development",
           game: gameMetadata({ name: "Koala Rescue Club" }),
         },
@@ -91,7 +93,7 @@ describe("home page", () => {
 
     const [link] = document.links;
 
-    expect(link?.getAttribute("href")).toBe(`/games/${koalaId}`);
+    expect(link?.getAttribute("href")).toBe("/games/koala-rescue-club");
     expect(link?.querySelector("h2")?.textContent).toBe("Koala Rescue Club");
     expect(link?.textContent).toContain("Koala Rescue Club");
     expect(link?.textContent).toContain("In development");
@@ -103,31 +105,37 @@ describe("home page", () => {
       games: [
         {
           id: "game_01h4rn40ybeqws3gfp073jt81b",
+          slug: "planned-first",
           stage: "planned",
           game: gameMetadata({ name: "Planned First" }),
         },
         {
           id: "game_01h45y849qfqvbeayxmwkxg5x9",
+          slug: "released-first",
           stage: "released",
           game: gameMetadata({ name: "Released First" }),
         },
         {
           id: "game_01h45ypmyxekaa2apdhevf7bve",
+          slug: "development-first",
           stage: "in_development",
           game: gameMetadata({ name: "Development First" }),
         },
         {
           id: "game_01h45ydzqkemsb9x8gq2q7vpvb",
+          slug: "released-second",
           stage: "released",
           game: gameMetadata({ name: "Released Second" }),
         },
         {
           id: "game_01h45y3ps9e18adjv9zvx743s2",
+          slug: "planned-second",
           stage: "planned",
           game: gameMetadata({ name: "Planned Second" }),
         },
         {
           id: "game_01h45y6thxeyg95gnpgqqefgpa",
+          slug: "development-second",
           stage: "in_development",
           game: gameMetadata({ name: "Development Second" }),
         },

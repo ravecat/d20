@@ -1,12 +1,16 @@
 defmodule D20Web.Admin.GameLive do
   @moduledoc """
-  Update-only Backpex resource for persisted catalog games.
+  Backpex resource for persisted catalog games.
+
+  Authorized administrators can create games with a required immutable slug
+  and edit only the mutable operational fields. Deletion stays unavailable.
   """
 
   use Backpex.LiveResource,
     adapter_config: [
       schema: D20.Games.Game,
       repo: D20.Repo,
+      create_changeset: &__MODULE__.create_changeset/3,
       update_changeset: &__MODULE__.update_changeset/3
     ],
     init_order: %{by: :id, direction: :asc}
@@ -26,7 +30,12 @@ defmodule D20Web.Admin.GameLive do
   @impl Backpex.LiveResource
   def fields do
     [
-      id: %{module: Backpex.Fields.Text, label: "ID", readonly: true},
+      id: %{module: Backpex.Fields.Text, label: "ID", readonly: true, except: [:new]},
+      slug: %{
+        module: Backpex.Fields.Text,
+        label: "Slug",
+        readonly: fn assigns -> assigns.live_action == :edit end
+      },
       bgg_id: %{module: Backpex.Fields.Number, label: "BGG ID", index_editable: true},
       stage: %{
         module: Backpex.Fields.Select,
@@ -49,11 +58,16 @@ defmodule D20Web.Admin.GameLive do
   def item_actions(default_actions), do: Keyword.delete(default_actions, :delete)
 
   @impl Backpex.LiveResource
-  def can?(assigns, action, _item) when action in [:index, :show, :edit] do
+  def can?(assigns, action, _item) when action in [:index, :show, :new, :create, :edit] do
     Bodyguard.permit?(Policy, :manage_games, assigns.current_user)
   end
 
   def can?(_assigns, _action, _item), do: false
+
+  @doc false
+  def create_changeset(game_or_changeset, attrs, _metadata) do
+    Game.create_changeset(game_or_changeset, attrs)
+  end
 
   @doc false
   def update_changeset(game_or_changeset, attrs, _metadata) do

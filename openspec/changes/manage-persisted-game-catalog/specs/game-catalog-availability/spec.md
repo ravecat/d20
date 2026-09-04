@@ -31,15 +31,15 @@ Every game SHALL have stage `planned`, `in_development`, or `released` and a sep
 - **AND** no new Session may be created
 
 ### Requirement: Persisted catalog contains the migrated games
-The catalog SHALL contain Fliptown, Koala Rescue Club, Next Station: London, Qwinto, Flip 7, Railroad Ink: Deep Blue Edition, Confusing Lands, Trails of Tucana, Shifting Stones, Trailblazers, Death Valley, Voyages, Sky Team, Qwixx, Nimalia, Lost Cities, Deep Sea Adventure, Waypoints, and Aquamarine with generated `game` TypeIDs and their former BGG bindings.
+The catalog SHALL contain Fliptown, Koala Rescue Club, Next Station: London, Qwinto, Flip 7, Railroad Ink: Deep Blue Edition, Confusing Lands, Trails of Tucana, Shifting Stones, Trailblazers, Death Valley, Voyages, Sky Team, Qwixx, Nimalia, Lost Cities, Deep Sea Adventure, Waypoints, and Aquamarine with generated `game` TypeIDs, their exact former registry slugs, and their former BGG bindings.
 
 #### Scenario: Migrated home catalog is loaded
 - **WHEN** the application resolves persisted games for the home page
-- **THEN** all nineteen migrated games are included
+- **THEN** all nineteen migrated games are included with required unique slugs
 - **AND** none depends on a checked-in game registry entry
 
 ### Requirement: Catalog entries expose release stage and default order
-`D20.Games.list/0` SHALL include the local `game` TypeID, stage, and resolved display metadata without a public game slug. It SHALL return released games first, in-development games second, and planned games last, ordered by the K-sortable TypeID within each stage.
+`D20.Games.list/0` SHALL include local `game` TypeID, persisted slug, stage, and resolved display metadata. It SHALL return released games first, in-development games second, and planned games last, ordered by the K-sortable TypeID within each stage.
 
 #### Scenario: Catalog list is ordered by stage
 - **WHEN** `D20.Games.list/0` resolves records with mixed stages
@@ -79,20 +79,20 @@ The home page SHALL render games in the order received from the backend without 
 #### Scenario: Planned card is navigable without a redundant label
 - **WHEN** the home page renders a planned game
 - **THEN** its preview is muted and no lifecycle badge is visible
-- **AND** its link uses only the stable local game id
+- **AND** its link uses the persisted game slug
 
 ### Requirement: Every catalog game has a detail page
 The system SHALL resolve and render metadata details for every persisted catalog game independently of local engine availability or enabled state.
 
 #### Scenario: Planned detail is opened
-- **WHEN** a user requests the id-based detail route for a persisted planned game
+- **WHEN** a user requests the slug route for a persisted planned game
 - **THEN** the system renders its BGG-backed detail page without requiring an engine
 
 #### Scenario: Disabled detail is opened
-- **WHEN** a user requests the id-based detail route for a disabled persisted game
+- **WHEN** a user requests the slug route for a disabled persisted game
 - **THEN** the detail remains visible
 - **AND** new Session launch is unavailable
 
 #### Scenario: Unknown detail is opened
-- **WHEN** a user requests a detail route for an unknown local game id
+- **WHEN** a user requests a detail route for a slug absent from persistence
 - **THEN** the system returns `404 Not Found`

@@ -1,11 +1,12 @@
 ## MODIFIED Requirements
 
 ### Requirement: Workspace web boundary builds complete actor snapshots
-`D20Web.Workspace` SHALL build complete snapshots from the single actor-indexed `D20.Sessions.list/1` query, retained membership, persisted game records resolved by local id, and authenticated socket request context. `D20.Sessions.list/1` SHALL use `D20.Sessions.Registry` attachments rather than selecting all runtime names.
+`D20Web.Workspace` SHALL build complete snapshots from the single actor-indexed `D20.Sessions.list/1` query, retained membership, persisted game records resolved by captured local TypeID, and authenticated socket request context. It SHALL use each resolved row's immutable slug for module framing while retaining TypeID in authoritative descriptors and connection claims. `D20.Sessions.list/1` SHALL use `D20.Sessions.Registry` attachments rather than selecting all runtime names.
 
 #### Scenario: Attached runtimes are projected
 - **WHEN** the actor has attachments to live in-progress or finished Sessions where it remains a retained member and each captured local game id resolves
-- **THEN** the snapshot contains one ordered id-based descriptor per eligible Session
+- **THEN** the snapshot contains one ordered TypeID-based descriptor per eligible Session
+- **AND** each module entry uses the resolved game's slug host
 - **AND** each entry provides the PID required for monitoring
 
 #### Scenario: Detached membership is retained

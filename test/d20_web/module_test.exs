@@ -14,14 +14,14 @@ defmodule D20Web.ModuleTest do
     on_exit(fn -> Application.put_env(:d20, Module, original_config) end)
   end
 
-  test "builds an iframe entry with the configured sandbox policy", %{conn: conn} do
+  test "builds an iframe entry from the persisted game slug", %{conn: conn} do
     Application.put_env(:d20, Module, sandbox: ["allow-scripts"])
-    game_id = game_id(183_006)
-    embed_url = "http://game-#{TypeID.suffix(game_id)}.example.com/"
-    origin = "http://game-#{TypeID.suffix(game_id)}.example.com"
+    game = game_fixture(183_006)
+    embed_url = "http://qwinto.example.com/"
+    origin = "http://qwinto.example.com"
 
     assert %{embed_url: ^embed_url, allowed_origins: [^origin], sandbox: ["allow-scripts"]} =
-             entry = Module.entry(conn, game_id)
+             entry = Module.entry(conn, game)
 
     refute Map.has_key?(entry, :bootstrap)
     refute Map.has_key?(entry, :connection)
@@ -59,13 +59,13 @@ defmodule D20Web.ModuleTest do
     topic = "session:#{session_id}"
 
     socket = socket UserSocket, "socket-id", %{scope: Scope.for_actor(actor), request_uri: uri}
-    koala_id = game_id(425_873)
+    koala = game_fixture(425_873)
     qwinto_id = game_id(183_006)
-    embed_url = "https://game-#{TypeID.suffix(koala_id)}.shell.example.com/"
-    origin = "https://game-#{TypeID.suffix(koala_id)}.shell.example.com"
+    embed_url = "https://koala-rescue-club.shell.example.com/"
+    origin = "https://koala-rescue-club.shell.example.com"
 
     assert %{embed_url: ^embed_url, allowed_origins: [^origin], sandbox: ["allow-forms"]} =
-             Module.entry(socket, koala_id)
+             Module.entry(socket, koala)
 
     assert %{endpoint: "wss://shell.example.com/module", topic: ^topic, token: token} =
              Module.connection(socket, qwinto_id, session_id)
@@ -91,7 +91,7 @@ defmodule D20Web.ModuleTest do
 
       assert_raise ArgumentError,
                    ~r/D20Web.Module :sandbox configuration to be a non-empty list of strings/,
-                   fn -> Module.entry(conn, game_id(183_006)) end
+                   fn -> Module.entry(conn, game_fixture(183_006)) end
     end
   end
 end

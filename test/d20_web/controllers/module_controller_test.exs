@@ -110,6 +110,28 @@ defmodule D20Web.ModuleControllerTest do
     refute Map.has_key?(members, actor_id)
   end
 
+  test "POST /modules/:game_id returns bootstrap for an existing session after the game is disabled",
+       %{conn: conn} do
+    game_id = game_id(425_873)
+    assert {:ok, session} = D20.Sessions.create(game_id, KoalaGame, "owner")
+    session_id = session.id
+
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
+
+    {:ok, game} = Games.get(game_id)
+    {:ok, _updated} = Games.update(game, %{enabled: false})
+
+    conn =
+      conn
+      |> put_req_header("origin", koala_origin())
+      |> post(~p"/modules/#{game_id}", %{session: session_id})
+
+    assert %{"session" => ^session_id, "bootstrap" => %{"token" => token}} =
+             json_response(conn, 200)
+
+    assert {:ok, %{game_id: ^game_id}} = D20.Module.Token.verify(D20Web.Endpoint, token)
+  end
+
   test "POST /modules/:game_id forbids creating an in-development session when configured", %{
     conn: conn
   } do
@@ -169,6 +191,6 @@ defmodule D20Web.ModuleControllerTest do
   end
 
   defp koala_origin do
-    "http://game-#{game_id(425_873) |> TypeID.suffix()}.example.com"
+    "http://koala-rescue-club.example.com"
   end
 end

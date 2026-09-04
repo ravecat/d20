@@ -23,11 +23,11 @@ WorkspaceChannel SHALL report every live in-progress or finished Session returne
 - **AND** no existing SessionChannel is stopped
 
 ### Requirement: Lobby transition does not retain a Presence lease
-When Lobby observes that its Session is in progress or finished, it SHALL navigate to the id-only game detail URL while the current page Session descriptor continues to own Lobby. The navigation response SHALL remove that descriptor, allowing normal component cleanup to detach the Session store. Workspace discovery SHALL NOT wait for Presence overlap or a handoff flag.
+When Lobby observes that its Session is in progress or finished, it SHALL navigate to the persisted game's slug detail URL while the current page Session descriptor continues to own Lobby. The navigation response SHALL remove that descriptor, allowing normal component cleanup to detach the Session store. Workspace discovery SHALL NOT wait for Presence overlap or a handoff flag.
 
 #### Scenario: Waiting Session starts
-- **WHEN** Lobby receives an in-progress projection
-- **THEN** Lobby requests `/games/:game_id` without a slug segment
+- **WHEN** Lobby receives an in-progress projection for the game with slug `qwinto`
+- **THEN** Lobby requests `/games/qwinto`
 - **AND** Lobby remains mounted while navigation is pending
 - **AND** the response supplies no selected Session and returns the page to Play only if new launch is currently available
 - **AND** normal cleanup detaches Lobby's SessionChannel
@@ -36,7 +36,7 @@ When Lobby observes that its Session is in progress or finished, it SHALL naviga
 
 #### Scenario: Selected Session is already finished
 - **WHEN** Lobby receives a finished projection
-- **THEN** it follows the same id-only navigation and response-owned cleanup lifecycle
+- **THEN** it follows the same slug navigation and response-owned cleanup lifecycle
 
 ### Requirement: Workspace descriptors omit Presence handoff state
 Workspace join replies and snapshots SHALL contain Session id, string local `game_id` with a canonical `game` TypeID, phase, module bootstrap, and actor-bound connection data without cosmetic slug or `handoff_ready`. Descriptor refresh SHALL preserve retained iframe identity by Session id.

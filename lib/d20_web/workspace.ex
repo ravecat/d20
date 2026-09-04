@@ -62,7 +62,7 @@ defmodule D20Web.Workspace do
         {pid, {%Session{id: id, phase: phase}, game_id}}
         when phase in [:in_progress, :finished] ->
           case Games.get(game_id) do
-            {:ok, _game} -> [{descriptor(socket, game_id, id, phase), pid}]
+            {:ok, game} -> [{descriptor(socket, game, id, phase), pid}]
             {:error, :game_not_found} -> []
           end
 
@@ -77,15 +77,15 @@ defmodule D20Web.Workspace do
     {descriptors, runtime_pids}
   end
 
-  @spec descriptor(Phoenix.Socket.t(), Game.id(), Session.id(), Session.phase()) ::
+  @spec descriptor(Phoenix.Socket.t(), Game.t(), Session.id(), Session.phase()) ::
           descriptor()
-  defp descriptor(socket, game_id, id, phase) do
+  defp descriptor(socket, game, id, phase) do
     %{
       id: id,
-      game_id: TypeID.to_string(game_id),
+      game_id: TypeID.to_string(game.id),
       phase: phase,
-      module: Module.entry(socket, game_id),
-      connection: Module.connection(socket, game_id, id)
+      module: Module.entry(socket, game),
+      connection: Module.connection(socket, game.id, id)
     }
   end
 

@@ -16,7 +16,7 @@
         {#each games as entry (entry.id)}
           {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
           {@const title = entry.game.name}
-          {@const href = `/games/${entry.id}`}
+          {@const href = `/games/${entry.slug}`}
           <li class="game-card-item">
             <a
               class={{
@@ -26,7 +26,7 @@
                 "game-card--in-development": entry.stage === "in_development",
               }}
               {href}
-              aria-labelledby={title ? `game-title-${entry.id}` : undefined}
+              aria-labelledby={title ? `game-title-${entry.slug}` : undefined}
               aria-label={title ? undefined : "Open game"}
               use:inertia={{ href }}
             >
@@ -65,7 +65,7 @@
                   <span class="game-status-badge">In development</span>
                 {/if}
                 {#if title}
-                  <h2 id={`game-title-${entry.id}`} class="game-title">{title}</h2>
+                  <h2 id={`game-title-${entry.slug}`} class="game-title">{title}</h2>
                 {/if}
               </div>
             </a>

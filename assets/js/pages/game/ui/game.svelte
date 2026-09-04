@@ -13,6 +13,7 @@
 
   type Props = InertiaProps<{
     id: string;
+    slug: string;
     stage: GameStage;
     canLaunchGame: boolean;
     game: GameMetadata;
@@ -20,7 +21,7 @@
     session?: SessionDescriptor | null;
   }>;
 
-  const { id, canLaunchGame = false, game, schema, session = null }: Props = $props();
+  const { slug, canLaunchGame = false, game, schema, session = null }: Props = $props();
 </script>
 
 <div class="game-detail-page">
@@ -88,7 +89,7 @@
                 <Lobby {session} />
               {/key}
             {:else if canLaunchGame && schema}
-              <LaunchForm {id} {schema} />
+              <LaunchForm {slug} {schema} />
             {/if}
           </div>
         </aside>

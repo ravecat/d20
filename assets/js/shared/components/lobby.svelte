@@ -10,7 +10,7 @@
   }
 
   const { session }: Props = $props();
-  const { topic, gameId } = untrack(() => session);
+  const { topic, slug } = untrack(() => session);
   const controller = createSession(topic);
   let handled = false;
 
@@ -21,7 +21,7 @@
 
         handled = true;
 
-        router.get(`/games/${gameId}`, {}, { preserveScroll: true, replace: true });
+        router.get(`/games/${slug}`, {}, { preserveScroll: true, replace: true });
       }
     }),
   );

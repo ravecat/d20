@@ -2,17 +2,15 @@
 
 - FROM: `Games page lists playable registry games`
 - TO: `Games page lists persisted catalog games`
-- FROM: `Catalog entries link by internal slug`
-- TO: `Catalog entries link by stable local id`
 
 ## MODIFIED Requirements
 
 ### Requirement: Games page lists persisted catalog games
-The system SHALL render the home game catalog from persisted `games` rows enriched with runtime metadata. Each catalog Inertia entry SHALL expose stable local game identity as string `id` containing the canonical `game` TypeID, current implementation stage as `stage`, and runtime `game` metadata without a public slug field.
+The system SHALL render the home game catalog from persisted `games` rows enriched with runtime metadata. Each catalog Inertia entry SHALL expose environment-local identity as string `id` containing the canonical `game` TypeID, stable external identity as string `slug`, current implementation stage as `stage`, and runtime `game` metadata.
 
 #### Scenario: Persisted game appears in the catalog
-- **WHEN** a persisted Qwinto row has a canonical `game` TypeID
-- **THEN** the catalog includes a game tile whose stable identity is that TypeID
+- **WHEN** the persisted Qwinto row has slug `qwinto` and a canonical `game` TypeID
+- **THEN** the catalog includes one game tile carrying both identities
 
 #### Scenario: Provider-only game is not listed
 - **WHEN** BGG contains a game that has no persisted D20 game row
@@ -20,22 +18,21 @@ The system SHALL render the home game catalog from persisted `games` rows enrich
 
 #### Scenario: Disabled game remains listed
 - **WHEN** a persisted game has enabled false
-- **THEN** the catalog still includes its tile and detail link
+- **THEN** the catalog still includes its tile and slug-based detail link
 
-### Requirement: Catalog entries link by stable local id
-The system SHALL link every catalog entry directly to `/games/:game_id` and SHALL NOT append or expose a BGG-derived public slug.
+### Requirement: Catalog entries link by internal slug
+The system SHALL link every persisted catalog entry to `/games/:slug` using its required stored slug. It SHALL NOT derive route slug from BGG title, BGG id, engine module, or environment-local TypeID.
 
-#### Scenario: Runtime name is available
-- **WHEN** a persisted `game` TypeID resolves the runtime name `Qwinto`
-- **THEN** its catalog tile links to `/games/:game_id` using that full TypeID
-- **AND** the name remains presentation only
+#### Scenario: Catalog link is generated for a persisted game
+- **WHEN** the catalog renders the persisted Qwinto row
+- **THEN** the tile links to `/games/qwinto`
 
 #### Scenario: Runtime metadata is unavailable
-- **WHEN** a persisted `game` TypeID has empty fallback metadata
-- **THEN** its catalog tile still links to `/games/:game_id` using that full TypeID
-- **AND** it remains keyboard accessible
+- **WHEN** the persisted Qwinto row has empty fallback metadata
+- **THEN** its tile still links to `/games/qwinto`
+- **AND** remains keyboard accessible
 
-#### Scenario: BGG binding changes
-- **WHEN** a later response resolves a different presentation name for a persisted `game` TypeID
-- **THEN** its catalog link retains the same full TypeID
-- **AND** local game identity remains unchanged
+#### Scenario: BGG binding or name changes
+- **WHEN** an operator edits Qwinto's BGG binding or BGG returns a different presentation name
+- **THEN** its catalog link remains `/games/qwinto`
+- **AND** its TypeID and slug remain separate from provider metadata

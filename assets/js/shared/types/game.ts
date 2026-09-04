@@ -19,6 +19,7 @@ export interface GameMetadata {
 
 export interface GameCatalogEntry {
   id: string;
+  slug: string;
   stage: GameStage;
   game: GameMetadata;
 }
@@ -28,6 +29,7 @@ export type GameStage = "planned" | "in_development" | "released";
 export interface SessionDescriptor {
   id: string;
   gameId: string;
+  slug: string;
   topic: string;
 }
 

@@ -7,6 +7,7 @@ defmodule D20.Games.GameTest do
   describe "persisted game schema" do
     test "loads permanent integer engine mappings as modules" do
       assert {:ok, %Game{} = qwinto} = Games.get(game_id(183_006))
+      assert qwinto.slug == "qwinto"
       assert qwinto.bgg_id == 183_006
       assert qwinto.stage == :released
       assert qwinto.enabled
@@ -17,6 +18,7 @@ defmodule D20.Games.GameTest do
 
     test "planned game has no engine and is non-launchable" do
       assert {:ok, %Game{} = voyages} = Games.get(game_id(350_736))
+      assert voyages.slug == "voyages"
       assert voyages.stage == :planned
       assert is_nil(voyages.engine)
       refute Games.session_launch_available?(voyages)
@@ -28,21 +30,97 @@ defmodule D20.Games.GameTest do
     end
 
     test "disabled game is non-launchable regardless of stage" do
-      game = %Game{bgg_id: 999_998, stage: :released, enabled: false, engine: D20.Qwinto.Game}
+      game = %Game{
+        slug: "disabled",
+        bgg_id: 999_998,
+        stage: :released,
+        enabled: false,
+        engine: D20.Qwinto.Game
+      }
 
       refute Games.session_launch_available?(game)
     end
 
+    test "create changeset requires the operator-assigned slug and BGG binding" do
+      changeset = Game.create_changeset(%Game{}, %{bgg_id: 999_997, stage: :planned})
+      assert changeset.errors[:slug]
+
+      changeset = Game.create_changeset(%Game{}, %{slug: "new-game", stage: :planned})
+      assert changeset.errors[:bgg_id]
+    end
+
+    test "create changeset rejects malformed and overlong slugs" do
+      for slug <- ["New-Game", "new_game", "-new-game", "new-game-", "new--game", "двадцать"] do
+        changeset =
+          Game.create_changeset(%Game{}, %{slug: slug, bgg_id: 999_997, stage: :planned})
+
+        assert changeset.errors[:slug], "expected slug #{inspect(slug)} to be rejected"
+      end
+
+      changeset =
+        Game.create_changeset(%Game{}, %{
+          slug: String.duplicate("a", 64),
+          bgg_id: 999_997,
+          stage: :planned
+        })
+
+      assert changeset.errors[:slug]
+    end
+
+    test "create changeset accepts a canonical slug and duplicates a stored slug" do
+      assert {:ok, %Game{slug: "new-game"} = created} =
+               %Game{}
+               |> Game.create_changeset(%{
+                 slug: "new-game",
+                 bgg_id: 999_997,
+                 stage: :planned,
+                 enabled: true
+               })
+               |> Repo.insert()
+
+      assert TypeID.prefix(created.id) == "game"
+
+      assert {:error, %Ecto.Changeset{} = changeset} =
+               %Game{}
+               |> Game.create_changeset(%{
+                 slug: "new-game",
+                 bgg_id: 999_996,
+                 stage: :planned,
+                 enabled: true
+               })
+               |> Repo.insert()
+
+      assert changeset.errors[:slug]
+    end
+
     test "launch-stage game without engine is rejected" do
       changeset =
-        Game.changeset(%Game{}, %{bgg_id: 999_997, stage: :released, enabled: true, engine: nil})
+        Game.create_changeset(%Game{}, %{
+          slug: "new-game",
+          bgg_id: 999_997,
+          stage: :released,
+          enabled: true,
+          engine: nil
+        })
 
       assert %{errors: errors} = changeset
       assert {"is required", _} = errors[:engine]
     end
 
+    test "ordinary update changeset cannot mutate the persisted slug" do
+      assert {:ok, %Game{} = qwinto} = Games.get(game_id(183_006))
+
+      changeset =
+        Game.changeset(qwinto, %{slug: "renamed-qwinto", bgg_id: 999_995, stage: :released})
+
+      refute Map.has_key?(changeset.changes, :slug)
+
+      assert {:ok, %Game{slug: "qwinto", bgg_id: 999_995}} =
+               Games.update(qwinto, %{slug: "renamed-qwinto", bgg_id: 999_995})
+    end
+
     test "non-positive bgg id is rejected" do
-      changeset = Game.changeset(%Game{}, %{bgg_id: -1, stage: :planned})
+      changeset = Game.create_changeset(%Game{}, %{slug: "new-game", bgg_id: -1, stage: :planned})
       assert changeset.errors[:bgg_id]
     end
 
@@ -55,7 +133,7 @@ defmodule D20.Games.GameTest do
              ]
     end
 
-    test "backfill produces canonical TypeIDs in former registry order" do
+    test "backfill produces canonical TypeIDs and former registry slugs in registry order" do
       expected_bgg_ids = [
         360_471,
         342_200,
@@ -78,17 +156,43 @@ defmodule D20.Games.GameTest do
         388_329
       ]
 
+      expected_slugs = [
+        "aquamarine",
+        "confusing-lands",
+        "death-valley",
+        "deep-sea-adventure",
+        "flip-7",
+        "fliptown",
+        "koala-rescue-club",
+        "lost-cities",
+        "nimalia",
+        "next-station-london",
+        "railroad-ink",
+        "qwinto",
+        "qwixx",
+        "shifting-stones",
+        "sky-team",
+        "trailblazers",
+        "trails-of-tucana",
+        "voyages",
+        "waypoints"
+      ]
+
       games = Repo.all(from game in Game, order_by: game.id)
       ids = Enum.map(games, &TypeID.to_string(&1.id))
 
       assert Enum.map(games, & &1.bgg_id) == expected_bgg_ids
+      assert Enum.map(games, & &1.slug) == expected_slugs
       assert Enum.count_until(Enum.uniq(ids), 20) == 19
+      assert Enum.count_until(Enum.uniq(expected_slugs), 20) == 19
       assert ids == Enum.sort(ids)
 
       assert Enum.all?(
                ids,
                &Regex.match?(~r/^game_[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}$/, &1)
              )
+
+      assert Enum.all?(expected_slugs, &Regex.match?(~r/^[a-z0-9]+(-[a-z0-9]+)*$/, &1))
 
       assert Enum.all?(games, & &1.enabled)
 
@@ -116,18 +220,46 @@ defmodule D20.Games.GameTest do
 
       assert {:ok, %Game{} = later_game} =
                %Game{}
-               |> Game.changeset(%{bgg_id: 999_996, stage: :planned, enabled: true})
+               |> Game.create_changeset(%{
+                 slug: "later-game",
+                 bgg_id: 999_996,
+                 stage: :planned,
+                 enabled: true
+               })
                |> Repo.insert()
 
       assert TypeID.prefix(later_game.id) == "game"
       assert TypeID.to_string(later_game.id) > List.last(ids)
+      assert later_game.slug == "later-game"
     end
 
     test "database rejects a non-game TypeID primary key" do
       assert {:error, %Postgrex.Error{postgres: %{constraint: "games_id_typeid_format"}}} =
                Repo.query("""
-               INSERT INTO games (id, bgg_id, stage, enabled, inserted_at, updated_at)
-               VALUES ('user_01h45y6thxeyg95gnpgqqefgpa', 999995, 'planned', TRUE, NOW(), NOW())
+               INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
+               VALUES ('user_01h45y6thxeyg95gnpgqqefgpa', 'new-game', 999995, 'planned', TRUE, NOW(), NOW())
+               """)
+    end
+
+    test "database rejects malformed and overlong slugs" do
+      assert {:error, %Postgrex.Error{postgres: %{constraint: "games_slug_format"}}} =
+               Repo.query("""
+               INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
+               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', 'New_Game', 999995, 'planned', TRUE, NOW(), NOW())
+               """)
+
+      assert {:error, %Postgrex.Error{postgres: %{constraint: "games_slug_format"}}} =
+               Repo.query("""
+               INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
+               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', '#{String.duplicate("a", 64)}', 999994, 'planned', TRUE, NOW(), NOW())
+               """)
+    end
+
+    test "database rejects a duplicated slug" do
+      assert {:error, %Postgrex.Error{postgres: %{constraint: "games_slug_index"}}} =
+               Repo.query("""
+               INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
+               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', 'qwinto', 999995, 'planned', TRUE, NOW(), NOW())
                """)
     end
   end

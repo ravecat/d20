@@ -70,10 +70,12 @@ defmodule D20Web.Admin.GameLiveTest do
       assert html =~ admin.username
       assert html =~ "Games"
       assert html =~ "BGG ID"
-      refute html =~ "New Game"
+      assert html =~ "Slug"
+      assert html =~ "New Game"
       refute html =~ "Delete"
       rendered = render(view)
       assert rendered =~ "183006"
+      assert rendered =~ "qwinto"
       assert rendered =~ TypeID.to_string(game.id)
     end
 
@@ -81,21 +83,21 @@ defmodule D20Web.Admin.GameLiveTest do
       assert {:ok, _view, html} = live(conn, ~p"/dashboard/#{game.id}/show")
 
       assert html =~ "Game"
+      assert html =~ "qwinto"
       assert html =~ "183006"
       assert html =~ "Released"
       assert html =~ "Elixir.D20.Qwinto.Game"
     end
 
-    test "exposes only index, show, and edit actions to the catalog capability", %{
+    test "exposes index, show, new, and create plus edit actions to the catalog capability", %{
       admin: admin,
       user: user
     } do
-      for action <- [:index, :show, :edit] do
+      for action <- [:index, :show, :new, :create, :edit] do
         assert GameLive.can?(%{current_user: admin}, action, nil)
         refute GameLive.can?(%{current_user: user}, action, nil)
       end
 
-      refute GameLive.can?(%{current_user: admin}, :new, nil)
       refute GameLive.can?(%{current_user: admin}, :delete, nil)
       refute Keyword.has_key?(GameLive.item_actions(delete: %{module: :delete}), :delete)
     end
@@ -114,7 +116,12 @@ defmodule D20Web.Admin.GameLiveTest do
       assert Enum.all?([:bgg_id, :stage, :enabled, :engine], &fields[&1].index_editable)
       assert fields[:id].readonly
       refute fields[:id][:index_editable]
+      assert fields[:id].except == [:new]
       assert fields[:id].module == Backpex.Fields.Text
+      refute fields[:slug][:index_editable]
+      assert fields[:slug].readonly.(%{live_action: :new}) == false
+      assert fields[:slug].readonly.(%{live_action: :edit}) == true
+      assert fields[:slug].module == Backpex.Fields.Text
     end
 
     test "persists catalog edits inline from the index table", %{admin_conn: conn, game: game} do
@@ -195,10 +202,90 @@ defmodule D20Web.Admin.GameLiveTest do
       assert D20.Repo.get!(Game, game.id) == original
     end
 
-    test "does not route game creation or deletion", %{admin_conn: conn, game: game} do
-      assert conn |> get("/dashboard/games") |> response(404)
-      assert conn |> recycle() |> get("/dashboard/new") |> response(404)
-      assert conn |> recycle() |> delete("/dashboard/#{game.id}") |> response(404)
+    test "renders a read-only slug in the edit form", %{admin_conn: conn, game: game} do
+      assert {:ok, view, html} = live(conn, ~p"/dashboard/#{game.id}/edit")
+
+      assert html =~ "qwinto"
+      assert has_element?(view, "input[name='change[slug]'][readonly]")
+      assert has_element?(view, "input[name='change[slug]'][disabled]")
+
+      view
+      |> form("#resource-form", %{"change" => %{"bgg_id" => "183006"}})
+      |> render_submit(%{"save-type" => "save"})
+
+      assert_redirect view, ~p"/dashboard"
+
+      assert %Game{slug: "qwinto", bgg_id: 183_006} = D20.Repo.get!(Game, game.id)
+    end
+
+    test "creates a valid game with defaults and a generated TypeID", %{admin_conn: conn} do
+      assert {:ok, view, _html} = live(conn, ~p"/dashboard/new")
+
+      view
+      |> form("#resource-form", %{
+        "change" => %{"slug" => "new-game", "bgg_id" => "999994", "stage" => "planned"}
+      })
+      |> render_submit(%{"save-type" => "save"})
+
+      flash = assert_redirect view, ~p"/dashboard"
+
+      assert flash["info"] =~ "created successfully"
+
+      created = D20.Repo.get_by!(Game, slug: "new-game")
+
+      assert TypeID.prefix(created.id) == "game"
+      assert created.bgg_id == 999_994
+      assert created.stage == :planned
+      assert created.enabled
+      assert is_nil(created.engine)
+    end
+
+    test "renders duplicate and invalid slug errors without persisting", %{admin_conn: conn} do
+      assert {:ok, view, _html} = live(conn, ~p"/dashboard/new")
+
+      html =
+        view
+        |> form("#resource-form", %{
+          "change" => %{"slug" => "qwinto", "bgg_id" => "999994", "stage" => "planned"}
+        })
+        |> render_submit(%{"save-type" => "save"})
+
+      assert html =~ "has already been taken"
+      refute D20.Repo.get_by(Game, bgg_id: 999_994)
+    end
+
+    test "renders an invalid slug error without persisting", %{admin_conn: conn} do
+      assert {:ok, view, _html} = live(conn, ~p"/dashboard/new")
+
+      html =
+        view
+        |> form("#resource-form", %{
+          "change" => %{"slug" => "New_Game", "bgg_id" => "999994", "stage" => "planned"}
+        })
+        |> render_submit(%{"save-type" => "save"})
+
+      assert html =~ "has invalid format"
+      refute D20.Repo.get_by(Game, bgg_id: 999_994)
+    end
+
+    test "renders a missing slug error without persisting", %{admin_conn: conn} do
+      assert {:ok, view, _html} = live(conn, ~p"/dashboard/new")
+
+      html =
+        view
+        |> form("#resource-form", %{"change" => %{"bgg_id" => "999994", "stage" => "planned"}})
+        |> render_submit(%{"save-type" => "save"})
+
+      assert html =~ "can&#39;t be blank"
+      refute D20.Repo.get_by(Game, bgg_id: 999_994)
+    end
+
+    test "denies the new form to an ordinary user", %{user_conn: conn} do
+      assert conn |> get(~p"/dashboard/new") |> response(403) == "Forbidden"
+    end
+
+    test "does not route game deletion", %{admin_conn: conn, game: game} do
+      assert conn |> delete(~p"/dashboard/#{game.id}") |> response(404)
     end
   end
 

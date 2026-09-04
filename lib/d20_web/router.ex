@@ -50,7 +50,7 @@ defmodule D20Web.Router do
 
       backpex_routes()
 
-      live_resources "", Admin.GameLive, only: [:index, :show, :edit]
+      live_resources "", Admin.GameLive, only: [:index, :show, :new, :edit]
     end
   end
 
@@ -60,8 +60,8 @@ defmodule D20Web.Router do
     get "/", PageController, :home
     get "/developers", PageController, :developers
     get "/games", PageController, :games
-    get "/games/:game_id", PageController, :game
-    post "/games/:game_id/sessions", PageController, :create_game_session
+    get "/games/:slug", PageController, :game
+    post "/games/:slug/sessions", PageController, :create_game_session
   end
 
   scope "/developers/specs" do

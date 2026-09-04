@@ -89,8 +89,8 @@ defmodule D20Web.WorkspaceChannelTest do
     assert Enum.map(sessions, & &1.phase) == [:in_progress, :in_progress]
     refute Enum.any?(sessions, &(&1.id == waiting.id))
 
-    embed_url = "https://game-#{TypeID.suffix(game_id)}.shell.example.com/"
-    origin = "https://game-#{TypeID.suffix(game_id)}.shell.example.com"
+    embed_url = "https://qwinto.shell.example.com/"
+    origin = "https://qwinto.shell.example.com"
 
     for descriptor <- sessions do
       assert descriptor.module == %{
@@ -108,6 +108,44 @@ defmodule D20Web.WorkspaceChannelTest do
       assert claims.game_id == game_id
       assert claims.topic == descriptor.connection.topic
     end
+  end
+
+  test "keeps an eligible session framed and associated after mutable game edits" do
+    actor = actor()
+    game_id = game_id(183_006)
+    session = create_session(actor.id)
+
+    assert {:ok, %{sessions: [descriptor]}, _socket} = join_workspace(actor)
+
+    assert descriptor.game_id == TypeID.to_string(game_id)
+    assert descriptor.module.embed_url == "https://qwinto.shell.example.com/"
+
+    assert {:ok, game} = D20.Games.get(game_id)
+
+    assert {:ok, edited} =
+             D20.Games.update(game, %{
+               bgg_id: 999_993,
+               stage: :released,
+               engine: D20.KoalaRescueClub.Game
+             })
+
+    assert {:ok, _disabled} = D20.Games.update(edited, %{enabled: false})
+
+    assert {:ok, current} = D20.Games.get(game_id)
+    refute D20.Games.session_launch_available?(current)
+
+    assert {:ok, %{sessions: [edited_descriptor]}, _edited_socket} = join_workspace(actor)
+
+    assert edited_descriptor.id == session.id
+    assert edited_descriptor.game_id == TypeID.to_string(game_id)
+    assert edited_descriptor.module.embed_url == "https://qwinto.shell.example.com/"
+
+    assert {:ok, claims} =
+             D20.Module.Token.verify(D20Web.Endpoint, edited_descriptor.connection.token)
+
+    assert claims.game_id == game_id
+
+    assert {:ok, {%Session{game: %D20.Qwinto.Game{}}, ^game_id}} = Sessions.get(session.id)
   end
 
   test "pushes a complete snapshot when phase eligibility changes" do

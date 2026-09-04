@@ -423,6 +423,18 @@ defmodule D20Web.UserSettingsControllerTest do
       assert Accounts.get_user_by_email(user.email)
     end
 
+    @tag :capture_log
+    test "ignores a forged administrator role when updating settings", %{conn: conn, user: user} do
+      conn =
+        put(conn, ~p"/profile", %{
+          "action" => "update_email",
+          "user" => %{"email" => unique_user_email(), "role" => "admin"}
+        })
+
+      assert redirected_to(conn) == ~p"/profile"
+      assert Accounts.get_user!(user.id).role == :user
+    end
+
     test "starts first-email verification without persisting the candidate" do
       assert_receive {:email, _setup_email}
       user = provider_user_fixture(%{username: "provider_only"}, :google)
