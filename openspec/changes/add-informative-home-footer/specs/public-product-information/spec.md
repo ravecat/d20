@@ -49,14 +49,21 @@ Privacy content supplied by #248 SHALL cover actual account data, optional email
 
 ### Requirement: Deletion instructions correspond to a usable process
 
-The deletion dependency supplied by #247 SHALL expose `/data-deletion` as a public HTTPS document with readable initial HTML, a title and revision date, and HTTP 200 for anonymous direct GETs. It SHALL describe the actual Account Settings action, confirmation/recent authentication, expected completion behavior, retained-data exceptions and timing, and private assistance when sign-in is unavailable. Instructions SHALL cover provider-only accounts without mandatory email ownership. They MUST NOT equate unlinking Facebook or signing out with D20 data deletion, advertise an unimplemented action, or treat a document URL as an automatic callback. Deletion implementation and its security/retention decisions SHALL remain owned by #247.
+The deletion dependency supplied by #247 SHALL appear as the answer to "How do I delete my account and data?" inside the Help FAQ, with the stable URL `/help#delete-account`. `/help` SHALL return HTTP 200 with readable initial HTML containing the answer, its `delete-account` id, and a revision date for anonymous HTTPS GETs without JavaScript. The answer SHALL remain expanded in the page; it MUST NOT be placed behind a FAQ accordion. Privacy SHALL link directly to the answer, and direct fragment navigation SHALL bring its heading into view without hiding it behind the fixed header. No separate deletion page or footer item SHALL be required. The answer SHALL describe the actual Account Settings action, confirmation/recent authentication, expected completion behavior, retained-data exceptions and timing, and private assistance when sign-in is unavailable. Instructions SHALL cover provider-only accounts without mandatory email ownership. They MUST NOT equate unlinking Facebook or signing out with D20 data deletion, advertise an unimplemented action, or treat a document URL as an automatic callback. Deletion implementation and its security/retention decisions SHALL remain owned by #247; #268 SHALL host its public answer in Help.
 
 #### Scenario: User requests deletion after losing sign-in access
 
-- **WHEN** a user opens `/data-deletion` without an authenticated session
+- **WHEN** a user opens `/help#delete-account` without an authenticated session
 - **THEN** they can read the supported deletion and private assistance paths
 - **AND** the public text itself does not require authentication
 - **AND** performing destructive deletion still follows #247's identity-verification boundary
+
+#### Scenario: Anonymous reviewer opens the deletion fragment
+
+- **WHEN** a reviewer follows the Meta instructions URL without cookies or JavaScript
+- **THEN** the `/help` response includes the full answer and its stable id
+- **AND** the browser fragment targets the readable deletion heading within FAQ
+- **AND** no separate document or collapsed answer is needed to read the instructions
 
 #### Scenario: Instructions exist before self-service deletion works
 

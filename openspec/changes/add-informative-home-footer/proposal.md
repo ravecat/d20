@@ -4,11 +4,12 @@ D20's footer currently exposes only a developer link, leaving visitors without a
 
 ## What Changes
 
-- Add an informative home footer with a short D20 description, grouped product/help navigation, and a distinct legal strip, informed by Board Game Arena's information architecture.
+- Add an informative home footer with a short introductory line, a centered column directory, and a distinct legal strip. Use apple.com as the layout and responsive-interaction reference; retain the useful D20 destinations identified through Board Game Arena.
 - Define public About, How to play/FAQ, and Contact/Support pages at `/about`, `/help`, and `/contact`; reuse `/games` and `/developers`.
-- Require direct links to `/privacy`, `/terms`, and `/data-deletion`, with content and deletion behavior delivered by existing issues #248 and #247.
+- Keep Privacy and Terms in the legal strip. Put account/data deletion inside FAQ at `/help#delete-account`, linked directly from Privacy and supplied to Meta as the instructions URL; no separate deletion page or footer item is needed. Content and deletion behavior remain owned by #248 and #247.
 - Keep the expanded composition on Home. Retain compact developer and legal navigation on other pages using the existing App layout.
-- Specify desktop/mobile ASCII wireframes, accessibility, responsive behavior, truthful content, ownership, production URL verification, and the Meta publication handoff.
+- Specify desktop columns and mobile disclosure rows at the existing 48rem breakpoint, including resize/orientation behavior, keyboard focus, hidden-link semantics, no-script fallback, and reduced motion.
+- Specify desktop/mobile ASCII wireframes, truthful content, ownership, production URL verification, and the Meta publication handoff.
 - Require all mandatory destinations to work before accepting footer delivery. Do not substitute placeholders or hide an incomplete mandatory policy link to pass acceptance.
 
 ## Capabilities
