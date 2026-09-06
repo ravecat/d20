@@ -10,6 +10,8 @@ D20's footer currently exposes only a developer link, leaving visitors without a
 - Keep the expanded composition on Home. Retain compact developer and legal navigation on other pages using the existing App layout.
 - Specify desktop columns and mobile disclosure rows at the existing 48rem breakpoint, including resize/orientation behavior, keyboard focus, hidden-link semantics, no-script fallback, and reduced motion.
 - Specify desktop/mobile ASCII wireframes, truthful content, ownership, production URL verification, and the Meta publication handoff.
+- Provide a concrete layout reference covering informative/compact, narrow/wide, light/dark, existing Storybook presets, supplementary viewport boundaries, and resize/focus states.
+- Prepare individual About, Help/FAQ, Contact, Privacy, and Terms page briefs with block order, copy or content contracts, public anchors, and explicit publication inputs.
 - Require all mandatory destinations to work before accepting footer delivery. Do not substitute placeholders or hide an incomplete mandatory policy link to pass acceptance.
 
 ## Capabilities
@@ -32,3 +34,11 @@ None. Existing App ownership, shell spacing, game discovery, and authentication 
 - No new package, database migration, channel/AsyncAPI change, game engine change, OAuth change, or iframe contract change is required by this footer specification.
 - The carousel in #264 has an independent acceptance boundary. This specification uses the committed `master` baseline and requires none of that worktree's uncommitted changes.
 - Rollback can restore the previous footer composition while retaining working policy/deletion URLs required by a published Meta app.
+
+## Artifact Guide
+
+- [Design](design.md): decisions, ownership, responsive state transitions, and Meta handoff.
+- [Layout and viewport reference](layout.md): geometry, variants, viewport matrix, wireframes, and review states.
+- [Prepared page briefs](pages/README.md): page index, shared article layout, individual drafts, and missing publication inputs.
+- [Footer capability](specs/informative-home-footer/spec.md) and [public-information capability](specs/public-product-information/spec.md): normative acceptance scenarios.
+- [Implementation tasks](tasks.md): work remains pending until separately implemented and verified.

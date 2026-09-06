@@ -1,5 +1,32 @@
 ## ADDED Requirements
 
+### Requirement: Prepared information pages share a responsive reading layout
+
+About, Help, Contact, Privacy, and Terms SHALL follow the page briefs in [the page index](../../pages/README.md) and use one main article, one h1, a descriptive title, and a compact narrow footer. The article SHALL remain a single reading column at the documented desktop/tablet/mobile viewports and use a centered maximum 46.25rem border-box container with 1rem inline padding. Contents lists, headings, answers, contact addresses, and paragraphs SHALL wrap in document order at 320px and 200 percent zoom without horizontal scrolling or clipping. Long-page sections SHALL remain expanded and anchor headings SHALL be visible below the fixed site header.
+
+#### Scenario: Help on desktop and mobile
+
+- **WHEN** a visitor reads Help at 1280x720, 1024x640, or 320x900
+- **THEN** How to play and FAQ retain the same section order and readable content
+- **AND** the deletion answer remains an expanded FAQ section
+- **AND** the page has a compact footer rather than Home's full directory
+
+#### Scenario: Contact address and policy text reflow
+
+- **WHEN** a confirmed long contact address or policy paragraph renders at 320px or 200 percent zoom
+- **THEN** it wraps without truncation or horizontal page scrolling
+- **AND** its meaningful text and links remain usable in both themes
+
+### Requirement: Publication distinguishes draft copy from confirmed content
+
+Public pages SHALL render only approved page copy and confirmed operational facts. Editorial notes, preparation statuses, unresolved inputs, source-code references, and placeholders in the page briefs MUST NOT appear in the product. Missing operator/contact facts, legal approval, or actual deletion instructions SHALL block publication of the dependent content. A page brief SHALL NOT be treated as proof that its route or service exists.
+
+#### Scenario: A prepared legal or contact brief has unresolved inputs
+
+- **WHEN** implementation encounters an unconfirmed operator, contact address, retention decision, or deletion step
+- **THEN** it does not publish a fabricated value or the editorial instruction
+- **AND** the affected publication criterion remains incomplete until its owner supplies the fact
+
 ### Requirement: Public product pages explain existing capabilities
 
 D20 SHALL expose About at `/about` and Help at `/help` without authentication. About SHALL explain the browser board-game service and link to Games and Help. Help SHALL explain the supported discovery, game-detail, play/session, rules, and return-to-active-game paths. Its stable `faq` section SHALL cover accounts, sign-in, playable/catalog distinctions, game-specific rules, browser support, common failures, support, and deletion. Content MUST describe delivered capabilities and MUST NOT invent game modes, availability promises, or recovery actions.

@@ -44,6 +44,8 @@ Non-goals:
 
 ## Decisions
 
+Use [layout.md](layout.md) for exact geometry, presentation variants, the viewport/state matrix, and visual-review references. Use [pages/README.md](pages/README.md) for the shared public-page layout and individual content drafts. The sections below explain the decisions and contracts those references implement; page briefs distinguish usable draft copy from inputs that block publication.
+
 ### 1. Information architecture and wireframes
 
 Use an introductory line above two equal directory columns, then a separate legal row below a fine rule. The background spans the viewport; the content stays centered and aligned to the existing Home shell. Avoid a large promotional brand column, cards, shadows, or decorative panels. English labels match the current application; translation infrastructure is outside this change.
@@ -88,6 +90,8 @@ Mobile, including 320 CSS pixels, with Help expanded after activation:
 The year marker means the rendered current year, not literal placeholder text. The brand links to `/`. Legal content follows copyright, Privacy, Terms in DOM and visual order and wraps without becoming an accordion. Explore and Help are footer group titles, not additional page links. How to play opens `/help`; FAQ opens the `faq` section of that same page; Contact opens `/contact`. The deletion answer lives inside FAQ with its own `delete-account` anchor and is not another footer item.
 
 ### 2. Required routes and content ownership
+
+Prepared page briefs: [About](pages/about.md), [Help and FAQ](pages/help.md), [Contact](pages/contact.md), [Privacy](pages/privacy.md), and [Terms](pages/terms.md). The existing Games and For developers pages are reused. New information pages use a narrow one-column article and compact footer at every viewport; their contents and anchors do not disappear into mobile footer-style disclosures.
 
 | Label | URL | Minimum useful content | Owner |
 | --- | --- | --- | --- |

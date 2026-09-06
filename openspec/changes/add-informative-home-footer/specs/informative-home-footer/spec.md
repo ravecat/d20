@@ -45,6 +45,30 @@ The footer SHALL use semantic landmarks, labelled navigation groups, meaningful 
 - **THEN** text, focus indicators, group labels, and link targets remain readable and usable
 - **AND** the footer retains its shell alignment and safe-area protection
 
+### Requirement: Footer variants have concrete viewport acceptance
+
+The implementation SHALL use the presentation/content and geometry matrix in [the layout reference](../../layout.md). Home SHALL use informative narrow; other applicable pages SHALL use compact narrow or compact wide according to their existing shell. Both themes SHALL preserve the same content and structure. Review SHALL cover the existing 1280x720 desktop, 1024x640 tablet, and 320x900 mobile Storybook presets, plus targeted 390x844, 767/768/769px boundary, 768x1024 portrait, 1440x900 large-screen, and 844x390 short-landscape checks. Content SHALL wrap without fixed-height clipping. Compact links SHALL remain visible and SHALL NOT become disclosures.
+
+#### Scenario: Tablet uses width rather than device label
+
+- **WHEN** the informative footer renders at the existing 1024x640 tablet preset
+- **THEN** its two directory columns are visible
+- **AND** at 768x1024 it uses the mobile disclosure presentation
+- **AND** the narrow inner box remains bounded rather than stretching to fill the viewport
+
+#### Scenario: Compact footer and theme coverage
+
+- **WHEN** compact narrow and compact wide are reviewed at the three existing presets in light and dark themes
+- **THEN** For developers, Privacy, and Terms remain visible in the same order
+- **AND** labels wrap when needed without an accordion or page-level overflow
+- **AND** wide versus narrow changes geometry without changing link content
+
+#### Scenario: Short landscape viewport
+
+- **WHEN** the footer renders at 844x390 CSS pixels
+- **THEN** the desktop directory remains accessible by normal page scrolling
+- **AND** neither footer nor surrounding content is clipped to viewport height
+
 ### Requirement: Directory columns become mobile disclosure rows
 
 At viewport widths greater than 48rem, the informative footer SHALL show Explore and Help as equal columns with all links visible and static headings. At widths of 48rem or less, the headings SHALL become stacked full-width disclosure controls with separators and expansion indicators. After enhancement, a mobile initial render SHALL start closed unless doing so would hide a focused link. Groups SHALL open independently. Controls SHALL report accurate `aria-expanded` and `aria-controls`. Collapsed links MUST NOT remain in the tab order or accessibility tree. Before enhancement or if it fails, all links SHALL remain readable and usable. The same link nodes SHALL serve both layouts.
