@@ -1,9 +1,5 @@
-# game-session-launch-policy Specification
+## MODIFIED Requirements
 
-## Purpose
-Define authoritative new-Session launch eligibility across persisted stage, environment, enabled state, engine availability, UI, and server boundaries.
-
-## Requirements
 ### Requirement: Session launch follows stage, environment, and enabled state
 The system SHALL allow new Session launch only when enabled is true, the persisted stage belongs to `:visible_game_stages`, and the game has a supported engine. The checked-in default SHALL permit released games only; development configuration SHALL permit released and in-development games. The predicate SHALL read configured stages at runtime without inspecting environment identity. It SHALL deny every disabled game, every game without a supported engine, and every game whose stage is absent from the configured list.
 
@@ -50,38 +46,3 @@ The game detail data contract SHALL expose whether new Session launch is allowed
 #### Scenario: Disabled released game is rendered
 - **WHEN** a released game is disabled
 - **THEN** its detail remains available with `can_launch_game` false and schema null
-
-### Requirement: Session launch policy is enforced server-side
-The slug-based page and id-based standalone-module Session-creation endpoints MUST independently enforce the complete launch policy before resolving an engine or creating a process. The standalone-module endpoint MAY return bootstrap data for an existing matching Session regardless of current stage, enabled, BGG, or engine edits.
-
-#### Scenario: Direct engine-less launch request
-- **WHEN** a client posts to `/games/:slug/sessions` for an in-development game without an engine
-- **THEN** the endpoint returns `403 Forbidden`
-- **AND** creates no Session
-
-#### Scenario: Direct disabled launch request
-- **WHEN** a client posts to `/games/:slug/sessions` for a disabled game
-- **THEN** the endpoint returns `403 Forbidden`
-- **AND** creates no Session
-
-#### Scenario: Disabled standalone launch request
-- **WHEN** a client posts to `/modules/:game_id` without a Session id for a disabled game
-- **THEN** the endpoint returns `403 Forbidden`
-- **AND** creates no Session
-
-#### Scenario: In-development production launch request
-- **WHEN** a client posts to either Session-creation endpoint for an in-development game in production
-- **THEN** the endpoint returns `403 Forbidden`
-- **AND** creates no Session
-
-#### Scenario: Existing standalone Session bootstrap
-- **WHEN** a client posts a matching existing Session id to `/modules/:game_id`
-- **THEN** the endpoint returns bootstrap independently of current launch availability
-
-#### Scenario: Allowed launch request
-- **WHEN** a client posts valid attrs for an enabled released game or enabled in-development game in development
-- **THEN** the existing Session creation and response behavior is preserved
-
-#### Scenario: Game is disabled after Session creation
-- **WHEN** an operator disables a game with a running Session
-- **THEN** no channel, ModuleSocket, Workspace, or network path disconnects or reauthorizes that Session

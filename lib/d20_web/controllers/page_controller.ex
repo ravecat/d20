@@ -60,7 +60,8 @@ defmodule D20Web.PageController do
   def game(conn, %{"slug" => slug} = params) do
     with {:ok, {game, metadata}} <- Games.fetch_by_slug(slug),
          {:ok, session} <- resolve_game_session(game, params["session"]),
-         true <- game.stage in Games.visible_stages() or not is_nil(session) do
+         true <-
+           game.stage in Application.fetch_env!(:d20, :visible_game_stages) or not is_nil(session) do
       render_game(conn, game, metadata, session)
     else
       false ->

@@ -39,8 +39,9 @@ config :backpex,
 config :d20,
   ecto_repos: [D20.Repo],
   generators: [timestamp_type: :utc_datetime],
-  env: config_env(),
   session_idle_timeout: :timer.minutes(30)
+
+config :d20, :visible_game_stages, [:released]
 
 # Steam OpenID assertions arrive in query parameters before the provider controller runs.
 # Phoenix's global logging boundary must therefore redact them here; the Ueberauth adapter

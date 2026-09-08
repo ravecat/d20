@@ -85,7 +85,7 @@ defmodule D20.GamesTest do
 
     original_config = Application.get_env(:d20, BoardGameGeek, :not_configured)
 
-    original_environment = Application.get_env(:d20, :env, :not_configured)
+    original_stages = Application.fetch_env!(:d20, :visible_game_stages)
 
     original_req_options = Req.default_options()
 
@@ -95,10 +95,7 @@ defmodule D20.GamesTest do
     on_exit(fn ->
       Req.default_options(original_req_options)
 
-      case original_environment do
-        :not_configured -> Application.delete_env(:d20, :env)
-        config -> Application.put_env(:d20, :env, config)
-      end
+      Application.put_env(:d20, :visible_game_stages, original_stages)
 
       case original_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
@@ -178,11 +175,11 @@ defmodule D20.GamesTest do
   test "list_playable owns availability and ordering before applying the limit" do
     stub_registered_bgg_games()
 
-    for {environment, expected} <- [
-          dev: [425_873, 183_006, 352_418, 353_545],
-          prod: [425_873, 183_006]
+    for {stages, expected} <- [
+          {[:released, :in_development], [425_873, 183_006, 352_418, 353_545]},
+          {[:released], [425_873, 183_006]}
         ] do
-      Application.put_env(:d20, :env, environment)
+      Application.put_env(:d20, :visible_game_stages, stages)
       assert {:ok, games} = Games.list_playable(8)
       assert Enum.map(games, & &1.id) == Enum.map(expected, &game_id/1)
     end
@@ -196,12 +193,12 @@ defmodule D20.GamesTest do
     stub_registered_bgg_games()
     excluded_ids = Enum.map([425_873, 183_006], &game_id/1)
 
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     assert {:ok, games} = Games.list_browse(excluded_ids)
     expected_ids = Enum.map(@ordered_bgg_ids, &game_id/1) -- excluded_ids
     assert MapSet.new(games, & &1.id) == MapSet.new(expected_ids)
 
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
     assert {:ok, _game} = Games.update(game_fixture(183_006), %{enabled: false})
     assert {:ok, [game]} = Games.list_browse([game_id(425_873)])
     assert game.id == game_id(183_006)
@@ -295,7 +292,7 @@ defmodule D20.GamesTest do
 
   test "schema-field conditions do not imply launch policy" do
     stub_registered_bgg_games()
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
     next_station_id = game_id(353_545)
 
     assert {:ok, [%{id: ^next_station_id}]} =
@@ -459,8 +456,8 @@ defmodule D20.GamesTest do
     assert {:error, :game_not_found} = Games.get_by_slug("not-a-typeid")
   end
 
-  test "allows released and Next Station launch in development" do
-    Application.put_env(:d20, :env, :dev)
+  test "allows released and in-development launch when both stages are configured" do
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     assert {:ok, released} = Games.get(game_id(183_006))
     assert {:ok, koala} = Games.get(game_id(425_873))
     assert {:ok, next_station} = Games.get(game_id(353_545))
@@ -472,16 +469,23 @@ defmodule D20.GamesTest do
     refute Games.session_launch_available?(engine_less)
   end
 
-  test "only the development environment exposes unreleased stages" do
-    for environment <- [:dev, :prod, :test] do
-      Application.put_env(:d20, :env, environment)
-      expected = if environment == :dev, do: [:in_development, :released], else: [:released]
-      assert Games.visible_stages() == expected
-    end
+  test "an empty stage policy hides games and denies new launches without filtering generic listing" do
+    Application.put_env(:d20, :visible_game_stages, [])
+    assert {:ok, released} = Games.get(game_id(183_006))
+    assert {:ok, next_station} = Games.get(game_id(353_545))
+
+    refute Games.session_launch_available?(released)
+    refute Games.session_launch_available?(next_station)
+    assert {:ok, []} = Games.list_playable(8)
+    assert {:ok, []} = Games.list_browse([])
+
+    stub_registered_bgg_games()
+    assert {:ok, games} = Games.list(where: [stage: :released])
+    assert MapSet.new(games, & &1.id) == MapSet.new([game_id(183_006), game_id(425_873)])
   end
 
-  test "disables Next Station launch in production" do
-    Application.put_env(:d20, :env, :prod)
+  test "denies in-development launch when only released stages are configured" do
+    Application.put_env(:d20, :visible_game_stages, [:released])
     assert {:ok, released} = Games.get(game_id(183_006))
     assert {:ok, next_station} = Games.get(game_id(353_545))
     assert {:ok, engine_less} = Games.get(game_id(350_736))

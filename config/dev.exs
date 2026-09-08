@@ -1,5 +1,7 @@
 import Config
 
+config :d20, :visible_game_stages, [:released, :in_development]
+
 database_url = System.get_env("DATABASE_URL")
 
 static_url_host =

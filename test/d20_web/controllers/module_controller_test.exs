@@ -7,9 +7,9 @@ defmodule D20Web.ModuleControllerTest do
   alias D20.Sessions.Session
 
   setup do
-    original_environment = Application.get_env(:d20, :env, :not_configured)
+    original_stages = Application.fetch_env!(:d20, :visible_game_stages)
 
-    on_exit(fn -> Application.put_env(:d20, :env, original_environment) end)
+    on_exit(fn -> Application.put_env(:d20, :visible_game_stages, original_stages) end)
   end
 
   test "POST /modules/:game_id creates a module session and returns bootstrap", %{conn: conn} do
@@ -50,6 +50,27 @@ defmodule D20Web.ModuleControllerTest do
     refute Map.has_key?(members, actor_id)
   end
 
+  test "configured visibility denies new module sessions but preserves existing bootstrap", %{
+    conn: conn
+  } do
+    game_id = game_id(425_873)
+    assert {:ok, session} = D20.Sessions.create(game_id, KoalaGame, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    Application.put_env(:d20, :visible_game_stages, [])
+
+    before_count = Elixir.Registry.count(D20.Registry)
+    assert conn |> post(~p"/modules/#{game_id}", %{}) |> response(403) == "Forbidden"
+    assert Elixir.Registry.count(D20.Registry) == before_count
+
+    response = post conn, ~p"/modules/#{game_id}", %{session: session.id}
+    session_id = session.id
+
+    assert %{"session" => ^session_id, "bootstrap" => %{"token" => token}} =
+             json_response(response, 200)
+
+    assert {:ok, %{game_id: ^game_id}} = D20.Module.Token.verify(D20Web.Endpoint, token)
+  end
+
   test "POST /modules/:game_id accepts creation attrs", %{conn: conn} do
     game_id = game_id(425_873)
 
@@ -74,7 +95,7 @@ defmodule D20Web.ModuleControllerTest do
     session_id = session.id
     topic = "session:#{session_id}"
 
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
 
     {:ok, game} = Games.get(game_id)
     assert {:ok, _game} = Games.update(game, %{stage: :in_development, enabled: false})
@@ -132,10 +153,9 @@ defmodule D20Web.ModuleControllerTest do
     assert {:ok, %{game_id: ^game_id}} = D20.Module.Token.verify(D20Web.Endpoint, token)
   end
 
-  test "POST /modules/:game_id forbids creating an in-development session in production", %{
-    conn: conn
-  } do
-    Application.put_env(:d20, :env, :prod)
+  test "POST /modules/:game_id forbids creating an in-development session under the released-only policy",
+       %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released])
 
     game_id = game_id(425_873)
     {:ok, game} = Games.get(game_id)
@@ -146,8 +166,9 @@ defmodule D20Web.ModuleControllerTest do
     assert response(conn, 403) == "Forbidden"
   end
 
-  test "POST /modules/:game_id allows an in-development session in dev", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+  test "POST /modules/:game_id allows an in-development session when both stages are configured",
+       %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     game_id = game_id(353_545)
     conn = post conn, ~p"/modules/#{game_id}", %{}
     assert %{"session" => session_id} = json_response(conn, 200)

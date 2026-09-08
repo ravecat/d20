@@ -106,9 +106,9 @@ defmodule D20Web.PageControllerTest do
     original_google_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Google.OAuth)
     original_steam_config = Application.get_env(:ueberauth, Ueberauth.Strategy.Steam)
 
-    original_environment = Application.get_env(:d20, :env, :not_configured)
+    original_stages = Application.fetch_env!(:d20, :visible_game_stages)
 
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     Application.put_env(:d20, BoardGameGeek, api_key: "test-token")
 
     Application.put_env(:ueberauth, Ueberauth.Strategy.Apple, [])
@@ -161,10 +161,7 @@ defmodule D20Web.PageControllerTest do
         config -> Application.put_env(:ueberauth, Ueberauth.Strategy.Steam, config)
       end
 
-      case original_environment do
-        :not_configured -> Application.delete_env(:d20, :env)
-        config -> Application.put_env(:d20, :env, config)
-      end
+      Application.put_env(:d20, :visible_game_stages, original_stages)
 
       case original_bgg_config do
         :not_configured -> Application.delete_env(:d20, BoardGameGeek)
@@ -174,7 +171,7 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "GET / renders playable games and the flat browse list", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     stub_registered_bgg_games()
 
     conn = get(conn, ~p"/")
@@ -226,8 +223,8 @@ defmodule D20Web.PageControllerTest do
     refute Map.has_key?(game, :bootstrap)
   end
 
-  test "GET / applies environment-sensitive launch filtering", %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+  test "GET / applies the configured stage policy to launch filtering", %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released])
     stub_registered_bgg_games()
 
     conn = get(conn, ~p"/")
@@ -239,9 +236,9 @@ defmodule D20Web.PageControllerTest do
     assert browse_games == []
   end
 
-  test "GET / keeps disabled released games visible but excludes unreleased games in production",
+  test "GET / keeps disabled released games visible but excludes unreleased games under the released-only policy",
        %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
     {:ok, qwinto} = D20.Games.get(game_id(183_006))
     assert {:ok, _game} = D20.Games.update(qwinto, %{enabled: false})
     names = Map.take(@registered_game_names, ["425873", "183006"])
@@ -268,7 +265,7 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "GET / keeps disabled games in browse and matches session launch policy", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     {:ok, qwinto} = D20.Games.get(game_id(183_006))
     assert {:ok, _game} = D20.Games.update(qwinto, %{enabled: false})
     stub_registered_bgg_games()
@@ -285,7 +282,7 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "GET / returns no browse games when every record is selected as playable", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     kept_bgg_ids = [425_873, 183_006, 352_418, 353_545]
     kept_ids = Enum.map(kept_bgg_ids, &game_id/1)
 
@@ -304,7 +301,7 @@ defmodule D20Web.PageControllerTest do
   test "GET / caps playable games at eight and keeps later launchable games in browse", %{
     conn: conn
   } do
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
 
     updated_games =
       Enum.map([360_471, 342_200, 322_703, 169_654, 420_087, 352_418, 50], fn bgg_id ->
@@ -338,7 +335,7 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "GET / limits browse selection to 32 before metadata enrichment", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
 
     for bgg_id <- 900_001..900_050 do
       Repo.insert!(%Game{slug: "game-#{bgg_id}", bgg_id: bgg_id})
@@ -658,8 +655,10 @@ defmodule D20Web.PageControllerTest do
     assert String.starts_with?(id, "game_")
   end
 
-  test "GET /games/:slug keeps Koala launch available in production", %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+  test "GET /games/:slug keeps Koala launch available under the released-only policy", %{
+    conn: conn
+  } do
+    Application.put_env(:d20, :visible_game_stages, [:released])
     stub_bgg_game(@koala_xml, "425873")
 
     conn = get(conn, ~p"/games/koala-rescue-club")
@@ -667,8 +666,10 @@ defmodule D20Web.PageControllerTest do
     assert %{stage: :released, canLaunchGame: true} = inertia_props(conn)
   end
 
-  test "GET /games/:slug allows Next Station launch in development", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+  test "GET /games/:slug allows Next Station launch when both stages are configured", %{
+    conn: conn
+  } do
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     stub_bgg_game(@next_station_xml, "353545")
 
     conn = get(conn, ~p"/games/next-station-london")
@@ -690,8 +691,8 @@ defmodule D20Web.PageControllerTest do
     assert Enum.sort(required) == ["objectives", "powers"]
   end
 
-  test "GET /games/:slug hides Next Station in production", %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+  test "GET /games/:slug hides Next Station under the released-only policy", %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released])
     stub_bgg_game(@next_station_xml, "353545")
 
     conn = get(conn, ~p"/games/next-station-london")
@@ -801,7 +802,7 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "POST /games/:slug/sessions creates a session and redirects to its lobby", %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
     game_id = game_id(183_006)
     game_id_string = TypeID.to_string(game_id)
 
@@ -831,7 +832,7 @@ defmodule D20Web.PageControllerTest do
   end
 
   test "POST /games/:slug/sessions creates a Koala session with submitted attrs", %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
     game_id = game_id(425_873)
 
     conn =
@@ -871,7 +872,7 @@ defmodule D20Web.PageControllerTest do
   test "existing session remains accessible after a game becomes unreleased and disabled", %{
     conn: conn
   } do
-    Application.put_env(:d20, :env, :prod)
+    Application.put_env(:d20, :visible_game_stages, [:released])
     game_id = game_id(183_006)
     {:ok, session} = D20.Sessions.create(game_id, D20.Qwinto.Game, "owner")
     on_exit(fn -> D20.Sessions.stop(session.id) end)
@@ -885,10 +886,32 @@ defmodule D20Web.PageControllerTest do
     assert conn |> recycle() |> get(~p"/games/qwinto") |> html_response(404) == "Not Found"
   end
 
-  test "a missing or mismatched session does not expose an unreleased game in production", %{
+  test "configured visibility changes preserve existing sessions and deny new launches", %{
     conn: conn
   } do
-    Application.put_env(:d20, :env, :prod)
+    {:ok, session} = D20.Sessions.create(game_id(183_006), D20.Qwinto.Game, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    Application.put_env(:d20, :visible_game_stages, [])
+
+    home = get(conn, ~p"/")
+    assert %{playableGames: [], games: []} = inertia_props(home)
+
+    response = get(conn, ~p"/games/qwinto?session=#{session.id}")
+    session_id = session.id
+    assert %{canLaunchGame: false, session: %{id: ^session_id}} = inertia_props(response)
+    assert conn |> get(~p"/games/qwinto") |> html_response(404) == "Not Found"
+
+    before_count = Elixir.Registry.count(D20.Registry)
+
+    assert conn |> post(~p"/games/qwinto/sessions") |> text_response(403) ==
+             "Game sessions are unavailable."
+
+    assert Elixir.Registry.count(D20.Registry) == before_count
+  end
+
+  test "a missing or mismatched session does not expose an unreleased game under the released-only policy",
+       %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released])
     {:ok, session} = D20.Sessions.create(game_id(183_006), D20.Qwinto.Game, "owner")
     on_exit(fn -> D20.Sessions.stop(session.id) end)
 
@@ -902,8 +925,9 @@ defmodule D20Web.PageControllerTest do
     end
   end
 
-  test "POST /games/:slug/sessions allows in-development games in dev", %{conn: conn} do
-    Application.put_env(:d20, :env, :dev)
+  test "POST /games/:slug/sessions allows in-development games when both stages are configured",
+       %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     game_id = game_id(353_545)
     conn = post(conn, ~p"/games/next-station-london/sessions")
     %URI{query: query} = conn |> redirected_to(303) |> URI.parse()
@@ -921,8 +945,9 @@ defmodule D20Web.PageControllerTest do
     assert Elixir.Registry.count(D20.Registry) == before_count
   end
 
-  test "POST /games/:slug/sessions forbids in-development launch in production", %{conn: conn} do
-    Application.put_env(:d20, :env, :prod)
+  test "POST /games/:slug/sessions forbids in-development launch under the released-only policy",
+       %{conn: conn} do
+    Application.put_env(:d20, :visible_game_stages, [:released])
 
     game_id = game_id(183_006)
     {:ok, game} = D20.Games.get(game_id)

@@ -99,7 +99,7 @@ defmodule D20.Games do
   """
   @spec list_playable(term()) :: {:ok, [catalog_entry()]} | {:error, term()}
   def list_playable(limit) do
-    stages = visible_stages()
+    stages = Application.fetch_env!(:d20, :visible_game_stages)
     engines = Game.engines()
 
     list(
@@ -118,7 +118,7 @@ defmodule D20.Games do
   """
   @spec list_browse([Game.id()]) :: {:ok, [catalog_entry()]} | {:error, term()}
   def list_browse(excluded_ids) do
-    stages = visible_stages()
+    stages = Application.fetch_env!(:d20, :visible_game_stages)
     list(where: dynamic([game], game.stage in ^stages and game.id not in ^excluded_ids))
   end
 
@@ -170,21 +170,12 @@ defmodule D20.Games do
   end
 
   @doc """
-  Returns the stages visible in the current application environment.
-  """
-  @spec visible_stages() :: [:in_development | :released]
-  def visible_stages do
-    if Application.fetch_env!(:d20, :env) == :dev,
-      do: Ecto.Enum.values(Game, :stage),
-      else: [:released]
-  end
-
-  @doc """
   Returns whether a new Session may be created for the persisted game.
   """
   @spec session_launch_available?(Game.t()) :: boolean()
   def session_launch_available?(%Game{enabled: true} = game) do
-    game.stage in visible_stages() and match?({:ok, _engine}, engine(game))
+    game.stage in Application.fetch_env!(:d20, :visible_game_stages) and
+      match?({:ok, _engine}, engine(game))
   end
 
   def session_launch_available?(%Game{}), do: false
