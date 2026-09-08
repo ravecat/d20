@@ -12,8 +12,8 @@ The footer currently links to the GitHub source repository. The product directio
 
 - Remove visible edge borders and shadows from the header and footer in every scroll state.
 - Remove the rectangular outline around the D20 brand while keeping keyboard focus unmistakable.
-- Keep the existing default, narrow-screen, and compact brand dimensions.
-- Make the global document scroll position drive compact presentation without Svelte component state.
+- Keep explicit default, narrow-screen, and compact brand states, applying the 25 percent size reduction requested in the 2026-09-08 visual review.
+- Let the root CSS timeline drive compact interpolation; use only a reactive at-top guard to reset inactive timelines after content shrink.
 - Keep the document position stable but temporarily suspend root scrolling while the modal authentication dialog owns interaction and overflow.
 - Make D20 dimensions explicit in the D20 component instead of passing them through CSS custom properties.
 - Make `/developers` a clear internal destination from every game-shell footer.
@@ -85,7 +85,7 @@ Bundling the React renderer into the Svelte application was rejected because the
 
 The layout will use normal document flow with a `100dvh` minimum block size instead of fixing a viewport-sized grid around a nested main scroller. The main region will no longer declare page-level overflow, overscroll containment, a stable scrollbar gutter, or Inertia's `scroll-region` attribute. Short pages still place the footer at the viewport end through the grid's flexible middle row; long pages expand that row and place the footer after the content. The document root becomes the only page-level scrolling element.
 
-The header will be fixed out of document flow and the layout will reserve its expanded responsive block size (`5rem` normally and `4.5rem` through the existing `34rem` breakpoint). The document will use the same responsive values as block-start scroll padding so fragment navigation, focus scrolling, and `scrollIntoView()` targets remain below the fixed surface, including in the expanded fallback. This keeps the header pinned without making its animated dimensions part of the root scroll range. The static reserve prevents content jumps and initial interactive-content overlap; it scrolls away with the page instead of becoming a permanent gap after compaction. The header receives the shell background so page content can pass behind it without painting through the fixed surface. Header and footer stop reserving companion scrollbar gutters because the root scrollbar already reduces the common viewport once for every shell region.
+The header will be fixed out of document flow and the layout will reserve its expanded responsive block size (`3.75rem` normally and `3.375rem` through the existing `34rem` breakpoint). The document will use the same responsive values as block-start scroll padding so fragment navigation, focus scrolling, and `scrollIntoView()` targets remain below the fixed surface, including in the expanded fallback. This keeps the header pinned without making its animated dimensions part of the root scroll range. The static reserve prevents content jumps and initial interactive-content overlap; it scrolls away with the page instead of becoming a permanent gap after compaction. The header receives the shell background so page content can pass behind it without painting through the fixed surface. Header and footer stop reserving companion scrollbar gutters because the root scrollbar already reduces the common viewport once for every shell region.
 
 The header will bind its component-scoped keyframes directly to `scroll(block root)` and interpolate padding, brand gap, mark dimensions, and label dimensions over the first 24 pixels of document scrolling. Feature detection will require both `animation-timeline: scroll()` and `animation-range` support. The expanded header remains the base style for unsupported browsers, and reduced-motion users retain the expanded state instead of receiving continuous scroll-linked resizing.
 
@@ -108,7 +108,7 @@ This is an external DOM side effect because the standards-mode document scrollin
 - [Firefox and Safari before 26 do not apply the compact enhancement] -> Keep the expanded header as the complete functional fallback and gate every timeline declaration with feature detection.
 - [The footer is no longer persistently visible on long pages] -> Keep it after the main region in ordinary document order and at the viewport end on short pages; the request preserves pinned-header behavior, not a second bounded scrollport.
 - [The expanded header reserve could leave empty space after compaction] -> Keep the reserve in document flow so ordinary scrolling consumes it, and verify the first interactive content meets the compact header without a persistent gap or jump at desktop and mobile widths.
-- [Animating layout dimensions can require layout work during the first 24 pixels of scrolling] -> Keep the fixed header outside the root scroll range, limit the range to the small pinned surface, and avoid a JavaScript scroll callback that would add component updates to the same path.
+- [Animating layout dimensions can require layout work during the first 24 pixels of scrolling] -> Keep the fixed header outside the root scroll range, limit the range to the small pinned surface, and keep interpolation in CSS; the reactive guard only changes the header class when crossing the top boundary.
 - [Mobile Safari can differ in viewport and root-scroll behavior around the virtual keyboard] -> Use the standards-mode `document.scrollingElement`, keep the dialog as the independent `100dvh` scroller, and validate supported desktop browsers plus the available mobile viewport while retaining real-device iOS verification as a residual risk.
 
 ## Migration Plan
@@ -118,3 +118,17 @@ Apply the component style and read-only route changes without data or deployment
 ## Open Questions
 
 None.
+
+
+## Header proportions review - 2026-09-08 (#268)
+
+This contract update supports the ongoing `add-informative-home-footer` visual review in its owning worktree. Reduce all brand mark dimensions, label font sizes, letter spacing and brand gaps to 75 percent. Mark sizes become 1.959rem by 2.25rem on desktop, 1.63275rem by 1.875rem at 34rem and below, and 1.3065rem by 1.5rem when compact. Label sizes become 0.65625rem expanded and 0.5625rem compact. Log in uses 1.875rem expanded/1.5rem compact minimum height, 0.75rem inline padding, 0.6rem type and 75 percent of the existing corner radius. Keep native sizes rather than a visual transform.
+
+The follow-up spacing correction reduces header minimum block sizes to 3.75rem desktop, 3.375rem narrow and 2.3625rem compact. Remove stacked block padding and use the existing flex alignment to center the contents, leaving 0.75rem around the expanded mark and 0.43125rem when compact, a 15 percent increase from the prior 0.375rem inset. The minimum interpolates with the existing root-scroll keyframe; update both layout reserve and root scroll padding to the expanded heights. Catalog/footer intervals, edge alignment and reduced-motion/unsupported-browser behavior remain intact. Existing focus indicators, brand/login dimensions and authenticated account-link dimensions are preserved; the account controls fit inside the centered row. Validate root-aligned targets and initial content against the smaller fixed header. Rollback restores the preceding height/reserve declarations and matching references.
+
+Validate size ratios and fixed header heights in desktop, narrow and compact states, login opening/closing, existing header/layout browser tests, affected page screenshots, scoped formatting/lint and type checks. #268 owns this styling increment; existing developer-list and lifecycle tasks remain open.
+
+
+## Inactive scroll timeline correction - 2026-09-08
+
+At 697x807, opening both footer disclosures allows scrolling. After compaction, closing them can remove overflow and clamp root scrolling to zero while Chromium retains animation progress at one. The 37.8px header then leaves a 22.2px blank region inside the 60px expanded reserve. Use Svelte's reactive window scroll offset to disable the existing CSS animations at zero; CSS continues to interpolate the scrolled state. This changes no reserve or viewport breakpoint and introduces no dimensions observer or custom scroll listener. Verify the actual content-shrink transition, restored expanded geometry, existing 12px/24px scroll progress, reduced motion and keyboard behavior.

@@ -14,7 +14,7 @@ The public [Board Game Arena home page](https://en.boardgamearena.com/) was read
 
 | Observed BGA group | D20 decision | Purpose |
 | --- | --- | --- |
-| Help | About, How to play, FAQ, Contact / Support | Explain the service and provide recovery/help paths |
+| Help | About, How to play, FAQ, Contact / support | Explain the service and provide recovery/help paths |
 | Contribute | Existing For developers; publisher/rights inquiries through Contact | Support actual contribution paths |
 | Navigate | Existing Games; existing header brand links to Home | Reuse useful public destinations |
 | Follow us | Omit initially | No verified D20 social destination is established |
@@ -59,7 +59,7 @@ Desktop, aligned with the current narrow Home container:
 | Explore                Help                                         |
 | About                  How to play                                  |
 | Games                  FAQ                                          |
-| For developers         Contact / Support                            |
+| For developers         Contact / support                            |
 |                                                                     |
 |---------------------------------------------------------------------|
 | (c) <current year> D20             Privacy | Terms                   |
@@ -75,7 +75,7 @@ Mobile, including 320 CSS pixels, with Help expanded after activation:
 | Help                         v |
 |   How to play                  |
 |   FAQ                          |
-|   Contact / Support            |
+|   Contact / support            |
 |--------------------------------|
 | (c) <current year> D20          |
 | Privacy | Terms                |
@@ -91,11 +91,11 @@ Prepared page briefs: [About](pages/about.md), [Help and FAQ](pages/help.md), [C
 | Label | URL | Minimum useful content | Owner |
 | --- | --- | --- | --- |
 | About | `/about` | Fan project creating digital versions of well-known board games; invite players, publishers, developers, and designers, with Contact, rights-holder, and developer links; no separate Games-page link or unsupported claims | #268 |
-| For Publishers and Rightholders | `/rights-holders` | Game proposals and rights concerns, with a confirmed monitored contact | #268; blocked pending approved content/contact |
+| For publishers and rightholders | `/rights-holders` | Game proposals and rights concerns, with a confirmed monitored contact | #268; blocked pending approved content/contact |
 | For developers | `/developers` | Existing integration guidance | Existing developer page |
 | How to play | `/help` | Find a game, open its details, follow available play/session actions, find game-specific rules, return to active games | #268 |
 | FAQ | `/help#faq` | Accounts and sign-in methods, catalog versus playable entries, game rules, supported browsers, common loading/auth failures, support and deletion links | #268 |
-| Contact / Support | `/contact` | Confirmed operator contact, bug-report instructions, account/privacy requests, publisher/rights inquiries, and a private support channel | #268, operator supplies facts |
+| Contact / support | `/contact` | Confirmed operator contact, bug-report instructions, account/privacy requests, publisher/rights inquiries, and a private support channel | #268, operator supplies facts |
 | Privacy | `/privacy` | Policy content specified below | #248 |
 | Terms | `/terms` | Service terms specified below | #248 |
 | How do I delete my account and data? (within FAQ) | `/help#delete-account` | Real deletion instructions and recovery/contact path; direct Privacy and Meta target | #247 supplies content; #268 hosts the Help section |
@@ -116,7 +116,7 @@ Use the existing Svelte/Inertia page path for About and Contact and the normal P
 
 Required destinations are static content, so the footer has no fetch, loading skeleton, carousel state, or independent error state. The browser owns mobile disclosure state; add no custom state synchronization, library, storage persistence, or user-agent detection. Missing mandatory content is an acceptance failure. Optional social links are omitted unless a separately approved real destination is supplied. Links alone must not load a Meta SDK or other third-party script.
 
-Keep directory markup and styles together in `footer.svelte`. Use ordinary desktop lists and native mobile `details`/`summary` elements, selected only by the existing CSS media query. Write Explore and Help as two explicit navigation blocks with literal headings and anchors. Apply `use:inertia` directly to About, For Publishers and Rightholders, For developers, and Contact / Support anchors, reading their existing href; keep Help/FAQ and legal links ordinary. Omit the group array, link loops, and navigation flags; only one representation is visible and accessible at a time. This avoids forcing content inside closed details visible on desktop and works within the existing browser policy. There is no reactive disclosure state, observer, media-query API, computed-style read, mount callback, or custom focus handling. Keep the local `footer` class prefix and scoped root selector.
+Keep directory markup and styles together in `footer.svelte`. Use ordinary desktop lists and native mobile `details`/`summary` elements, selected only by the existing CSS media query. Write Explore and Help as two explicit navigation blocks with literal headings and anchors. Apply `use:inertia` directly to About, For publishers and rightholders, For developers, and Contact / support anchors, reading their existing href; keep Help/FAQ and legal links ordinary. Omit the group array, link loops, and navigation flags; only one representation is visible and accessible at a time. This avoids forcing content inside closed details visible on desktop and works within the existing browser policy. There is no reactive disclosure state, observer, media-query API, computed-style read, mount callback, or custom focus handling. Keep the local `footer` class prefix and scoped root selector.
 
 ### 4. Responsive behavior and breakpoint transitions
 
@@ -124,14 +124,14 @@ At widths above 48rem, show equal columns with static headings and every link. A
 
 The user explicitly prioritized native simplicity over automatic focus handling on 2026-09-07. CSS switches between the two representations; mobile disclosure state survives desktop/mobile transitions while the component stays mounted. Do not add focus transfer, focused-link exceptions, automatic state reset, persisted state across visits, or disclosure event handlers. A focused element may lose focus when its representation becomes hidden. This replaces the earlier custom transition guarantees.
 
-Use native expanded semantics instead of manually assigning `aria-expanded`. Collapsed or CSS-hidden links leave keyboard and accessibility navigation. Keep at least 44px summary rows and visible keyboard outlines. Changes are immediate with no disclosure animation, including under reduced motion. No resize-triggered navigation, remount, scroll, or layout measurement is needed.
+Use native expanded semantics instead of manually assigning `aria-expanded`. Collapsed or CSS-hidden links leave keyboard and accessibility navigation. Keep at least 2rem summary rows with 0.375rem block padding and visible keyboard outlines. Changes are immediate with no disclosure animation, including under reduced motion. No resize-triggered navigation, remount, scroll, or layout measurement is needed.
 
 ### 4.1 Visual and accessibility constraints
 
 - Render one page-level `footer` after `main`, with distinctly labelled navigation groups and real anchors.
 - Retain the existing 46.25rem narrow and 64rem wide maximum widths, 1rem narrow insets, wide 1rem/1.5rem breakpoint behavior, and bottom safe-area protection.
 - Match Home's full-width page surface, with a centered inner container, fine section separators, compact regular-weight link lists, and stronger group headings. Use existing fonts and theme tokens. Normal text and links need at least 4.5:1 contrast in light and dark themes; do not copy Apple's small font size at the expense of readability.
-- Preserve a visible focus indicator and logical link order. Provide at least 24 by 24 CSS-pixel link targets or equivalent spacing; target a comfortable 44px row height on mobile.
+- Preserve a visible focus indicator and logical link order. Provide at least 24 by 24 CSS-pixel link targets or equivalent spacing; target a comfortable 2rem row height on mobile.
 - Permit text and legal links to wrap at 320 CSS pixels and 200 percent zoom. Do not truncate required labels, clip focus, or create page-level horizontal scrolling.
 - Keep the footer in document flow. It must stay reachable with empty or short Home content and avoid overlapping the existing Workspace controls. Reduced motion must disable disclosure and inherited nonessential transitions.
 
@@ -185,4 +185,34 @@ No unresolved choice blocks this footer design. The following are explicit conte
 
 ## Latest review scope
 
-The final requested Explore label is `For Publishers and Rightholders`, replacing Games. Reserve `/rights-holders` for game-adaptation/placement proposals and concerns about rights in existing game content. On 2026-09-07 the user supplied `support@d20.ravecat.io` for support/feedback and `rights@d20.ravecat.io` for game proposals/rights inquiries and authorized preparing pages and footer links while mailbox provisioning is in progress. Use the existing ASCII production domain; the visually similar Cyrillic character in the message is not part of the configured domain. Implement public Inertia pages with literal mailto links, selectable addresses, concise inquiry guidance, and cross-links. Apply Inertia only to site-page navigation, never mailto links. Do not promise response times, verified receipt, or licensing outcomes. Do not add new Help/privacy/deletion cross-links inside these pages until those independent destinations are delivered; their existing shared-footer obligations remain open. Keep mailbox delivery/monitoring verification separate from implementation completion under ravecat/infra#2. This block supersedes the earlier Games inventory and wireframes.
+The final requested Explore label is `For publishers and rightholders`, replacing Games. Reserve `/rights-holders` for game-adaptation/placement proposals and concerns about rights in existing game content. On 2026-09-07 the user supplied `support@d20.ravecat.io` for support/feedback and `rights@d20.ravecat.io` for game proposals/rights inquiries and authorized preparing pages and footer links while mailbox provisioning is in progress. Use the existing ASCII production domain; the visually similar Cyrillic character in the message is not part of the configured domain. Implement public Inertia pages with literal mailto links, selectable addresses, concise inquiry guidance, and cross-links. Apply Inertia only to site-page navigation, never mailto links. Do not promise response times, verified receipt, or licensing outcomes. Do not add new Help/privacy/deletion cross-links inside these pages until those independent destinations are delivered; their existing shared-footer obligations remain open. Keep mailbox delivery/monitoring verification separate from implementation completion under ravecat/infra#2. This block supersedes the earlier Games inventory and wireframes.
+
+
+## Spacing review - 2026-09-08
+
+The current Home shell adds 1.5rem above content and 2.5rem below it; the footer adds another 1rem above its directory. Links use individual 0.25rem block padding, leaving half as much space after the heading as between links. Following the user's correction, set Home padding to `0.6667rem 1rem`, matching the existing catalog section/heading gaps, and remove the footer's additional top padding, and let the main grid row use its intrinsic height so short pages do not stretch a blank region before the footer. The remaining viewport space belongs below the footer contents. Use a 0.5rem CSS gap for desktop heading/list and list entries, with no per-link desktop block padding. Keep 0.5rem directory block padding and symmetric 0.5rem legal-strip padding plus bottom safe-area protection. Mobile retains native 2rem disclosure controls with 0.375rem block padding, contiguous link rows with 0.375rem block padding and a 1.5rem minimum target, and no list block padding.
+
+Owning files: `assets/js/pages/home/ui/home.svelte`, `assets/js/app/layout.svelte`, and `assets/js/app/ui/footer.svelte`. Verify measured desktop/mobile geometry on the prepared Home page, existing footer/layout browser behavior, affected Storybook screenshots, scoped lint/formatting and type checks. Rollback reverts these styles and visual references without changing routes or data. The styling increment does not complete unrelated content or publication tasks.
+
+
+### Footer separation correction - 2026-09-08
+
+The user clarified that continuity requires equal spacing between blocks, not a zero gap. Home owns a single 0.6667rem bottom inset, exactly matching its existing section separation and heading-to-cards margin. Use the same 0.6667rem top inset through one logical block-padding declaration; preserve the footer's desktop geometry. This supersedes the initial zero-gap interpretation and changes only Home CSS plus its affected references. Validate the final catalog-to-divider interval against the existing catalog block intervals at desktop and mobile widths, and retain normal flow on short pages.
+
+
+## Header proportions - 2026-09-08
+
+The user requested a 25 percent reduction of the complete D20 brand and Log in button as the next refinement of this visual review. #268 tracks the increment in the same worktree; update the existing explicit size contract in `refine-borderless-app-shell` instead of introducing a parallel capability. Change native dimensions, typography and internal spacing in `assets/js/app/ui/header.svelte`. Following the vertical-spacing correction, use 3.75rem desktop, 3.375rem narrow and 2.3625rem compact minimum header heights. Center the contents without additional block padding, giving the mark 0.75rem expanded and 0.43125rem compact visual insets. Match the layout reserve and document scroll padding to the smaller expanded heights while preserving catalog/footer intervals. Retain native navigation, focus indicators, login interaction and reduced-motion fallback. Validate all size states in the prepared browser page, existing header/layout behavior, affected page screenshots and scoped frontend checks. Rollback restores the previous header declarations and associated visual references only.
+
+
+## Sentence-case copy review - 2026-09-08
+
+Write public-page copy and links in sentence case: capitalize the start of a sentence or standalone label, proper names and acronyms, rather than ordinary nouns within a phrase. Use `For publishers and rightholders` consistently for the footer destination, rights-page title/h1 and Contact cross-link. Use `Contact / support` for that destination and lowercase `support` in prose. Existing headings beginning with Publishers remain correctly capitalized as the first word. Change the source strings, not CSS text transforms, so visible text, accessible names and document titles agree. Update existing assertions and affected references. Rollback restores these strings and their matching assertions/references only.
+
+
+## Final shell styling review - 2026-09-08
+
+Use equal Home block padding and increase only the compact header visual insets by 15 percent, from 6px to 6.9px at the default root size. The unchanged 24px controls therefore need a 37.8px minimum row. The Apple global-footer stylesheet uses contiguous compact items and 6px link block padding. Apply that relationship to D20's existing 13px type/1.5 line height: 31.5px link rows without the previous extra 8px gap, with no additional list padding. Keep 2rem disclosure triggers with 0.375rem block padding and existing focus/keyboard/native-open behavior. Validate expanded groups at 320px and the prepared compact viewport, Home symmetry, compact header geometry and affected references. Consolidate the four unpublished styling commits and these corrections into one `style(shell)` commit as requested; preserve independent policy research. Rollback restores the matching shell styles and references together.
+
+
+The final intermediate-width review also covers stale header compaction when closing footer groups removes root overflow. The linked shell change owns the reset at scroll offset zero. Keep the expanded header reserve stable; do not hide the mismatch by changing Home padding or adding a viewport-specific spacer.

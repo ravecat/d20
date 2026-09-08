@@ -18,7 +18,7 @@
             <li><a class="footer__link" href="/about" use:inertia>About</a></li>
             <li>
               <a class="footer__link" href="/rights-holders" use:inertia
-                >For Publishers and Rightholders</a
+                >For publishers and rightholders</a
               >
             </li>
             <li><a class="footer__link" href="/developers" use:inertia>For developers</a></li>
@@ -35,7 +35,7 @@
             <li><a class="footer__link" href="/about" use:inertia>About</a></li>
             <li>
               <a class="footer__link" href="/rights-holders" use:inertia
-                >For Publishers and Rightholders</a
+                >For publishers and rightholders</a
               >
             </li>
             <li><a class="footer__link" href="/developers" use:inertia>For developers</a></li>
@@ -49,7 +49,7 @@
           <ul class="footer__links">
             <li><a class="footer__link" href="/help">How to play</a></li>
             <li><a class="footer__link" href="/help#faq">FAQ</a></li>
-            <li><a class="footer__link" href="/contact" use:inertia>Contact / Support</a></li>
+            <li><a class="footer__link" href="/contact" use:inertia>Contact / support</a></li>
           </ul>
         </div>
         <details class="footer__mobile" aria-label="Help">
@@ -62,7 +62,7 @@
           <ul class="footer__links">
             <li><a class="footer__link" href="/help">How to play</a></li>
             <li><a class="footer__link" href="/help#faq">FAQ</a></li>
-            <li><a class="footer__link" href="/contact" use:inertia>Contact / Support</a></li>
+            <li><a class="footer__link" href="/contact" use:inertia>Contact / support</a></li>
           </ul>
         </details>
       </nav>
@@ -94,7 +94,7 @@
     max-inline-size: 46.25rem;
     margin-inline: auto;
     padding-inline: 1rem;
-    padding-block: 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    padding-block-end: calc(0.5rem + env(safe-area-inset-bottom));
   }
 
   .footer--wide .footer__inner {
@@ -112,6 +112,11 @@
   .footer__group {
     flex: 0 1 12rem;
     min-inline-size: 0;
+  }
+
+  .footer__desktop {
+    display: grid;
+    gap: 0.5rem;
   }
 
   .footer__bottom,
@@ -158,11 +163,11 @@
   .footer__trigger {
     display: flex;
     inline-size: 100%;
-    min-block-size: 44px;
+    min-block-size: 2rem;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.625rem 0;
+    padding: 0.375rem 0;
     cursor: pointer;
   }
 
@@ -184,6 +189,8 @@
   }
 
   .footer__links {
+    display: grid;
+    gap: 0.5rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -192,7 +199,6 @@
   .footer__links .footer__link {
     display: flex;
     min-block-size: 0;
-    padding-block: 0.25rem;
   }
 
   .footer__link:focus-visible,
@@ -229,12 +235,13 @@
     }
 
     .footer__links {
-      padding-block-end: 0.5rem;
+      gap: 0;
     }
 
     .footer__links .footer__link {
       box-sizing: border-box;
-      min-block-size: 44px;
+      min-block-size: 1.5rem;
+      padding-block: 0.375rem;
       padding-inline-start: 0.75rem;
     }
   }

@@ -1,6 +1,6 @@
-# For Publishers and Rightholders Page
+# For publishers and rightholders page
 
-Route: `/rights-holders`. Title and h1: `For Publishers and Rightholders`. Owner: #268. Layout: [shared article](README.md#shared-page-layout).
+Route: `/rights-holders`. Title and h1: `For publishers and rightholders`. Owner: #268. Layout: [shared article](README.md#shared-page-layout).
 
 The user approved `rights@d20.ravecat.io` on 2026-09-07 and authorized local implementation while mailbox provisioning continues. Receipt/monitoring remains a publication gate under [ravecat/infra#2](https://github.com/ravecat/infra/issues/2).
 

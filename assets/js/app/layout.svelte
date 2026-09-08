@@ -25,25 +25,25 @@
 
 <style>
   :global(html) {
-    scroll-padding-block-start: 5rem;
+    scroll-padding-block-start: 3.75rem;
   }
 
   .layout {
     display: grid;
-    grid-template-rows: minmax(auto, 1fr) auto;
+    grid-template-rows: auto 1fr;
     box-sizing: border-box;
     min-block-size: 100dvh;
-    padding-block-start: 5rem;
+    padding-block-start: 3.75rem;
     background: var(--color-base-100);
   }
 
   @media (max-width: 34rem) {
     :global(html) {
-      scroll-padding-block-start: 4.5rem;
+      scroll-padding-block-start: 3.375rem;
     }
 
     .layout {
-      padding-block-start: 4.5rem;
+      padding-block-start: 3.375rem;
     }
   }
 

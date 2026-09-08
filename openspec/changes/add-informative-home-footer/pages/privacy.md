@@ -31,7 +31,7 @@ Evidence: `lib/d20_web/auth/facebook.ex`, `lib/d20/accounts/user_identity.ex`, a
 
 ## Prepared deletion section wording
 
-`For instructions on deleting your D20 account and data, see How do I delete my account and data? in Help. If you cannot sign in, contact Support.`
+`For instructions on deleting your D20 account and data, see How do I delete my account and data? in Help. If you cannot sign in, contact support.`
 
 Link the question directly to `/help#delete-account` and Support to `/contact`. Approve this text only when those paths describe an actually supported process.
 

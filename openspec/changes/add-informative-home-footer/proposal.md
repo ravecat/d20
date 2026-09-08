@@ -4,8 +4,16 @@ D20's footer currently exposes only a developer link, leaving visitors without a
 
 ## What Changes
 
+- Tighten compact footer navigation using contiguous link rows with 0.375rem block padding and no additional list padding, following Apple's compact spacing pattern. Retain 2rem disclosure controls with 0.375rem block padding and native behavior.
+
+- Use sentence case throughout footer links and the corresponding public-page titles, headings, prose and cross-links, preserving proper names and acronyms.
+
+- Continue the shell visual review by reducing the complete D20 brand and Log in button to 75 percent of their previous dimensions in all responsive/scroll states; reduce expanded header height and its matching document reserve proportionally, with 15 percent larger compact vertical insets while preserving catalog/footer block spacing. The existing `refine-borderless-app-shell` delta owns the explicit size contract.
+
+- Apply the 2026-09-08 spacing review: use equal 0.6667rem Home block padding matching the existing catalog interval and replace the stacked gap before the footer with that same interval, preserve that interval on short pages, and use uniform CSS list gaps and symmetric divider insets.
+
 - Add an informative home footer with a centered column directory and a distinct legal strip, without a repeated brand/tagline introduction. Use apple.com as the layout and responsive-interaction reference; retain the useful D20 destinations identified through Board Game Arena.
-- Define public About, How to play/FAQ, and Contact/Support pages at `/about`, `/help`, and `/contact`; reuse `/developers`. Implement `/contact` using `support@d20.ravecat.io` for support and feedback and `/rights-holders` using `rights@d20.ravecat.io` for game proposals and rights concerns. Replace the footer Games entry with `For Publishers and Rightholders`. The user approved preparing these pages and links while the mailboxes are being provisioned; receipt/monitoring verification remains a publication gate.
+- Define public About, How to play/FAQ, and Contact/support pages at `/about`, `/help`, and `/contact`; reuse `/developers`. Implement `/contact` using `support@d20.ravecat.io` for support and feedback and `/rights-holders` using `rights@d20.ravecat.io` for game proposals and rights concerns. Replace the footer Games entry with `For publishers and rightholders`. The user approved preparing these pages and links while the mailboxes are being provisioned; receipt/monitoring verification remains a publication gate.
 - Keep Privacy and Terms in the legal strip. Put account/data deletion inside FAQ at `/help#delete-account`, linked directly from Privacy and supplied to Meta as the instructions URL; no separate deletion page or footer item is needed. Content and deletion behavior remain owned by #248 and #247.
 - Use the same footer content on every existing App-layout page. Remove the unrequested compact/informative switch and page-level footer selection; retain only the shell's existing width alignment.
 - Specify desktop columns and mobile disclosure rows at the existing 48rem breakpoint, including native keyboard disclosure, hidden-link semantics, operation without client JavaScript, and reduced motion; omit automatic focus transfer and breakpoint state resets.

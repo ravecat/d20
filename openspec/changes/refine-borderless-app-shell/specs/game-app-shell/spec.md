@@ -33,13 +33,13 @@ While the native modal authentication dialog is open, the shell SHALL preserve t
 - **THEN** the same modal scroll-lock lifecycle runs without introducing page overflow or a layout regression
 
 ### Requirement: The fixed brand compacts with global document scrolling
-The shell SHALL keep the fixed header at the top of the viewport, SHALL reserve its expanded responsive height before main content, and SHALL give the document matching block-start scroll padding. In browsers with complete scroll-driven animation support, the shell SHALL use the root document scroll timeline to compact both the D20 mark and its visible label over the first 24 pixels without JavaScript scroll state. The reserve MUST prevent content jumps and initial interactive-content overlap and MUST scroll away without leaving a permanent gap after compaction. The scroll padding MUST keep root-aligned fragment, focus, and programmatic scroll targets below the fixed header, including when the expanded fallback is active. In browsers without complete support and for users who prefer reduced motion, the shell SHALL retain the expanded header as a functional fallback.
+The shell SHALL keep the fixed header at the top of the viewport, SHALL reserve its expanded responsive height before main content, and SHALL give the document matching block-start scroll padding. In browsers with complete scroll-driven animation support, the shell SHALL use the root document scroll timeline to compact both the D20 mark and its visible label over the first 24 pixels. A reactive at-top guard SHALL disable compaction when the root scroll offset is zero, including after the timeline becomes inactive; CSS SHALL own interpolation while scrolling. The reserve MUST prevent content jumps and initial interactive-content overlap and MUST scroll away without leaving a permanent gap after compaction. The scroll padding MUST keep root-aligned fragment, focus, and programmatic scroll targets below the fixed header, including when the expanded fallback is active. In browsers without complete support and for users who prefer reduced motion, the shell SHALL retain the expanded header as a functional fallback.
 
 #### Scenario: Supporting browser scrolls down through game content
 - **WHEN** the document scroll position progresses from zero to 24 pixels in a browser with complete scroll-driven animation support
 - **THEN** the fixed header remains at the top of the viewport
 - **AND** the header presentation progresses from its default dimensions to its compact dimensions
-- **AND** no JavaScript scroll state or handler is required
+- **AND** CSS owns interpolation; the reactive at-top guard only resets the inactive timeline
 
 #### Scenario: User returns to the top
 - **WHEN** the document scroll position returns to zero
@@ -84,12 +84,38 @@ The D20 component SHALL define literal dimensions for each supported size state 
 
 #### Scenario: Default desktop brand renders
 - **WHEN** the D20 mark is not compact and the viewport is wider than 34rem
-- **THEN** the mark has an inline size of 2.612rem and a block size of 3rem
+- **THEN** the mark has an inline size of 1.959rem and a block size of 2.25rem
 
 #### Scenario: Default narrow brand renders
 - **WHEN** the D20 mark is not compact and the viewport is at most 34rem wide
-- **THEN** the mark has an inline size of 2.177rem and a block size of 2.5rem
+- **THEN** the mark has an inline size of 1.63275rem and a block size of 1.875rem
 
 #### Scenario: Compact brand renders
 - **WHEN** the D20 mark is compact at any supported viewport width
-- **THEN** the mark has an inline size of 1.742rem and a block size of 2rem
+- **THEN** the mark has an inline size of 1.3065rem and a block size of 1.5rem
+
+
+### Requirement: Header brand and login proportions are reduced consistently
+The complete brand and Log in button SHALL render at 75 percent of their previous dimensions, typography and internal spacing in expanded, narrow and compact states using native CSS sizing. The header SHALL use minimum heights of 3.75rem desktop, 3.375rem narrow and 2.3625rem compact, centering its contents without additional block padding. The layout reserve and document block-start scroll padding SHALL match the expanded responsive heights. Authenticated account controls SHALL remain usable within the smaller header. Visible focus indicators, native navigation, authentication behavior and reduced-motion fallback SHALL remain usable.
+
+#### Scenario: Expanded header renders
+- **WHEN** the header renders at the top of a desktop or narrow page
+- **THEN** the mark and visible label, and the Log in button, have 75 percent of their previous width and height
+- **AND** the header height and following content reserve are reduced proportionally, while shared edge alignment and catalog/footer intervals remain stable
+
+#### Scenario: Header compacts while scrolling
+- **WHEN** the supporting browser reaches the compact state
+- **THEN** the brand and Log in button retain the same 75 percent reduction from the previous compact dimensions
+- **AND** the button has a minimum block size of 1.5rem, remains keyboard-operable, and opens the existing authentication dialog
+
+
+#### Scenario: Compact header has balanced vertical breathing room
+- **WHEN** the header reaches its compact state
+- **THEN** the unchanged 1.5rem mark and Log in button have equal 0.43125rem top/bottom visual insets, 15 percent larger than the prior 0.375rem insets
+- **AND** expanded header reserves and root-aligned content remain unchanged
+
+
+#### Scenario: Removing overflow restores the expanded header
+- **WHEN** closing mobile footer groups or resizing makes the document fit and returns its scroll offset to zero
+- **THEN** the header restores its expanded responsive dimensions, matching the unchanged document reserve
+- **AND** a previously compact scroll timeline cannot leave a stale smaller header above that reserve

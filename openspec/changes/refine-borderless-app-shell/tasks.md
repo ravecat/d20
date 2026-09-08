@@ -67,3 +67,22 @@
 ## 14. Modal Scroll Validation
 
 - [x] 14.1 Run focused frontend tests, formatting, linting, type checks, production asset build, strict OpenSpec validation, and Chrome DevTools validation on the overflowing Home login dialog.
+
+
+## 15. Header Proportions Review (#268)
+
+- [x] 15.1 Reduce brand and Log in dimensions, typography and internal spacing by 25 percent in all supported states, keeping header heights and document reserves stable through explicit minimum sizes.
+- [x] 15.2 Verify measured desktop/narrow/compact proportions, login interaction, header/layout tests, affected visual references, scoped formatting/lint, type checks and strict OpenSpec validation. Record evidence in the owning `add-informative-home-footer/verification.md`; leave unrelated existing lifecycle tasks open.
+
+
+## 16. Header Vertical Spacing (#268)
+
+- [x] 16.1 Reduce the centered header rows and synchronize expanded layout reserve/root scroll padding with 3.75rem desktop, 3.375rem narrow and 2.25rem compact heights, superseding the previous retained-height decision.
+- [x] 16.2 Verify desktop/narrow/compact and account layouts, root-aligned targets, existing browser tests, affected visual references and scoped frontend/specification checks. Record evidence in the owning footer verification log.
+
+
+## 17. Compact Header Inset Review (#268)
+
+- [x] 17.1 Increase compact visual insets by 15 percent around unchanged controls, update the minimum height contract to 2.3625rem, and verify geometry and focused browser/reference checks. Fold the correction into the requested single shell styling commit.
+
+- [x] 17.2 Reset inactive header compaction at the top after content shrink or viewport changes; verify the footer-collapse regression at intermediate width and preserve the fixed reserve and CSS scroll interpolation.

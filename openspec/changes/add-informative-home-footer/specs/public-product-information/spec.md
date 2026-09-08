@@ -2,7 +2,7 @@
 
 ### Requirement: Prepared information pages share a responsive reading layout
 
-About, Help, Contact, For Publishers and Rightholders, Privacy, and Terms SHALL follow the page briefs in [the page index](../../pages/README.md) and use one main article, one h1, a descriptive title, and the shared footer aligned to the narrow shell. The article SHALL remain a single reading column at the documented desktop/tablet/mobile viewports and use a centered maximum 46.25rem border-box container with 1rem inline padding. Contents lists, headings, answers, contact addresses, and paragraphs SHALL wrap in document order at 320px and 200 percent zoom without horizontal scrolling or clipping. Long-page sections SHALL remain expanded and anchor headings SHALL be visible below the fixed site header.
+About, Help, Contact, For publishers and rightholders, Privacy, and Terms SHALL follow the page briefs in [the page index](../../pages/README.md) and use one main article, one h1, a descriptive title, and the shared footer aligned to the narrow shell. The article SHALL remain a single reading column at the documented desktop/tablet/mobile viewports and use a centered maximum 46.25rem border-box container with 1rem inline padding. Contents lists, headings, answers, contact addresses, and paragraphs SHALL wrap in document order at 320px and 200 percent zoom without horizontal scrolling or clipping. Long-page sections SHALL remain expanded and anchor headings SHALL be visible below the fixed site header.
 
 #### Scenario: Help on desktop and mobile
 
@@ -63,11 +63,11 @@ D20 SHALL expose `/contact` with `support@d20.ravecat.io` for technical support,
 
 ### Requirement: Publishers and rights holders have a dedicated contact page
 
-D20 SHALL expose `/rights-holders` without authentication, titled `For Publishers and Rightholders`. It SHALL explain how to propose a game for adaptation or placement and raise a concern about existing game content. It SHALL provide `rights@d20.ravecat.io` as selectable text and an ordinary `mailto:rights@d20.ravecat.io` link, ask for the game/page, the sender's role and a concise request, and link technical/account support to `/contact`. It MUST NOT promise acceptance, licensing status, response times, or automatic removal. Page layout and responsive screenshots SHALL use the same article conventions as About and Contact.
+D20 SHALL expose `/rights-holders` without authentication, titled `For publishers and rightholders`. It SHALL explain how to propose a game for adaptation or placement and raise a concern about existing game content. It SHALL provide `rights@d20.ravecat.io` as selectable text and an ordinary `mailto:rights@d20.ravecat.io` link, ask for the game/page, the sender's role and a concise request, and link technical/account support to `/contact`. It MUST NOT promise acceptance, licensing status, response times, or automatic removal. Page layout and responsive screenshots SHALL use the same article conventions as About and Contact.
 
 #### Scenario: A rights holder opens the footer destination
 
-- **WHEN** an anonymous visitor follows `For Publishers and Rightholders` in the footer
+- **WHEN** an anonymous visitor follows `For publishers and rightholders` in the footer
 - **THEN** `/rights-holders` renders useful proposal and rights-concern guidance
 - **AND** the address and mailto target are exactly `rights@d20.ravecat.io`
 - **AND** account or technical inquiries can navigate to `/contact`
@@ -124,3 +124,12 @@ Product pages SHALL use existing Phoenix web boundaries and the established fron
 - **WHEN** product-information routes and footer links are delivered
 - **THEN** existing `/games`, `/developers`, authentication and game-session routes retain their behavior
 - **AND** no database migration or AsyncAPI change is required solely for the footer
+
+
+### Requirement: Public information copy uses sentence case
+Public information titles, headings, prose and links SHALL use sentence case, retaining capitalization for proper names and acronyms. Footer labels and their corresponding page titles and cross-links SHALL use consistent source text, including `For publishers and rightholders` and `Contact / support`. CSS text transforms SHALL NOT substitute for correctly authored source strings.
+
+#### Scenario: Reader follows a footer contact destination
+- **WHEN** a visitor reads the footer, Contact page or rights-holder page
+- **THEN** ordinary nouns within labels and sentences remain lowercase
+- **AND** the first word of each standalone label or sentence, proper names and acronyms retain their appropriate capitalization

@@ -27,7 +27,7 @@ D20 provides access to tabletop and board-game experiences in a browser. Availab
 
 ### Accounts
 
-Keep access to your account secure. Do not share passwords, one-time sign-in links, or provider access tokens. Contact Support if you believe someone else has accessed your account.
+Keep access to your account secure. Do not share passwords, one-time sign-in links, or provider access tokens. Contact support if you believe someone else has accessed your account.
 
 ### Acceptable use
 
@@ -35,9 +35,9 @@ Do not attempt to access another person's account, bypass access controls, or in
 
 ### Account closure
 
-You can find the supported account and data-deletion process in Help. Contact Support if you cannot access your account.
+You can find the supported account and data-deletion process in Help. Contact support if you cannot access your account.
 
-Links: `Account and data deletion` -> `/help#delete-account`; `Contact / Support` -> `/contact`; related policy -> `/privacy`.
+Links: `Account and data deletion` -> `/help#delete-account`; `Contact / support` -> `/contact`; related policy -> `/privacy`.
 
 ## Required decisions before publication
 

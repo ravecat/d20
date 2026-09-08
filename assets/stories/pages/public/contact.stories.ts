@@ -37,7 +37,7 @@ const meta = {
       "mailto:rights@d20.ravecat.io",
     );
     await expect(
-      content.getByRole("link", { name: "For Publishers and Rightholders" }),
+      content.getByRole("link", { name: "For publishers and rightholders" }),
     ).toHaveAttribute("href", "/rights-holders");
   },
 } satisfies Meta<typeof ContactPage>;

@@ -10,7 +10,7 @@
 - [ ] 2.2 Implement `/help#faq` and its expanded deletion answer at `/help#delete-account` in readable initial Help HTML, including the stable id and revision date. Verify direct fragment landing below the fixed header; add no separate deletion page or footer item.
 - [x] 2.3 Implement `/contact` with the approved support/feedback and rights addresses, ordinary mailto links, concise inquiry guidance, and a link to `/rights-holders`; verify public access and that no form or public issue disclosure is required. Mailbox activation remains an external publication check.
 
-- [x] 2.4 Implement the public `/rights-holders` page with the approved rights address, game proposal and rights-concern guidance, and a Contact / Support cross-link. Add route tests and Storybook coverage for both contact pages, including exact mailto targets and responsive rendering.
+- [x] 2.4 Implement the public `/rights-holders` page with the approved rights address, game proposal and rights-concern guidance, and a Contact / support cross-link. Add route tests and Storybook coverage for both contact pages, including exact mailto targets and responsive rendering.
 
 - [x] 2.5 Rewrite About as a warm fan-project invitation to players, publishers, developers, and designers. Replace the Games promotion and technical session copy with collaboration links to the existing Contact, rights-holder, and developer pages. Verify link targets and review light/dark screenshots at all three Storybook viewports.
 
@@ -25,7 +25,7 @@
 - [x] 3.7 Apply the review refinement: match Home's light/dark page background, tighten spacing, label the link About, remove the repeated brand/tagline introduction, and keep only Default and Mobile expanded stories under Widgets/Footer. Remove the duplicate footer-focused Home story; verify ordinary Home integration, browser link/disclosure tests, and affected visual comparisons.
 
 - [x] 3.8 Keep copyright and Privacy/Terms in a baseline-aligned wrapping row at every width, with matching inherited typography; verify 446px, 320px, and content-pressure wrapping with focused screenshots.
-- [x] 3.9 Replace runtime Games with exact text `For Publishers and Rightholders` linking to the implemented `/rights-holders` page; update navigation/route tests and affected screenshots. The user authorized this with the approved rights address while mailbox provisioning continues; no separate catalog is requested.
+- [x] 3.9 Replace runtime Games with exact text `For publishers and rightholders` linking to the implemented `/rights-holders` page; update navigation/route tests and affected screenshots. The user authorized this with the approved rights address while mailbox provisioning continues; no separate catalog is requested.
 
 - [x] 3.10 Consolidate groups into `footer.svelte`, remove `footer_group.svelte`, share one breakpoint listener, and use CSS for heading/control visibility and the expansion indicator. Verify existing disclosure, focus, fallback, and visual tests, plus scoped formatting/lint and type checks.
 
@@ -38,6 +38,24 @@
 - [x] 3.14 Write Explore and Help directly in the footer markup, removing the local snippet, group array, link loops, and clientNavigation field. Apply use:inertia directly to the same applicable anchors, using each anchor href. Preserve existing native behavior. Verify browser interactions, unchanged visual comparisons, scoped formatting/lint, and type checks.
 
 - [x] 3.15 Remove the redundant Layout unit suite and its layout-export/link assertions. Keep shell presentation in existing Storybook screenshots, footer targets in footer browser tests, and scrolling/focus contracts in the existing layout browser suite. Run the affected browser suites, Home visual comparisons, scoped formatting/lint, and type checks.
+
+- [x] 3.16 Apply the 2026-09-08 spacing review: Home top padding 1.5rem to 1rem, no stacked Home/footer gap or stretched main row, uniform CSS heading/link gaps, symmetric divider insets, and preserved mobile targets/safe-area geometry. Verify existing browser suites, affected visual references, prepared-page desktop/mobile geometry, scoped lint/formatting and type checks.
+
+- [x] 3.17 Correct the zero-gap interpretation: restore a single 0.6667rem Home bottom inset matching catalog section/heading intervals. Preserve the other spacing refinements, measure desktop/mobile geometry, refresh affected Home references, and run scoped formatting/lint, type checks and normal visual comparisons.
+
+- [x] 3.18 Apply the 25 percent header brand/Log in reduction, preserving shell heights and existing spacing; reconcile the linked shell size contract and verify desktop/narrow/compact proportions, login interaction, affected screenshots, formatting/lint and type checks.
+
+- [x] 3.19 Apply sentence case to footer and public-page copy/links, reconcile page briefs and the writing rule, and verify existing label assertions, browser navigation, affected screenshots and scoped frontend checks.
+
+- [x] 3.20 Reduce header vertical spacing to match its smaller contents, using centered 3.75rem/3.375rem/2.25rem minimum rows and matching expanded layout reserve/root scroll padding. Preserve account controls and catalog/footer intervals; verify browser geometry, root-aligned content, affected references and scoped frontend/specification checks.
+
+- [x] 3.21 Equalize Home top/bottom insets through `padding-block: 0.6667rem`, preserving inline padding and the shared catalog/footer interval; verify desktop/mobile geometry and affected references.
+
+- [x] 3.22 Increase compact header visual insets by 15 percent to 0.43125rem, using a 2.3625rem minimum row around unchanged controls; verify compact layout and retain expanded reserves.
+
+- [x] 3.23 Tighten mobile footer links using no list gap, 0.375rem link block padding and no list padding; reduce disclosure controls to 2rem minimum rows with 0.375rem block padding, verify native/keyboard behavior and affected references, then consolidate the four unpublished shell styling commits and current corrections into one `style(shell)` commit.
+
+- [x] 3.24 Reset header compaction when footer collapse removes root overflow and returns scrolling to the top; reproduce the intermediate-width gap, add a behavioral regression check and preserve existing CSS scroll progress and expanded reserves. Include this correction in the single shell styling commit.
 
 ## 4. Focused Validation
 

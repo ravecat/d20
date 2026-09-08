@@ -35,11 +35,11 @@ describe("shared footer", () => {
     await expect.element(footer).toHaveTextContent(`© ${new Date().getFullYear()} D20`);
     for (const [name, href] of [
       ["About", "/about"],
-      ["For Publishers and Rightholders", "/rights-holders"],
+      ["For publishers and rightholders", "/rights-holders"],
       ["For developers", "/developers"],
       ["How to play", "/help"],
       ["FAQ", "/help#faq"],
-      ["Contact / Support", "/contact"],
+      ["Contact / support", "/contact"],
       ["Privacy", "/privacy"],
       ["Terms", "/terms"],
     ]) {
@@ -77,7 +77,7 @@ describe("shared footer", () => {
       await expect.element(page.getByRole("link", { name: "FAQ" })).toBeVisible();
       await expect.element(page.getByRole("link", { name: "About", exact: true })).toBeVisible();
       await expect
-        .element(page.getByRole("link", { name: "For Publishers and Rightholders" }))
+        .element(page.getByRole("link", { name: "For publishers and rightholders" }))
         .toHaveAttribute("href", "/rights-holders");
 
       await explore.getByRole("heading", { name: "Explore" }).click();

@@ -2,6 +2,7 @@
   import type { FormComponentSlotProps } from "@inertiajs/core";
   import { Form, inertia, usePage } from "@inertiajs/svelte";
   import { useSelector } from "@xstate/store-svelte";
+  import { scrollY } from "svelte/reactivity/window";
   import { AuthDialog } from "~/shared/components";
   import { auth } from "~/shared/stores";
 
@@ -17,6 +18,7 @@
 
   const page = usePage();
   const open = useSelector(auth, ({ context }) => context.open);
+  const atTop = $derived((scrollY.current ?? 0) <= 0);
 
   $effect(() => {
     const prompt = page.props.auth.prompt;
@@ -28,6 +30,7 @@
 <header
   class={{
     header: true,
+    "header--at-top": atTop,
     "header--wide": variant === "wide",
     "header--overlay": overlay,
   }}
@@ -90,9 +93,9 @@
     box-sizing: border-box;
     inline-size: 100%;
     max-inline-size: 46.25rem;
+    min-block-size: 3.75rem;
     margin-inline: auto;
     padding-inline: 1rem;
-    padding-block: 1rem;
     align-items: center;
     gap: 1.5rem;
   }
@@ -104,14 +107,14 @@
   }
 
   .header__login {
-    min-block-size: 2.5rem;
+    min-block-size: 1.875rem;
     border: 0;
-    border-radius: var(--radius-field);
+    border-radius: calc(var(--radius-field) * 0.75);
     background: var(--color-primary);
-    padding-inline: 1rem;
+    padding-inline: 0.75rem;
     color: var(--color-primary-content);
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.6rem;
     font-weight: 700;
     cursor: pointer;
   }
@@ -145,22 +148,22 @@
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.5625rem;
-    letter-spacing: 0.18em;
+    gap: 0.421875rem;
+    letter-spacing: 0.135em;
     text-transform: uppercase;
     transition: color 160ms ease;
   }
 
   .brand__mark {
     display: block;
-    inline-size: 2.612rem;
-    block-size: 3rem;
+    inline-size: 1.959rem;
+    block-size: 2.25rem;
     flex: none;
     background: url("/images/d20.svg") center / contain no-repeat;
   }
 
   .brand__label {
-    font-size: 0.875rem;
+    font-size: 0.65625rem;
     font-weight: 600;
     line-height: 1;
   }
@@ -193,12 +196,13 @@
 
   @media (max-width: 34rem) {
     .header__inner {
+      min-block-size: 3.375rem;
       gap: 1rem;
     }
 
     .brand__mark {
-      inline-size: 2.177rem;
-      block-size: 2.5rem;
+      inline-size: 1.63275rem;
+      block-size: 1.875rem;
     }
   }
 
@@ -239,6 +243,11 @@
       animation-range: 0px 24px;
     }
 
+    /* Inactive timelines can retain compact progress after content shrink removes overflow. */
+    .header--at-top :is(.header__inner, .brand, .brand__mark, .brand__label, .header__login) {
+      animation: none;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .header__inner,
       .brand,
@@ -252,33 +261,33 @@
 
   @keyframes compact-header-inner {
     to {
-      padding-block: 0.5rem;
+      min-block-size: 2.3625rem;
     }
   }
 
   @keyframes compact-header-brand {
     to {
-      gap: 0.4rem;
+      gap: 0.3rem;
     }
   }
 
   @keyframes compact-header-mark {
     to {
-      inline-size: 1.742rem;
-      block-size: 2rem;
+      inline-size: 1.3065rem;
+      block-size: 1.5rem;
     }
   }
 
   @keyframes compact-header-label {
     to {
-      font-size: 0.75rem;
+      font-size: 0.5625rem;
       letter-spacing: 0.12em;
     }
   }
 
   @keyframes compact-header-login {
     to {
-      min-block-size: 2rem;
+      min-block-size: 1.5rem;
     }
   }
 </style>

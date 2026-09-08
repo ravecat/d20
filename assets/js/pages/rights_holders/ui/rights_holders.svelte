@@ -3,11 +3,11 @@
 </script>
 
 <svelte:head>
-  <title>For Publishers and Rightholders</title>
+  <title>For publishers and rightholders</title>
 </svelte:head>
 
 <article class="rights-page">
-  <h1 class="rights-page__title">For Publishers and Rightholders</h1>
+  <h1 class="rights-page__title">For publishers and rightholders</h1>
   <p>
     Want to bring a game to D20 or raise a concern about existing game content? Email
     <a href="mailto:rights@d20.ravecat.io">rights@d20.ravecat.io</a>.
@@ -34,8 +34,8 @@
 
   <section class="rights-page__section">
     <h2>Need help playing?</h2>
-    <p>For technical problems, account access, or general feedback, contact Support.</p>
-    <a href="/contact" use:inertia>Contact / Support</a>
+    <p>For technical problems, account access, or general feedback, contact support.</p>
+    <a href="/contact" use:inertia>Contact / support</a>
   </section>
 </article>
 

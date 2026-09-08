@@ -4,6 +4,8 @@ The Inertia game shell now keeps content between a persistent header and footer,
 
 ## What Changes
 
+- Apply the 2026-09-08 header proportions review tracked by #268: reduce the complete brand and Log in button to 75 percent in each supported state, using native CSS dimensions with proportionally reduced expanded header heights and matching document reserves, plus 15 percent larger compact vertical insets.
+
 - Formalize the document-scrolling game app shell as an explicit capability.
 - Keep the header, footer, and brand free of visible surrounding borders or edge shadows in normal, compact, pointer, and keyboard states.
 - Preserve a visible keyboard-focus indicator for the home brand without drawing a rectangle around the mark or label.

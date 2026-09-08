@@ -1,6 +1,6 @@
-# Contact / Support Page
+# Contact / support page
 
-Route: `/contact`. Title and h1: `Contact / Support`. Owner: #268. Layout: [shared article](README.md#shared-page-layout).
+Route: `/contact`. Title and h1: `Contact / support`. Owner: #268. Layout: [shared article](README.md#shared-page-layout).
 
 The user approved `support@d20.ravecat.io` for support/feedback and `rights@d20.ravecat.io` for game proposals and rights inquiries on 2026-09-07. Local implementation is authorized while the addresses are being provisioned. Actual receipt/monitoring remains a publication check under [ravecat/infra#2](https://github.com/ravecat/infra/issues/2).
 

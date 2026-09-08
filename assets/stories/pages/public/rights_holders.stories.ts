@@ -32,7 +32,7 @@ const meta = {
       "href",
       "mailto:rights@d20.ravecat.io",
     );
-    await expect(content.getByRole("link", { name: "Contact / Support" })).toHaveAttribute(
+    await expect(content.getByRole("link", { name: "Contact / support" })).toHaveAttribute(
       "href",
       "/contact",
     );

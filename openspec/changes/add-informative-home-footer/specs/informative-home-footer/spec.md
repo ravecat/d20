@@ -2,7 +2,7 @@
 
 ### Requirement: Home provides informative grouped navigation
 
-The Home page and every existing App-layout page SHALL render the same App-owned footer once after main content for anonymous and authenticated visitors. The footer SHALL NOT include a repeated D20 brand/tagline introduction. It SHALL match Home's full-width page surface (white in light mode, the existing page color in dark mode), with a centered bounded inner container, a compact Explore/Help directory using the spacing in `layout.md`, and a separate legal strip with fine separators. Explore SHALL link About to `/about`, For Publishers and Rightholders to `/rights-holders`, and For developers to `/developers`. Help SHALL link How to play to `/help`, FAQ to `/help#faq`, and Contact / Support to `/contact`. The legal strip SHALL display the current year with D20 attribution, Privacy at `/privacy`, and Terms at `/terms`. Account/data deletion SHALL be an answer within FAQ at `/help#delete-account`, not a separate footer item or page.
+The Home page and every existing App-layout page SHALL render the same App-owned footer once after main content for anonymous and authenticated visitors. The footer SHALL NOT include a repeated D20 brand/tagline introduction. It SHALL match Home's full-width page surface (white in light mode, the existing page color in dark mode), with a centered bounded inner container, a compact Explore/Help directory using the spacing in `layout.md`, and a separate legal strip with fine separators. Explore SHALL link About to `/about`, For publishers and rightholders to `/rights-holders`, and For developers to `/developers`. Help SHALL link How to play to `/help`, FAQ to `/help#faq`, and Contact / support to `/contact`. The legal strip SHALL display the current year with D20 attribution, Privacy at `/privacy`, and Terms at `/terms`. Account/data deletion SHALL be an answer within FAQ at `/help#delete-account`, not a separate footer item or page.
 
 #### Scenario: Guest reaches the end of Home
 
@@ -31,7 +31,7 @@ Directory markup, styling, and responsive state SHALL remain together in the sha
 
 ### Requirement: Responsive footer remains accessible
 
-The footer SHALL use semantic landmarks, labelled navigation groups, meaningful anchors, visible keyboard focus, and a logical reading order. Normal text/link contrast SHALL meet 4.5:1 in supported themes. Link targets SHALL meet 24 CSS-pixel minimum sizing or equivalent spacing, and mobile disclosure triggers SHALL have at least 44px row height. All content SHALL reflow at 320 CSS pixels and 200 percent zoom without horizontal page overflow, clipping, or overlap with Workspace controls. The legal strip SHALL remain visible outside the disclosure groups.
+The footer SHALL use semantic landmarks, labelled navigation groups, meaningful anchors, visible keyboard focus, and a logical reading order. Normal text/link contrast SHALL meet 4.5:1 in supported themes. Link targets SHALL meet 24 CSS-pixel minimum sizing or equivalent spacing, and mobile disclosure triggers SHALL have at least 2rem row height. All content SHALL reflow at 320 CSS pixels and 200 percent zoom without horizontal page overflow, clipping, or overlap with Workspace controls. The legal strip SHALL remain visible outside the disclosure groups.
 
 #### Scenario: Small-screen keyboard navigation
 
@@ -79,7 +79,7 @@ The implementation SHALL use the shared content and geometry matrix in [the layo
 
 ### Requirement: Directory columns become native mobile disclosure rows
 
-Above 48rem the footer SHALL show equal desktop columns with static headings and all links. At 48rem and below it SHALL show independent native `details`/`summary` disclosures, initially closed, with expansion indicators and 44px controls. Native keyboard activation and expanded semantics SHALL work without client JavaScript when markup is present. Explore and Help SHALL be written as explicit inline navigation blocks, with matching links in desktop and mobile representations and Inertia actions applied directly to the applicable anchors without a group array or navigation flag; only one representation SHALL be visible and accessible at each width. Collapsed and CSS-hidden links MUST NOT remain in keyboard or accessibility navigation. Privacy and Terms SHALL remain visible.
+Above 48rem the footer SHALL show equal desktop columns with static headings and all links. At 48rem and below it SHALL show independent native `details`/`summary` disclosures, initially closed, with expansion indicators and 2rem controls with 0.375rem block padding. Native keyboard activation and expanded semantics SHALL work without client JavaScript when markup is present. Explore and Help SHALL be written as explicit inline navigation blocks, with matching links in desktop and mobile representations and Inertia actions applied directly to the applicable anchors without a group array or navigation flag; only one representation SHALL be visible and accessible at each width. Collapsed and CSS-hidden links MUST NOT remain in keyboard or accessibility navigation. Privacy and Terms SHALL remain visible.
 
 #### Scenario: User opens both mobile groups
 
@@ -155,10 +155,28 @@ Copyright, Privacy, and Terms SHALL share inherited font family, size, weight, a
 
 ### Requirement: Publisher destination is ready before replacement
 
-The `For Publishers and Rightholders` destination SHALL explain both proposing a game for adaptation or placement and raising concerns about rights in existing content. Its useful content and destination address MUST be supplied before replacing the runtime Games link. The approved `rights@d20.ravecat.io` address SHALL be prepared in the page while mailbox provisioning continues; verified receipt and monitoring remain a publication gate, not a prerequisite to this authorized local implementation. No separate game catalog SHALL be introduced by this change.
+The `For publishers and rightholders` destination SHALL explain both proposing a game for adaptation or placement and raising concerns about rights in existing content. Its useful content and destination address MUST be supplied before replacing the runtime Games link. The approved `rights@d20.ravecat.io` address SHALL be prepared in the page while mailbox provisioning continues; verified receipt and monitoring remain a publication gate, not a prerequisite to this authorized local implementation. No separate game catalog SHALL be introduced by this change.
 
 #### Scenario: Contact and page are not ready
 
 - **WHEN** the rights-holder page has useful content and the user-approved address, but mailbox provisioning is incomplete
 - **THEN** the page and footer link can be prepared and tested locally
 - **AND** mail delivery is not reported as verified or the broader publication gate as complete
+
+
+### Requirement: Footer spacing is continuous and uniform
+
+Home SHALL use equal 0.6667rem top and bottom padding through one logical block-padding declaration matching the existing catalog section and heading-to-cards intervals. The footer SHALL follow main content without additional top padding or main-row stretching, including short pages. Desktop directory headings and subsequent list entries SHALL use equal 0.5rem CSS gaps, including wrapped labels, without individual link block padding. Directory content SHALL have equal 0.5rem top and bottom padding between its dividers. The legal strip SHALL have equal 0.5rem top and bottom insets, with the bottom safe-area inset added separately. Mobile list links SHALL have at least 1.5rem targets and 0.375rem block padding, without an additional list gap. Mobile lists SHALL have no additional block padding; disclosure controls SHALL retain 2rem minimum rows with 0.375rem block padding.
+
+#### Scenario: Desktop directory includes a wrapped publisher link
+
+- **WHEN** Home shows the desktop footer and the publisher link wraps
+- **THEN** the space after its heading and between its link boxes is equal
+- **AND** directory content has equal top and bottom insets from its dividers
+- **AND** the final catalog block and footer divider are separated by the same 0.6667rem interval used between catalog blocks
+
+#### Scenario: Short Home and mobile disclosures
+
+- **WHEN** Home content is shorter than the available viewport or the footer uses mobile disclosures
+- **THEN** the single catalog-sized footer interval remains without extra stretched viewport space
+- **AND** expanded mobile links retain usable targets, consistent list gaps, and no horizontal page overflow

@@ -236,7 +236,8 @@
     inline-size: 100%;
     max-inline-size: 46.25rem;
     margin-inline: auto;
-    padding: 1.5rem 1rem 2.5rem;
+    padding-block: 0.6667rem;
+    padding-inline: 1rem;
   }
 
   .visually-hidden {

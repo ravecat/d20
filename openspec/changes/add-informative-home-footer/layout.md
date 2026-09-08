@@ -6,8 +6,8 @@ Implementation and review reference for #268. [design.md](design.md) owns archit
 
 Every existing App-layout page renders the same footer once after main content:
 
-- Explore: `About`, `For Publishers and Rightholders`, `For developers`.
-- Help: `How to play`, `FAQ`, `Contact / Support`.
+- Explore: `About`, `For publishers and rightholders`, `For developers`.
+- Help: `How to play`, `FAQ`, `Contact / support`.
 - Legal: copyright with the current year and D20, `Privacy`, `Terms`.
 
 Use the hrefs in [design.md](design.md). Deletion remains an expanded FAQ answer at `/help#delete-account`, not another footer item. Do not repeat the header brand or add a tagline above the directory.
@@ -21,13 +21,16 @@ There is no `compact`/`informative` content setting. Authentication and page ide
 | Background | Home's `--color-base-100` page surface | Same; preserve the dark page surface in dark mode |
 | Narrow inner box | Centered, border-box, maximum 46.25rem, 1rem inline padding | Same |
 | Wide inner box | Centered, border-box, maximum 64rem, 1.5rem inline padding | Same maximum, 1rem inline padding |
-| Outer block padding | 1rem top, 0.75rem bottom plus safe-area inset | Same |
+| Home/footer flow | Home has equal 0.6667rem top and bottom padding, matching catalog section/heading gaps; footer adds no extra gap, including on short pages | Same |
+| Outer block padding | No top padding, 0.5rem bottom plus safe-area inset | Same |
 | Directory | Two equal columns capped at 12rem, 1rem gap, 0.5rem block padding | Full-width disclosure rows, no grid gap or block padding |
-| Links | 0.25rem block padding, wrapping text | Minimum 44px rows, 0.75rem inline start inset |
+| Links | 0.5rem gap after the heading and between entries, no per-link block padding, wrapping text | Contiguous rows with 0.375rem link block padding, 1.5rem minimum targets and no list block padding; 0.75rem inline start inset |
 | Legal strip | 0.5rem above, copyright at start, links at end when they fit | Copyright followed by wrapping Privacy/Terms, 0.5rem row gap |
 | Separators | 1px existing subdued border token | Around the directory and between disclosure rows |
 
-Use the existing font and theme tokens. Footer text is 0.8125rem at 1.5 line height; headings use weight 600; copyright and legal links inherit the same 0.8125rem size, family, weight, and line height. The legal strip remains a baseline-aligned wrapping flex row even below 48rem, fitting on one line at 446px and wrapping only on content pressure. Mobile ASCII rows below illustrate wrapping, not forced stacking. Preserve visible focus, 4.5:1 normal-text contrast, and at least 44px mobile disclosure triggers. Keep the footer in normal flow with no fixed height, clipping, truncation, or hidden overflow.
+Use the existing font and theme tokens. Footer text is 0.8125rem at 1.5 line height; headings use weight 600; copyright and legal links inherit the same 0.8125rem size, family, weight, and line height. The legal strip remains a baseline-aligned wrapping flex row even below 48rem, fitting on one line at 446px and wrapping only on content pressure. Mobile ASCII rows below illustrate wrapping, not forced stacking. Preserve visible focus, 4.5:1 normal-text contrast, and at least 2rem mobile disclosure triggers with 0.375rem block padding. Keep the footer in normal flow with no fixed height, clipping, truncation, or hidden overflow.
+
+The header proportions refinement renders its full brand and Log in button at 75 percent of their previous sizes with minimum header heights of 3.75rem desktop, 3.375rem narrow and 2.3625rem compact. The layout reserve and document scroll padding match the expanded heights; catalog/footer spacing is preserved. Exact responsive sizes are recorded in the linked `refine-borderless-app-shell` size contract.
 
 ## Viewports and review
 
@@ -54,8 +57,8 @@ Desktop:
        +---------------------------------------------------+
        | Explore          Help                             |
        | About            How to play                      |
-       | For Publishers   FAQ                              |
-       | and Rightholders Contact / Support                |
+       | For publishers   FAQ                              |
+       | and rightholders Contact / support                |
        | For developers                                    |
        |---------------------------------------------------|
        | (c) YEAR D20                  Privacy | Terms      |
@@ -81,14 +84,14 @@ Mobile, expanded:
 +------------------------------+
 | Explore                    v |
 |   About                      |
-|   For Publishers and         |
-|   Rightholders                |
+|   For publishers and         |
+|   rightholders                |
 |   For developers             |
 |------------------------------|
 | Help                       v |
 |   How to play                |
 |   FAQ                        |
-|   Contact / Support          |
+|   Contact / support          |
 |------------------------------|
 | (c) YEAR D20                 |
 | Privacy | Terms              |

@@ -3,11 +3,11 @@
 </script>
 
 <svelte:head>
-  <title>Contact / Support</title>
+  <title>Contact / support</title>
 </svelte:head>
 
 <article class="contact-page">
-  <h1 class="contact-page__title">Contact / Support</h1>
+  <h1 class="contact-page__title">Contact / support</h1>
   <p>
     Need help with D20 or have feedback? Email
     <a href="mailto:support@d20.ravecat.io">support@d20.ravecat.io</a>.
@@ -38,7 +38,7 @@
       For game proposals, attribution, or concerns about rights in existing content, email
       <a href="mailto:rights@d20.ravecat.io">rights@d20.ravecat.io</a>.
     </p>
-    <a href="/rights-holders" use:inertia>For Publishers and Rightholders</a>
+    <a href="/rights-holders" use:inertia>For publishers and rightholders</a>
   </section>
 </article>
 

@@ -60,6 +60,35 @@ afterEach(() => {
 });
 
 describe("app layout", () => {
+  it("restores the expanded header when closing the footer removes document overflow", async () => {
+    await page.viewport(700, 600);
+    await render(Layout, {
+      children: createRawSnippet(() => ({
+        render: () => '<div style="block-size: 400px"></div>',
+      })),
+    });
+
+    const header = page.getByRole("banner");
+    const brand = page.getByRole("link", { name: "D20" });
+    const explore = page
+      .getByRole("group", { name: "Explore" })
+      .getByRole("heading", { name: "Explore" });
+    const help = page.getByRole("group", { name: "Help" }).getByRole("heading", { name: "Help" });
+
+    await explore.click();
+    await help.click();
+    window.scrollTo(0, 200);
+    await expect.poll(() => window.scrollY).toBeGreaterThan(24);
+    if (supportsRootScrollAnimation()) {
+      await expect.poll(() => animationProgress(brand.element())).toBeCloseTo(1, 1);
+    }
+
+    await explore.click();
+    await help.click();
+    await expect.poll(() => window.scrollY).toBe(0);
+    await expect(header).toMatchScreenshot("header-after-overflow-removed.png");
+  });
+
   it.each([
     { name: "desktop", width: 1280 },
     { name: "mobile", width: 480 },
@@ -109,14 +138,11 @@ describe("app layout", () => {
       await expect.poll(() => scrollingElement!.scrollTop).toBeGreaterThan(24);
       await expect
         .poll(() => documentBlockOffset(lowerAction.element()) - scrollingElement!.scrollTop)
-        .toBeGreaterThanOrEqual((width <= 544 ? 72 : 80) - 1);
+        .toBeGreaterThanOrEqual((width <= 544 ? 54 : 60) - 1);
 
       scrollingElement!.scrollTop = 0;
 
       await expect.poll(() => scrollingElement!.scrollTop).toBe(0);
-      if (supportsRootScrollAnimation()) {
-        await expect.poll(() => animationProgress(brand.element())).toBeCloseTo(0, 1);
-      }
 
       content.element().focus({ preventScroll: true });
       await expect.element(content).toHaveFocus();
