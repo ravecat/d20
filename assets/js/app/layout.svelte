@@ -29,8 +29,8 @@
   }
 
   .layout {
-    display: grid;
-    grid-template-rows: auto 1fr;
+    display: flex;
+    flex-direction: column;
     box-sizing: border-box;
     min-block-size: 100dvh;
     padding-block-start: 3.75rem;
@@ -45,6 +45,10 @@
     .layout {
       padding-block-start: 3.375rem;
     }
+  }
+
+  .layout__content {
+    flex: 1;
   }
 
   .layout__content:focus-visible {
