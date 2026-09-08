@@ -116,8 +116,8 @@ defmodule D20.Games do
   @doc """
   Lists up to 32 visible games excluding the supplied ids, without requesting an order.
   """
-  @spec list_browse([Game.id()]) :: {:ok, [catalog_entry()]} | {:error, term()}
-  def list_browse(excluded_ids) do
+  @spec list_browsable([Game.id()]) :: {:ok, [catalog_entry()]} | {:error, term()}
+  def list_browsable(excluded_ids) do
     stages = Application.fetch_env!(:d20, :visible_game_stages)
     list(where: dynamic([game], game.stage in ^stages and game.id not in ^excluded_ids))
   end

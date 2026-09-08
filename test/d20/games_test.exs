@@ -189,20 +189,20 @@ defmodule D20.GamesTest do
     assert game.id == game_id(183_006)
   end
 
-  test "list_browse owns visibility and exclusions without hiding disabled games" do
+  test "list_browsable owns visibility and exclusions without hiding disabled games" do
     stub_registered_bgg_games()
     excluded_ids = Enum.map([425_873, 183_006], &game_id/1)
 
     Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
-    assert {:ok, games} = Games.list_browse(excluded_ids)
+    assert {:ok, games} = Games.list_browsable(excluded_ids)
     expected_ids = Enum.map(@ordered_bgg_ids, &game_id/1) -- excluded_ids
     assert MapSet.new(games, & &1.id) == MapSet.new(expected_ids)
 
     Application.put_env(:d20, :visible_game_stages, [:released])
     assert {:ok, _game} = Games.update(game_fixture(183_006), %{enabled: false})
-    assert {:ok, [game]} = Games.list_browse([game_id(425_873)])
+    assert {:ok, [game]} = Games.list_browsable([game_id(425_873)])
     assert game.id == game_id(183_006)
-    assert {:ok, []} = Games.list_browse(excluded_ids)
+    assert {:ok, []} = Games.list_browsable(excluded_ids)
   end
 
   test "list accepts native Ecto dynamic ordering" do
@@ -477,7 +477,7 @@ defmodule D20.GamesTest do
     refute Games.session_launch_available?(released)
     refute Games.session_launch_available?(next_station)
     assert {:ok, []} = Games.list_playable(8)
-    assert {:ok, []} = Games.list_browse([])
+    assert {:ok, []} = Games.list_browsable([])
 
     stub_registered_bgg_games()
     assert {:ok, games} = Games.list(where: [stage: :released])

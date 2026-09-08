@@ -57,7 +57,7 @@ Define how the persisted D20 game catalog is queried, linked, and presented with
 - **THEN** Ecto retains its native validation errors
 
 ### Requirement: Home curates persisted catalog games
-The system SHALL resolve both home collections from persisted `games` rows through `D20.Games.list_playable/1` and `D20.Games.list_browse/1`, which construct Ecto queries inside the context and reuse `list/1`. Controllers SHALL pass ordinary limits and excluded ids without constructing Ecto queries or enumerating schema engine mappings. `Playable games` SHALL contain at most eight records accepted by the authoritative new-Session launch policy in catalog order. `Browse games` SHALL select at most 32 remaining environment-visible persisted records without requesting an order, and SHALL include each selected record exactly once in a flat array without group wrappers or synthetic group ids. `PageController` SHALL call the domain operations and serialize the resulting `playableGames` and `games` props without a dedicated `D20.Games.home/1`, `D20.Games.home_partition/2`, injected randomizer, or in-memory browse shuffle. Each entry SHALL expose stable local game identity as canonical string `game` TypeID, stable public `slug`, current `stage`, and runtime `game` metadata.
+The system SHALL resolve both home collections from persisted `games` rows through `D20.Games.list_playable/1` and `D20.Games.list_browsable/1`, which construct Ecto queries inside the context and reuse `list/1`. Controllers SHALL pass ordinary limits and excluded ids without constructing Ecto queries or enumerating schema engine mappings. `Playable games` SHALL contain at most eight records accepted by the authoritative new-Session launch policy in catalog order. `Browse games` SHALL select at most 32 remaining environment-visible persisted records without requesting an order, and SHALL include each selected record exactly once in a flat array without group wrappers or synthetic group ids. `PageController` SHALL call the domain operations and serialize the resulting `playableGames` and `games` props without a dedicated `D20.Games.home/1`, `D20.Games.home_partition/2`, injected randomizer, or in-memory browse shuffle. Each entry SHALL expose stable local game identity as canonical string `game` TypeID, stable public `slug`, current `stage`, and runtime `game` metadata.
 
 #### Scenario: Launchable persisted game appears in the playable collection
 - **WHEN** a persisted Qwinto row passes launch policy and is among the first eight eligible records
@@ -84,7 +84,7 @@ The system SHALL resolve both home collections from persisted `games` rows throu
 - **AND** its detail route remains addressable
 
 #### Scenario: Browse selection excludes ids through the context
-- **WHEN** a controller passes selected playable ids to `Games.list_browse/1`
+- **WHEN** a controller passes selected playable ids to `Games.list_browsable/1`
 - **THEN** the context applies environment visibility and id exclusion before limiting and metadata enrichment
 - **AND** the controller receives the selected catalog entries without constructing an Ecto expression
 

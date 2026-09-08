@@ -13,7 +13,7 @@ defmodule D20Web.PageController do
   def home(conn, _params) do
     {:ok, playable_games} = Games.list_playable(@playable_limit)
     playable_ids = Enum.map(playable_games, & &1.id)
-    {:ok, browse_games} = Games.list_browse(playable_ids)
+    {:ok, browse_games} = Games.list_browsable(playable_ids)
 
     conn
     |> assign_prop(
