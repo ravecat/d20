@@ -47,6 +47,7 @@ describe("home page", () => {
       games: fourBrowseGames.slice(0, 1),
     });
 
+    await page.getByRole("heading", { name: "Playable", exact: true }).hover();
     await expect(document.documentElement).toMatchScreenshot("single-game-mobile.png");
   });
 
