@@ -7,12 +7,9 @@ defmodule D20Web.ModuleControllerTest do
   alias D20.Sessions.Session
 
   setup do
-    original_launch_config =
-      Application.get_env(:d20, :allow_launch_in_development, :not_configured)
+    original_environment = Application.get_env(:d20, :env, :not_configured)
 
-    on_exit(fn ->
-      Application.put_env(:d20, :allow_launch_in_development, original_launch_config)
-    end)
+    on_exit(fn -> Application.put_env(:d20, :env, original_environment) end)
   end
 
   test "POST /modules/:game_id creates a module session and returns bootstrap", %{conn: conn} do
@@ -77,7 +74,10 @@ defmodule D20Web.ModuleControllerTest do
     session_id = session.id
     topic = "session:#{session_id}"
 
-    Application.put_env(:d20, :allow_launch_in_development, false)
+    Application.put_env(:d20, :env, :prod)
+
+    {:ok, game} = Games.get(game_id)
+    assert {:ok, _game} = Games.update(game, %{stage: :in_development, enabled: false})
 
     on_exit(fn -> D20.Sessions.stop(session_id) end)
 
@@ -132,10 +132,10 @@ defmodule D20Web.ModuleControllerTest do
     assert {:ok, %{game_id: ^game_id}} = D20.Module.Token.verify(D20Web.Endpoint, token)
   end
 
-  test "POST /modules/:game_id forbids creating an in-development session when configured", %{
+  test "POST /modules/:game_id forbids creating an in-development session in production", %{
     conn: conn
   } do
-    Application.put_env(:d20, :allow_launch_in_development, false)
+    Application.put_env(:d20, :env, :prod)
 
     game_id = game_id(425_873)
     {:ok, game} = Games.get(game_id)
@@ -144,6 +144,15 @@ defmodule D20Web.ModuleControllerTest do
     conn = conn |> put_req_header("origin", koala_origin()) |> post(~p"/modules/#{game_id}", %{})
 
     assert response(conn, 403) == "Forbidden"
+  end
+
+  test "POST /modules/:game_id allows an in-development session in dev", %{conn: conn} do
+    Application.put_env(:d20, :env, :dev)
+    game_id = game_id(353_545)
+    conn = post conn, ~p"/modules/#{game_id}", %{}
+    assert %{"session" => session_id} = json_response(conn, 200)
+    on_exit(fn -> D20.Sessions.stop(session_id) end)
+    assert {:ok, {%Session{}, ^game_id}} = D20.Sessions.get(session_id)
   end
 
   test "POST /modules/:game_id returns 404 for a session from another game", %{conn: conn} do

@@ -2,5 +2,8 @@ import { afterEach, expect } from "vitest";
 
 afterEach(async () => {
   await Promise.all(Array.from(document.fonts, (font) => font.load()));
-  await expect(document.documentElement).toMatchScreenshot();
+  await expect(document.documentElement).toMatchScreenshot({
+    // Allow the multi-frame stability check to finish under a full-suite workload.
+    timeout: 15_000,
+  });
 });

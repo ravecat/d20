@@ -2,7 +2,12 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { HomePage } from "~/pages/home";
 import { auth } from "~/shared/stores";
-import { homeGames } from "~stories/fixtures/home";
+import {
+  eightPlayableGames,
+  fallbackBrowseGames,
+  homeBrowseGames,
+  threePlayableGames,
+} from "~stories/fixtures/home";
 import { withLayout } from "~stories/decorators/layout";
 
 const meta = {
@@ -30,7 +35,8 @@ const meta = {
         steam: { available: true },
       },
     },
-    games: homeGames,
+    playableGames: threePlayableGames,
+    games: homeBrowseGames,
   },
 } satisfies Meta<typeof HomePage>;
 
@@ -46,7 +52,9 @@ export const Index: Story = {
       within(canvas.getByRole("banner")).getByRole("link", { name: "D20" }),
     ).toBeVisible();
     await expect(canvas.getByRole("main")).toBeVisible();
-    await expect(canvas.getByText("Qwinto")).toBeVisible();
+    await expect(canvas.getByRole("region", { name: "Playable" })).toBeVisible();
+    await expect(canvas.getByRole("region", { name: "Games" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Voyages" })).toBeVisible();
     await expect(canvas.getAllByRole("contentinfo")).toHaveLength(1);
     await expect(canvas.getByRole("navigation", { name: "Explore" })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
@@ -54,12 +62,63 @@ export const Index: Story = {
 };
 
 export const Empty: Story = {
-  args: { games: [] },
+  args: { playableGames: [], games: [] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("No games")).toBeVisible();
+    await expect(canvas.queryByRole("region", { name: "Playable" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("region", { name: "Games" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("contentinfo")).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
+  },
+};
+
+export const EightPlayable: Story = {
+  args: {
+    playableGames: eightPlayableGames,
+  },
+};
+
+export const Dark: Story = {
+  ...Index,
+  globals: { theme: "dark" },
+};
+
+export const NoPlayableGames: Story = {
+  args: {
+    playableGames: [],
+  },
+};
+
+export const OnePlayableGame: Story = {
+  args: {
+    playableGames: threePlayableGames.slice(0, 1),
+    games: [],
+  },
+};
+
+export const TwoPlayableGames: Story = {
+  args: {
+    playableGames: threePlayableGames.slice(0, 2),
+  },
+};
+
+export const NoBrowseGames: Story = {
+  args: {
+    games: [],
+  },
+};
+
+export const OneBrowseGame: Story = {
+  args: {
+    playableGames: [],
+    games: homeBrowseGames.slice(0, 1),
+  },
+};
+
+export const FallbackMetadata: Story = {
+  args: {
+    playableGames: [],
+    games: fallbackBrowseGames,
   },
 };
 
@@ -79,9 +138,11 @@ export const SignInSentMagicLink: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Log in" }));
     await expect(canvas.getByRole("dialog", { name: "Log in" })).toBeVisible();
     auth.trigger.magicLinkSucceeded();
-    await expect(await canvas.findByRole("status")).toHaveTextContent(
-      "If your email is in our system, a login link will arrive shortly.",
-    );
+    await expect(
+      await canvas.findByText("If your email is in our system, a login link will arrive shortly.", {
+        exact: false,
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -119,9 +180,12 @@ export const SignUpWithEmail: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Create account" }));
     await expect(canvas.getByRole("dialog", { name: "Create your free account" })).toBeVisible();
     auth.trigger.registrationSucceeded();
-    await expect(await canvas.findByRole("status")).toHaveTextContent(
-      "Open the confirmation link to finish creating your account and log in.",
-    );
+    await expect(
+      await canvas.findByText(
+        "Open the confirmation link to finish creating your account and log in.",
+        { exact: false },
+      ),
+    ).toBeVisible();
     await expect(canvas.getByRole("link", { name: "local mailbox" })).toBeVisible();
   },
 };

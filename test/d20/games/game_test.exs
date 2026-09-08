@@ -16,12 +16,64 @@ defmodule D20.Games.GameTest do
       assert {:ok, D20.Qwinto.Game} = Games.engine(qwinto)
     end
 
-    test "planned game has no engine and is non-launchable" do
+    test "in-development game has no engine and is non-launchable" do
       assert {:ok, %Game{} = voyages} = Games.get(game_id(350_736))
       assert voyages.slug == "voyages"
-      assert voyages.stage == :planned
+      assert voyages.stage == :in_development
       assert is_nil(voyages.engine)
       refute Games.session_launch_available?(voyages)
+    end
+
+    test "new records default to in-development without an engine" do
+      assert {:ok, %Game{stage: :in_development, engine: nil, enabled: true}} =
+               %Game{}
+               |> Game.create_changeset(%{slug: "new-game", bgg_id: 999_994})
+               |> Repo.insert()
+    end
+
+    test "in-development records can omit or remove an engine" do
+      assert {:ok, game} = Games.get(game_id(353_545))
+
+      assert {:ok, %Game{stage: :in_development, engine: nil}} =
+               Games.update(game, %{engine: nil})
+    end
+
+    test "planned is no longer a valid stage" do
+      changeset = Game.changeset(%Game{}, %{bgg_id: 999_993, stage: :planned})
+      refute changeset.valid?
+      assert changeset.errors[:stage]
+    end
+
+    test "database defaults new records to in-development without an engine" do
+      now = DateTime.truncate(DateTime.utc_now(), :second)
+
+      row = %{
+        id: TypeID.new("game") |> to_string(),
+        slug: "new-game",
+        bgg_id: 999_992,
+        inserted_at: now,
+        updated_at: now
+      }
+
+      assert {1, [%{stage: "in_development", engine: nil, enabled: true}]} =
+               Repo.insert_all("games", [row], returning: [:stage, :engine, :enabled])
+    end
+
+    test "database rejects the removed planned stage" do
+      error =
+        assert_raise Postgrex.Error, fn -> Repo.update_all("games", set: [stage: "planned"]) end
+
+      assert error.postgres.constraint == "games_stage_domain"
+    end
+
+    test "database requires an engine only for released games" do
+      error =
+        assert_raise Postgrex.Error, fn ->
+          from(game in "games", where: game.bgg_id == 350_736)
+          |> Repo.update_all(set: [stage: "released"])
+        end
+
+      assert error.postgres.constraint == "games_launch_stage_requires_engine"
     end
 
     test "released game is launchable when enabled" do
@@ -42,17 +94,17 @@ defmodule D20.Games.GameTest do
     end
 
     test "create changeset requires the operator-assigned slug and BGG binding" do
-      changeset = Game.create_changeset(%Game{}, %{bgg_id: 999_997, stage: :planned})
+      changeset = Game.create_changeset(%Game{}, %{bgg_id: 999_997, stage: :in_development})
       assert changeset.errors[:slug]
 
-      changeset = Game.create_changeset(%Game{}, %{slug: "new-game", stage: :planned})
+      changeset = Game.create_changeset(%Game{}, %{slug: "new-game", stage: :in_development})
       assert changeset.errors[:bgg_id]
     end
 
     test "create changeset rejects malformed and overlong slugs" do
       for slug <- ["New-Game", "new_game", "-new-game", "new-game-", "new--game", "двадцать"] do
         changeset =
-          Game.create_changeset(%Game{}, %{slug: slug, bgg_id: 999_997, stage: :planned})
+          Game.create_changeset(%Game{}, %{slug: slug, bgg_id: 999_997, stage: :in_development})
 
         assert changeset.errors[:slug], "expected slug #{inspect(slug)} to be rejected"
       end
@@ -61,7 +113,7 @@ defmodule D20.Games.GameTest do
         Game.create_changeset(%Game{}, %{
           slug: String.duplicate("a", 64),
           bgg_id: 999_997,
-          stage: :planned
+          stage: :in_development
         })
 
       assert changeset.errors[:slug]
@@ -73,7 +125,7 @@ defmodule D20.Games.GameTest do
                |> Game.create_changeset(%{
                  slug: "new-game",
                  bgg_id: 999_997,
-                 stage: :planned,
+                 stage: :in_development,
                  enabled: true
                })
                |> Repo.insert()
@@ -85,7 +137,7 @@ defmodule D20.Games.GameTest do
                |> Game.create_changeset(%{
                  slug: "new-game",
                  bgg_id: 999_996,
-                 stage: :planned,
+                 stage: :in_development,
                  enabled: true
                })
                |> Repo.insert()
@@ -104,7 +156,7 @@ defmodule D20.Games.GameTest do
         })
 
       assert %{errors: errors} = changeset
-      assert {"is required", _} = errors[:engine]
+      assert {"can't be blank", _} = errors[:engine]
     end
 
     test "ordinary update changeset cannot mutate the persisted slug" do
@@ -120,7 +172,9 @@ defmodule D20.Games.GameTest do
     end
 
     test "non-positive bgg id is rejected" do
-      changeset = Game.create_changeset(%Game{}, %{slug: "new-game", bgg_id: -1, stage: :planned})
+      changeset =
+        Game.create_changeset(%Game{}, %{slug: "new-game", bgg_id: -1, stage: :in_development})
+
       assert changeset.errors[:bgg_id]
     end
 
@@ -223,7 +277,7 @@ defmodule D20.Games.GameTest do
                |> Game.create_changeset(%{
                  slug: "later-game",
                  bgg_id: 999_996,
-                 stage: :planned,
+                 stage: :in_development,
                  enabled: true
                })
                |> Repo.insert()
@@ -237,7 +291,7 @@ defmodule D20.Games.GameTest do
       assert {:error, %Postgrex.Error{postgres: %{constraint: "games_id_typeid_format"}}} =
                Repo.query("""
                INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
-               VALUES ('user_01h45y6thxeyg95gnpgqqefgpa', 'new-game', 999995, 'planned', TRUE, NOW(), NOW())
+               VALUES ('user_01h45y6thxeyg95gnpgqqefgpa', 'new-game', 999995, 'in_development', TRUE, NOW(), NOW())
                """)
     end
 
@@ -245,13 +299,13 @@ defmodule D20.Games.GameTest do
       assert {:error, %Postgrex.Error{postgres: %{constraint: "games_slug_format"}}} =
                Repo.query("""
                INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
-               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', 'New_Game', 999995, 'planned', TRUE, NOW(), NOW())
+               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', 'New_Game', 999995, 'in_development', TRUE, NOW(), NOW())
                """)
 
       assert {:error, %Postgrex.Error{postgres: %{constraint: "games_slug_format"}}} =
                Repo.query("""
                INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
-               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', '#{String.duplicate("a", 64)}', 999994, 'planned', TRUE, NOW(), NOW())
+               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', '#{String.duplicate("a", 64)}', 999994, 'in_development', TRUE, NOW(), NOW())
                """)
     end
 
@@ -259,7 +313,7 @@ defmodule D20.Games.GameTest do
       assert {:error, %Postgrex.Error{postgres: %{constraint: "games_slug_index"}}} =
                Repo.query("""
                INSERT INTO games (id, slug, bgg_id, stage, enabled, inserted_at, updated_at)
-               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', 'qwinto', 999995, 'planned', TRUE, NOW(), NOW())
+               VALUES ('#{TypeID.to_string(TypeID.new("game"))}', 'qwinto', 999995, 'in_development', TRUE, NOW(), NOW())
                """)
     end
   end

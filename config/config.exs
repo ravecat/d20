@@ -39,8 +39,7 @@ config :backpex,
 config :d20,
   ecto_repos: [D20.Repo],
   generators: [timestamp_type: :utc_datetime],
-  # Temporary gate until game availability is controlled by runtime feature flags or experiments.
-  allow_launch_in_development: config_env() != :prod,
+  env: config_env(),
   session_idle_timeout: :timer.minutes(30)
 
 # Steam OpenID assertions arrive in query parameters before the provider controller runs.

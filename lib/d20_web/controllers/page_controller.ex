@@ -2,16 +2,32 @@ defmodule D20Web.PageController do
   use D20Web, :controller
 
   alias D20.Games
-  alias D20.Games.Game
   alias D20.Sessions
   alias D20Web.SessionChannel
 
   @typep params :: Plug.Conn.params()
 
+  @playable_limit 8
+
   @spec home(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def home(conn, _params) do
+    {:ok, playable_games} = Games.list_playable(@playable_limit)
+    playable_ids = Enum.map(playable_games, & &1.id)
+    {:ok, browse_games} = Games.list_browse(playable_ids)
+
     conn
-    |> assign_games_prop()
+    |> assign_prop(
+      :playable_games,
+      Enum.map(playable_games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
+        %{id: TypeID.to_string(id), slug: slug, stage: stage, game: Map.from_struct(game)}
+      end)
+    )
+    |> assign_prop(
+      :games,
+      Enum.map(browse_games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
+        %{id: TypeID.to_string(id), slug: slug, stage: stage, game: Map.from_struct(game)}
+      end)
+    )
     |> render_inertia("home")
   end
 
@@ -42,10 +58,14 @@ defmodule D20Web.PageController do
 
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def game(conn, %{"slug" => slug} = params) do
-    with {:ok, {%Game{} = game, metadata}} <- Games.fetch_by_slug(slug),
-         {:ok, session} <- resolve_game_session(game, params["session"]) do
+    with {:ok, {game, metadata}} <- Games.fetch_by_slug(slug),
+         {:ok, session} <- resolve_game_session(game, params["session"]),
+         true <- game.stage in Games.visible_stages() or not is_nil(session) do
       render_game(conn, game, metadata, session)
     else
+      false ->
+        send_not_found(conn)
+
       {:error, :session_not_found} ->
         redirect_to_game_with_error(conn, slug, "Session not found.")
 
@@ -65,7 +85,7 @@ defmodule D20Web.PageController do
     actor = conn.assigns.scope.actor
     attrs = Map.delete(params, "slug")
 
-    with {:ok, %Game{} = game} <- Games.get_by_slug(slug),
+    with {:ok, game} <- Games.get_by_slug(slug),
          :ok <- authorize_session_launch(game),
          {:ok, engine} <- Games.engine(game),
          {:ok, session} <- Sessions.create(game.id, engine, actor.id, attrs) do
@@ -125,18 +145,6 @@ defmodule D20Web.PageController do
     |> render_inertia("game")
   end
 
-  defp assign_games_prop(conn) do
-    {:ok, games} = Games.list()
-
-    assign_prop(
-      conn,
-      :games,
-      Enum.map(games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
-        %{id: TypeID.to_string(id), slug: slug, stage: stage, game: Map.from_struct(game)}
-      end)
-    )
-  end
-
   defp authorize_session_launch(game) do
     if Games.session_launch_available?(game),
       do: :ok,
@@ -153,7 +161,7 @@ defmodule D20Web.PageController do
 
   defp resolve_game_session(_game, nil), do: {:ok, nil}
 
-  defp resolve_game_session(%Game{id: game_id, slug: slug}, session_id) do
+  defp resolve_game_session(%{id: game_id, slug: slug}, session_id) do
     case Sessions.get(session_id) do
       {:ok, {_session, ^game_id}} ->
         {:ok,

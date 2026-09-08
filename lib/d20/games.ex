@@ -21,33 +21,105 @@ defmodule D20.Games do
   @type catalog_entry :: %{
           id: Game.id(),
           slug: String.t(),
-          stage: :planned | :in_development | :released,
+          stage: :in_development | :released,
           metadata: Metadata.t()
         }
 
-  @stage_order %{released: 0, in_development: 1, planned: 2}
-
   @doc """
-  Lists the catalog in release-stage order (released, in_development, planned)
-  and by local id within each stage, enriched with runtime BGG
-  metadata.
+  Lists persisted games, enriched with runtime BGG metadata; defaults to 32 records.
+
+  By default, all games are eligible and no order is requested. Options compose
+  in the Ecto query before records are loaded and metadata is fetched:
+
+  * `where` - Ecto keyword conditions or a dynamic expression; defaults to `[]`
+  * `order_by` - Ecto fields and directions; defaults to `[]`
+  * `limit` - integers are clamped to 0..100; missing or non-integer values use 32
+
+  Conditions use schema fields directly without implicit launch policy.
+  Unknown options are ignored. Ecto validates supplied query expressions.
   """
   @spec list() :: {:ok, [catalog_entry()]} | {:error, term()}
-  def list do
-    games = Repo.all(from game in Game, order_by: [asc: game.stage, asc: game.id])
+  @spec list(
+          where: keyword() | Ecto.Query.dynamic_expr(),
+          order_by: atom() | [atom()] | keyword(),
+          limit: term()
+        ) :: {:ok, [catalog_entry()]} | {:error, term()}
+  def list(options \\ []) do
+    options =
+      [where: [], order_by: [], limit: 32]
+      |> Keyword.merge(Keyword.take(options, [:where, :order_by, :limit]))
+      |> Keyword.update!(:limit, fn
+        limit when is_integer(limit) -> limit |> max(0) |> min(100)
+        _limit -> 32
+      end)
 
-    games = Enum.sort_by(games, fn game -> {Map.fetch!(@stage_order, game.stage), game.id} end)
+    games =
+      Game
+      |> where(^options[:where])
+      |> order_by(^options[:order_by])
+      |> limit(^options[:limit])
+      |> Repo.all()
 
-    {metadata_by_bgg_id, metadata_status} = fetch_catalog_metadata(games)
+    bgg_ids = Enum.map(games, & &1.bgg_id)
+
+    metadata_by_bgg_id =
+      case BoardGameGeek.fetch_games_details(bgg_ids) do
+        {:ok, attrs} ->
+          Map.new(attrs, &{&1.bgg_id, &1})
+
+        {:error, reason} ->
+          log_metadata_fallback(:catalog, reason)
+          Map.new(games, &{&1.bgg_id, %{}})
+      end
 
     entries =
       Enum.map(games, fn game ->
-        metadata = catalog_metadata(game, metadata_by_bgg_id, metadata_status)
+        metadata =
+          with {:ok, attrs} <- Map.fetch(metadata_by_bgg_id, game.bgg_id),
+               {:ok, metadata} <- Metadata.new(attrs) do
+            metadata
+          else
+            :error ->
+              log_metadata_fallback({:game, game.id}, :game_not_found)
+              Metadata.empty()
+
+            {:error, reason} ->
+              log_metadata_fallback({:game, game.id}, reason)
+              Metadata.empty()
+          end
 
         %{id: game.id, slug: game.slug, stage: game.stage, metadata: metadata}
       end)
 
     {:ok, entries}
+  end
+
+  @doc """
+  Lists up to the requested limit of launchable games in stage and id order.
+  """
+  @spec list_playable(term()) :: {:ok, [catalog_entry()]} | {:error, term()}
+  def list_playable(limit) do
+    stages = visible_stages()
+    engines = Game.engines()
+
+    list(
+      where:
+        dynamic(
+          [game],
+          game.enabled == true and game.stage in ^stages and game.engine in ^engines
+        ),
+      limit: limit,
+      order_by: [desc: :stage, asc: :id]
+    )
+  end
+
+  @doc """
+  Lists up to 32 visible games excluding the supplied ids, without requesting an order.
+  """
+  @spec list_browse([Game.id()]) :: {:ok, [catalog_entry()]} | {:error, term()}
+  def list_browse(excluded_ids) do
+    stages = visible_stages()
+    list(where: dynamic([game], game.stage in ^stages and game.id not in ^excluded_ids))
   end
 
   @doc """
@@ -98,16 +170,22 @@ defmodule D20.Games do
   end
 
   @doc """
+  Returns the stages visible in the current application environment.
+  """
+  @spec visible_stages() :: [:in_development | :released]
+  def visible_stages do
+    if Application.fetch_env!(:d20, :env) == :dev,
+      do: Ecto.Enum.values(Game, :stage),
+      else: [:released]
+  end
+
+  @doc """
   Returns whether a new Session may be created for the persisted game.
   """
   @spec session_launch_available?(Game.t()) :: boolean()
-  def session_launch_available?(%Game{enabled: false}), do: false
-
-  def session_launch_available?(%Game{stage: :released} = game),
-    do: engine_resolves?(game)
-
-  def session_launch_available?(%Game{stage: :in_development} = game),
-    do: allow_launch_in_development?() and engine_resolves?(game)
+  def session_launch_available?(%Game{enabled: true} = game) do
+    game.stage in visible_stages() and match?({:ok, _engine}, engine(game))
+  end
 
   def session_launch_available?(%Game{}), do: false
 
@@ -136,46 +214,6 @@ defmodule D20.Games do
     |> changeset(attrs)
     |> Repo.update()
   end
-
-  defp engine_resolves?(%Game{engine: engine}) when not is_nil(engine) do
-    match?({:ok, _}, D20.Game.ensure_engine(engine))
-  end
-
-  defp engine_resolves?(%Game{}), do: false
-
-  defp allow_launch_in_development? do
-    Application.fetch_env!(:d20, :allow_launch_in_development)
-  end
-
-  defp fetch_catalog_metadata(games) do
-    bgg_ids = Enum.map(games, & &1.bgg_id)
-
-    case BoardGameGeek.fetch_games_details(bgg_ids) do
-      {:ok, metadata} ->
-        {Map.new(metadata, &{&1.bgg_id, &1}), :available}
-
-      {:error, reason} ->
-        log_metadata_fallback(:catalog, reason)
-        {%{}, :unavailable}
-    end
-  end
-
-  defp catalog_metadata(game, metadata_by_bgg_id, :available) do
-    with {:ok, attrs} <- Map.fetch(metadata_by_bgg_id, game.bgg_id),
-         {:ok, metadata} <- Metadata.new(attrs) do
-      metadata
-    else
-      :error ->
-        log_metadata_fallback({:game, game.id}, :game_not_found)
-        Metadata.empty()
-
-      {:error, reason} ->
-        log_metadata_fallback({:game, game.id}, reason)
-        Metadata.empty()
-    end
-  end
-
-  defp catalog_metadata(_game, _metadata_by_bgg_id, :unavailable), do: Metadata.empty()
 
   defp fetch_game_metadata(game) do
     with {:ok, attrs} <- BoardGameGeek.fetch_game_details(game.bgg_id),

@@ -106,7 +106,6 @@ defmodule D20Web.Admin.GameLiveTest do
       fields = GameLive.fields()
 
       assert fields[:stage].options == [
-               {"Planned", :planned},
                {"In development", :in_development},
                {"Released", :released}
              ]
@@ -175,7 +174,7 @@ defmodule D20Web.Admin.GameLiveTest do
         |> render_submit(%{"save-type" => "save"})
 
       assert html =~ "must be greater than 0"
-      assert html =~ "is required"
+      assert has_element?(view, "#resource-form", "can't be blank")
       assert D20.Repo.get!(Game, game.id) == original
     end
 
@@ -223,7 +222,7 @@ defmodule D20Web.Admin.GameLiveTest do
 
       view
       |> form("#resource-form", %{
-        "change" => %{"slug" => "new-game", "bgg_id" => "999994", "stage" => "planned"}
+        "change" => %{"slug" => "new-game", "bgg_id" => "999994", "stage" => "in_development"}
       })
       |> render_submit(%{"save-type" => "save"})
 
@@ -235,7 +234,7 @@ defmodule D20Web.Admin.GameLiveTest do
 
       assert TypeID.prefix(created.id) == "game"
       assert created.bgg_id == 999_994
-      assert created.stage == :planned
+      assert created.stage == :in_development
       assert created.enabled
       assert is_nil(created.engine)
     end
@@ -246,7 +245,7 @@ defmodule D20Web.Admin.GameLiveTest do
       html =
         view
         |> form("#resource-form", %{
-          "change" => %{"slug" => "qwinto", "bgg_id" => "999994", "stage" => "planned"}
+          "change" => %{"slug" => "qwinto", "bgg_id" => "999994", "stage" => "in_development"}
         })
         |> render_submit(%{"save-type" => "save"})
 
@@ -260,7 +259,7 @@ defmodule D20Web.Admin.GameLiveTest do
       html =
         view
         |> form("#resource-form", %{
-          "change" => %{"slug" => "New_Game", "bgg_id" => "999994", "stage" => "planned"}
+          "change" => %{"slug" => "New_Game", "bgg_id" => "999994", "stage" => "in_development"}
         })
         |> render_submit(%{"save-type" => "save"})
 
@@ -273,7 +272,9 @@ defmodule D20Web.Admin.GameLiveTest do
 
       html =
         view
-        |> form("#resource-form", %{"change" => %{"bgg_id" => "999994", "stage" => "planned"}})
+        |> form("#resource-form", %{
+          "change" => %{"bgg_id" => "999994", "stage" => "in_development"}
+        })
         |> render_submit(%{"save-type" => "save"})
 
       assert html =~ "can&#39;t be blank"
@@ -285,7 +286,7 @@ defmodule D20Web.Admin.GameLiveTest do
     end
 
     test "does not route game deletion", %{admin_conn: conn, game: game} do
-      assert conn |> delete(~p"/dashboard/#{game.id}") |> response(404)
+      assert conn |> delete("/dashboard/#{game.id}") |> response(404)
     end
   end
 

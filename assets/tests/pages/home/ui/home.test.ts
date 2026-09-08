@@ -1,11 +1,14 @@
-import { render } from "@testing-library/svelte";
+import { render, screen, within } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
 import { HomePage } from "~/pages/home";
-import type { GameMetadata } from "~/shared/types/game";
+import type { GameCatalogEntry, GameMetadata, GameStage } from "~/shared/types/game";
+import inertiaMock from "../../../mocks/inertia";
 
 const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
 const voyagesId = "game_01h45ybmy7fj7b4r9vvp74ms6k";
 const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
+const deepSeaId = "game_01h45ybrowsedeepsea00000";
+
 const auth = {
   authenticated: false,
   local: false,
@@ -20,138 +23,184 @@ const auth = {
 };
 
 describe("home page", () => {
-  it("renders game tiles with preview images and slug links", () => {
-    render(HomePage, {
+  it("renders semantic sections in server order with one canonical link per game", () => {
+    const { container } = render(HomePage, {
       auth,
+      playableGames: [
+        gameEntry(qwintoId, "qwinto", "Qwinto", "released", {
+          categories: ["Dice", "Number"],
+          imageUrl: "https://example.invalid/qwinto-image.jpg",
+        }),
+        gameEntry(koalaId, "koala-rescue-club", "Koala Rescue Club", "in_development"),
+      ],
       games: [
-        {
-          id: qwintoId,
-          slug: "qwinto",
-          stage: "released",
-          game: gameMetadata({
-            name: "Qwinto",
-            categories: ["Dice", "Number"],
-            mechanics: ["Dice Rolling", "Paper-and-Pencil"],
-            thumbnailUrl: "https://example.invalid/qwinto-thumb.jpg",
-            imageUrl: "https://example.invalid/qwinto-image.jpg",
-          }),
-        },
+        gameEntry(voyagesId, "voyages", "Voyages", "released"),
+        gameEntry(
+          "game_01h45y849qfqvbeayxmwkxg5x9",
+          "next-station-london",
+          "Next Station",
+          "in_development",
+        ),
+        gameEntry(deepSeaId, "deep-sea-adventure", "Deep Sea Adventure", "released"),
       ],
     });
 
-    const [link] = document.links;
-    const [image] = document.images;
-    const title = link?.querySelector("h2");
-    const visibleText = link?.textContent ?? "";
+    const playableSection = screen.getByRole("region", { name: "Playable" });
+    const browseSection = screen.getByRole("region", { name: "Games" });
 
-    expect(link?.getAttribute("href")).toBe("/games/qwinto");
-    expect(title?.textContent).toBe("Qwinto");
-    expect(image?.getAttribute("src")).toBe("https://example.invalid/qwinto-image.jpg");
-    expect(visibleText).toContain("Qwinto");
-    expect(visibleText).toContain("Dice");
-    expect(visibleText).toContain("Number");
-    expect(visibleText).not.toContain("Dice Rolling");
-    expect(visibleText).not.toContain("Paper-and-Pencil");
-    expect(visibleText).not.toContain("In development");
-    expect(visibleText).not.toContain("Planned");
+    expect(screen.getByRole("heading", { name: "Games", level: 1 })).toBeTruthy();
+    expect(
+      [...screen.getAllByRole("heading", { level: 2 })].map((heading) => heading.textContent),
+    ).toEqual(["Playable", "Games"]);
+
+    expect(
+      within(playableSection)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/games/qwinto", "/games/koala-rescue-club"]);
+    expect(
+      within(browseSection)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/games/voyages", "/games/next-station-london", "/games/deep-sea-adventure"]);
+
+    // Exactly one accessible link per delivered game across every collection;
+    // duplicated loop tracks and the decorative compact strip stay hidden.
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "Qwinto" }).getAttribute("href")).toBe("/games/qwinto");
+    expect(screen.getByRole("link", { name: "Voyages" }).getAttribute("href")).toBe(
+      "/games/voyages",
+    );
+
+    // The animated loops duplicate each sequence once with inert copies, and
+    // the compact Games row is one inert decorative track. Svelte assigns the
+    // reflected `inert` property, so match either the property or attribute.
+    const inertSlides = Array.from(container.querySelectorAll("li")).filter(
+      (slide) => slide.inert === true || slide.hasAttribute("inert"),
+    );
+    expect(inertSlides).toHaveLength(5);
+    expect(
+      container.querySelectorAll(".carousel--compact[inert][aria-hidden='true']"),
+    ).toHaveLength(1);
+
+    expect(document.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.invalid/qwinto-image.jpg",
+    );
+    expect(within(playableSection).queryByText("In development")).toBeNull();
+    expect(within(browseSection).getAllByText("In development")).toHaveLength(4);
+    expect(
+      within(screen.getByRole("link", { name: "Voyages" })).queryByText("In development"),
+    ).toBeNull();
   });
 
-  it("renders a planned game without a redundant status label", () => {
-    render(HomePage, {
+  it("renders one browse game without duplicates or controls", () => {
+    const { container } = render(HomePage, {
       auth,
-      games: [
-        {
-          id: voyagesId,
-          slug: "voyages",
-          stage: "planned",
-          game: gameMetadata({ thumbnailUrl: null, imageUrl: null }),
-        },
-      ],
+      playableGames: [gameEntry(qwintoId, "qwinto", "Qwinto", "released")],
+      games: [gameEntry(voyagesId, "voyages", "Voyages", "in_development")],
     });
 
-    const [link] = document.links;
+    const browseSection = screen.getByRole("region", { name: "Games" });
 
-    expect(link?.textContent).toContain("Qwinto");
-    expect(document.images).toHaveLength(0);
-    expect(link?.getAttribute("href")).toBe("/games/voyages");
-    expect(link?.textContent).not.toContain("Planned");
-    expect(link?.textContent).not.toContain("In development");
+    expect(within(browseSection).getAllByRole("link")).toHaveLength(1);
+    expect(container.querySelectorAll("li[inert]")).toHaveLength(0);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("renders the In development label for games under development", () => {
+  it("omits the games section when no browse game exists", () => {
     render(HomePage, {
       auth,
-      games: [
-        {
-          id: koalaId,
-          slug: "koala-rescue-club",
-          stage: "in_development",
-          game: gameMetadata({ name: "Koala Rescue Club" }),
-        },
-      ],
+      playableGames: [gameEntry(qwintoId, "qwinto", "Qwinto", "released")],
+      games: [],
     });
 
-    const [link] = document.links;
-
-    expect(link?.getAttribute("href")).toBe("/games/koala-rescue-club");
-    expect(link?.querySelector("h2")?.textContent).toBe("Koala Rescue Club");
-    expect(link?.textContent).toContain("Koala Rescue Club");
-    expect(link?.textContent).toContain("In development");
+    expect(screen.getByRole("region", { name: "Playable" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Games" })).toBeNull();
+    expect(screen.queryByText("No additional games are available to browse.")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("renders games in the received catalog order", () => {
+  it("omits the playable section when no playable game exists", () => {
     render(HomePage, {
       auth,
+      playableGames: [],
+      games: [gameEntry(voyagesId, "voyages", "Voyages", "in_development")],
+    });
+
+    expect(screen.queryByRole("region", { name: "Playable" })).toBeNull();
+    expect(screen.queryByText("No playable games are currently available.")).toBeNull();
+    expect(screen.getByRole("region", { name: "Games" })).toBeTruthy();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("omits both collection sections when both collections are empty", () => {
+    const { container } = render(HomePage, { auth, playableGames: [], games: [] });
+
+    expect(screen.getByRole("heading", { name: "Games", level: 1 })).toBeTruthy();
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(container.querySelector(".carousel-group")).toBeNull();
+  });
+
+  it("keeps fallback cards linked with generic accessible names", () => {
+    render(HomePage, {
+      auth,
+      playableGames: [],
       games: [
-        {
-          id: "game_01h4rn40ybeqws3gfp073jt81b",
-          slug: "planned-first",
-          stage: "planned",
-          game: gameMetadata({ name: "Planned First" }),
-        },
-        {
-          id: "game_01h45y849qfqvbeayxmwkxg5x9",
-          slug: "released-first",
-          stage: "released",
-          game: gameMetadata({ name: "Released First" }),
-        },
-        {
-          id: "game_01h45ypmyxekaa2apdhevf7bve",
-          slug: "development-first",
-          stage: "in_development",
-          game: gameMetadata({ name: "Development First" }),
-        },
-        {
-          id: "game_01h45ydzqkemsb9x8gq2q7vpvb",
-          slug: "released-second",
-          stage: "released",
-          game: gameMetadata({ name: "Released Second" }),
-        },
-        {
-          id: "game_01h45y3ps9e18adjv9zvx743s2",
-          slug: "planned-second",
-          stage: "planned",
-          game: gameMetadata({ name: "Planned Second" }),
-        },
-        {
-          id: "game_01h45y6thxeyg95gnpgqqefgpa",
-          slug: "development-second",
-          stage: "in_development",
-          game: gameMetadata({ name: "Development Second" }),
-        },
+        gameEntry(voyagesId, "voyages", null, "in_development", {
+          imageUrl: null,
+          thumbnailUrl: null,
+        }),
       ],
     });
 
-    expect([...document.querySelectorAll("h2")].map((title) => title.textContent)).toEqual([
-      "Planned First",
-      "Released First",
-      "Development First",
-      "Released Second",
-      "Planned Second",
-      "Development Second",
-    ]);
+    expect(screen.getByRole("link", { name: "Open game" }).getAttribute("href")).toBe(
+      "/games/voyages",
+    );
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("introduces no scripted navigation and performs no request during presentation", () => {
+    render(HomePage, {
+      auth,
+      playableGames: [gameEntry(qwintoId, "qwinto", "Qwinto", "released")],
+      games: [
+        ...Array.from({ length: 16 }, (_, index) =>
+          gameEntry(
+            `game_first_${index}`,
+            `first-${index}`,
+            `First ${index + 1}`,
+            "in_development",
+          ),
+        ),
+      ],
+    });
+
+    expect(screen.getAllByRole("link")).toHaveLength(17);
+    expect(inertiaMock.router.visit).not.toHaveBeenCalled();
+    expect(inertiaMock.router.get).not.toHaveBeenCalled();
   });
 });
+
+function gameEntry(
+  id: string,
+  slug: string,
+  name: string | null,
+  stage: GameStage,
+  metadata: Partial<GameMetadata> = {},
+): GameCatalogEntry {
+  return {
+    id,
+    slug,
+    stage,
+    game: gameMetadata({ name, ...metadata }),
+  };
+}
 
 function gameMetadata(overrides: Partial<GameMetadata> = {}): GameMetadata {
   return {

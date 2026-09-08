@@ -470,7 +470,7 @@ describe("game detail page", () => {
       auth,
       id: voyagesId,
       slug: "voyages",
-      stage: "planned",
+      stage: "in_development",
       canLaunchGame: false,
       schema: null,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),

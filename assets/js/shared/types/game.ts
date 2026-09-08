@@ -24,7 +24,7 @@ export interface GameCatalogEntry {
   game: GameMetadata;
 }
 
-export type GameStage = "planned" | "in_development" | "released";
+export type GameStage = "in_development" | "released";
 
 export interface SessionDescriptor {
   id: string;

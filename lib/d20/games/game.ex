@@ -23,7 +23,7 @@ defmodule D20.Games.Game do
           id: id(),
           slug: String.t(),
           bgg_id: pos_integer(),
-          stage: :planned | :in_development | :released,
+          stage: :in_development | :released,
           enabled: boolean(),
           engine: D20.Game.engine() | nil,
           inserted_at: DateTime.t(),
@@ -35,8 +35,8 @@ defmodule D20.Games.Game do
     field :bgg_id, :integer
 
     field :stage, Ecto.Enum,
-      values: [:planned, :in_development, :released],
-      default: :planned
+      values: [:in_development, :released],
+      default: :in_development
 
     field :enabled, :boolean, default: true
 
@@ -97,26 +97,16 @@ defmodule D20.Games.Game do
   end
 
   defp shared_validations(changeset) do
+    required = if get_field(changeset, :stage) == :released, do: [:engine], else: []
+
     changeset
+    |> validate_required(required)
     |> validate_number(:bgg_id, greater_than: 0)
-    |> validate_inclusion(:stage, [:planned, :in_development, :released])
-    |> validate_engine_for_stage()
     |> unique_constraint(:bgg_id, name: :games_bgg_id_index)
     |> check_constraint(:bgg_id, name: :games_bgg_id_positive)
     |> check_constraint(:stage, name: :games_stage_domain)
     |> check_constraint(:engine, name: :games_engine_domain)
     |> check_constraint(:stage, name: :games_launch_stage_requires_engine)
     |> check_constraint(:slug, name: :games_slug_format)
-  end
-
-  defp validate_engine_for_stage(changeset) do
-    stage = get_field(changeset, :stage)
-    engine = get_field(changeset, :engine)
-
-    if stage in [:in_development, :released] and is_nil(engine) do
-      add_error(changeset, :engine, "is required")
-    else
-      changeset
-    end
   end
 end

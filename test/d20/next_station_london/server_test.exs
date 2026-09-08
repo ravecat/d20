@@ -13,6 +13,7 @@ defmodule D20.NextStationLondon.ServerTest do
   alias D20Web.SessionChannel
 
   setup do
+    assert {:ok, _game} = D20.Games.update(game_fixture(353_545), %{stage: :released})
     game_id = game_id(353_545)
 
     assert {:ok, %Session{} = session} =

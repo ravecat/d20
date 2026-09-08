@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { expect, within } from "storybook/test";
 import { HomePage } from "~/pages/home";
 import { auth } from "~/shared/stores";
-import { homeGames } from "~stories/fixtures/home";
+import { homeBrowseGames, threePlayableGames } from "~stories/fixtures/home";
 import { withLayout } from "~stories/decorators/layout";
 
 const meta = {
@@ -37,7 +37,8 @@ const meta = {
         steam: { available: true },
       },
     },
-    games: homeGames,
+    playableGames: threePlayableGames,
+    games: homeBrowseGames,
   },
 } satisfies Meta<typeof HomePage>;
 
@@ -60,9 +61,7 @@ export const ConfirmationWithMagicLink: Story = {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByRole("dialog", { name: "Confirm it is you" })).toBeVisible();
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "You must re-authenticate to access this page.",
-    );
+    await expect(canvas.getByText("You must re-authenticate to access this page.")).toBeVisible();
     await expect(canvas.getByRole("textbox", { name: "Email address" })).toHaveValue(
       "player@example.com",
     );

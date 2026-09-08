@@ -442,6 +442,7 @@ defmodule D20Web.SessionChannelTest do
     end
 
     test "should run Next Station London through automatic reveal and explicit projections" do
+      assert {:ok, _game} = D20.Games.update(game_fixture(353_545), %{stage: :released})
       actor = %{id: Ecto.UUID.generate(), type: :anonymous}
       actor_id = actor.id
 
