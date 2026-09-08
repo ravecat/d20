@@ -1,8 +1,25 @@
 ## ADDED Requirements
 
+### Requirement: Deferred Privacy stays out of current navigation
+
+The shared footer SHALL omit Privacy for anonymous and authenticated visitors at every shell width while publication under #248 is deferred. The policy draft SHALL remain an internal versioned artifact. Terms and the Explore/Help groups SHALL retain their existing navigation and native disclosure behavior. Removing Privacy SHALL NOT mark the policy, its deletion dependencies or the public-launch/Meta gates complete.
+
+#### Scenario: Visitor reaches the footer while Privacy is deferred
+
+- **WHEN** any App-layout page renders during the deferral
+- **THEN** the footer contains no Privacy link, including hidden or disabled representations
+- **AND** Terms remains available without opening a disclosure
+- **AND** keyboard navigation after closed directory groups reaches Terms
+
+#### Scenario: Privacy becomes ready for publication
+
+- **WHEN** #248 has verified accurate public content and its #247/#270 and operator/operational prerequisites
+- **THEN** Privacy is restored at `/privacy` as part of that verified publication
+- **AND** the current deferral is not treated as a completed policy
+
 ### Requirement: Home provides informative grouped navigation
 
-The Home page and every existing App-layout page SHALL render the same App-owned footer once after main content for anonymous and authenticated visitors. The footer SHALL NOT include a repeated D20 brand/tagline introduction. It SHALL match Home's full-width page surface (white in light mode, the existing page color in dark mode), with a centered bounded inner container, a compact Explore/Help directory using the spacing in `layout.md`, and a separate legal strip with fine separators. Explore SHALL link About to `/about`, For publishers and rightholders to `/rights-holders`, and For developers to `/developers`. Help SHALL link How to play to `/help`, FAQ to `/help#faq`, and Contact / support to `/contact`. The legal strip SHALL display the current year with D20 attribution, Privacy at `/privacy`, and Terms at `/terms`. Account/data deletion SHALL be an answer within FAQ at `/help#delete-account`, not a separate footer item or page.
+The Home page and every existing App-layout page SHALL render the same App-owned footer once after main content for anonymous and authenticated visitors. The footer SHALL NOT include a repeated D20 brand/tagline introduction. It SHALL match Home's full-width page surface (white in light mode, the existing page color in dark mode), with a centered bounded inner container, a compact Explore/Help directory using the spacing in `layout.md`, and a separate legal strip with fine separators. Explore SHALL link About to `/about`, For publishers and rightholders to `/rights-holders`, and For developers to `/developers`. Help SHALL link How to play to `/help`, FAQ to `/help#faq`, and Contact / support to `/contact`. The current legal strip SHALL display the current year with D20 attribution and Terms at `/terms`. During the operator-approved Privacy deferral, it MUST NOT render a `/privacy` anchor or placeholder. Privacy SHALL return only with #248's verified policy publication. Account/data deletion SHALL be an answer within FAQ at `/help#delete-account`, not a separate footer item or page.
 
 #### Scenario: Guest reaches the end of Home
 
@@ -38,7 +55,7 @@ The footer SHALL use semantic landmarks, labelled navigation groups, meaningful 
 - **WHEN** a visitor tabs through Home at a 320 CSS-pixel viewport
 - **THEN** group controls and visible links are reachable in group order
 - **AND** Enter or Space on a mobile group control reveals its links
-- **AND** Privacy and Terms remain individually labelled and available without expanding a group
+- **AND** the Terms link remains individually labelled and available without expanding a group
 - **AND** footer content neither clips nor creates horizontal page scrolling
 
 #### Scenario: Theme and text scaling
@@ -49,7 +66,7 @@ The footer SHALL use semantic landmarks, labelled navigation groups, meaningful 
 
 ### Requirement: Footer has concrete viewport acceptance
 
-The implementation SHALL use the shared content and geometry matrix in [the layout reference](../../layout.md). Home and other applicable pages SHALL render the same footer within their existing narrow or wide shell. Both themes SHALL preserve the same content and structure. Review SHALL cover the existing 1280x720 desktop, 1024x640 tablet, and 320x900 mobile Storybook presets, plus targeted 390x844, 767/768/769px boundary, 768x1024 portrait, 1440x900 large-screen, and 844x390 short-landscape checks. Content SHALL wrap without fixed-height clipping. Privacy and Terms SHALL remain visible outside disclosures.
+The implementation SHALL use the shared content and geometry matrix in [the layout reference](../../layout.md). Home and other applicable pages SHALL render the same footer within their existing narrow or wide shell. Both themes SHALL preserve the same content and structure. Review SHALL cover the existing 1280x720 desktop, 1024x640 tablet, and 320x900 mobile Storybook presets, plus targeted 390x844, 767/768/769px boundary, 768x1024 portrait, 1440x900 large-screen, and 844x390 short-landscape checks. Content SHALL wrap without fixed-height clipping. Terms SHALL remain visible outside disclosures.
 
 #### Scenario: Tablet uses width rather than device label
 
@@ -61,7 +78,7 @@ The implementation SHALL use the shared content and geometry matrix in [the layo
 #### Scenario: Shared footer and theme coverage
 
 - **WHEN** the footer is reviewed at narrow and wide shell widths in light and dark themes
-- **THEN** Explore, Help, copyright, Privacy, and Terms retain the same content and order
+- **THEN** Explore, Help, copyright and Terms retain the same content and order
 - **AND** mobile groups can be opened without page-level overflow
 - **AND** wide versus narrow changes geometry without changing link content
 
@@ -79,7 +96,7 @@ The implementation SHALL use the shared content and geometry matrix in [the layo
 
 ### Requirement: Directory columns become native mobile disclosure rows
 
-Above 48rem the footer SHALL show equal desktop columns with static headings and all links. At 48rem and below it SHALL show independent native `details`/`summary` disclosures, initially closed, with expansion indicators and 2rem controls with 0.375rem block padding. Native keyboard activation and expanded semantics SHALL work without client JavaScript when markup is present. Explore and Help SHALL be written as explicit inline navigation blocks, with matching links in desktop and mobile representations and Inertia actions applied directly to the applicable anchors without a group array or navigation flag; only one representation SHALL be visible and accessible at each width. Collapsed and CSS-hidden links MUST NOT remain in keyboard or accessibility navigation. Privacy and Terms SHALL remain visible.
+Above 48rem the footer SHALL show equal desktop columns with static headings and all links. At 48rem and below it SHALL show independent native `details`/`summary` disclosures, initially closed, with expansion indicators and 2rem controls with 0.375rem block padding. Native keyboard activation and expanded semantics SHALL work without client JavaScript when markup is present. Explore and Help SHALL be written as explicit inline navigation blocks, with matching links in desktop and mobile representations and Inertia actions applied directly to the applicable anchors without a group array or navigation flag; only one representation SHALL be visible and accessible at each width. Collapsed and CSS-hidden links MUST NOT remain in keyboard or accessibility navigation. Terms SHALL remain visible.
 
 #### Scenario: User opens both mobile groups
 
@@ -113,13 +130,13 @@ CSS SHALL select desktop/mobile presentation. The footer SHALL NOT observe sizes
 
 ### Requirement: Footer links are truthful and passive
 
-Every required destination SHALL provide useful content before footer delivery is accepted. The footer MUST NOT ship placeholder hrefs, invented support addresses, unavailable product features, or mandatory-link omissions used to conceal missing dependencies. It MUST NOT introduce tracking, remote data fetching, or third-party social scripts. Cookie preferences and social destinations SHALL be omitted unless the corresponding real mechanism or verified destination exists in approved scope.
+Every required destination SHALL provide useful content before footer delivery is accepted. The footer MUST NOT ship placeholder hrefs, invented support addresses, unavailable product features, or omissions presented as proof that missing dependencies are complete. The explicit Privacy deferral SHALL remain recorded under #248 and SHALL NOT satisfy its publication gate. It MUST NOT introduce tracking, remote data fetching, or third-party social scripts. Cookie preferences and social destinations SHALL be omitted unless the corresponding real mechanism or verified destination exists in approved scope.
 
 #### Scenario: A mandatory page is not ready
 
 - **WHEN** `/privacy`, `/terms`, or the deletion answer at `/help#delete-account` is missing, gated, or contains unfinished content
 - **THEN** footer delivery acceptance remains incomplete
-- **AND** a placeholder or hidden mandatory link does not satisfy the requirement
+- **AND** neither a placeholder nor the explicitly deferred Privacy link satisfies policy/publication acceptance
 
 #### Scenario: Footer renders without social integration
 
@@ -140,12 +157,12 @@ Footer acceptance SHALL require recorded anonymous production HTTPS checks for `
 
 ### Requirement: Legal row responds to available space
 
-Copyright, Privacy, and Terms SHALL share inherited font family, size, weight, and line height. The legal strip SHALL retain a baseline-aligned wrapping row at every viewport; the 48rem directory breakpoint MUST NOT force it into a column. At 446 CSS pixels with default text size, copyright and legal links SHALL fit on one line. At insufficient widths or increased text size, the same content SHALL wrap without clipping or hiding links.
+Copyright and Terms SHALL share inherited font family, size, weight, and line height. The legal strip SHALL retain a baseline-aligned wrapping row at every viewport; the 48rem directory breakpoint MUST NOT force it into a column. At 446 CSS pixels with default text size, copyright and legal links SHALL fit on one line. At insufficient widths or increased text size, the same content SHALL wrap without clipping or hiding links.
 
 #### Scenario: Mobile width has space for the legal row
 
 - **WHEN** the footer renders at 446 CSS pixels with default text size
-- **THEN** copyright and Privacy/Terms share one row with matching typography
+- **THEN** copyright and Terms share one row with matching typography
 - **AND** Explore and Help retain independent mobile disclosure behavior
 
 #### Scenario: Content needs additional lines
@@ -166,17 +183,17 @@ The `For publishers and rightholders` destination SHALL explain both proposing a
 
 ### Requirement: Footer spacing is continuous and uniform
 
-Home SHALL use equal 0.6667rem top and bottom padding through one logical block-padding declaration matching the existing catalog section and heading-to-cards intervals. The footer SHALL follow main content without additional top padding or main-row stretching, including short pages. Desktop directory headings and subsequent list entries SHALL use equal 0.5rem CSS gaps, including wrapped labels, without individual link block padding. Directory content SHALL have equal 0.5rem top and bottom padding between its dividers. The legal strip SHALL have equal 0.5rem top and bottom insets, with the bottom safe-area inset added separately. Mobile list links SHALL have at least 1.5rem targets and 0.375rem block padding, without an additional list gap. Mobile lists SHALL have no additional block padding; disclosure controls SHALL retain 2rem minimum rows with 0.375rem block padding.
+Home SHALL use equal 0.6667rem top and bottom padding through one logical block-padding declaration matching the existing catalog section and heading-to-cards intervals. The footer SHALL follow main content without additional top padding. On short pages, main SHALL consume spare viewport height and the footer SHALL retain its natural height at the viewport bottom, as specified by `app-footer-placement` (#271). Desktop directory headings and subsequent list entries SHALL use equal 0.5rem CSS gaps, including wrapped labels, without individual link block padding. Directory content SHALL have equal 0.5rem top and bottom padding between its dividers. The legal strip SHALL have equal 0.5rem top and bottom insets, with the bottom safe-area inset added separately. Mobile list links SHALL have at least 1.5rem targets and 0.375rem block padding, without an additional list gap. Mobile lists SHALL have no additional block padding; disclosure controls SHALL retain 2rem minimum rows with 0.375rem block padding.
 
 #### Scenario: Desktop directory includes a wrapped publisher link
 
 - **WHEN** Home shows the desktop footer and the publisher link wraps
 - **THEN** the space after its heading and between its link boxes is equal
 - **AND** directory content has equal top and bottom insets from its dividers
-- **AND** the final catalog block and footer divider are separated by the same 0.6667rem interval used between catalog blocks
+- **AND** when content fills the available viewport, the final catalog block and footer divider are separated by the same 0.6667rem interval used between catalog blocks
 
 #### Scenario: Short Home and mobile disclosures
 
 - **WHEN** Home content is shorter than the available viewport or the footer uses mobile disclosures
-- **THEN** the single catalog-sized footer interval remains without extra stretched viewport space
+- **THEN** main consumes any spare viewport height, keeping the naturally sized footer at the bottom of short pages, and overflowing content retains normal document flow
 - **AND** expanded mobile links retain usable targets, consistent list gaps, and no horizontal page overflow

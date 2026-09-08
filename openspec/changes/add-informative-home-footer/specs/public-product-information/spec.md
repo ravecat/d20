@@ -1,5 +1,41 @@
 ## ADDED Requirements
 
+### Requirement: Privacy publication waits for verified operational readiness
+
+Privacy SHALL remain an unpublished brief during the operator-approved deferral. #248 SHALL record native blocked-by dependencies on explicit account deletion #247 and automatic inactive-account/expired-data removal #270, with concrete unblock criteria. The owner SHALL also resolve operator identity/member state and suitable public contact details, production processing/recipient inventory, justified retention and backup handling, working rights-request procedures, minors' policy and approved wording/date before publication. Automated deletion is the chosen project prerequisite, not a universal GDPR account-expiry rule. The future policy and Meta requirements below SHALL remain incomplete during deferral.
+
+#### Scenario: Account lifecycle is not ready
+
+- **WHEN** the operator has not approved the policy or deletion/retention behavior is not verified
+- **THEN** no placeholder Privacy page or Privacy navigation is published by this increment
+- **AND** the actual blockers and future `/privacy` contract remain versioned and tracked
+- **AND** removing navigation is not represented as satisfying applicable transparency duties
+
+### Requirement: Reference-based content reflects D20 facts
+
+Help, Privacy and Terms preparation SHALL use current Board Game Arena documents as the primary coverage reference and compare relevant public-service documents. The owning briefs SHALL record source URLs, retrieval dates or limitations, and the D20 evidence supporting material factual claims. Public wording SHALL be original and SHALL NOT inherit another operator's identity, jurisdictions, age thresholds, commercial features, retention schedules, licensing claims, tracking practices or unsupported remedies. Reference publication SHALL NOT be treated as proof that a clause is current, applicable or enforceable for D20.
+
+#### Scenario: A reference contains an unsupported or obsolete provision
+
+- **WHEN** a reference describes a feature D20 does not offer, an unverified operational practice, or a retired external service
+- **THEN** the brief excludes that provision or records the D20-specific decision required
+- **AND** final public content makes no corresponding unsupported promise
+
+#### Scenario: Operator facts or deletion behavior are unresolved
+
+- **WHEN** operator, audience, commercial model, legal, retention or deletion inputs remain unresolved
+- **THEN** source review and independent draft preparation may proceed
+- **AND** the dependent public policy or deletion instructions remain unapproved and unpublished
+- **AND** credential expiry is not represented as evidence of stored-data deletion
+
+#### Scenario: Current access precedes possible monetization
+
+- **WHEN** Help or Terms describes the initial service operated by an individual in the EU for an intended worldwide audience
+- **THEN** it distinguishes current access without a launched paid offer from possible future paid access
+- **AND** it promises neither automatic paid enrollment nor permanent free access or a fixed catalog/delivery threshold
+- **AND** voluntary support is not advertised as available without an approved real destination and truthful conditions
+- **AND** public-source availability does not establish game-material licenses or charitable status
+
 ### Requirement: Prepared information pages share a responsive reading layout
 
 About, Help, Contact, For publishers and rightholders, Privacy, and Terms SHALL follow the page briefs in [the page index](../../pages/README.md) and use one main article, one h1, a descriptive title, and the shared footer aligned to the narrow shell. The article SHALL remain a single reading column at the documented desktop/tablet/mobile viewports and use a centered maximum 46.25rem border-box container with 1rem inline padding. Contents lists, headings, answers, contact addresses, and paragraphs SHALL wrap in document order at 320px and 200 percent zoom without horizontal scrolling or clipping. Long-page sections SHALL remain expanded and anchor headings SHALL be visible below the fixed site header.
@@ -74,7 +110,7 @@ D20 SHALL expose `/rights-holders` without authentication, titled `For publisher
 
 ### Requirement: Policy destinations are public and versioned
 
-The footer's policy dependencies SHALL provide `/privacy` and `/terms` on the production D20 domain. Both SHALL return HTTP 200 with readable initial HTML over HTTPS on an anonymous direct GET, without login, a consent wall, an iframe dependency, or executing JavaScript to obtain the document text. They SHALL identify D20's actual operator, a working contact path, an effective/revision date, and a descriptive document title. Content SHALL be versioned with a responsible owner and MUST NOT contain placeholder identities, contacts, or legal claims.
+When delivered after their publication gates, the footer's policy dependencies SHALL provide `/privacy` and `/terms` on the production D20 domain. Both SHALL return HTTP 200 with readable initial HTML over HTTPS on an anonymous direct GET, without login, a consent wall, an iframe dependency, or executing JavaScript to obtain the document text. They SHALL identify D20's actual operator, a working contact path, an effective/revision date, and a descriptive document title. Content SHALL be versioned with a responsible owner and MUST NOT contain placeholder identities, contacts, or legal claims.
 
 #### Scenario: Anonymous policy inspection
 

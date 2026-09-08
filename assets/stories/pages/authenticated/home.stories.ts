@@ -52,7 +52,7 @@ export const Index: Story = {
     await expect(canvas.getByRole("link", { name: "Settings" })).toBeVisible();
     await expect(canvas.getAllByRole("contentinfo")).toHaveLength(1);
     await expect(canvas.getByRole("navigation", { name: "Explore" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Terms" })).toBeVisible();
   },
 };
 

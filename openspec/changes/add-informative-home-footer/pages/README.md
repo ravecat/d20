@@ -12,7 +12,7 @@ Implementation update, 2026-09-07: About and the footer are implemented locally.
 | [Help and FAQ](help.md) | `/help`, `/help#faq` | Guide and FAQ draft, deletion content contract | #247 supplies verified deletion steps/outcomes |
 | [Contact / support](contact.md) | `/contact` | Approved support/feedback and rights addresses; implementation authorized | Verify receipt/monitoring after provisioning |
 | [For publishers and rightholders](rights-holders.md) | `/rights-holders` | Approved rights address and game/rights inquiry guidance | Verify receipt/monitoring after provisioning |
-| [Privacy Policy](privacy.md) | `/privacy` | Section structure and verified technical facts | #248 approves operator, processing and legal content |
+| [Privacy Policy](privacy.md) | `/privacy` (deferred) | Internal brief; omitted from current footer | #248, blocked by #247/#270 and operator/operational inputs |
 | [Terms of Service](terms.md) | `/terms` | Section structure and core service-use draft | #248 approves service terms and legal decisions |
 | Games | `/games` | Reuse existing catalog outside the footer | Preserve existing behavior |
 | For developers | `/developers` | Reuse existing integration reference list | Preserve existing behavior |
@@ -51,7 +51,7 @@ Desktop/tablet article:
 |        For publishers and      Contact / support      |
 |        rightholders                                   |
 |        For developers          Contact / support      |
-|        (c) YEAR D20                 Privacy | Terms    |
+|        (c) YEAR D20                 Terms              |
 ```
 
 Mobile article:
@@ -74,12 +74,33 @@ Mobile article:
 | Explore                  >  |
 | Help                     >  |
 | (c) YEAR D20                 |
-| Privacy | Terms             |
+| Terms                       |
 ```
 
 Wrapping is content-dependent; the drawings do not prescribe manual line breaks.
 
 ## Content ownership and readiness
+
+Privacy publication and its footer link are deferred at the operator's request on 2026-09-08. Keep [the explicit blockers](privacy.md#publication-blockers---2026-09-08) under #248; #247 owns explicit deletion and #270 automatic inactive-account/expired-data deletion. This navigation change does not resolve applicable transparency duties. Current footer wireframes show Terms only; restore Privacy with verified policy publication.
+
+The user selected Board Game Arena as the primary Help/Privacy/Terms content reference on 2026-09-08, supplemented by comparable public services. [Reference research](reference-research.md) records the source selection, freshness and adaptation boundaries. The Help brief now includes additional D20-specific FAQ copy; Privacy includes a source-linked implementation inventory and candidate paragraphs; Terms includes original candidate clauses and decisions that depend on the operator. None is a final legal document or a newly implemented route.
+
+### Operator and launch inputs - 2026-09-08
+
+The user supplied the following facts after the initial reference research. They replace the earlier unanswered-input status; they do not approve the final policy text. #248 owns legal decisions and #247 the usable deletion process.
+
+| Input | Confirmed direction | Remaining decision or limit |
+| --- | --- | --- |
+| Operator | Personal project operated by its creator; no company has been formed. Some source code is publicly available | Exact legal identity/contact and EU member state remain to be supplied. Do not infer a registered business or charity from personal residence/registration |
+| Establishment | The operator lives and is registered in the EU | The member state was requested explicitly. Hosting provider availability does not identify the operator's country or processing locations |
+| Audience | Worldwide availability is intended, without operator-imposed country restrictions | This is not a guarantee of access or legal eligibility in every country; assess applicable rules and actual provider restrictions separately |
+| Ages | The user wants an audience comparable to BGA and has not chosen an age policy or implemented age restrictions | Do not turn the lack of a decision into an approved all-ages policy. Review minors' access and any parental process after the country is confirmed |
+| Launch access | Initial preparation covers the current stage without a launched paid-access offer | Do not promise that all games or future features will remain free forever |
+| Future revenue | Paid access is planned after building a useful catalog and assessing demand | Roughly 15-20 games is an internal exploration target, not a promised launch threshold, date, price or paid entitlement |
+| Advertising and purchases | No advertising or purchase model has been decided | Do not introduce these features or make permanent no-advertising/no-payment promises |
+| Voluntary support | The user is open to considering support contributions | No provider, recipient link, payment flow or benefits have been selected. No donation link can be published from this input alone |
+
+The word transcribed as `Fofa` was queried as a possible `for fun` description. Keep the established D20 name; no rename or legal operator name is inferred while that clarification is pending. Public-source availability does not establish a particular software license or permission for every game's protected materials.
 
 Product descriptions are grounded in the checked-in README, game launch page, header/account entry, workspace, and developer page. Do not turn implementation details into public copy or promise cross-device recovery, global multiplayer discovery, paid features, game licensing, or a fixed browser-version guarantee that this task has not established.
 

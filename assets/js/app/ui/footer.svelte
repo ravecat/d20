@@ -71,7 +71,6 @@
     <div class="footer__bottom">
       <p class="footer__copyright">© {new Date().getFullYear()} D20</p>
       <nav class="footer__legal" aria-label="Footer information">
-        <a class="footer__link" href="/privacy">Privacy</a>
         <a class="footer__link" href="/terms">Terms</a>
       </nav>
     </div>

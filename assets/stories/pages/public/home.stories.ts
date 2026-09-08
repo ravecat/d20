@@ -57,7 +57,7 @@ export const Index: Story = {
     await expect(canvas.getByRole("link", { name: "Voyages" })).toBeVisible();
     await expect(canvas.getAllByRole("contentinfo")).toHaveLength(1);
     await expect(canvas.getByRole("navigation", { name: "Explore" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Terms" })).toBeVisible();
   },
 };
 
@@ -68,7 +68,7 @@ export const Empty: Story = {
     await expect(canvas.queryByRole("region", { name: "Playable" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("region", { name: "Games" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("contentinfo")).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Terms" })).toBeVisible();
   },
 };
 

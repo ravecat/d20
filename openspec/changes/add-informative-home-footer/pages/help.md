@@ -86,6 +86,32 @@ Visit Contact / support or email `support@d20.ravecat.io` for account questions,
 
 Link: `Contact / support` -> `/contact`.
 
+## Reference-based preparation - 2026-09-08
+
+Use Board Game Arena's FAQ topic organization and Tabletopia's help categories to identify practical questions, then answer from D20's actual interface. See [reference research](reference-research.md) for dated sources and the limitation on live BGA FAQ extraction. Do not copy premium-account, tournament, ranking, chat, friendship, game-editor or subscription answers into D20 without a delivered feature.
+
+Add the following original questions to the ordinary FAQ before the deletion answer:
+
+### Is D20 free to use?
+
+D20 is currently available without a paid-access plan while the project is being developed. Paid access may be introduced later. Any paid offer will describe its price and conditions before you choose to purchase it.
+
+Editorial status: this reflects the operator's initial-launch direction. Recheck the actual offer before publication. Do not promise permanent free access, a guaranteed game count, payment dates or a subscription that has not launched. Voluntary support remains an undecided option; add no support-payment link or FAQ instructions until its actual destination and conditions are supplied.
+
+### Can I sign in without an email address?
+
+Some D20 accounts use an external sign-in provider without an email address. Use a sign-in method already linked to your account. In Settings, you can review your linked methods and add and verify an email address for email-based access and recovery. If you cannot sign in, contact support privately.
+
+### Can I change my username?
+
+Your username identifies you to other players. You choose it when completing your account, and it cannot currently be changed in Settings. Contact support if you have a concern about your username.
+
+### Can I suggest a game or report a rights concern?
+
+Yes. Use [For publishers and rightholders](/rights-holders) for game proposals, attribution questions and concerns about existing material. Include the game or material involved, a relevant link and your relationship to it. Use [Contact / support](/contact) for ordinary gameplay or account problems.
+
+Editorial evidence: [account settings](../../../../assets/js/pages/account_settings/ui/account_settings.svelte), [username changeset](../../../../lib/d20/accounts/user.ex), and the implemented Contact/rights-holder pages. Verify the final labels during page implementation. Keep `faq` and `delete-account` stable; this research does not authorize advertising a nonexistent deletion action or silently replacing #247's required self-service process with an unverified email promise.
+
 ## Publication checks
 
 Editorial notes under the draft questions are not page copy. The support/rights addresses were approved on 2026-09-07; receipt/monitoring is still pending. Resolve the deletion inputs and verify the operational support path before publishing Help as the Meta instructions destination. Test both FAQ and deletion fragment landing below the fixed header, with and without JavaScript, at desktop and mobile widths.

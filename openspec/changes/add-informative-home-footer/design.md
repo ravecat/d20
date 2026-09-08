@@ -44,6 +44,31 @@ Non-goals:
 
 ## Decisions
 
+### Privacy deferral and local integration - 2026-09-08
+
+The operator explicitly requested removal of Privacy from the current site because the policy and its supporting data-lifecycle processes are not ready. The router has no `/privacy` page to remove; delete the anchor from the shared footer instead of hiding it, disabling it or rendering a placeholder. Terms remains unchanged. Keep the original policy research and page brief as unpublished planning artifacts and retain `/privacy` as the future URL.
+
+#248 is blocked by explicit deletion #247 and automatic inactive-account/expired-data cleanup #270, plus the operator/contact, production inventory, rights-request and minors' decisions recorded in [the Privacy brief](pages/privacy.md#publication-blockers---2026-09-08). Do not infer that token validity checks erase expired rows. #270 must approve inactivity, notice/grace, category-specific retention and exceptions before destructive implementation; a scheduler and a universal account lifetime are not prescribed by GDPR itself.
+
+This decision supersedes the earlier always-visible Privacy link requirement during preparation. It permits the navigation correction and the user-authorized local-master integration of current styling/specifications; it does not remove applicable transparency duties or complete public-launch/Meta gates. No account, token, session, retention or provider behavior changes here. Restore Privacy only with accurate, approved content and verified processes under #248. Keep this change active while its other tasks remain unfinished.
+
+Verify existing Chromium/Firefox footer navigation and keyboard order, shared Home assertions, affected screenshot comparisons, formatting/lint/type checks, strict OpenSpec and lifecycle checks, and the prepared local page. Rollback restores the removed anchor and matching assertions/references, but must not be presented as policy delivery.
+
+
+### Integrated footer placement - 2026-09-08
+
+The separately delivered #271 changes App layout to a column flex container with main consuming spare viewport height. Preserve its [authoritative requirements](../../specs/app-footer-placement/spec.md) during this transfer. This supersedes the earlier no-main-stretch decision on short pages; directory spacing, Home padding and long-page document flow remain unchanged. Reconcile affected page references with both footer placement and the Privacy deferral before integration.
+
+### Help and policy reference method - 2026-09-08
+
+The operator subsequently confirmed a personal project with no company, EU residence/registration, intended worldwide availability and some publicly available source code. Use the [current launch-input record](pages/README.md#operator-and-launch-inputs---2026-09-08) as the shared factual source. Exact member state and legal identity/contact remain pending. The initial documents cover current access without a launched paid offer; paid access after catalog/demand exploration is a future intention, with approximately 15-20 games an internal heuristic rather than a public promise. Voluntary support is an undecided possibility with no selected destination or benefits. Do not introduce billing, donation links, a nonprofit claim or a guaranteed free-forever model. BGA-like audience does not resolve minors' eligibility: its actual age/parental language requires local adaptation and a usable process. This clarification authorizes draft reconciliation and leaves the corresponding implementation/publication gates open.
+
+Board Game Arena is the primary content-coverage reference for Help, Privacy and Terms; compare its current documents with Tabletopia and Lichess and check legally material statements against current official sources. Keep the dated evidence and retrieval limitations in [reference research](pages/reference-research.md). Use original D20 wording and the updated [Help](pages/help.md), [Privacy](pages/privacy.md) and [Terms](pages/terms.md) briefs. Reference terms are comparison material, not proof of applicable law, a license, consent or D20's processing practices.
+
+The aim is to reduce avoidable uncertainty and unsupported promises. Confirm operator/markets/age/monetization, production recipients and retention, game rights, meaningful notice and complaint procedures, and mandatory legal protections before final wording. Distinguish token/cookie expiry from stored-data erasure. Do not copy another service's company details, age limits, legal venue, advertising practices, paid plans, obsolete dispute links or blanket liability waivers. Qualified jurisdiction-specific review remains necessary for final legal wording; these preparations do not guarantee immunity from claims.
+
+This continues #268's content preparation with #248 as legal owner and #247 as deletion owner. Existing anonymous initial-HTML, FAQ/deletion anchors and production-verification requirements remain in force. No route, account behavior, consent/acceptance UI, deployment or mail operation changes in this research increment. Verify source/relative links, preservation of existing unfinished gates and strict OpenSpec validation; rollback removes this preparation increment without changing runtime or published URLs.
+
 Use [layout.md](layout.md) for exact geometry, shell width alignment, the viewport/state matrix, and visual-review references. Use [pages/README.md](pages/README.md) for the shared public-page layout and individual content drafts. The sections below explain the decisions and contracts those references implement; page briefs distinguish usable draft copy from inputs that block publication.
 
 ### 1. Information architecture and wireframes
@@ -62,7 +87,7 @@ Desktop, aligned with the current narrow Home container:
 | For developers         Contact / support                            |
 |                                                                     |
 |---------------------------------------------------------------------|
-| (c) <current year> D20             Privacy | Terms                   |
+| (c) <current year> D20             Terms                             |
 +---------------------------------------------------------------------+
 ```
 
@@ -78,11 +103,11 @@ Mobile, including 320 CSS pixels, with Help expanded after activation:
 |   Contact / support            |
 |--------------------------------|
 | (c) <current year> D20          |
-| Privacy | Terms                |
+| Terms                          |
 +--------------------------------+
 ```
 
-The year marker means the rendered current year, not literal placeholder text. The existing header brand links to `/`; the footer has no duplicate brand link. Legal content follows copyright, Privacy, Terms in DOM and visual order and wraps without becoming an accordion. Copyright and legal links inherit the same 0.8125rem font size, family, weight, and line height. Keep their baseline-aligned flex row at every viewport, including 446px; wrap only when content cannot fit, never because the directory crosses 48rem. The mobile wireframe below is a wrapped-content example, not a forced column. Explore and Help are footer group titles, not additional page links. How to play opens `/help`; FAQ opens the `faq` section of that same page; Contact opens `/contact`. The deletion answer lives inside FAQ with its own `delete-account` anchor and is not another footer item.
+The year marker means the rendered current year, not literal placeholder text. The existing header brand links to `/`; the footer has no duplicate brand link. Current legal content follows copyright and Terms in DOM and visual order and wraps without becoming an accordion. Copyright and legal links inherit the same 0.8125rem font size, family, weight, and line height. Keep their baseline-aligned flex row at every viewport, including 446px; wrap only when content cannot fit, never because the directory crosses 48rem. The mobile wireframe below is a wrapped-content example, not a forced column. Explore and Help are footer group titles, not additional page links. How to play opens `/help`; FAQ opens the `faq` section of that same page; Contact opens `/contact`. The deletion answer lives inside FAQ with its own `delete-account` anchor and is not another footer item.
 
 ### 2. Required routes and content ownership
 
@@ -96,7 +121,7 @@ Prepared page briefs: [About](pages/about.md), [Help and FAQ](pages/help.md), [C
 | How to play | `/help` | Find a game, open its details, follow available play/session actions, find game-specific rules, return to active games | #268 |
 | FAQ | `/help#faq` | Accounts and sign-in methods, catalog versus playable entries, game rules, supported browsers, common loading/auth failures, support and deletion links | #268 |
 | Contact / support | `/contact` | Confirmed operator contact, bug-report instructions, account/privacy requests, publisher/rights inquiries, and a private support channel | #268, operator supplies facts |
-| Privacy | `/privacy` | Policy content specified below | #248 |
+| Privacy (deferred) | `/privacy` | Unpublished policy brief; restore navigation after verified publication | #248, blocked by #247/#270 and operator inputs |
 | Terms | `/terms` | Service terms specified below | #248 |
 | How do I delete my account and data? (within FAQ) | `/help#delete-account` | Real deletion instructions and recovery/contact path; direct Privacy and Meta target | #247 supplies content; #268 hosts the Help section |
 
@@ -108,7 +133,7 @@ Deletion instructions must match #247's actual Account Settings action, confirma
 
 ### 3. Scope and rendering boundary
 
-Keep one `Footer` in App UI, rendered by the existing Layout after main. Every Layout consumer receives the same Explore/Help directory, copyright, Privacy, and Terms. Remove `presentation`, the Layout `footer` prop, Home's footer layout export, and decorator forwarding. The existing `narrow`/`wide` shell width changes geometry only; there is no page-specific footer content mode and no duplicate footer inside Home.
+Keep one `Footer` in App UI, rendered by the existing Layout after main. Every Layout consumer receives the same Explore/Help directory, copyright and Terms. Privacy is deferred as specified above. Remove `presentation`, the Layout `footer` prop, Home's footer layout export, and decorator forwarding. The existing `narrow`/`wide` shell width changes geometry only; there is no page-specific footer content mode and no duplicate footer inside Home.
 
 Place isolated preview stories at `assets/stories/widgets/footer.stories.ts` with the sidebar title `Widgets/Footer`. This review-category change does not move runtime shell ownership into a new widget slice. Keep only Default and Mobile expanded footer stories. The latter uses the existing mobile viewport and opens both groups. Theme and viewport variants use existing toolbar controls instead of duplicated stories; browser tests own keyboard/focus and width checks. Existing public and authenticated Home stories assert one shared footer; remove the additional footer-focused Home story. Use existing Storybook screenshot comparisons for shell presentation rather than separate unit assertions about page layout exports. Remove the redundant Layout unit suite; footer browser tests own link targets, and the existing layout browser test retains document-scroll and main-content focus behavior.
 
@@ -190,7 +215,7 @@ The final requested Explore label is `For publishers and rightholders`, replacin
 
 ## Spacing review - 2026-09-08
 
-The current Home shell adds 1.5rem above content and 2.5rem below it; the footer adds another 1rem above its directory. Links use individual 0.25rem block padding, leaving half as much space after the heading as between links. Following the user's correction, set Home padding to `0.6667rem 1rem`, matching the existing catalog section/heading gaps, and remove the footer's additional top padding, and let the main grid row use its intrinsic height so short pages do not stretch a blank region before the footer. The remaining viewport space belongs below the footer contents. Use a 0.5rem CSS gap for desktop heading/list and list entries, with no per-link desktop block padding. Keep 0.5rem directory block padding and symmetric 0.5rem legal-strip padding plus bottom safe-area protection. Mobile retains native 2rem disclosure controls with 0.375rem block padding, contiguous link rows with 0.375rem block padding and a 1.5rem minimum target, and no list block padding.
+The current Home shell adds 1.5rem above content and 2.5rem below it; the footer adds another 1rem above its directory. Links use individual 0.25rem block padding, leaving half as much space after the heading as between links. Following the user's correction, set Home padding to `0.6667rem 1rem`, matching the existing catalog section/heading gaps, and remove the footer's additional top padding, and preserve the single content inset. The earlier intrinsic-main-row choice was superseded by footer placement #271: main now consumes spare height on short pages and the footer keeps its natural height at the viewport bottom. Long content remains in normal document flow. Use a 0.5rem CSS gap for desktop heading/list and list entries, with no per-link desktop block padding. Keep 0.5rem directory block padding and symmetric 0.5rem legal-strip padding plus bottom safe-area protection. Mobile retains native 2rem disclosure controls with 0.375rem block padding, contiguous link rows with 0.375rem block padding and a 1.5rem minimum target, and no list block padding.
 
 Owning files: `assets/js/pages/home/ui/home.svelte`, `assets/js/app/layout.svelte`, and `assets/js/app/ui/footer.svelte`. Verify measured desktop/mobile geometry on the prepared Home page, existing footer/layout browser behavior, affected Storybook screenshots, scoped lint/formatting and type checks. Rollback reverts these styles and visual references without changing routes or data. The styling increment does not complete unrelated content or publication tasks.
 

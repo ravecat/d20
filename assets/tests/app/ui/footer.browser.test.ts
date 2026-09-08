@@ -18,7 +18,9 @@ describe("shared footer", () => {
       await render(Footer);
       await Promise.all(Array.from(document.fonts, (font) => font.load()));
       const footer = page.getByRole("contentinfo");
-      await expect.element(footer.getByRole("link", { name: "Privacy" })).toBeVisible();
+      expect(
+        footer.getByRole("link", { name: "Privacy", includeHidden: true }).elements(),
+      ).toHaveLength(0);
       await expect.element(footer.getByRole("link", { name: "Terms" })).toBeVisible();
       await expect(footer).toMatchScreenshot(`legal-row-${width}.png`);
     } finally {
@@ -40,7 +42,6 @@ describe("shared footer", () => {
       ["How to play", "/help"],
       ["FAQ", "/help#faq"],
       ["Contact / support", "/contact"],
-      ["Privacy", "/privacy"],
       ["Terms", "/terms"],
     ]) {
       const link = footer.getByRole("link", { name, exact: true });
@@ -48,7 +49,7 @@ describe("shared footer", () => {
       await expect.element(link).toHaveAttribute("href", href);
       expect(link.elements()).toHaveLength(1);
     }
-    expect(footer.getByRole("link").elements()).toHaveLength(8);
+    expect(footer.getByRole("link").elements()).toHaveLength(7);
     expect(footer.getByRole("group").elements()).toHaveLength(0);
     await expect.element(footer.getByRole("heading", { name: "Explore" })).toBeVisible();
     await expect.element(footer.getByRole("heading", { name: "Help" })).toBeVisible();
@@ -67,7 +68,9 @@ describe("shared footer", () => {
         .not.toHaveAttribute("open");
       await expect.element(page.getByRole("group", { name: "Help" })).not.toHaveAttribute("open");
       expect(page.getByRole("link", { name: "FAQ" }).elements()).toHaveLength(0);
-      await expect.element(page.getByRole("link", { name: "Privacy" })).toBeVisible();
+      expect(
+        page.getByRole("link", { name: "Privacy", includeHidden: true }).elements(),
+      ).toHaveLength(0);
       await expect.element(page.getByRole("link", { name: "Terms" })).toBeVisible();
 
       await explore.getByRole("heading", { name: "Explore" }).click();
@@ -94,12 +97,12 @@ describe("shared footer", () => {
     await expect.element(page.getByRole("group", { name: "Help" })).toHaveAttribute("open");
     await page.viewport(769, 1024);
     expect(page.getByRole("group").elements()).toHaveLength(0);
-    expect(page.getByRole("link").elements()).toHaveLength(8);
+    expect(page.getByRole("link").elements()).toHaveLength(7);
     await expect.element(page.getByRole("link", { name: "About", exact: true })).toBeVisible();
     await page.viewport(768, 1024);
     await expect.element(page.getByRole("group", { name: "Help" })).toHaveAttribute("open");
     await expect.element(page.getByRole("group", { name: "Explore" })).not.toHaveAttribute("open");
-    expect(page.getByRole("link").elements()).toHaveLength(5);
+    expect(page.getByRole("link").elements()).toHaveLength(4);
     expect(page.getByRole("link", { name: "FAQ" }).elements()).toHaveLength(1);
   });
 
@@ -119,7 +122,7 @@ describe("shared footer", () => {
       .element(page.getByRole("group", { name: "Help" }).element().querySelector("summary")!)
       .toHaveFocus();
     await userEvent.tab();
-    await expect.element(page.getByRole("link", { name: "Privacy" })).toHaveFocus();
+    await expect.element(page.getByRole("link", { name: "Terms" })).toHaveFocus();
     expect(visit).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
     visit.mockRestore();
@@ -134,10 +137,8 @@ describe("shell width alignment", () => {
       await page.viewport(320, 900);
       await render(Footer, { variant });
       expect(page.getByRole("group").elements()).toHaveLength(2);
-      expect(page.getByRole("link").elements()).toHaveLength(2);
-      for (const name of ["Privacy", "Terms"]) {
-        await expect.element(page.getByRole("link", { name })).toBeVisible();
-      }
+      expect(page.getByRole("link").elements()).toHaveLength(1);
+      await expect.element(page.getByRole("link", { name: "Terms" })).toBeVisible();
       await page
         .getByRole("group", { name: "Explore" })
         .getByRole("heading", { name: "Explore" })
@@ -146,7 +147,7 @@ describe("shell width alignment", () => {
         .getByRole("group", { name: "Help" })
         .getByRole("heading", { name: "Help" })
         .click();
-      expect(page.getByRole("link").elements()).toHaveLength(8);
+      expect(page.getByRole("link").elements()).toHaveLength(7);
       await expect.element(page.getByRole("link", { name: "For developers" })).toBeVisible();
     },
   );
