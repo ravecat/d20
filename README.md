@@ -129,7 +129,11 @@ Each local module project should start its own Compose service and join the shar
 
 The local workflow uses the PostgreSQL instance from the Nix shell and does not start a database container.
 
-If another local workflow is still using port 80, stop it before starting Compose.
+The root `compose.yaml` declares `name: d20`, so the primary checkout and worktrees containing this setting share one Traefik Compose project. Repeated startup with the same service configuration and image reuses the existing router. Changing its configuration can recreate that shared router, and `docker compose down` from any of these checkouts stops routing for all of them. Explicit `-p` or `COMPOSE_PROJECT_NAME` values override the default; using a different project name still competes for the fixed host port 80.
+
+An older worktree may have left a directory-named Traefik container running. Use `docker ps --filter publish=80` to identify it, then stop that exact old container with `docker stop <container-name>` before running `just up`. The new project name does not adopt old containers. If another application owns port 80, resolve that conflict before starting D20 routing.
+
+The shared project name does not serialize simultaneous Compose commands. It also does not isolate application instances: `just up` invokes `serve`, whose default `d20` short-name takeover replaces the existing local Phoenix process. Concurrent independent application instances require distinct node names, HTTP ports, and Vite ports in addition to the shared router.
 
 Stop the Compose services with:
 
