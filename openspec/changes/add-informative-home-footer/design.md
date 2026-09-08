@@ -44,6 +44,18 @@ Non-goals:
 
 ## Decisions
 
+### Always-visible footer columns - 2026-09-08
+
+The user supplied a screenshot and https://zed.dev/ as the new layout reference and explicitly authorized implementation directly in master. The primary checkout and matching footer worktree were clean at `f844175`. Continue #268 and this change in master; do not create another worktree or tracking issue.
+
+Use the reference's leading service block and simple navigation columns with D20's existing fonts, colors and destinations. Use the operator-requested copyright format `d20 © <current year>`. Copyright and Terms come first in DOM order, followed by Explore and Help. Above 48rem the service block sits to the left; at or below 48rem it spans the top row with two equal navigation columns below. All links are always visible. Remove details/summary, ul/li wrappers, chevrons, duplicate mobile/desktop markup and their styling. Navigation landmarks, h2 headings and anchors retain accessible grouping without lists. CSS alone handles reflow; no state, observers, focus transfer or new dependency is needed. Existing anchors retain their exact hrefs and Inertia behavior.
+
+Guest service information includes `Sign up · Have an account? Sign in` between copyright and Terms. Use native buttons styled as text links for these dialog actions, with the dot hidden from assistive technology. Read authentication from the existing Inertia page. Reuse auth.trigger.open and switchMode to select registration without adding routes or changing the auth store. The header owns the single shared dialog. Hide guest entry actions after authentication. Verify both modes, Escape/focus return and current-page preservation through the actual Layout.
+
+Preserve shell maximum widths, inline insets, bottom safe-area protection and #271 document flow. Use fine separators and compact spacing without fixed heights or truncation. See layout.md for current geometry. Retain only Default under Widgets/Footer and use existing theme, viewport and variant controls. Replace obsolete disclosure tests with always-visible links, keyboard order and resize-focus checks; retain layout overflow-removal coverage using main-content removal as the trigger.
+
+Validate Chromium/Firefox footer and layout suites, affected Storybook comparisons, prepared-page responsive/light/dark/text-scaling checks, scoped formatting/lint, type checks, asset build and OpenSpec validation. Rollback reverts footer markup/styles and matching tests/references together without changing routes. This presentation increment does not complete missing page, mailbox or publication work; keep this change active until those tasks are delivered. Earlier dated disclosure/strip records below describe superseded increments.
+
 ### Privacy deferral and local integration - 2026-09-08
 
 The operator explicitly requested removal of Privacy from the current site because the policy and its supporting data-lifecycle processes are not ready. The router has no `/privacy` page to remove; delete the anchor from the shared footer instead of hiding it, disabling it or rendering a placeholder. Terms remains unchanged. Keep the original policy research and page brief as unpublished planning artifacts and retain `/privacy` as the future URL.
@@ -71,43 +83,9 @@ This continues #268's content preparation with #248 as legal owner and #247 as d
 
 Use [layout.md](layout.md) for exact geometry, shell width alignment, the viewport/state matrix, and visual-review references. Use [pages/README.md](pages/README.md) for the shared public-page layout and individual content drafts. The sections below explain the decisions and contracts those references implement; page briefs distinguish usable draft copy from inputs that block publication.
 
-### 1. Information architecture and wireframes
+### 1. Shared footer composition
 
-Use two equal, compact directory columns followed by a separate legal row below a fine rule. Do not repeat the D20 brand or tagline above the directory. Following user review, match Home's `--color-base-100` surface: white in light mode and the existing page surface in dark mode, without a contrasting gray band. Bound each desktop column to 12rem with a 1rem gap instead of distributing the groups across the entire container. Tighten vertical spacing as recorded in `layout.md`. The full inner container and separators stay centered and aligned to Home. Avoid a large promotional brand column, cards, shadows, or decorative panels. English labels match the current application; translation infrastructure is outside this change.
-
-Desktop, aligned with the current narrow Home container:
-
-```text
-+---------------------------------------------------------------------+
-| Existing Home content                                               |
-+---------------------------------------------------------------------+
-| Explore                Help                                         |
-| About                  How to play                                  |
-| Games                  FAQ                                          |
-| For developers         Contact / support                            |
-|                                                                     |
-|---------------------------------------------------------------------|
-| (c) <current year> D20             Terms                             |
-+---------------------------------------------------------------------+
-```
-
-Mobile, including 320 CSS pixels, with Help expanded after activation:
-
-```text
-+--------------------------------+
-| Explore                      > |
-|--------------------------------|
-| Help                         v |
-|   How to play                  |
-|   FAQ                          |
-|   Contact / support            |
-|--------------------------------|
-| (c) <current year> D20          |
-| Terms                          |
-+--------------------------------+
-```
-
-The year marker means the rendered current year, not literal placeholder text. The existing header brand links to `/`; the footer has no duplicate brand link. Current legal content follows copyright and Terms in DOM and visual order and wraps without becoming an accordion. Copyright and legal links inherit the same 0.8125rem font size, family, weight, and line height. Keep their baseline-aligned flex row at every viewport, including 446px; wrap only when content cannot fit, never because the directory crosses 48rem. The mobile wireframe below is a wrapped-content example, not a forced column. Explore and Help are footer group titles, not additional page links. How to play opens `/help`; FAQ opens the `faq` section of that same page; Contact opens `/contact`. The deletion answer lives inside FAQ with its own `delete-account` anchor and is not another footer item.
+Use one service block with current-year copyright and Terms, followed by Explore (About, For publishers and rightholders, For developers) and Help (How to play, FAQ, Contact / support). The footer does not repeat the header brand or tagline. See layout.md for desktop/mobile wireframes. Privacy remains deferred. Deletion remains an expanded answer inside Help FAQ.
 
 ### 2. Required routes and content ownership
 
@@ -135,34 +113,30 @@ Deletion instructions must match #247's actual Account Settings action, confirma
 
 Keep one `Footer` in App UI, rendered by the existing Layout after main. Every Layout consumer receives the same Explore/Help directory, copyright and Terms. Privacy is deferred as specified above. Remove `presentation`, the Layout `footer` prop, Home's footer layout export, and decorator forwarding. The existing `narrow`/`wide` shell width changes geometry only; there is no page-specific footer content mode and no duplicate footer inside Home.
 
-Place isolated preview stories at `assets/stories/widgets/footer.stories.ts` with the sidebar title `Widgets/Footer`. This review-category change does not move runtime shell ownership into a new widget slice. Keep only Default and Mobile expanded footer stories. The latter uses the existing mobile viewport and opens both groups. Theme and viewport variants use existing toolbar controls instead of duplicated stories; browser tests own keyboard/focus and width checks. Existing public and authenticated Home stories assert one shared footer; remove the additional footer-focused Home story. Use existing Storybook screenshot comparisons for shell presentation rather than separate unit assertions about page layout exports. Remove the redundant Layout unit suite; footer browser tests own link targets, and the existing layout browser test retains document-scroll and main-content focus behavior.
+Place isolated preview stories at `assets/stories/widgets/footer.stories.ts` with the sidebar title `Widgets/Footer`. This review-category change does not move runtime shell ownership into a new widget slice. Keep only the Default footer story. Theme and viewport variants use existing toolbar controls instead of duplicated stories; browser tests own keyboard/focus and width checks. Existing public and authenticated Home stories assert one shared footer; remove the additional footer-focused Home story. Use existing Storybook screenshot comparisons for shell presentation rather than separate unit assertions about page layout exports. Remove the redundant Layout unit suite; footer browser tests own link targets, and the existing layout browser test retains document-scroll and main-content focus behavior.
 
 Use the existing Svelte/Inertia page path for About and Contact and the normal Phoenix route/controller boundary. Help now carries the deletion document, so `/help` must include the FAQ answer and its `delete-account` id in readable initial HTML, just as `/privacy` and `/terms` must include their documents. Use existing Phoenix server-rendering facilities where needed; this does not require introducing SSR for the entire Inertia application. Fragment identifiers are browser-side: the server receives `/help`, not `#delete-account`. Verify both raw Help HTML and direct fragment navigation. Cross-boundary links use ordinary anchors when the target is a server-rendered document. Keep content versioned locally without a CMS or remote content dependency.
 
-Required destinations are static content, so the footer has no fetch, loading skeleton, carousel state, or independent error state. The browser owns mobile disclosure state; add no custom state synchronization, library, storage persistence, or user-agent detection. Missing mandatory content is an acceptance failure. Optional social links are omitted unless a separately approved real destination is supplied. Links alone must not load a Meta SDK or other third-party script.
+Required destinations are static content, so the footer has no fetch, loading skeleton, carousel state, or independent error state. There is no mobile disclosure state; add no custom state synchronization, library, storage persistence, or user-agent detection. Missing mandatory content is an acceptance failure. Optional social links are omitted unless a separately approved real destination is supplied. Links alone must not load a Meta SDK or other third-party script.
 
-Keep directory markup and styles together in `footer.svelte`. Use ordinary desktop lists and native mobile `details`/`summary` elements, selected only by the existing CSS media query. Write Explore and Help as two explicit navigation blocks with literal headings and anchors. Apply `use:inertia` directly to About, For publishers and rightholders, For developers, and Contact / support anchors, reading their existing href; keep Help/FAQ and legal links ordinary. Omit the group array, link loops, and navigation flags; only one representation is visible and accessible at a time. This avoids forcing content inside closed details visible on desktop and works within the existing browser policy. There is no reactive disclosure state, observer, media-query API, computed-style read, mount callback, or custom focus handling. Keep the local `footer` class prefix and scoped root selector.
+Keep directory markup and styles together in footer.svelte. Write each labelled navigation group once with a literal heading and direct anchors. Apply use:inertia to About, For publishers and rightholders, For developers and Contact / support; keep Help/FAQ and Terms ordinary anchors. Do not add list wrappers, a link-data abstraction or scripted layout handling.
 
 ### 4. Responsive behavior and breakpoint transitions
 
-At widths above 48rem, show equal columns with static headings and every link. At 48rem and below, show native independent disclosures, initially closed. Browser-managed `open` state and Enter/Space activation work without client JavaScript when markup is present. The legal row is always visible.
-
-The user explicitly prioritized native simplicity over automatic focus handling on 2026-09-07. CSS switches between the two representations; mobile disclosure state survives desktop/mobile transitions while the component stays mounted. Do not add focus transfer, focused-link exceptions, automatic state reset, persisted state across visits, or disclosure event handlers. A focused element may lose focus when its representation becomes hidden. This replaces the earlier custom transition guarantees.
-
-Use native expanded semantics instead of manually assigning `aria-expanded`. Collapsed or CSS-hidden links leave keyboard and accessibility navigation. Keep at least 2rem summary rows with 0.375rem block padding and visible keyboard outlines. Changes are immediate with no disclosure animation, including under reduced motion. No resize-triggered navigation, remount, scroll, or layout measurement is needed.
+CSS places the service block left above 48rem and across the top at smaller widths. Explore and Help remain visible columns at every width, including 320px. DOM order matches reading and keyboard order. The same focused anchor remains mounted and visible during resize; no disclosure state exists. Nothing collapses or animates.
 
 ### 4.1 Visual and accessibility constraints
 
 - Render one page-level `footer` after `main`, with distinctly labelled navigation groups and real anchors.
 - Retain the existing 46.25rem narrow and 64rem wide maximum widths, 1rem narrow insets, wide 1rem/1.5rem breakpoint behavior, and bottom safe-area protection.
-- Match Home's full-width page surface, with a centered inner container, fine section separators, compact regular-weight link lists, and stronger group headings. Use existing fonts and theme tokens. Normal text and links need at least 4.5:1 contrast in light and dark themes; do not copy Apple's small font size at the expense of readability.
-- Preserve a visible focus indicator and logical link order. Provide at least 24 by 24 CSS-pixel link targets or equivalent spacing; target a comfortable 2rem row height on mobile.
+- Match Home's full-width page surface, with a centered inner container, fine section separators, compact regular-weight links, and stronger group headings. Use existing fonts and theme tokens. Normal text and links need at least 4.5:1 contrast in light and dark themes; do not reduce the existing font size at the expense of readability.
+- Preserve a visible focus indicator and logical link order. Provide at least 24 by 24 CSS-pixel link targets or equivalent spacing; preserve the 1.5rem minimum target height in the layout reference.
 - Permit text and legal links to wrap at 320 CSS pixels and 200 percent zoom. Do not truncate required labels, clip focus, or create page-level horizontal scrolling.
-- Keep the footer in document flow. It must stay reachable with empty or short Home content and avoid overlapping the existing Workspace controls. Reduced motion must disable disclosure and inherited nonessential transitions.
+- Keep the footer in document flow. It must stay reachable with empty or short Home content and avoid overlapping the existing Workspace controls. Reduced motion must disable inherited nonessential transitions.
 
 ### 5. Meta/Facebook requirements and evidence
 
-Publication scope is the existing D20 Facebook Login app (#187), supported by issues #249-#252 and current OAuth routes. Instant Games remains outside this change. Apple supplies the footer layout reference; Board Game Arena supplied the initial destination inventory.
+Publication scope is the existing D20 Facebook Login app (#187), supported by issues #249-#252 and current OAuth routes. Instant Games remains outside this change. Zed supplies the current footer layout reference; Board Game Arena supplied the initial destination inventory.
 
 Official sources retrieved on 2026-09-05:
 

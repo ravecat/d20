@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Layout from "~/app/layout.svelte";
 import { usePage } from "~stories/mocks/inertia_svelte";
 import accountSettings from "~stories/pages/authenticated/account_settings.stories";
@@ -13,6 +13,8 @@ import registrationCompletion, * as registrationCompletionStories from "~stories
 import playerCountLabel from "~stories/shared/player_count_label.stories";
 import workspace from "~stories/widgets/workspace.stories";
 import footer, * as footerStories from "~stories/widgets/footer.stories";
+
+vi.mock("svelte/reactivity/window", () => ({ scrollY: { current: 0 } }));
 
 describe("Storybook page layout", () => {
   it("registers the public About page with the shared layout", () => {
@@ -102,6 +104,6 @@ describe("Storybook page layout", () => {
     expect(workspace).not.toHaveProperty("decorators");
     expect(footer).not.toHaveProperty("decorators");
     expect(footer.title).toBe("Widgets/Footer");
-    expect(Object.keys(footerStories).sort()).toEqual(["Default", "MobileExpanded", "default"]);
+    expect(Object.keys(footerStories).sort()).toEqual(["Default", "default"]);
   });
 });

@@ -2,14 +2,14 @@
 
 ### Requirement: Deferred Privacy stays out of current navigation
 
-The shared footer SHALL omit Privacy for anonymous and authenticated visitors at every shell width while publication under #248 is deferred. The policy draft SHALL remain an internal versioned artifact. Terms and the Explore/Help groups SHALL retain their existing navigation and native disclosure behavior. Removing Privacy SHALL NOT mark the policy, its deletion dependencies or the public-launch/Meta gates complete.
+The shared footer SHALL omit Privacy for anonymous and authenticated visitors at every shell width while publication under #248 is deferred. The policy draft SHALL remain an internal versioned artifact. Terms and the Explore/Help groups SHALL retain their existing destinations and navigation behavior. Removing Privacy SHALL NOT mark the policy, its deletion dependencies or the public-launch/Meta gates complete.
 
 #### Scenario: Visitor reaches the footer while Privacy is deferred
 
 - **WHEN** any App-layout page renders during the deferral
 - **THEN** the footer contains no Privacy link, including hidden or disabled representations
 - **AND** Terms remains available without opening a disclosure
-- **AND** keyboard navigation after closed directory groups reaches Terms
+- **AND** keyboard navigation follows guest account actions, when present, then Terms, Explore and Help
 
 #### Scenario: Privacy becomes ready for publication
 
@@ -19,13 +19,13 @@ The shared footer SHALL omit Privacy for anonymous and authenticated visitors at
 
 ### Requirement: Home provides informative grouped navigation
 
-The Home page and every existing App-layout page SHALL render the same App-owned footer once after main content for anonymous and authenticated visitors. The footer SHALL NOT include a repeated D20 brand/tagline introduction. It SHALL match Home's full-width page surface (white in light mode, the existing page color in dark mode), with a centered bounded inner container, a compact Explore/Help directory using the spacing in `layout.md`, and a separate legal strip with fine separators. Explore SHALL link About to `/about`, For publishers and rightholders to `/rights-holders`, and For developers to `/developers`. Help SHALL link How to play to `/help`, FAQ to `/help#faq`, and Contact / support to `/contact`. The current legal strip SHALL display the current year with D20 attribution and Terms at `/terms`. During the operator-approved Privacy deferral, it MUST NOT render a `/privacy` anchor or placeholder. Privacy SHALL return only with #248's verified policy publication. Account/data deletion SHALL be an answer within FAQ at `/help#delete-account`, not a separate footer item or page.
+The Home page and every existing App-layout page SHALL render the same App-owned footer once after main content for anonymous and authenticated visitors. The footer SHALL NOT include a repeated D20 brand/tagline introduction. It SHALL match Home's full-width page surface (white in light mode, the existing page color in dark mode), with a centered bounded inner container, a compact Explore/Help directory using the spacing in `layout.md`, and a separate service block with fine separators. Explore SHALL link About to `/about`, For publishers and rightholders to `/rights-holders`, and For developers to `/developers`. Help SHALL link How to play to `/help`, FAQ to `/help#faq`, and Contact / support to `/contact`. The current service block SHALL display lowercase d20 followed by © and the current year and Terms at `/terms`. During the operator-approved Privacy deferral, it MUST NOT render a `/privacy` anchor or placeholder. Privacy SHALL return only with #248's verified policy publication. Account/data deletion SHALL be an answer within FAQ at `/help#delete-account`, not a separate footer item or page.
 
 #### Scenario: Guest reaches the end of Home
 
 - **WHEN** an anonymous visitor reaches the footer on `/`
-- **THEN** the two navigation group headings and legal strip are visible
-- **AND** every visible required link has the specified accessible name and destination, including those revealed through mobile group controls
+- **THEN** the two navigation group headings and service block are visible
+- **AND** every visible required link has the specified accessible name and destination, without opening a group
 - **AND** navigating to a public information page does not open a sign-in gate
 
 #### Scenario: Authenticated or empty Home
@@ -38,23 +38,22 @@ The Home page and every existing App-layout page SHALL render the same App-owned
 
 The footer SHALL have one content composition with no compact/informative mode or page-level footer selection. The existing narrow/wide Layout setting SHALL affect shell alignment only. The footer SHALL remain owned by App UI and SHALL preserve existing header, main, Workspace, width, and safe-area contracts.
 
-Directory markup, styling, and responsive state SHALL remain together in the shared footer component, without a separate single-use group component. Viewport media queries SHALL select desktop/mobile presentation without a JavaScript mobile-mode class or duplicate breakpoint expression. Consolidation SHALL preserve the native keyboard disclosure and CSS visibility behavior below.
+Directory markup, styling, and responsive state SHALL remain together in the shared footer component, without a separate single-use group component. Viewport media queries SHALL select desktop/mobile presentation without a JavaScript mobile-mode class or duplicate breakpoint expression. Consolidation SHALL preserve the always-visible keyboard navigation below.
 
 #### Scenario: Navigation from Home to a game detail page
 
 - **WHEN** a visitor leaves Home for a page using the wide App layout
-- **THEN** that page shows the same Explore/Help groups and legal strip within its existing wide insets
+- **THEN** that page shows the same Explore/Help groups and service block within its existing wide insets
 - **AND** no page setting changes the footer's content
 
 ### Requirement: Responsive footer remains accessible
 
-The footer SHALL use semantic landmarks, labelled navigation groups, meaningful anchors, visible keyboard focus, and a logical reading order. Normal text/link contrast SHALL meet 4.5:1 in supported themes. Link targets SHALL meet 24 CSS-pixel minimum sizing or equivalent spacing, and mobile disclosure triggers SHALL have at least 2rem row height. All content SHALL reflow at 320 CSS pixels and 200 percent zoom without horizontal page overflow, clipping, or overlap with Workspace controls. The legal strip SHALL remain visible outside the disclosure groups.
+The footer SHALL use semantic landmarks, labelled navigation groups, meaningful anchors, visible keyboard focus, and a logical reading order. Normal text/link contrast SHALL meet 4.5:1 in supported themes. Link targets SHALL meet 24 CSS-pixel minimum sizing or equivalent spacing, with no disclosure triggers. All content SHALL reflow at 320 CSS pixels and 200 percent zoom without horizontal page overflow, clipping, or overlap with Workspace controls. The service block SHALL remain visible alongside the navigation groups.
 
 #### Scenario: Small-screen keyboard navigation
 
 - **WHEN** a visitor tabs through Home at a 320 CSS-pixel viewport
-- **THEN** group controls and visible links are reachable in group order
-- **AND** Enter or Space on a mobile group control reveals its links
+- **THEN** Terms and all Explore/Help links are reachable in reading order
 - **AND** the Terms link remains individually labelled and available without expanding a group
 - **AND** footer content neither clips nor creates horizontal page scrolling
 
@@ -66,20 +65,20 @@ The footer SHALL use semantic landmarks, labelled navigation groups, meaningful 
 
 ### Requirement: Footer has concrete viewport acceptance
 
-The implementation SHALL use the shared content and geometry matrix in [the layout reference](../../layout.md). Home and other applicable pages SHALL render the same footer within their existing narrow or wide shell. Both themes SHALL preserve the same content and structure. Review SHALL cover the existing 1280x720 desktop, 1024x640 tablet, and 320x900 mobile Storybook presets, plus targeted 390x844, 767/768/769px boundary, 768x1024 portrait, 1440x900 large-screen, and 844x390 short-landscape checks. Content SHALL wrap without fixed-height clipping. Terms SHALL remain visible outside disclosures.
+The implementation SHALL use the shared content and geometry matrix in [the layout reference](../../layout.md). Home and other applicable pages SHALL render the same footer within their existing narrow or wide shell. Both themes SHALL preserve the same content and structure. Review SHALL cover the existing 1280x720 desktop, 1024x640 tablet, and 320x900 mobile Storybook presets, plus targeted 390x844, 767/768/769px boundary, 768x1024 portrait, 1440x900 large-screen, and 844x390 short-landscape checks. Content SHALL wrap without fixed-height clipping. Terms SHALL remain visible without interaction.
 
 #### Scenario: Tablet uses width rather than device label
 
 - **WHEN** the informative footer renders at the existing 1024x640 tablet preset
 - **THEN** its two directory columns are visible
-- **AND** at 768x1024 it uses the mobile disclosure presentation
+- **AND** at 768x1024 the service block sits above the two navigation columns
 - **AND** the narrow inner box remains bounded rather than stretching to fill the viewport
 
 #### Scenario: Shared footer and theme coverage
 
 - **WHEN** the footer is reviewed at narrow and wide shell widths in light and dark themes
-- **THEN** Explore, Help, copyright and Terms retain the same content and order
-- **AND** mobile groups can be opened without page-level overflow
+- **THEN** copyright, guest account actions when applicable, Terms, Explore and Help retain their reading order
+- **AND** all mobile links remain visible without page-level overflow
 - **AND** wide versus narrow changes geometry without changing link content
 
 #### Scenario: Short landscape viewport
@@ -91,42 +90,36 @@ The implementation SHALL use the shared content and geometry matrix in [the layo
 #### Scenario: Footer review in Storybook
 
 - **WHEN** a reviewer opens the component catalog
-- **THEN** only Default and Mobile expanded footer stories appear under `Widgets/Footer`; existing toolbar controls select themes and viewports
+- **THEN** only the Default footer story appears under `Widgets/Footer`; existing toolbar controls select themes and viewports
 - **AND** public and authenticated Home previews include exactly one shared footer through the real App layout without a separate footer-focused Home story
 
-### Requirement: Directory columns become native mobile disclosure rows
+### Requirement: Footer columns remain permanently visible
 
-Above 48rem the footer SHALL show equal desktop columns with static headings and all links. At 48rem and below it SHALL show independent native `details`/`summary` disclosures, initially closed, with expansion indicators and 2rem controls with 0.375rem block padding. Native keyboard activation and expanded semantics SHALL work without client JavaScript when markup is present. Explore and Help SHALL be written as explicit inline navigation blocks, with matching links in desktop and mobile representations and Inertia actions applied directly to the applicable anchors without a group array or navigation flag; only one representation SHALL be visible and accessible at each width. Collapsed and CSS-hidden links MUST NOT remain in keyboard or accessibility navigation. Terms SHALL remain visible.
+Above 48rem the footer SHALL place the service block to the left of Explore and Help. At 48rem and below the service block SHALL span the top row with Explore and Help in two equal columns below. Each labelled navigation group SHALL contain one explicit heading and its direct anchors. The footer SHALL NOT contain details/summary, ul/li wrappers, chevrons or duplicated mobile/desktop links. Existing hrefs and Inertia/plain-anchor behavior SHALL be preserved.
 
-#### Scenario: User opens both mobile groups
+#### Scenario: Visitor reads the footer at 320 CSS pixels
 
-- **WHEN** the user activates Explore and then Help at 390 CSS pixels
-- **THEN** both native disclosures remain open
-- **AND** closing either group leaves the other unchanged
-- **AND** the closed group's links leave keyboard and screen-reader navigation
+- **WHEN** the footer renders at 320 CSS pixels
+- **THEN** copyright and Terms appear above Explore and Help
+- **AND** all seven links are visible and uniquely accessible without toggling a group
+- **AND** long labels wrap without horizontal page overflow
 
 #### Scenario: Footer markup is available without client JavaScript
 
-- **WHEN** the browser renders the footer markup without executing its client code
-- **THEN** desktop lists are readable and mobile groups can be opened with native controls
-- **AND** no disclosure action requires a script handler
+- **WHEN** the browser renders footer markup without executing client code
+- **THEN** all seven navigation destinations are readable and follow ordinary hrefs
+- **AND** no disclosure handler or enhancement is needed
 
 ### Requirement: Responsive presentation needs no scripted synchronization
 
-CSS SHALL select desktop/mobile presentation. The footer SHALL NOT observe sizes, read computed layout, run JavaScript media queries, synchronize reactive disclosure state, or transfer focus on resize. Mobile `open` state SHALL survive width changes while the component remains mounted, with no persistence across visits. Automatic focus transfer and focused-link preservation across hidden representations are intentionally outside this simplified behavior. Disclosure and breakpoint changes SHALL be immediate without animation.
+CSS SHALL handle reflow without observing sizes, reading computed layout, running JavaScript media queries or transferring focus. The same anchors SHALL remain mounted and visible across breakpoint/orientation changes. The footer SHALL have no disclosure state, animation or persistence.
 
-#### Scenario: Mobile to desktop and back
+#### Scenario: Focused link crosses a responsive boundary
 
-- **WHEN** the user opens Help on mobile, widens above 48rem, and returns to mobile
-- **THEN** desktop exposes every destination exactly once in accessible navigation
-- **AND** Help remains open on returning to mobile while Explore retains its own state
-- **AND** the footer does not programmatically move focus
-
-#### Scenario: Orientation stays within mobile
-
-- **WHEN** an open mobile group is resized without crossing 48rem
-- **THEN** its native open state and current focus are preserved
-- **AND** keyboard toggling continues to work
+- **WHEN** a user focuses FAQ and resizes through 768/769 CSS pixels and back
+- **THEN** FAQ retains focus on the same visible anchor
+- **AND** all destinations remain available exactly once
+- **AND** the footer performs no navigation or request
 
 ### Requirement: Footer links are truthful and passive
 
@@ -155,20 +148,32 @@ Footer acceptance SHALL require recorded anonymous production HTTPS checks for `
 - **AND** `https://d20.ravecat.io/help#delete-account` is identified as the instructions URL
 - **AND** the statuses of Meta review and publication remain governed by their own evidence
 
-### Requirement: Legal row responds to available space
+### Requirement: Service information leads the footer
 
-Copyright and Terms SHALL share inherited font family, size, weight, and line height. The legal strip SHALL retain a baseline-aligned wrapping row at every viewport; the 48rem directory breakpoint MUST NOT force it into a column. At 446 CSS pixels with default text size, copyright and legal links SHALL fit on one line. At insufficient widths or increased text size, the same content SHALL wrap without clipping or hiding links.
+Copyright and Terms SHALL inherit the same font family, size, weight and line height. Their block SHALL lead the footer in DOM and visual order, sitting left of the directory above 48rem and above it on smaller screens. Text SHALL wrap naturally without clipping or hiding links. There SHALL be no separate bottom legal strip.
 
-#### Scenario: Mobile width has space for the legal row
+#### Scenario: Keyboard user enters the footer
 
-- **WHEN** the footer renders at 446 CSS pixels with default text size
-- **THEN** copyright and Terms share one row with matching typography
-- **AND** Explore and Help retain independent mobile disclosure behavior
+- **WHEN** the user tabs into the footer at any width
+- **THEN** guest account actions, when present, precede Terms in keyboard order
+- **AND** the Explore links and then Help links follow in reading order
 
-#### Scenario: Content needs additional lines
+### Requirement: Guests can enter account workflows from the footer
 
-- **WHEN** available inline space cannot fit the copyright and legal links
-- **THEN** they wrap in document order and remain visible without horizontal overflow
+Unauthenticated visitors SHALL see `Sign up · Have an account? Sign in` between the copyright and Terms. Sign up and Sign in SHALL be keyboard-accessible native buttons styled as text links, opening the existing shared registration and login dialog respectively without navigation. The separator dot SHALL be decorative. Authenticated visitors SHALL not see this row. The seven ordinary footer destinations SHALL remain unchanged.
+
+#### Scenario: Guest chooses an account action
+
+- **WHEN** a guest activates Sign up or Sign in in the footer
+- **THEN** the existing dialog opens directly in registration or login mode respectively
+- **AND** the current page URL remains unchanged
+- **AND** Escape dismisses the dialog and returns focus to the initiating footer action
+
+#### Scenario: Signed-in player reads the footer
+
+- **WHEN** an authenticated page renders the footer
+- **THEN** the guest account row is absent
+- **AND** copyright, Terms, Explore and Help remain available
 
 ### Requirement: Publisher destination is ready before replacement
 
@@ -183,17 +188,16 @@ The `For publishers and rightholders` destination SHALL explain both proposing a
 
 ### Requirement: Footer spacing is continuous and uniform
 
-Home SHALL use equal 0.6667rem top and bottom padding through one logical block-padding declaration matching the existing catalog section and heading-to-cards intervals. The footer SHALL follow main content without additional top padding. On short pages, main SHALL consume spare viewport height and the footer SHALL retain its natural height at the viewport bottom, as specified by `app-footer-placement` (#271). Desktop directory headings and subsequent list entries SHALL use equal 0.5rem CSS gaps, including wrapped labels, without individual link block padding. Directory content SHALL have equal 0.5rem top and bottom padding between its dividers. The legal strip SHALL have equal 0.5rem top and bottom insets, with the bottom safe-area inset added separately. Mobile list links SHALL have at least 1.5rem targets and 0.375rem block padding, without an additional list gap. Mobile lists SHALL have no additional block padding; disclosure controls SHALL retain 2rem minimum rows with 0.375rem block padding.
+Home SHALL retain equal 0.6667rem top and bottom padding matching existing catalog intervals. The footer SHALL follow main content without additional outer top padding. On short pages main SHALL consume spare height and the footer SHALL retain its natural height at the viewport bottom as specified by app-footer-placement (#271). Directory content SHALL have equal 1rem block insets inside its top divider; headings and links SHALL use equal 0.375rem gaps and at least 1.5rem targets. Preserve the outer 0.5rem bottom padding plus safe-area inset. Mobile service information SHALL have a 1rem inset before its lower divider and a 1rem gap before the navigation columns.
 
 #### Scenario: Desktop directory includes a wrapped publisher link
 
-- **WHEN** Home shows the desktop footer and the publisher link wraps
-- **THEN** the space after its heading and between its link boxes is equal
-- **AND** directory content has equal top and bottom insets from its dividers
-- **AND** when content fills the available viewport, the final catalog block and footer divider are separated by the same 0.6667rem interval used between catalog blocks
+- **WHEN** the publisher label wraps on desktop
+- **THEN** the gap after its heading and between link boxes remains equal
+- **AND** the catalog-to-footer divider interval retains the existing Home bottom inset
 
-#### Scenario: Short Home and mobile disclosures
+#### Scenario: Short Home and mobile navigation
 
-- **WHEN** Home content is shorter than the available viewport or the footer uses mobile disclosures
-- **THEN** main consumes any spare viewport height, keeping the naturally sized footer at the bottom of short pages, and overflowing content retains normal document flow
-- **AND** expanded mobile links retain usable targets, consistent list gaps, and no horizontal page overflow
+- **WHEN** Home is shorter than the viewport or the footer is read at mobile width
+- **THEN** short pages retain bottom footer placement and overflowing content retains normal document flow
+- **AND** every navigation target stays visible with natural wrapping and no horizontal overflow

@@ -1,6 +1,6 @@
 import { createRawSnippet } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-svelte";
 import Layout from "~/app/layout.svelte";
 import { auth } from "~/shared/stores";
@@ -60,31 +60,44 @@ afterEach(() => {
 });
 
 describe("app layout", () => {
-  it("restores the expanded header when closing the footer removes document overflow", async () => {
+  it.each([
+    ["Sign up", "Create your free account"],
+    ["Sign in", "Log in"],
+  ])("opens the existing %s dialog from the footer and returns focus", async (action, title) => {
+    await render(Layout, { children: layoutContent });
+    const entry = page.getByRole("contentinfo").getByRole("button", { name: action, exact: true });
+    const currentUrl = inertiaMock.page.url;
+    inertiaMock.router.visit.mockClear();
+    entry.element().focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.element(page.getByRole("dialog", { name: title, exact: true })).toBeVisible();
+    expect(inertiaMock.page.url).toBe(currentUrl);
+    expect(inertiaMock.router.visit).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Escape}");
+    await expect
+      .element(page.getByRole("dialog", { name: title, exact: true }))
+      .not.toBeInTheDocument();
+    await expect.element(entry).toHaveFocus();
+  });
+
+  it("restores the expanded header when collapsing content removes document overflow", async () => {
     await page.viewport(700, 600);
     await render(Layout, {
       children: createRawSnippet(() => ({
-        render: () => '<div style="block-size: 400px"></div>',
+        render: () =>
+          '<details open><summary>Additional content</summary><div style="block-size: 400px"></div></details>',
       })),
     });
 
     const header = page.getByRole("banner");
     const brand = page.getByRole("link", { name: "D20" });
-    const explore = page
-      .getByRole("group", { name: "Explore" })
-      .getByRole("heading", { name: "Explore" });
-    const help = page.getByRole("group", { name: "Help" }).getByRole("heading", { name: "Help" });
-
-    await explore.click();
-    await help.click();
     window.scrollTo(0, 200);
     await expect.poll(() => window.scrollY).toBeGreaterThan(24);
     if (supportsRootScrollAnimation()) {
       await expect.poll(() => animationProgress(brand.element())).toBeCloseTo(1, 1);
     }
 
-    await explore.click();
-    await help.click();
+    await page.getByText("Additional content", { exact: true }).click();
     await expect.poll(() => window.scrollY).toBe(0);
     await expect(header).toMatchScreenshot("header-after-overflow-removed.png");
   });

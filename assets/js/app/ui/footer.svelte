@@ -1,77 +1,61 @@
 <script lang="ts">
-  import { inertia } from "@inertiajs/svelte";
+  import { inertia, usePage } from "@inertiajs/svelte";
+
+  import { auth } from "~/shared/stores";
 
   type Props = {
     variant?: "narrow" | "wide";
   };
 
   const { variant = "narrow" }: Props = $props();
+  const page = usePage();
 </script>
 
 <footer class:footer--wide={variant === "wide"}>
   <div class="footer__inner">
     <div class="footer__directory">
+      <div class="footer__info">
+        <p class="footer__copyright">d20 © {new Date().getFullYear()}</p>
+        {#if !page.props.auth.authenticated}
+          <div class="footer__account">
+            <button
+              class="footer__link footer__account-action"
+              type="button"
+              onclick={() => {
+                auth.trigger.open();
+                auth.trigger.switchMode({ mode: "register" });
+              }}>Sign up</button
+            >
+            <span aria-hidden="true">·</span>
+            <span>
+              Have an account?
+              <button
+                class="footer__link footer__account-action"
+                type="button"
+                onclick={() => auth.trigger.open()}>Sign in</button
+              >
+            </span>
+          </div>
+        {/if}
+        <nav aria-label="Footer information">
+          <a class="footer__link" href="/terms">Terms</a>
+        </nav>
+      </div>
+
       <nav class="footer__group" aria-label="Explore">
-        <div class="footer__desktop">
-          <h2 class="footer__heading">Explore</h2>
-          <ul class="footer__links">
-            <li><a class="footer__link" href="/about" use:inertia>About</a></li>
-            <li>
-              <a class="footer__link" href="/rights-holders" use:inertia
-                >For publishers and rightholders</a
-              >
-            </li>
-            <li><a class="footer__link" href="/developers" use:inertia>For developers</a></li>
-          </ul>
-        </div>
-        <details class="footer__mobile" aria-label="Explore">
-          <summary class="footer__trigger">
-            <h2 class="footer__heading">Explore</h2>
-            <svg class="footer__chevron" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="m6 3 5 5-5 5" />
-            </svg>
-          </summary>
-          <ul class="footer__links">
-            <li><a class="footer__link" href="/about" use:inertia>About</a></li>
-            <li>
-              <a class="footer__link" href="/rights-holders" use:inertia
-                >For publishers and rightholders</a
-              >
-            </li>
-            <li><a class="footer__link" href="/developers" use:inertia>For developers</a></li>
-          </ul>
-        </details>
+        <h2 class="footer__heading">Explore</h2>
+        <a class="footer__link" href="/about" use:inertia>About</a>
+        <a class="footer__link" href="/rights-holders" use:inertia
+          >For publishers and rightholders</a
+        >
+        <a class="footer__link" href="/developers" use:inertia>For developers</a>
       </nav>
 
       <nav class="footer__group" aria-label="Help">
-        <div class="footer__desktop">
-          <h2 class="footer__heading">Help</h2>
-          <ul class="footer__links">
-            <li><a class="footer__link" href="/help">How to play</a></li>
-            <li><a class="footer__link" href="/help#faq">FAQ</a></li>
-            <li><a class="footer__link" href="/contact" use:inertia>Contact / support</a></li>
-          </ul>
-        </div>
-        <details class="footer__mobile" aria-label="Help">
-          <summary class="footer__trigger">
-            <h2 class="footer__heading">Help</h2>
-            <svg class="footer__chevron" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="m6 3 5 5-5 5" />
-            </svg>
-          </summary>
-          <ul class="footer__links">
-            <li><a class="footer__link" href="/help">How to play</a></li>
-            <li><a class="footer__link" href="/help#faq">FAQ</a></li>
-            <li><a class="footer__link" href="/contact" use:inertia>Contact / support</a></li>
-          </ul>
-        </details>
-      </nav>
-    </div>
-
-    <div class="footer__bottom">
-      <p class="footer__copyright">© {new Date().getFullYear()} D20</p>
-      <nav class="footer__legal" aria-label="Footer information">
-        <a class="footer__link" href="/terms">Terms</a>
+        <h2 class="footer__heading">Help</h2>
+        <a class="footer__link" href="/help">How to play</a>
+        <a class="footer__link" href="/help#faq">FAQ</a>
+        <a class="footer__link" href="/contact" use:inertia>Contact / support</a>
       </nav>
     </div>
   </div>
@@ -102,47 +86,63 @@
   }
 
   .footer__directory {
-    display: flex;
-    gap: 1rem;
-    padding-block: 0.5rem;
-    border-block: 1px solid var(--color-base-300);
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
+    padding-block: 1rem;
+    border-block-start: 1px solid var(--color-base-300);
   }
 
+  .footer__info,
   .footer__group {
-    flex: 0 1 12rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
     min-inline-size: 0;
   }
 
-  .footer__desktop {
-    display: grid;
-    gap: 0.5rem;
+  .footer__info {
+    padding-inline-end: 1.5rem;
   }
 
-  .footer__bottom,
-  .footer__legal {
-    display: flex;
-    align-items: baseline;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
+  .footer__group {
+    padding-inline: 1.5rem;
+    border-inline-start: 1px solid var(--color-base-300);
   }
 
-  .footer__bottom {
-    padding-block-start: 0.5rem;
+  .footer__group:last-child {
+    padding-inline-end: 0;
   }
 
   .footer__copyright {
     margin: 0;
-    margin-inline-end: auto;
+    min-block-size: 1.5rem;
   }
 
   .footer__link {
     display: inline-flex;
     align-items: center;
     min-block-size: 1.5rem;
+    max-inline-size: 100%;
     color: inherit;
     text-decoration: none;
     text-underline-offset: 0.2em;
+  }
+
+  .footer__account {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+  }
+
+  .footer__account-action {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .footer__link:hover {
@@ -151,97 +151,41 @@
 
   .footer__heading {
     margin: 0;
+    min-block-size: 1.5rem;
     font: inherit;
     font-weight: 600;
   }
 
-  .footer__mobile {
-    display: none;
-  }
-
-  .footer__trigger {
-    display: flex;
-    inline-size: 100%;
-    min-block-size: 2rem;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.375rem 0;
-    cursor: pointer;
-  }
-
-  .footer__trigger::-webkit-details-marker {
-    display: none;
-  }
-
-  .footer__mobile[open] .footer__chevron {
-    transform: rotate(90deg);
-  }
-
-  .footer__chevron {
-    flex: none;
-    inline-size: 1rem;
-    block-size: 1rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.5;
-  }
-
-  .footer__links {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .footer__links .footer__link {
-    display: flex;
-    min-block-size: 0;
-  }
-
-  .footer__link:focus-visible,
-  .footer__trigger:focus-visible {
+  .footer__link:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: 2px;
   }
 
   @media (max-width: 48rem) {
-    .footer__desktop {
-      display: none;
-    }
-
-    .footer__mobile {
-      display: block;
-    }
-
     .footer--wide .footer__inner {
       padding-inline: 1rem;
     }
 
     .footer__directory {
-      flex-direction: column;
-      gap: 0;
-      padding-block: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: 1rem;
     }
 
-    .footer__group {
-      flex: none;
-    }
-
-    .footer__group:not(:last-child) {
+    .footer__info {
+      grid-column: 1 / -1;
+      padding-inline-end: 0;
+      padding-block-end: 1rem;
       border-block-end: 1px solid var(--color-base-300);
     }
 
-    .footer__links {
-      gap: 0;
+    .footer__group {
+      padding-inline: 0 1rem;
+      border-inline-start: 0;
     }
 
-    .footer__links .footer__link {
-      box-sizing: border-box;
-      min-block-size: 1.5rem;
-      padding-block: 0.375rem;
-      padding-inline-start: 0.75rem;
+    .footer__group:last-child {
+      padding-inline-start: 1rem;
+      border-inline-start: 1px solid var(--color-base-300);
     }
   }
 </style>
