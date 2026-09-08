@@ -42,11 +42,24 @@ export const Index: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByRole("banner")).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "D20" })).toBeVisible();
+    await expect(
+      within(canvas.getByRole("banner")).getByRole("link", { name: "D20" }),
+    ).toBeVisible();
     await expect(canvas.getByRole("main")).toBeVisible();
     await expect(canvas.getByText("Qwinto")).toBeVisible();
+    await expect(canvas.getAllByRole("contentinfo")).toHaveLength(1);
+    await expect(canvas.getByRole("navigation", { name: "Explore" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
+  },
+};
+
+export const Empty: Story = {
+  args: { games: [] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("No games")).toBeVisible();
     await expect(canvas.getByRole("contentinfo")).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "for developers" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
   },
 };
 

@@ -44,6 +44,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+export const Index: Story = {
+  args: { auth: { ...meta.args.auth, prompt: null } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(canvas.getAllByRole("contentinfo")).toHaveLength(1);
+    await expect(canvas.getByRole("navigation", { name: "Explore" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Privacy" })).toBeVisible();
+  },
+};
+
 export const ConfirmationWithMagicLink: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

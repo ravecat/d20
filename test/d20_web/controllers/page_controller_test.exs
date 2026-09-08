@@ -273,6 +273,49 @@ defmodule D20Web.PageControllerTest do
     assert redirected_to(conn) == ~p"/"
   end
 
+  test "GET /about renders public product information for a guest", %{conn: conn} do
+    conn = get(conn, ~p"/about")
+
+    assert html_response(conn, 200) =~ ~s(id="app")
+    assert inertia_component(conn) == "about"
+    assert inertia_props(conn).auth.authenticated == false
+  end
+
+  test "GET /about preserves a signed-in visitor's authentication", %{conn: conn} do
+    conn = conn |> log_in_user(D20.AccountsFixtures.user_fixture()) |> get(~p"/about")
+
+    assert html_response(conn, 200) =~ ~s(id="app")
+    assert inertia_component(conn) == "about"
+    assert inertia_props(conn).auth.authenticated == true
+  end
+
+  test "contact pages are public on direct requests", %{conn: conn} do
+    for {path, component} <- [{~p"/contact", "contact"}, {~p"/rights-holders", "rights_holders"}] do
+      response = get(conn, path)
+
+      assert html_response(response, 200) =~ ~s(id="app")
+      assert inertia_component(response) == component
+      assert inertia_props(response).auth.authenticated == false
+    end
+  end
+
+  test "contact pages support Inertia navigation for signed-in visitors", %{conn: conn} do
+    conn = log_in_user(conn, D20.AccountsFixtures.user_fixture())
+
+    version = get(conn, ~p"/contact").private.inertia_version
+
+    for {path, component} <- [{~p"/contact", "contact"}, {~p"/rights-holders", "rights_holders"}] do
+      response =
+        conn
+        |> put_req_header("x-inertia", "true")
+        |> put_req_header("x-inertia-version", version)
+        |> get(path)
+
+      assert json_response(response, 200)["component"] == component
+      assert inertia_props(response).auth.authenticated == true
+    end
+  end
+
   test "GET /developers renders the developer entry page", %{conn: conn} do
     conn = get(conn, ~p"/developers")
 

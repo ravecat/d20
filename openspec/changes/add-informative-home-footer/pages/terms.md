@@ -44,3 +44,8 @@ Links: `Account and data deletion` -> `/help#delete-account`; `Contact / Support
 #248 must complete the operator/eligibility details, applicable conduct and suspension policy, actual rights/licenses, availability commitments, responsibility/dispute terms, and revision date. Do not infer game licensing, payment/refund rules, age limits, governing law, or a liability waiver from the presence of a catalog.
 
 Core draft copy is not a complete terms document. Publish `/terms` only after all applicable sections are completed and approved, with the complete text available in anonymous initial HTML at every viewport.
+
+
+## Approved contact input on 2026-09-07
+
+The user supplied `support@d20.ravecat.io` for support, feedback, and private account inquiries, and `rights@d20.ravecat.io` for game proposals and rights concerns. Contact-page implementation is authorized during provisioning; mail receipt/monitoring is not yet verified. This resolves the destination-address input only. Operator identity, approved legal content, retention/deletion facts, and publication approval remain with #248/#247.

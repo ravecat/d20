@@ -1,42 +1,19 @@
 # Contact / Support Page
 
-Route: `/contact`. Document title and h1: `Contact / Support`. Owner: #268 and the operator. Layout: [shared article](README.md#shared-page-layout). Status: copy and layout prepared; publication requires the confirmed private contact address and responsible operator.
+Route: `/contact`. Title and h1: `Contact / Support`. Owner: #268. Layout: [shared article](README.md#shared-page-layout).
 
-## Block order
+The user approved `support@d20.ravecat.io` for support/feedback and `rights@d20.ravecat.io` for game proposals and rights inquiries on 2026-09-07. Local implementation is authorized while the addresses are being provisioned. Actual receipt/monitoring remains a publication check under [ravecat/infra#2](https://github.com/ravecat/infra/issues/2).
 
-1. Title and brief introduction.
-2. Plain private-contact block with monitored address, copyable text, and mail link.
-3. `Technical problems` section.
-4. `Accounts and privacy` section.
-5. `Publishers and rights holders` section.
-6. Help link and compact footer.
+## Content and links
 
-The contact block uses a readable label such as `Email Support`. It is not a form, modal, or card that requires interaction to reveal the address. Long addresses must wrap at 320px. Do not add a copy-to-clipboard button solely for this page; ordinary text selection is sufficient.
+1. Introduce support and feedback with visible, selectable `support@d20.ravecat.io` and ordinary `mailto:support@d20.ravecat.io`.
+2. Technical problems and feedback: request the game/page, expected and actual behavior, and browser name/version. Ask users to remove personal information and sign-in details from screenshots.
+3. Accounts and privacy: allow an inquiry without signing in; do not request passwords, one-time sign-in links, provider tokens, or private documents.
+4. Publishers and rights holders: visible, selectable `rights@d20.ravecat.io`, ordinary `mailto:rights@d20.ravecat.io`, and an Inertia link to `/rights-holders`.
+5. Existing shared footer.
 
-## Draft copy
+Keep all content in the page component with native links and matching article styles. Do not add a form, clipboard button, address configuration, response-time promise, or a claim that receipt has been verified. Use ASCII `d20.ravecat.io` consistently. Do not add new page-body links to the pending Help/privacy/deletion documents before those destinations are delivered; their separate footer/publication obligations remain open.
 
-Intro: `Contact D20 about a technical problem, your account, or a game-related inquiry.`
+## Verification
 
-### Technical problems
-
-Tell us which game or page you were using, what you expected, and what happened instead. Include your browser name and version. If you share a screenshot, remove personal information and sign-in details first.
-
-### Accounts and privacy
-
-Use the private contact address above for account-access or privacy questions. Never send a password, a one-time sign-in link, or a provider access token. Support will explain any information needed to verify your request.
-
-Links: `Privacy Policy` -> `/privacy`; `Deleting your account and data` -> `/help#delete-account`.
-
-### Publishers and rights holders
-
-For a question about a game, attribution, or rights, identify the game and describe your request. Use the private contact address above for correspondence.
-
-Final link: `Visit Help and FAQ` -> `/help`.
-
-## Required operator input
-
-- Confirm the public operator name and the real monitored contact address. Do not infer an address from the production domain or Git commit identity.
-- Confirm that the address accepts technical, account/privacy, and rights inquiries. Split addresses only if an actual operational need exists.
-- Publish response-time commitments only when the operator has approved them; no timing promise is included in this draft.
-
-Until these facts are confirmed, the page is a prepared specification and must not be represented as a live support channel.
+Verify direct anonymous access and signed-in Inertia navigation through the Phoenix route. Storybook covers exact mailto/cross-link targets and desktop/tablet/mobile rendering in light/dark. Mail sending is not part of automated UI verification; receipt/monitoring is verified after provisioning.

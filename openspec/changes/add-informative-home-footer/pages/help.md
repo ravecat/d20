@@ -8,7 +8,7 @@ Route: `/help`. Document title and h1: `Help`. Owner: #268; deletion content own
 2. `On this page`: How to play (`#how-to-play`), FAQ (`#faq`), Delete account and data (`#delete-account`), Contact Support (`/contact`). This page-local contents list is not an additional footer link.
 3. `How to play` section, id `how-to-play`.
 4. `Frequently asked questions` section, id `faq`, with the questions below as h3 headings.
-5. Final support link and compact footer.
+5. Final support link and shared footer.
 
 ## Draft introduction and guide
 
@@ -82,10 +82,10 @@ The canonical instructions URL supplied to Meta and linked from Privacy is `http
 
 ### How can I contact Support?
 
-Visit Contact / Support for account questions, technical problems, and publisher or rights inquiries.
+Visit Contact / Support or email `support@d20.ravecat.io` for account questions, technical problems, and feedback. Direct game proposals and rights inquiries to `/rights-holders` and `rights@d20.ravecat.io`.
 
 Link: `Contact / Support` -> `/contact`.
 
 ## Publication checks
 
-Editorial notes under the draft questions are not page copy. Resolve the deletion inputs and use approved support details before publishing Help as the Meta instructions destination. Test both FAQ and deletion fragment landing below the fixed header, with and without JavaScript, at desktop and mobile widths.
+Editorial notes under the draft questions are not page copy. The support/rights addresses were approved on 2026-09-07; receipt/monitoring is still pending. Resolve the deletion inputs and verify the operational support path before publishing Help as the Meta instructions destination. Test both FAQ and deletion fragment landing below the fixed header, with and without JavaScript, at desktop and mobile widths.

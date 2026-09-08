@@ -15,6 +15,21 @@ defmodule D20Web.PageController do
     |> render_inertia("home")
   end
 
+  @spec about(Plug.Conn.t(), params()) :: Plug.Conn.t()
+  def about(conn, _params) do
+    render_inertia(conn, "about")
+  end
+
+  @spec contact(Plug.Conn.t(), params()) :: Plug.Conn.t()
+  def contact(conn, _params) do
+    render_inertia(conn, "contact")
+  end
+
+  @spec rights_holders(Plug.Conn.t(), params()) :: Plug.Conn.t()
+  def rights_holders(conn, _params) do
+    render_inertia(conn, "rights_holders")
+  end
+
   @spec developers(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def developers(conn, _params) do
     render_inertia(conn, "developers")

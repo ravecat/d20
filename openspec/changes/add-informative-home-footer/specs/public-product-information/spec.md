@@ -2,14 +2,14 @@
 
 ### Requirement: Prepared information pages share a responsive reading layout
 
-About, Help, Contact, Privacy, and Terms SHALL follow the page briefs in [the page index](../../pages/README.md) and use one main article, one h1, a descriptive title, and a compact narrow footer. The article SHALL remain a single reading column at the documented desktop/tablet/mobile viewports and use a centered maximum 46.25rem border-box container with 1rem inline padding. Contents lists, headings, answers, contact addresses, and paragraphs SHALL wrap in document order at 320px and 200 percent zoom without horizontal scrolling or clipping. Long-page sections SHALL remain expanded and anchor headings SHALL be visible below the fixed site header.
+About, Help, Contact, For Publishers and Rightholders, Privacy, and Terms SHALL follow the page briefs in [the page index](../../pages/README.md) and use one main article, one h1, a descriptive title, and the shared footer aligned to the narrow shell. The article SHALL remain a single reading column at the documented desktop/tablet/mobile viewports and use a centered maximum 46.25rem border-box container with 1rem inline padding. Contents lists, headings, answers, contact addresses, and paragraphs SHALL wrap in document order at 320px and 200 percent zoom without horizontal scrolling or clipping. Long-page sections SHALL remain expanded and anchor headings SHALL be visible below the fixed site header.
 
 #### Scenario: Help on desktop and mobile
 
 - **WHEN** a visitor reads Help at 1280x720, 1024x640, or 320x900
 - **THEN** How to play and FAQ retain the same section order and readable content
 - **AND** the deletion answer remains an expanded FAQ section
-- **AND** the page has a compact footer rather than Home's full directory
+- **AND** the page has the same footer content as Home
 
 #### Scenario: Contact address and policy text reflow
 
@@ -29,7 +29,7 @@ Public pages SHALL render only approved page copy and confirmed operational fact
 
 ### Requirement: Public product pages explain existing capabilities
 
-D20 SHALL expose About at `/about` and Help at `/help` without authentication. About SHALL explain the browser board-game service and link to Games and Help. Help SHALL explain the supported discovery, game-detail, play/session, rules, and return-to-active-game paths. Its stable `faq` section SHALL cover accounts, sign-in, playable/catalog distinctions, game-specific rules, browser support, common failures, support, and deletion. Content MUST describe delivered capabilities and MUST NOT invent game modes, availability promises, or recovery actions.
+D20 SHALL expose About at `/about` and Help at `/help` without authentication. About SHALL introduce D20 as a fan project creating digital versions of well-known board games in a warm, inviting voice. It SHALL invite players, publishers, developers, and designers to collaborate and link to `/contact`, `/rights-holders`, and `/developers`. It SHALL NOT advertise or link to a separate Games page. Help SHALL explain the supported discovery, game-detail, play/session, rules, and return-to-active-game paths. Its stable `faq` section SHALL cover accounts, sign-in, playable/catalog distinctions, game-specific rules, browser support, common failures, support, and deletion. Content MUST describe delivered capabilities and MUST NOT invent game modes, availability promises, or recovery actions.
 
 #### Scenario: Visitor opens a product-information deep link
 
@@ -38,9 +38,16 @@ D20 SHALL expose About at `/about` and Help at `/help` without authentication. A
 - **AND** the FAQ link targets its stable section
 - **AND** a page heading and document title identify the destination
 
+#### Scenario: Visitor wants to contribute to D20
+
+- **WHEN** a visitor reads About
+- **THEN** they can find an invitation relevant to players, publishers, developers, or designers
+- **AND** its links lead to the implemented contact, rights-holder, and developer pages
+- **AND** About contains no `/games` link or promise of a separate catalog page
+
 ### Requirement: Public contact supports private account inquiries
 
-D20 SHALL expose `/contact` with a confirmed, monitored private contact path and guidance for bugs, account/privacy questions, and publisher/rights inquiries. A contact form SHALL NOT be required when a copyable contact address and mail link provide the intended path. A public issue tracker MUST NOT be the only account/privacy contact method. The page MUST NOT request passwords, provider tokens, or unnecessary private documents.
+D20 SHALL expose `/contact` with `support@d20.ravecat.io` for technical support, feedback, and account/privacy inquiries, plus `rights@d20.ravecat.io` and a `/rights-holders` link for publisher/rights inquiries. Both addresses SHALL be selectable text and exact ordinary mailto links using the ASCII domain. Local implementation is authorized while mailbox provisioning continues; it MUST NOT claim verified delivery, monitoring, or a response-time commitment. A contact form SHALL NOT be required when a copyable contact address and mail link provide the intended path. A public issue tracker MUST NOT be the only account/privacy contact method. The page MUST NOT request passwords, provider tokens, or unnecessary private documents.
 
 #### Scenario: A user cannot sign in
 
@@ -48,11 +55,22 @@ D20 SHALL expose `/contact` with a confirmed, monitored private contact path and
 - **THEN** they can read a private support contact path and the information needed to start an inquiry
 - **AND** they are not required to publish account information in a public issue
 
-#### Scenario: Contact facts are not yet approved
+#### Scenario: Approved addresses are still being provisioned
 
-- **WHEN** no real monitored contact has been confirmed
-- **THEN** Contact content publication and the corresponding footer acceptance remain incomplete
-- **AND** no fabricated address or unfinished placeholder is published
+- **WHEN** the user supplies the support and rights addresses before mailbox provisioning completes
+- **THEN** the public routes, selectable addresses, mailto links, and footer navigation are implemented and tested locally
+- **AND** real receipt/monitoring verification remains incomplete until the mail infrastructure is ready
+
+### Requirement: Publishers and rights holders have a dedicated contact page
+
+D20 SHALL expose `/rights-holders` without authentication, titled `For Publishers and Rightholders`. It SHALL explain how to propose a game for adaptation or placement and raise a concern about existing game content. It SHALL provide `rights@d20.ravecat.io` as selectable text and an ordinary `mailto:rights@d20.ravecat.io` link, ask for the game/page, the sender's role and a concise request, and link technical/account support to `/contact`. It MUST NOT promise acceptance, licensing status, response times, or automatic removal. Page layout and responsive screenshots SHALL use the same article conventions as About and Contact.
+
+#### Scenario: A rights holder opens the footer destination
+
+- **WHEN** an anonymous visitor follows `For Publishers and Rightholders` in the footer
+- **THEN** `/rights-holders` renders useful proposal and rights-concern guidance
+- **AND** the address and mailto target are exactly `rights@d20.ravecat.io`
+- **AND** account or technical inquiries can navigate to `/contact`
 
 ### Requirement: Policy destinations are public and versioned
 

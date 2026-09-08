@@ -8,11 +8,20 @@ import publicAuthConfirmation, {
   Login as confirmation,
 } from "~stories/pages/public/auth_confirmation.stories";
 import publicHome from "~stories/pages/public/home.stories";
+import about from "~stories/pages/public/about.stories";
 import registrationCompletion, * as registrationCompletionStories from "~stories/pages/public/registration_completion.stories";
 import playerCountLabel from "~stories/shared/player_count_label.stories";
 import workspace from "~stories/widgets/workspace.stories";
+import footer, * as footerStories from "~stories/widgets/footer.stories";
 
 describe("Storybook page layout", () => {
+  it("registers the public About page with the shared layout", () => {
+    const result = about.decorators[0](undefined);
+    expect(result.Component).toBe(Layout);
+    expect(usePage().url).toBe("/about");
+    expect(usePage().props.auth.authenticated).toBe(false);
+  });
+
   it("registers matching production layout context on every complete routed page", () => {
     const pages = [
       { authenticated: false, meta: publicHome, url: "/" },
@@ -91,5 +100,8 @@ describe("Storybook page layout", () => {
   it("leaves shared and widget stories undecorated", () => {
     expect(playerCountLabel).not.toHaveProperty("decorators");
     expect(workspace).not.toHaveProperty("decorators");
+    expect(footer).not.toHaveProperty("decorators");
+    expect(footer.title).toBe("Widgets/Footer");
+    expect(Object.keys(footerStories).sort()).toEqual(["Default", "MobileExpanded", "default"]);
   });
 });

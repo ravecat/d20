@@ -1,91 +1,71 @@
 # Footer Layout and Viewport Reference
 
-This is the implementation and review reference for #268. [design.md](design.md) owns the architectural and interaction decisions; the two capability specifications own acceptance requirements. This document makes their geometry, variants, and review cases concrete. Values below are D20 decisions, not copied Apple dimensions.
+Implementation and review reference for #268. [design.md](design.md) owns architecture and interaction decisions; the capability specifications own acceptance. The 2026-09-07 simplification removes page-specific footer modes and the repeated brand/tagline introduction.
 
-## Variants and content
+## One shared composition
 
-| Presentation | Width | Consumers | Content |
-| --- | --- | --- | --- |
-| Informative | Narrow | Home, both guest and signed-in | Introduction, Explore, Help, copyright, Privacy, Terms |
-| Compact | Narrow | About, Help, Contact, Privacy, Terms, existing narrow shell pages | For developers, Privacy, Terms |
-| Compact | Wide | Existing wide shell pages such as game details | The same three compact links aligned to the wide shell |
+Every existing App-layout page renders the same footer once after main content:
 
-Do not create an informative-wide product variant without a new requirement. Informative/compact is a page choice; narrow/wide is geometry; mobile/desktop is a viewport mode; light/dark is theme. Authentication does not change footer content. Compact never becomes an accordion.
-
-Exact informative copy:
-
-- Introduction: `D20 - Board games in your browser.` Only `D20` links to `/`.
-- Explore: `About D20`, `Games`, `For developers`.
+- Explore: `About`, `For Publishers and Rightholders`, `For developers`.
 - Help: `How to play`, `FAQ`, `Contact / Support`.
-- Legal: `(c) <current year> D20`, `Privacy`, `Terms`; render the actual copyright symbol and current year in the application.
+- Legal: copyright with the current year and D20, `Privacy`, `Terms`.
 
-The route inventory in [design.md](design.md) supplies hrefs. Account deletion is an expanded FAQ answer at `/help#delete-account`, not a fourth Help link or a legal-strip item.
+Use the hrefs in [design.md](design.md). Deletion remains an expanded FAQ answer at `/help#delete-account`, not another footer item. Do not repeat the header brand or add a tagline above the directory.
+
+There is no `compact`/`informative` content setting. Authentication and page identity do not change the footer's links. The shell's existing narrow/wide setting controls alignment only; viewport width controls desktop columns versus mobile disclosures; theme changes colors only.
 
 ## Geometry and typography
 
-| Element | Desktop directory, above 48rem | Mobile directory, at or below 48rem |
+| Element | Above 48rem | At or below 48rem |
 | --- | --- | --- |
-| Background | Neutral theme surface across viewport width | Same |
-| Narrow inner box | `min(100%, 46.25rem)`, centered, border-box | Same |
-| Narrow inline padding | 1rem | 1rem |
-| Wide compact inner box | `min(100%, 64rem)`, 1.5rem inline padding | Same maximum, 1rem inline padding |
-| Informative block padding | 1.5rem top, at least 1rem bottom | 1rem top, at least 1rem bottom |
-| Introduction | Full inner width, 1rem below | Wrap naturally, 1rem below |
-| Directory | Two equal columns; 2rem gap; 1rem block padding | Full-width disclosure rows, minimum 44px trigger height |
-| Directory links | 0.375rem block padding, text wraps | At least 44px rows; 0.75rem extra inline start inset |
-| Legal strip | 1rem above/below; copyright at start, links at end when they fit | Copyright followed by wrapping Privacy/Terms; 0.5rem row gap |
-| Compact row | 0.625rem top/bottom; 1rem link gap; right aligned | Same content and order; wrap at available width |
-| Separators | 1px, existing subdued border token | Between disclosure rows and above legal content |
+| Background | Home's `--color-base-100` page surface | Same; preserve the dark page surface in dark mode |
+| Narrow inner box | Centered, border-box, maximum 46.25rem, 1rem inline padding | Same |
+| Wide inner box | Centered, border-box, maximum 64rem, 1.5rem inline padding | Same maximum, 1rem inline padding |
+| Outer block padding | 1rem top, 0.75rem bottom plus safe-area inset | Same |
+| Directory | Two equal columns capped at 12rem, 1rem gap, 0.5rem block padding | Full-width disclosure rows, no grid gap or block padding |
+| Links | 0.25rem block padding, wrapping text | Minimum 44px rows, 0.75rem inline start inset |
+| Legal strip | 0.5rem above, copyright at start, links at end when they fit | Copyright followed by wrapping Privacy/Terms, 0.5rem row gap |
+| Separators | 1px existing subdued border token | Around the directory and between disclosure rows |
 
-All block-end padding includes the bottom safe-area inset. Match existing shell inline insets; do not add padding to only one physical edge for scrollbar compensation. No fixed footer height, positioning, hidden page overflow, or ellipsis is allowed to conceal content.
+Use the existing font and theme tokens. Footer text is 0.8125rem at 1.5 line height; headings use weight 600; copyright and legal links inherit the same 0.8125rem size, family, weight, and line height. The legal strip remains a baseline-aligned wrapping flex row even below 48rem, fitting on one line at 446px and wrapping only on content pressure. Mobile ASCII rows below illustrate wrapping, not forced stacking. Preserve visible focus, 4.5:1 normal-text contrast, and at least 44px mobile disclosure triggers. Keep the footer in normal flow with no fixed height, clipping, truncation, or hidden overflow.
 
-Use the current D20 font family. Set footer text to 0.8125rem with 1.5 line height; group headings use the same size at weight 600. Copyright can use 0.75rem if contrast remains sufficient. Links use regular weight with visible hover/focus treatment. Light and dark modes use semantic theme colors with at least 4.5:1 text contrast and a visible focus outline. There is no alternate content or layout in dark mode.
+## Viewports and review
 
-## Viewport matrix
+Dimensions are CSS pixels. Existing Storybook toolbar presets remain authoritative; do not add global presets for this change.
 
-Dimensions are CSS pixels. The existing Storybook presets in `assets/.storybook/preview.ts` are the canonical visual-suite sizes. Supplementary widths are targeted browser cases, not new global Storybook presets. The numeric 768px boundary assumes default 16px initial font size; the CSS condition remains 48rem.
+| Viewport | Mode | Required observation |
+| --- | --- | --- |
+| 1280 x 720 | Columns | Footer aligned with Home and other narrow shell pages |
+| 1024 x 640 | Columns | Tablet label does not force mobile |
+| 320 x 900 | Disclosures | Labels and legal links fit or wrap |
+| 390 x 844 | Disclosures | Closed, either group open, both open |
+| 767/768/769px wide | Boundary | Mobile at 767/768, columns at 769 with default 16px root size |
+| 768 x 1024 | Disclosures | Bounded narrow inner box |
+| 1440 x 900 | Columns | No stretching beyond shell maximum |
+| 844 x 390 | Columns | Normal scrolling, no viewport-height clipping |
 
-| Viewport | Source/use | Informative mode | Required observation |
-| --- | --- | --- | --- |
-| 1280 x 720 | Existing desktop preset | Two columns | 740px outer narrow box; content stays aligned to Home |
-| 1024 x 640 | Existing tablet landscape preset | Two columns | Same narrow composition; tablet label does not force mobile |
-| 320 x 900 | Existing mobile preset | Disclosure rows | 288px usable narrow width; every label and link fits or wraps |
-| 390 x 844 | Common phone review | Disclosure rows | Closed, Help open, Explore open, both open |
-| 768 x 1024 | Tablet portrait / exact threshold | Disclosure rows | 740px bounded box; mobile controls still apply |
-| 769 x 1024 | Just above threshold | Two columns | All links visible; disclosure controls absent from tab order |
-| 767 x 900 | Just below threshold | Disclosure rows | No one-pixel gap or conflicting mode |
-| 1440 x 900 | Large desktop review | Two columns | No stretching beyond the bounded container |
-| 844 x 390 | Short landscape viewport | Two columns | Footer can scroll naturally; no viewport-height clipping |
-
-Run compact narrow and compact wide at the three existing presets. Verify the 320px wrapping case and the wide 48rem inset transition. Review both light and dark themes at those presets; use targeted interactions for supplementary widths instead of multiplying every screenshot state by every width.
-
-At 200 percent browser zoom, record the effective CSS viewport width and apply the same media rule. A desktop-sized window can therefore use disclosure mode. Test text enlargement without adding a third layout mode.
+Review narrow and wide shell alignment in both themes. At 200-percent zoom, use the effective CSS viewport and the same 48rem threshold. Keep Privacy and Terms outside disclosures and available without opening a group.
 
 ## Wireframes
 
-Desktop informative, 1280 x 720 or tablet landscape 1024 x 640:
+Desktop:
 
 ```text
-viewport-wide neutral surface
        +---------------------------------------------------+
-       | D20 - Board games in your browser.               |
-       |---------------------------------------------------|
-       | Explore                   Help                    |
-       | About D20                 How to play             |
-       | Games                     FAQ                     |
-       | For developers            Contact / Support       |
+       | Explore          Help                             |
+       | About            How to play                      |
+       | For Publishers   FAQ                              |
+       | and Rightholders Contact / Support                |
+       | For developers                                    |
        |---------------------------------------------------|
        | (c) YEAR D20                  Privacy | Terms      |
        +---------------------------------------------------+
 ```
 
-Mobile, initial closed state:
+Mobile, closed:
 
 ```text
 +------------------------------+
-| D20 - Board games in         |
-| your browser.                |
-|------------------------------|
 | Explore                    > |
 |------------------------------|
 | Help                       > |
@@ -95,16 +75,14 @@ Mobile, initial closed state:
 +------------------------------+
 ```
 
-Mobile, both independently opened:
+Mobile, expanded:
 
 ```text
 +------------------------------+
-| D20 - Board games in         |
-| your browser.                |
-|------------------------------|
 | Explore                    v |
-|   About D20                  |
-|   Games                      |
+|   About                      |
+|   For Publishers and         |
+|   Rightholders                |
 |   For developers             |
 |------------------------------|
 | Help                       v |
@@ -117,29 +95,8 @@ Mobile, both independently opened:
 +------------------------------+
 ```
 
-Compact narrow/wide, desktop and a wrapped small-screen example:
+## Storybook and interaction coverage
 
-```text
-|                     For developers   Privacy   Terms |
+Keep only `Default` and `Mobile expanded` under `Widgets/Footer`. Use existing toolbar controls for theme and viewport and the width control for shell alignment; do not duplicate stories for dark mode, focus, or narrow/wide geometry. Existing public/authenticated Home and information-page stories cover the real Layout integration, without an extra footer-focused Home story.
 
-| For developers   Privacy |
-|                   Terms |
-```
-
-Compact wraps only when the actual labels and spacing require it. Do not force the illustrated break or change the link order. Both compact widths use the same markup and content.
-
-## Interaction and review states
-
-The transition table in [design.md](design.md) remains authoritative. Acceptance evidence must cover:
-
-1. Desktop all visible; mobile both closed; each group open; both open.
-2. Mobile > desktop > mobile with focus outside the footer: reset to closed on return.
-3. Desktop > mobile with FAQ focused: Help remains open and FAQ retains visible focus.
-4. Focused mobile heading > desktop heading > mobile trigger: focus stays on a visible corresponding target.
-5. A resize/orientation change within one mode: preserve disclosure state and focus.
-6. Closed groups: descendants absent from keyboard and accessibility navigation, accurate expanded state.
-7. Reduced motion: immediate toggle; no animated geometry on breakpoint changes.
-8. Available footer markup without successful disclosure enhancement: links stay visible and usable. This does not promise that the whole existing client-rendered Home works without JavaScript.
-9. Guest/signed-in, empty/short/long Home, visible Workspace controls: the footer remains in normal document flow and reachable.
-
-Use existing public/authenticated Home stories for full-shell views and focused footer cases where states need isolation. Browser checks own resize/focus assertions; screenshots own visual geometry. Do not regard a static screenshot as evidence of correct breakpoint behavior.
+Browser tests cover native independent disclosures, hidden-link exclusion, keyboard activation, state retention across viewport changes, and unique accessible destinations. Native controls also work when the component markup is supplied without client JavaScript. CSS switches between static desktop lists and mobile details with explicit inline Explore and Help links. Automatic focus transfer and state reset are intentionally omitted. Screenshots cover geometry; existing Workspace integration remains unchanged.

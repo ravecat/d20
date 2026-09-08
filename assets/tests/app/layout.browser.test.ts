@@ -64,7 +64,7 @@ describe("app layout", () => {
     { name: "desktop", width: 1280 },
     { name: "mobile", width: 480 },
   ])(
-    "uses the document as its only page scroller at the $name viewport",
+    "uses document scrolling and allows main content focus at the $name viewport",
     async ({ name, width }) => {
       await page.viewport(width, 800);
       await render(Layout, { children: overflowingLayoutContent });
@@ -77,6 +77,7 @@ describe("app layout", () => {
 
       expect(scrollingElement).not.toBeNull();
       expect(scrollingElement).toBe(document.documentElement);
+      await expect.element(content).not.toHaveAttribute("scroll-region");
       await expect.element(firstAction).toBeVisible();
 
       content.element().scrollTop = 24;
@@ -116,6 +117,9 @@ describe("app layout", () => {
       if (supportsRootScrollAnimation()) {
         await expect.poll(() => animationProgress(brand.element())).toBeCloseTo(0, 1);
       }
+
+      content.element().focus({ preventScroll: true });
+      await expect.element(content).toHaveFocus();
     },
   );
 

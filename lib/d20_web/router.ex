@@ -58,6 +58,9 @@ defmodule D20Web.Router do
     pipe_through :inertia
 
     get "/", PageController, :home
+    get "/about", PageController, :about
+    get "/contact", PageController, :contact
+    get "/rights-holders", PageController, :rights_holders
     get "/developers", PageController, :developers
     get "/games", PageController, :games
     get "/games/:slug", PageController, :game

@@ -40,3 +40,8 @@ Link the question directly to `/help#delete-account` and Support to `/contact`. 
 The operator identity/contact, full processing inventory, purposes and applicable grounds, real recipients, retention, international transfers if any, applicable rights/age handling, and document date must be supplied under #248. This document does not choose a jurisdiction or invent a company, legal basis, DPO, processor, retention period, or consent mechanism.
 
 The final `/privacy` response must contain the complete policy and revision date in anonymous initial HTML. No login, consent dialog, client-only fetch, PDF-only policy, or mobile accordion can be required to read it.
+
+
+## Approved contact input on 2026-09-07
+
+The user supplied `support@d20.ravecat.io` for support, feedback, and private account inquiries, and `rights@d20.ravecat.io` for game proposals and rights concerns. Contact-page implementation is authorized during provisioning; mail receipt/monitoring is not yet verified. This resolves the destination-address input only. Operator identity, approved legal content, retention/deletion facts, and publication approval remain with #248/#247.

@@ -1,6 +1,6 @@
 ## Context
 
-Prepared on 2026-09-05 and revised on 2026-09-06 for [#268](https://github.com/ravecat/d20/issues/268). This is a specification, not an implemented or deployed footer. The revision adopts Apple's block layout and responsive directory behavior and places deletion inside FAQ, following the user's clarifications.
+Prepared on 2026-09-05 and revised on 2026-09-06 for [#268](https://github.com/ravecat/d20/issues/268). Implementation was separately requested on 2026-09-06. The revision adopts Apple's block layout and responsive directory behavior and places deletion inside FAQ, following the user's clarifications. [verification.md](verification.md) records partial local implementation; this change is not deployed or accepted.
 
 `assets/js/app/ui/footer.svelte` currently contains one `/developers` link. `assets/js/app/layout.svelte` renders that footer after `main` inside the existing Workspace boundary. The shell uses narrow and wide widths, responsive inline insets, themes, and bottom safe-area padding. `/games` and `/developers` exist; `/about`, `/help`, `/contact`, `/privacy`, `/terms`, and `/data-deletion` do not exist in the inspected router.
 
@@ -16,7 +16,7 @@ The public [Board Game Arena home page](https://en.boardgamearena.com/) was read
 | --- | --- | --- |
 | Help | About, How to play, FAQ, Contact / Support | Explain the service and provide recovery/help paths |
 | Contribute | Existing For developers; publisher/rights inquiries through Contact | Support actual contribution paths |
-| Navigate | Existing Games; D20 brand links to Home | Reuse useful public destinations |
+| Navigate | Existing Games; existing header brand links to Home | Reuse useful public destinations |
 | Follow us | Omit initially | No verified D20 social destination is established |
 | Legal strip | Privacy and Terms; Privacy links to the deletion answer in FAQ | Make policies and deletion guidance easy to find |
 
@@ -37,18 +37,18 @@ Goals:
 
 Non-goals:
 
-- Implementing product code during this specification task.
+- Deploying the footer before its mandatory documents and contact/deletion process are ready.
 - Reimplementing account deletion, OAuth, or Meta app-review workflows.
 - Launching Facebook Instant Games, buying advertising, publishing a Facebook page, adding social widgets, analytics, or a newsletter.
 - Producing final legal text from unknown operator, jurisdiction, retention, or contact facts.
 
 ## Decisions
 
-Use [layout.md](layout.md) for exact geometry, presentation variants, the viewport/state matrix, and visual-review references. Use [pages/README.md](pages/README.md) for the shared public-page layout and individual content drafts. The sections below explain the decisions and contracts those references implement; page briefs distinguish usable draft copy from inputs that block publication.
+Use [layout.md](layout.md) for exact geometry, shell width alignment, the viewport/state matrix, and visual-review references. Use [pages/README.md](pages/README.md) for the shared public-page layout and individual content drafts. The sections below explain the decisions and contracts those references implement; page briefs distinguish usable draft copy from inputs that block publication.
 
 ### 1. Information architecture and wireframes
 
-Use an introductory line above two equal directory columns, then a separate legal row below a fine rule. The background spans the viewport; the content stays centered and aligned to the existing Home shell. Avoid a large promotional brand column, cards, shadows, or decorative panels. English labels match the current application; translation infrastructure is outside this change.
+Use two equal, compact directory columns followed by a separate legal row below a fine rule. Do not repeat the D20 brand or tagline above the directory. Following user review, match Home's `--color-base-100` surface: white in light mode and the existing page surface in dark mode, without a contrasting gray band. Bound each desktop column to 12rem with a 1rem gap instead of distributing the groups across the entire container. Tighten vertical spacing as recorded in `layout.md`. The full inner container and separators stay centered and aligned to Home. Avoid a large promotional brand column, cards, shadows, or decorative panels. English labels match the current application; translation infrastructure is outside this change.
 
 Desktop, aligned with the current narrow Home container:
 
@@ -56,12 +56,10 @@ Desktop, aligned with the current narrow Home container:
 +---------------------------------------------------------------------+
 | Existing Home content                                               |
 +---------------------------------------------------------------------+
-| D20 - Board games in your browser.                                   |
-|---------------------------------------------------------------------|
-| Explore                           Help                              |
-| About D20                         How to play                       |
-| Games                             FAQ                               |
-| For developers                    Contact / Support                 |
+| Explore                Help                                         |
+| About                  How to play                                  |
+| Games                  FAQ                                          |
+| For developers         Contact / Support                            |
 |                                                                     |
 |---------------------------------------------------------------------|
 | (c) <current year> D20             Privacy | Terms                   |
@@ -72,9 +70,6 @@ Mobile, including 320 CSS pixels, with Help expanded after activation:
 
 ```text
 +--------------------------------+
-| D20 - Board games in           |
-| your browser.                  |
-|--------------------------------|
 | Explore                      > |
 |--------------------------------|
 | Help                         v |
@@ -87,16 +82,16 @@ Mobile, including 320 CSS pixels, with Help expanded after activation:
 +--------------------------------+
 ```
 
-The year marker means the rendered current year, not literal placeholder text. The brand links to `/`. Legal content follows copyright, Privacy, Terms in DOM and visual order and wraps without becoming an accordion. Explore and Help are footer group titles, not additional page links. How to play opens `/help`; FAQ opens the `faq` section of that same page; Contact opens `/contact`. The deletion answer lives inside FAQ with its own `delete-account` anchor and is not another footer item.
+The year marker means the rendered current year, not literal placeholder text. The existing header brand links to `/`; the footer has no duplicate brand link. Legal content follows copyright, Privacy, Terms in DOM and visual order and wraps without becoming an accordion. Copyright and legal links inherit the same 0.8125rem font size, family, weight, and line height. Keep their baseline-aligned flex row at every viewport, including 446px; wrap only when content cannot fit, never because the directory crosses 48rem. The mobile wireframe below is a wrapped-content example, not a forced column. Explore and Help are footer group titles, not additional page links. How to play opens `/help`; FAQ opens the `faq` section of that same page; Contact opens `/contact`. The deletion answer lives inside FAQ with its own `delete-account` anchor and is not another footer item.
 
 ### 2. Required routes and content ownership
 
-Prepared page briefs: [About](pages/about.md), [Help and FAQ](pages/help.md), [Contact](pages/contact.md), [Privacy](pages/privacy.md), and [Terms](pages/terms.md). The existing Games and For developers pages are reused. New information pages use a narrow one-column article and compact footer at every viewport; their contents and anchors do not disappear into mobile footer-style disclosures.
+Prepared page briefs: [About](pages/about.md), [Help and FAQ](pages/help.md), [Contact](pages/contact.md), [Privacy](pages/privacy.md), and [Terms](pages/terms.md). The For developers page is reused. Games discovery remains on Home; `/games` currently redirects there and is not a planned separate catalog. New information pages use a narrow one-column article and the same shared footer at every viewport; their contents and anchors do not disappear into mobile footer-style disclosures.
 
 | Label | URL | Minimum useful content | Owner |
 | --- | --- | --- | --- |
-| About D20 | `/about` | Browser board-game service, supported ways to start, what an account enables, link to Games and help; no unsupported claims | #268 |
-| Games | `/games` | Existing catalog | Existing catalog |
+| About | `/about` | Fan project creating digital versions of well-known board games; invite players, publishers, developers, and designers, with Contact, rights-holder, and developer links; no separate Games-page link or unsupported claims | #268 |
+| For Publishers and Rightholders | `/rights-holders` | Game proposals and rights concerns, with a confirmed monitored contact | #268; blocked pending approved content/contact |
 | For developers | `/developers` | Existing integration guidance | Existing developer page |
 | How to play | `/help` | Find a game, open its details, follow available play/session actions, find game-specific rules, return to active games | #268 |
 | FAQ | `/help#faq` | Accounts and sign-in methods, catalog versus playable entries, game rules, supported browsers, common loading/auth failures, support and deletion links | #268 |
@@ -105,7 +100,7 @@ Prepared page briefs: [About](pages/about.md), [Help and FAQ](pages/help.md), [C
 | Terms | `/terms` | Service terms specified below | #248 |
 | How do I delete my account and data? (within FAQ) | `/help#delete-account` | Real deletion instructions and recovery/contact path; direct Privacy and Meta target | #247 supplies content; #268 hosts the Help section |
 
-FAQ is a section of Help, and deletion is one question within FAQ. Keep that answer readable and expanded in the page, including on direct fragment navigation; footer disclosure behavior does not apply to FAQ answers. The canonical deletion URL is `/help#delete-account`. No `/data-deletion` route or compatibility redirect is required because that route has not been delivered. No contact form is required: a published, monitored address with a copyable value and a mail link is sufficient. A public issue tracker can supplement technical bug reporting but cannot be the only path for account or privacy requests. Do not invent an email address or publish sensitive information in a GitHub issue.
+FAQ is a section of Help, and deletion is one question within FAQ. Keep that answer readable and expanded in the page, including on direct fragment navigation; footer disclosure behavior does not apply to FAQ answers. The canonical deletion URL is `/help#delete-account`. No `/data-deletion` route or compatibility redirect is required because that route has not been delivered. No contact form is required: a selectable approved address with a mail link is sufficient for implementation; actual receipt and monitoring are verified before publication. A public issue tracker can supplement technical bug reporting but cannot be the only path for account or privacy requests. Do not invent an email address or publish sensitive information in a GitHub issue.
 
 Privacy and Terms must identify their effective/revision date and actual service operator. Privacy must describe D20's real account and optional-email handling, linked identity providers, browser state, game/session data, logging, purposes, recipients/processors, retention, rights and a contact/deletion path. Distinguish data processed transiently from persisted data. Terms must cover actual service/account rules, player conduct, game and publisher rights, service availability, suspension/termination, and support. Operator/jurisdiction decisions and legal wording remain with #248.
 
@@ -113,35 +108,29 @@ Deletion instructions must match #247's actual Account Settings action, confirma
 
 ### 3. Scope and rendering boundary
 
-Keep `Footer` in App UI. Add an explicit informational-versus-compact presentation choice independent of the existing `narrow`/`wide` width variant; Home selects the informative presentation and other existing layout consumers default to compact. Do not infer informative content from width or duplicate the footer inside Home. The compact presentation keeps For developers, Privacy, and Terms, always visible and wrapping as needed.
+Keep one `Footer` in App UI, rendered by the existing Layout after main. Every Layout consumer receives the same Explore/Help directory, copyright, Privacy, and Terms. Remove `presentation`, the Layout `footer` prop, Home's footer layout export, and decorator forwarding. The existing `narrow`/`wide` shell width changes geometry only; there is no page-specific footer content mode and no duplicate footer inside Home.
+
+Place isolated preview stories at `assets/stories/widgets/footer.stories.ts` with the sidebar title `Widgets/Footer`. This review-category change does not move runtime shell ownership into a new widget slice. Keep only Default and Mobile expanded footer stories. The latter uses the existing mobile viewport and opens both groups. Theme and viewport variants use existing toolbar controls instead of duplicated stories; browser tests own keyboard/focus and width checks. Existing public and authenticated Home stories assert one shared footer; remove the additional footer-focused Home story. Use existing Storybook screenshot comparisons for shell presentation rather than separate unit assertions about page layout exports. Remove the redundant Layout unit suite; footer browser tests own link targets, and the existing layout browser test retains document-scroll and main-content focus behavior.
 
 Use the existing Svelte/Inertia page path for About and Contact and the normal Phoenix route/controller boundary. Help now carries the deletion document, so `/help` must include the FAQ answer and its `delete-account` id in readable initial HTML, just as `/privacy` and `/terms` must include their documents. Use existing Phoenix server-rendering facilities where needed; this does not require introducing SSR for the entire Inertia application. Fragment identifiers are browser-side: the server receives `/help`, not `#delete-account`. Verify both raw Help HTML and direct fragment navigation. Cross-boundary links use ordinary anchors when the target is a server-rendered document. Keep content versioned locally without a CMS or remote content dependency.
 
-Required destinations are static content, so the footer has no fetch, loading skeleton, carousel state, or independent error state. Only local mobile disclosure state and breakpoint/focus handling are needed; add no library, storage persistence, or user-agent detection. Missing mandatory content is an acceptance failure. Optional social links are omitted unless a separately approved real destination is supplied. Links alone must not load a Meta SDK or other third-party script.
+Required destinations are static content, so the footer has no fetch, loading skeleton, carousel state, or independent error state. The browser owns mobile disclosure state; add no custom state synchronization, library, storage persistence, or user-agent detection. Missing mandatory content is an acceptance failure. Optional social links are omitted unless a separately approved real destination is supplied. Links alone must not load a Meta SDK or other third-party script.
+
+Keep directory markup and styles together in `footer.svelte`. Use ordinary desktop lists and native mobile `details`/`summary` elements, selected only by the existing CSS media query. Write Explore and Help as two explicit navigation blocks with literal headings and anchors. Apply `use:inertia` directly to About, For Publishers and Rightholders, For developers, and Contact / Support anchors, reading their existing href; keep Help/FAQ and legal links ordinary. Omit the group array, link loops, and navigation flags; only one representation is visible and accessible at a time. This avoids forcing content inside closed details visible on desktop and works within the existing browser policy. There is no reactive disclosure state, observer, media-query API, computed-style read, mount callback, or custom focus handling. Keep the local `footer` class prefix and scoped root selector.
 
 ### 4. Responsive behavior and breakpoint transitions
 
-Use CSS viewport width, not device identity. At `width > 48rem`, the two equal columns show all links with static headings and no disclosure controls in the tab order. At `width <= 48rem`, each heading becomes a full-width disclosure control above its links, separated by a fine rule. A mobile initial render starts with both groups closed after enhancement; several groups can be opened independently. The introduction and legal row are always visible. Tablet, split-screen, orientation changes, and browser zoom follow the same threshold.
+At widths above 48rem, show equal columns with static headings and every link. At 48rem and below, show native independent disclosures, initially closed. Browser-managed `open` state and Enter/Space activation work without client JavaScript when markup is present. The legal row is always visible.
 
-| Transition | Required D20 result |
-| --- | --- |
-| Desktop to mobile | Groups start closed, except any group containing the focused link stays open |
-| Mobile to desktop | All links become visible; mobile open/closed state resets; a focused link retains focus |
-| Mobile heading focused during switch to desktop | Move focus to the corresponding visible group heading, not the document body |
-| Desktop group heading focused during switch to mobile | Move focus to that group's visible disclosure trigger |
-| Desktop back to mobile | Start closed again, except the focused-link group; no saved state from the previous mobile visit |
-| Resize or rotate while staying on one side of 48rem | Preserve that mode's state and current focus |
-| Disclosure closes | Its links leave keyboard navigation and the accessibility tree; focus stays on its trigger |
+The user explicitly prioritized native simplicity over automatic focus handling on 2026-09-07. CSS switches between the two representations; mobile disclosure state survives desktop/mobile transitions while the component stays mounted. Do not add focus transfer, focused-link exceptions, automatic state reset, persisted state across visits, or disclosure event handlers. A focused element may lose focus when its representation becomes hidden. This replaces the earlier custom transition guarantees.
 
-Use the same link nodes across layouts. Do not remount Home or duplicate desktop/mobile navigation. Never hide the focused link during a breakpoint change. Do not reload, navigate, force-scroll to the top, or persist disclosure state across visits. These focus guarantees are D20 requirements, not claims that Apple's implementation handles every edge case identically.
-
-Mobile controls expose `aria-expanded` and `aria-controls`, work with Enter/Space and pointer activation, and have at least 44px row height. Standard Tab/Shift+Tab traverses visible controls and links. Before enhancement or if disclosure script fails, show all groups as readable stacked lists; never produce hidden links controlled by a dead button. A short reveal/chevron transition of up to 200ms is allowed; reduced motion makes it immediate. No height or position animation should run just because the breakpoint changes.
+Use native expanded semantics instead of manually assigning `aria-expanded`. Collapsed or CSS-hidden links leave keyboard and accessibility navigation. Keep at least 44px summary rows and visible keyboard outlines. Changes are immediate with no disclosure animation, including under reduced motion. No resize-triggered navigation, remount, scroll, or layout measurement is needed.
 
 ### 4.1 Visual and accessibility constraints
 
 - Render one page-level `footer` after `main`, with distinctly labelled navigation groups and real anchors.
 - Retain the existing 46.25rem narrow and 64rem wide maximum widths, 1rem narrow insets, wide 1rem/1.5rem breakpoint behavior, and bottom safe-area protection.
-- Use a neutral full-width footer surface, a centered inner container, fine section separators, compact regular-weight link lists, and stronger group headings. Use existing fonts and theme tokens. Normal text and links need at least 4.5:1 contrast in light and dark themes; do not copy Apple's small font size at the expense of readability.
+- Match Home's full-width page surface, with a centered inner container, fine section separators, compact regular-weight link lists, and stronger group headings. Use existing fonts and theme tokens. Normal text and links need at least 4.5:1 contrast in light and dark themes; do not copy Apple's small font size at the expense of readability.
 - Preserve a visible focus indicator and logical link order. Provide at least 24 by 24 CSS-pixel link targets or equivalent spacing; target a comfortable 44px row height on mobile.
 - Permit text and legal links to wrap at 320 CSS pixels and 200 percent zoom. Do not truncate required labels, clip focus, or create page-level horizontal scrolling.
 - Keep the footer in document flow. It must stay reachable with empty or short Home content and avoid overlapping the existing Workspace controls. Reduced motion must disable disclosure and inherited nonessential transitions.
@@ -176,20 +165,24 @@ Do not add a cookie-settings control until there is a real consent/preferences m
 - Unknown operator identity, contact, retention, or jurisdiction -> collect and approve those facts before publishing affected content; no invented placeholders or fixed deletion deadline.
 - A provider-only user loses login access -> deletion guidance must include a private recovery path without making email ownership a universal prerequisite.
 - Policy or FAQ content exists only in client-rendered state -> require readable initial HTML for `/privacy`, `/terms`, and `/help`, with the deletion answer present under its stable anchor.
-- Mobile collapses obscure a focused link or stale `aria-expanded` state -> use one responsive threshold and verify the breakpoint transition matrix, including focus exceptions and reduced motion.
-- A generic expanded footer grows unrelated pages -> only Home opts into expansion; other shell pages keep the compact variant and existing geometry.
+- Native disclosure and desktop representations duplicate rendered anchors -> keep matching explicit links in both representations, expose only one representation through CSS, and verify matching targets and unique accessible destinations at each width. Focus transfer across modes is intentionally omitted.
+- Page-specific footer modes create unnecessary configuration -> one shared composition is used throughout Layout; existing shell width alignment and mobile disclosures keep it usable.
 - Meta settings or review requirements change -> #249 rechecks the current dashboard when configuring it and records any additional app-specific gate.
 
 ## Migration Plan
 
 1. Obtain the confirmed public contact and content facts. Coordinate `/privacy`, `/terms`, and `/help#delete-account` with #248/#247 without moving deletion behavior into this feature.
-2. Implement product-information pages and the footer variants after a separate implementation request. Coordinate shared files with #264 if that work is still active; preserve its home props and carousel behavior.
+2. Implement product-information pages and the shared footer after a separate implementation request. Coordinate shared files with #264 if that work is still active; preserve its home props and carousel behavior.
 3. Verify public routes, semantic links, themes, mobile disclosure interaction, breakpoint transitions, focus, and stories. Deploy mandatory documents and the FAQ deletion answer before or with the informative footer.
 4. Record anonymous HTTPS GET checks and a real deletion-path verification supplied by #247. Hand URLs to #249; leave App Review and publication acceptance with #251/#252.
 5. After all implementation and footer acceptance tasks pass, reconcile artifacts and archive this change through OpenSpec. Do not archive it merely because the specification has been written.
 
-Rollback restores the compact footer without deleting public policy/deletion documents. If a published app must lose a required document or process, coordinate restoration or provider disablement with #252, including recovery for Facebook-only accounts.
+Rollback restores the previous shared footer without deleting public policy/deletion documents. If a published app must lose a required document or process, coordinate restoration or provider disablement with #252, including recovery for Facebook-only accounts.
 
 ## Open Questions
 
-No unresolved choice blocks this footer design. The following are explicit content/publication inputs, not facts assumed by this specification: confirmed operator identity and support address (#268/#248), approved legal content and retention boundaries (#248/#247), and evidence of a working deletion journey (#247). Dependent content must not be published until those inputs are verified.
+No unresolved choice blocks this footer design. The following are explicit content/publication inputs, not facts assumed by this specification: confirmed operator identity (#248) and operational mailbox verification (#268 / ravecat/infra#2), approved legal content and retention boundaries (#248/#247), and evidence of a working deletion journey (#247). Dependent content must not be published until those inputs are verified.
+
+## Latest review scope
+
+The final requested Explore label is `For Publishers and Rightholders`, replacing Games. Reserve `/rights-holders` for game-adaptation/placement proposals and concerns about rights in existing game content. On 2026-09-07 the user supplied `support@d20.ravecat.io` for support/feedback and `rights@d20.ravecat.io` for game proposals/rights inquiries and authorized preparing pages and footer links while mailbox provisioning is in progress. Use the existing ASCII production domain; the visually similar Cyrillic character in the message is not part of the configured domain. Implement public Inertia pages with literal mailto links, selectable addresses, concise inquiry guidance, and cross-links. Apply Inertia only to site-page navigation, never mailto links. Do not promise response times, verified receipt, or licensing outcomes. Do not add new Help/privacy/deletion cross-links inside these pages until those independent destinations are delivered; their existing shared-footer obligations remain open. Keep mailbox delivery/monitoring verification separate from implementation completion under ravecat/infra#2. This block supersedes the earlier Games inventory and wireframes.

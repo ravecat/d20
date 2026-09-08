@@ -4,21 +4,27 @@ D20's footer currently exposes only a developer link, leaving visitors without a
 
 ## What Changes
 
-- Add an informative home footer with a short introductory line, a centered column directory, and a distinct legal strip. Use apple.com as the layout and responsive-interaction reference; retain the useful D20 destinations identified through Board Game Arena.
-- Define public About, How to play/FAQ, and Contact/Support pages at `/about`, `/help`, and `/contact`; reuse `/games` and `/developers`.
+- Add an informative home footer with a centered column directory and a distinct legal strip, without a repeated brand/tagline introduction. Use apple.com as the layout and responsive-interaction reference; retain the useful D20 destinations identified through Board Game Arena.
+- Define public About, How to play/FAQ, and Contact/Support pages at `/about`, `/help`, and `/contact`; reuse `/developers`. Implement `/contact` using `support@d20.ravecat.io` for support and feedback and `/rights-holders` using `rights@d20.ravecat.io` for game proposals and rights concerns. Replace the footer Games entry with `For Publishers and Rightholders`. The user approved preparing these pages and links while the mailboxes are being provisioned; receipt/monitoring verification remains a publication gate.
 - Keep Privacy and Terms in the legal strip. Put account/data deletion inside FAQ at `/help#delete-account`, linked directly from Privacy and supplied to Meta as the instructions URL; no separate deletion page or footer item is needed. Content and deletion behavior remain owned by #248 and #247.
-- Keep the expanded composition on Home. Retain compact developer and legal navigation on other pages using the existing App layout.
-- Specify desktop columns and mobile disclosure rows at the existing 48rem breakpoint, including resize/orientation behavior, keyboard focus, hidden-link semantics, no-script fallback, and reduced motion.
+- Use the same footer content on every existing App-layout page. Remove the unrequested compact/informative switch and page-level footer selection; retain only the shell's existing width alignment.
+- Specify desktop columns and mobile disclosure rows at the existing 48rem breakpoint, including native keyboard disclosure, hidden-link semantics, operation without client JavaScript, and reduced motion; omit automatic focus transfer and breakpoint state resets.
 - Specify desktop/mobile ASCII wireframes, truthful content, ownership, production URL verification, and the Meta publication handoff.
-- Provide a concrete layout reference covering informative/compact, narrow/wide, light/dark, existing Storybook presets, supplementary viewport boundaries, and resize/focus states.
+- Provide a concrete layout reference covering the shared footer at narrow/wide shell widths, light/dark, existing Storybook presets, supplementary viewport boundaries, and resize/focus states.
+- Refine the same footer from user review: match Home's white/light and themed dark surface, tighten block and column spacing, label the About link `About`, and keep only Default and Mobile expanded stories under `Widgets/Footer`, using toolbar controls for theme and viewport. Existing Home stories cover integration without a separate footer-only Home story.
+- Refine About as a fan-project invitation for players, publishers, developers, and designers, with light, persuasive copy and implemented collaboration destinations instead of a Games page link.
 - Prepare individual About, Help/FAQ, Contact, Privacy, and Terms page briefs with block order, copy or content contracts, public anchors, and explicit publication inputs.
 - Require all mandatory destinations to work before accepting footer delivery. Do not substitute placeholders or hide an incomplete mandatory policy link to pass acceptance.
+
+- Refine the legal strip to keep copyright and Privacy/Terms on one baseline whenever available width permits, wrapping only on content pressure, with matching inherited typography.
+
+- Consolidate directory markup, styles, and responsive handling in `assets/js/app/ui/footer.svelte`; remove the single-use group component and use viewport media queries for heading/control visibility and CSS for the expansion indicator while preserving keyboard access and fallback behavior. Use the local `footer` class prefix. Keep the responsive threshold only in CSS. Use native mobile details and static desktop lists with two explicit inline navigation groups and `use:inertia` directly on the applicable anchors; omit a group array and navigation flags; remove observation, layout reads, reactive disclosure state, and automatic focus handling.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `informative-home-footer`: Home footer composition, compact shared navigation, link contracts, accessibility, and integration acceptance.
+- `informative-home-footer`: Shared footer composition and navigation, link contracts, accessibility, and integration acceptance.
 - `public-product-information`: About, help, and contact content, plus the public-document interface required from the existing legal/deletion work.
 
 ### Modified Capabilities
@@ -27,9 +33,9 @@ None. Existing App ownership, shell spacing, game discovery, and authentication 
 
 ## Impact
 
-- Tracking: [#268](https://github.com/ravecat/d20/issues/268). This turn prepares specifications only; all implementation and release tasks remain unchecked.
+- Tracking: [#268](https://github.com/ravecat/d20/issues/268). Implementation was requested on 2026-09-06 and is in progress in the owning worktree. See [verification.md](verification.md) for delivered local behavior and unresolved publication gates.
 - Existing owners: [#247](https://github.com/ravecat/d20/issues/247) owns deletion and its instructions; [#248](https://github.com/ravecat/d20/issues/248) owns Privacy/Terms. [#249](https://github.com/ravecat/d20/issues/249), [#251](https://github.com/ravecat/d20/issues/251), and [#252](https://github.com/ravecat/d20/issues/252) own Meta settings, review, and publication. Their acceptance criteria are preserved.
-- Expected frontend scope: `assets/js/app/ui/footer.svelte`, `assets/js/app/layout.svelte`, Home's layout selection, new product-information pages, and focused tests and stories.
+- Expected frontend scope: `assets/js/app/ui/footer.svelte`, `assets/js/app/layout.svelte`, removal of Home's footer layout selection, new product-information pages, and focused tests and stories.
 - Expected backend scope: public product-information routes in `lib/d20_web/router.ex`, page controller/rendering, and route tests. Legal/deletion endpoints are coordinated with their existing owners.
 - No new package, database migration, channel/AsyncAPI change, game engine change, OAuth change, or iframe contract change is required by this footer specification.
 - The carousel in #264 has an independent acceptance boundary. This specification uses the committed `master` baseline and requires none of that worktree's uncommitted changes.
