@@ -4,7 +4,7 @@
 TBD - created by archiving change redesign-game-detail-activation-layout. Update Purpose after archive.
 ## Requirements
 ### Requirement: Game detail content uses a 40/60 activation layout
-The system SHALL render the game detail content below the preview as a split layout on viewports that can support two columns. The left panel SHALL contain activation controls and the right panel SHALL contain the game description.
+The system SHALL render the game detail content below the preview as a split layout on viewports that can support two columns. The left panel SHALL contain activation controls and the right panel SHALL contain the game description. The description panel SHALL size to its full content and participate in document scrolling without an independent vertical scroll area.
 
 #### Scenario: Wide viewport renders split panels
 - **WHEN** a user opens `/games/qwinto` on a viewport wide enough for the desktop detail layout
@@ -12,10 +12,12 @@ The system SHALL render the game detail content below the preview as a split lay
 - **AND** the activation panel uses 40 percent of the available content width
 - **AND** the description panel uses 60 percent of the available content width
 
-#### Scenario: Long description scrolls inside the right panel
-- **WHEN** the runtime game metadata includes a description longer than the visible description panel
-- **THEN** the description panel scrolls internally
-- **AND** the activation panel remains visible beside it on the desktop layout
+#### Scenario: Long description extends the game page
+- **WHEN** the runtime game metadata includes a description longer than the available viewport height
+- **THEN** the description panel expands to contain the complete description
+- **AND** the user reaches its final text by scrolling the document
+- **AND** the description panel has no independent vertical scroll area
+- **AND** the activation panel remains beside the description in the desktop layout and scrolls with the document
 
 #### Scenario: Split panels have no surrounding borders
 - **WHEN** the activation and description panels render below the preview
@@ -25,6 +27,7 @@ The system SHALL render the game detail content below the preview as a split lay
 - **WHEN** a user opens the game detail page on a viewport too narrow for the desktop split
 - **THEN** the description panel and activation panel stack in a single column
 - **AND** text, controls, icons, and joined-player entries do not overlap
+- **AND** the description retains its full content height within the document flow
 
 ### Requirement: Activation panel presents game metadata from the API
 The system SHALL present player count, play-time, age, complexity, and rating metadata at the top of the activation panel using values from the game metadata API props.

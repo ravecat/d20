@@ -281,13 +281,6 @@
     background: color-mix(in oklab, var(--color-base-100) 94%, var(--color-base-200));
   }
 
-  .game-detail-description-panel {
-    max-block-size: clamp(18rem, calc(100dvb - 18rem), 38rem);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-  }
-
   .game-detail-activation {
     container: game-detail-activation / inline-size;
     display: flex;
@@ -337,11 +330,6 @@
     .game-detail-layout {
       grid-template-columns: minmax(0, 1fr);
       gap: 1rem;
-    }
-
-    .game-detail-description-panel {
-      max-block-size: none;
-      overflow: visible;
     }
 
     .game-detail-activation__metadata {
