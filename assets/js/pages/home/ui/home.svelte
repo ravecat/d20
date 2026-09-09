@@ -14,8 +14,15 @@
       ? [...playableGames, ...playableGames, ...playableGames.slice(0, 1)]
       : playableGames,
   );
-  const browseSlides = $derived(
-    games.length > 1 ? [...games, ...games, ...games.slice(0, 1)] : games,
+  const heroGames = $derived(games.slice(0, Math.ceil(games.length / 4)));
+  const compactGames = $derived(games.slice(heroGames.length));
+  const heroSlides = $derived(
+    heroGames.length > 1 ? [...heroGames, ...heroGames, ...heroGames.slice(0, 1)] : heroGames,
+  );
+  const compactSlides = $derived(
+    compactGames.length > 1
+      ? [...compactGames, ...compactGames, ...compactGames.slice(0, 1)]
+      : compactGames,
   );
 </script>
 
@@ -27,18 +34,17 @@
       <section class="home-section" aria-labelledby="playable-heading">
         <h2 id="playable-heading" class="section-heading">Playable</h2>
 
-        <div
-          class="carousel-group"
-          style={`--n: ${playableGames.length}`}
-          data-single={playableGames.length === 1 || undefined}
-        >
-          <div class="carousel-viewport carousel--compact">
+        <div class="carousel-group">
+          <div
+            class="carousel-viewport carousel--compact"
+            style={`--slide-count: ${playableGames.length}`}
+            data-single={playableGames.length === 1 || undefined}
+          >
             <ul class="carousel-track">
               {#each playableSlides as entry, index (`${entry.id}-${index}`)}
                 {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
                 {@const title = entry.game.name}
                 {@const href = `/games/${entry.slug}`}
-                {@const titleId = `game-title-playable-${index}-${entry.id}`}
                 <li
                   class="carousel-slide"
                   aria-hidden={index >= playableGames.length || undefined}
@@ -47,8 +53,7 @@
                   <a
                     class="game-card game-card--released"
                     {href}
-                    aria-labelledby={title ? titleId : undefined}
-                    aria-label={title ? undefined : "Open game"}
+                    aria-label={title || "Open game"}
                     use:inertia={{ href }}
                   >
                     <div class="game-preview">
@@ -80,7 +85,7 @@
                         </div>
                       {/if}
                       {#if title}
-                        <h3 id={titleId} class="game-title">{title}</h3>
+                        <h3 class="game-title">{title}</h3>
                       {/if}
                     </div>
                   </a>
@@ -96,23 +101,18 @@
       <section class="home-section" aria-labelledby="games-heading">
         <h2 id="games-heading" class="section-heading">Games</h2>
 
-        <div
-          class="carousel-group carousel-group--games"
-          style={`--n: ${games.length}`}
-          data-single={games.length === 1 || undefined}
-        >
-          <div class="carousel-viewport carousel--hero">
-            <ul class="carousel-track">
-              {#each browseSlides as entry, index (`${entry.id}-${index}`)}
+        <div class="carousel-group carousel-group--games">
+          <div
+            class="carousel-viewport carousel--hero"
+            style={`--slide-count: ${heroGames.length}`}
+            data-single={heroGames.length === 1 || undefined}
+          >
+            <ul class="carousel-track" aria-label="Featured games">
+              {#each heroSlides as entry, index (`${entry.id}-${index}`)}
                 {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
                 {@const title = entry.game.name}
                 {@const href = `/games/${entry.slug}`}
-                {@const titleId = `game-title-hero-${index}-${entry.id}`}
-                <li
-                  class="carousel-slide"
-                  aria-hidden={index >= games.length || undefined}
-                  inert={index >= games.length || undefined}
-                >
+                <li class="carousel-slide" aria-hidden={index >= heroGames.length || undefined}>
                   <a
                     class={{
                       "game-card": true,
@@ -122,8 +122,8 @@
                       "game-card--in-development": entry.stage === "in_development",
                     }}
                     {href}
-                    aria-labelledby={title ? titleId : undefined}
-                    aria-label={title ? undefined : "Open game"}
+                    tabindex={index >= heroGames.length ? -1 : undefined}
+                    aria-label={title || "Open game"}
                     use:inertia={{ href }}
                   >
                     <div class="game-preview">
@@ -158,7 +158,7 @@
                         <span class="game-status-badge">In development</span>
                       {/if}
                       {#if title}
-                        <h3 id={titleId} class="game-title">{title}</h3>
+                        <h3 class="game-title">{title}</h3>
                       {/if}
                     </div>
                   </a>
@@ -167,62 +167,74 @@
             </ul>
           </div>
 
-          <div class="carousel-viewport carousel--compact" aria-hidden="true" inert>
-            <ul class="carousel-track">
-              {#each browseSlides as entry, index (`${entry.id}-${index}`)}
-                {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
-                {@const title = entry.game.name}
-                <li class="carousel-slide">
-                  <div
-                    class={{
-                      "game-card": true,
-                      "game-card--released": entry.stage === "released",
-                      "game-card--muted": entry.stage === "in_development",
-                      "game-card--in-development": entry.stage === "in_development",
-                    }}
+          {#if compactGames.length > 0}
+            <div
+              class="carousel-viewport carousel--compact"
+              style={`--slide-count: ${compactGames.length}`}
+              data-single={compactGames.length === 1 || undefined}
+            >
+              <ul class="carousel-track" aria-label="More games">
+                {#each compactSlides as entry, index (`${entry.id}-${index}`)}
+                  {@const url = entry.game.imageUrl ?? entry.game.thumbnailUrl}
+                  {@const title = entry.game.name}
+                  {@const href = `/games/${entry.slug}`}
+                  <li
+                    class="carousel-slide"
+                    aria-hidden={index >= compactGames.length || undefined}
                   >
-                    <div class="game-preview">
-                      {#if url}
-                        <img
-                          class="game-preview-image"
-                          src={url}
-                          alt=""
-                          width="640"
-                          height="320"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      {:else}
-                        <div class="game-preview-fallback" aria-hidden="true"></div>
-                      {/if}
+                    <a
+                      class={{
+                        "game-card": true,
+                        "game-card--released": entry.stage === "released",
+                        "game-card--muted": entry.stage === "in_development",
+                        "game-card--in-development": entry.stage === "in_development",
+                      }}
+                      {href}
+                      tabindex={index >= compactGames.length ? -1 : undefined}
+                      aria-label={title || "Open game"}
+                      use:inertia={{ href }}
+                    >
+                      <div class="game-preview">
+                        {#if url}
+                          <img
+                            class="game-preview-image"
+                            src={url}
+                            alt=""
+                            width="640"
+                            height="320"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        {:else}
+                          <div class="game-preview-fallback" aria-hidden="true"></div>
+                        {/if}
 
-                      <div class="game-preview-overlay" aria-hidden="true"></div>
-                      {#if title}
-                        <div class="game-title-scrim" aria-hidden="true"></div>
-                      {/if}
-                      {#if entry.game.categories.length > 0}
-                        <div class="game-metadata-blocks">
-                          <ul class="game-metadata-block" aria-label="Categories">
-                            {#each entry.game.categories as category (category)}
-                              <li class="game-metadata-chip">{category}</li>
-                            {/each}
-                          </ul>
-                        </div>
-                      {/if}
-                      {#if entry.stage === "in_development"}
-                        <span class="game-status-badge">In development</span>
-                      {/if}
-                      {#if title}
-                        <h3 id={`game-visual-compact-${index}-${entry.id}`} class="game-title">
-                          {title}
-                        </h3>
-                      {/if}
-                    </div>
-                  </div>
-                </li>
-              {/each}
-            </ul>
-          </div>
+                        <div class="game-preview-overlay" aria-hidden="true"></div>
+                        {#if title}
+                          <div class="game-title-scrim" aria-hidden="true"></div>
+                        {/if}
+                        {#if entry.game.categories.length > 0}
+                          <div class="game-metadata-blocks">
+                            <ul class="game-metadata-block" aria-label="Categories">
+                              {#each entry.game.categories as category (category)}
+                                <li class="game-metadata-chip">{category}</li>
+                              {/each}
+                            </ul>
+                          </div>
+                        {/if}
+                        {#if entry.stage === "in_development"}
+                          <span class="game-status-badge">In development</span>
+                        {/if}
+                        {#if title}
+                          <h3 class="game-title">{title}</h3>
+                        {/if}
+                      </div>
+                    </a>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
         </div>
       </section>
     {/if}
@@ -282,11 +294,11 @@
   }
 
   /*
-   * Carousel behavior is owned entirely by this CSS. Each group receives the
-   * slide count as `--n`; the track holds the ordered sequence followed by one
-   * inert duplicate copy and a final first-card copy for centered two-item rows.
-   * Translating by `--n` slide widths wraps the loop seamlessly, independently
-   * of that extra tail. A second animation interpolates the final 1100ms of each 6.1s
+   * Carousel behavior is owned entirely by this CSS. Each lane receives the
+   * slide count as `--slide-count`; the track holds the ordered sequence followed by one
+   * duplicate sequence and a final first-card copy for centered two-item rows.
+   * Translating by `--slide-count` slide widths wraps the loop seamlessly, independently
+   * of that extra tail. A second animation interpolates the final 1.1s of each 6.1s
    * cycle. Its reset coincides with the sequence step so the combined position
    * stays continuous, including at the duplicate-to-canonical wrap.
    */
@@ -309,8 +321,11 @@
     overflow: clip;
   }
 
-  .carousel-group:not([data-single]) .carousel--compact {
-    --slide-basis: max(clamp(9.5rem, 42cqw, 16rem), calc(100cqw / var(--n) - var(--slide-gap)));
+  .carousel--compact:not([data-single]) {
+    --slide-basis: max(
+      clamp(9.5rem, 42cqw, 16rem),
+      calc(100cqw / var(--slide-count) - var(--slide-gap))
+    );
   }
 
   .carousel--hero {
@@ -318,7 +333,7 @@
     --slide-gap: 0rem;
   }
 
-  .carousel-group:not([data-single]) .carousel--compact .carousel-track {
+  .carousel--compact:not([data-single]) .carousel-track {
     position: relative;
     inset-inline-start: calc(50cqw - 1.5 * var(--slide-basis) - var(--slide-gap));
   }
@@ -330,11 +345,12 @@
     padding: 0;
     list-style: none;
     animation:
-      carousel-dwell calc(var(--cycle) * var(--n)) steps(var(--n), jump-end) infinite,
+      carousel-dwell calc(var(--cycle) * var(--slide-count)) steps(var(--slide-count), jump-end)
+        infinite,
       carousel-slide var(--cycle) infinite;
   }
 
-  .carousel-group[data-single] .carousel-track {
+  .carousel-viewport[data-single] .carousel-track {
     animation: none;
   }
 
@@ -343,13 +359,16 @@
     animation-play-state: paused;
   }
 
-  .carousel-viewport:focus-within {
+  .carousel-viewport:has(:focus-visible) {
     overflow: hidden;
+    /* Reserve room around keyboard targets so partially visible cards scroll into view. */
+    scroll-padding-inline: 25%;
   }
 
-  .carousel-group:focus-within .carousel-track {
+  .carousel-group:has(:focus-visible) .carousel-track {
     /* Reveal canonical links even when autoplay moved them before the scroll origin.
-     * Keep the CSS clocks paused; clipping clears focus scroll when focus leaves. */
+     * Pointer focus must keep the clicked card still until navigation completes.
+     * Keep the CSS clocks paused; clipping clears scroll when keyboard focus leaves. */
     transform: none !important;
     translate: none !important;
     inset-inline-start: 0 !important;
@@ -364,6 +383,7 @@
   }
 
   .game-card {
+    scroll-margin-inline: max(0px, calc((100cqw - var(--slide-basis)) / 2));
     display: block;
     inline-size: 100%;
     overflow: clip;
@@ -618,7 +638,7 @@
 
   @keyframes carousel-dwell {
     to {
-      transform: translateX(calc(-100% * var(--n) / (2 * var(--n) + 1)));
+      transform: translateX(calc(-100% * var(--slide-count) / (2 * var(--slide-count) + 1)));
     }
   }
 
@@ -630,7 +650,7 @@
     }
 
     100% {
-      translate: calc(-100% / (2 * var(--n) + 1));
+      translate: calc(-100% / (2 * var(--slide-count) + 1));
     }
   }
 

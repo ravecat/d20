@@ -44,6 +44,15 @@ export const homeBrowseGames: GameCatalogEntry[] = [
   ]),
   game(1026, "my-city-roll-build", "My City: Roll & Build", "in_development", ["City Building"]),
   game(1027, "ganz-schon-clever", "Ganz Schön Clever", "in_development", ["Dice"]),
+  game(1029, "azul", "Azul", null, ["Abstract Strategy"]),
+  game(1030, "wingspan", "Wingspan", null, ["Animals"]),
+  game(1031, "everdell", "Everdell", null, ["Fantasy"]),
+  game(1032, "parks", "PARKS", null, ["Travel"]),
+  game(1033, "dorfromantik", "Dorfromantik", null, ["City Building"]),
+  game(1034, "harmonies", "Harmonies", null, ["Animals"]),
+  game(1035, "sea-salt-paper", "Sea Salt & Paper", null, ["Card Game"]),
+  game(1036, "scout", "SCOUT", null, ["Card Game"]),
+  game(1037, "1037", "The Last Lighthouse", null, ["Exploration"]),
 ];
 
 export const fourBrowseGames = homeBrowseGames.slice(0, 4);
@@ -51,6 +60,18 @@ export const fourBrowseGames = homeBrowseGames.slice(0, 4);
 export const providerOnlyGames = [game(350736, "350736", "Voyages", null)];
 
 export const fallbackBrowseGames = [game(1028, "fallback-game", null, "in_development")];
+
+export const compactMetadataGames = [
+  homeBrowseGames[0],
+  game(1039, "1039", null, null),
+  game(
+    1038,
+    "long-journey",
+    "The Extraordinary Journey Across the Uncharted Northern Archipelago",
+    "in_development",
+    ["Exploration", "Nautical", "Adventure"],
+  ),
+];
 
 function game(
   id: number,
