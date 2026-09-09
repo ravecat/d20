@@ -10,9 +10,13 @@
   const { playableGames, games }: Props = $props();
 
   const playableSlides = $derived.by(() =>
-    playableGames.length > 1 ? [...playableGames, ...playableGames] : playableGames,
+    playableGames.length > 1
+      ? [...playableGames, ...playableGames, ...playableGames.slice(0, 1)]
+      : playableGames,
   );
-  const browseSlides = $derived(games.length > 1 ? [...games, ...games] : games);
+  const browseSlides = $derived(
+    games.length > 1 ? [...games, ...games, ...games.slice(0, 1)] : games,
+  );
 </script>
 
 <div class="home-page">
@@ -280,13 +284,14 @@
   /*
    * Carousel behavior is owned entirely by this CSS. Each group receives the
    * slide count as `--n`; the track holds the ordered sequence followed by one
-   * inert duplicate copy, so translating exactly `-50%` wraps the loop
-   * seamlessly. A second animation interpolates the final 600ms of each 5.6s
+   * inert duplicate copy and a final first-card copy for centered two-item rows.
+   * Translating by `--n` slide widths wraps the loop seamlessly, independently
+   * of that extra tail. A second animation interpolates the final 1100ms of each 6.1s
    * cycle. Its reset coincides with the sequence step so the combined position
    * stays continuous, including at the duplicate-to-canonical wrap.
    */
   .carousel-group {
-    --cycle: 5.6s;
+    --cycle: 6.1s;
   }
 
   .carousel-group--games {
@@ -311,6 +316,11 @@
   .carousel--hero {
     --slide-basis: 100cqw;
     --slide-gap: 0rem;
+  }
+
+  .carousel-group:not([data-single]) .carousel--compact .carousel-track {
+    position: relative;
+    inset-inline-start: calc(50cqw - 1.5 * var(--slide-basis) - var(--slide-gap));
   }
 
   .carousel-track {
@@ -342,6 +352,7 @@
      * Keep the CSS clocks paused; clipping clears focus scroll when focus leaves. */
     transform: none !important;
     translate: none !important;
+    inset-inline-start: 0 !important;
   }
 
   .carousel-slide {
@@ -607,19 +618,19 @@
 
   @keyframes carousel-dwell {
     to {
-      transform: translateX(-50%);
+      transform: translateX(calc(-100% * var(--n) / (2 * var(--n) + 1)));
     }
   }
 
   @keyframes carousel-slide {
     0%,
-    89.285714% {
+    81.967213% {
       translate: 0;
-      animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+      animation-timing-function: ease-in-out;
     }
 
     100% {
-      translate: calc(-50% / var(--n));
+      translate: calc(-100% / (2 * var(--n) + 1));
     }
   }
 

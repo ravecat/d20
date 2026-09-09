@@ -67,13 +67,13 @@ describe("home page", () => {
       "/games/voyages",
     );
 
-    // The animated loops duplicate each sequence once with inert copies, and
+    // The animated loops duplicate each sequence plus a first-card tail, and
     // the compact Games row is one inert decorative track. Svelte assigns the
     // reflected `inert` property, so match either the property or attribute.
     const inertSlides = Array.from(container.querySelectorAll("li")).filter(
       (slide) => slide.inert === true || slide.hasAttribute("inert"),
     );
-    expect(inertSlides).toHaveLength(5);
+    expect(inertSlides).toHaveLength(7);
     expect(
       container.querySelectorAll(".carousel--compact[inert][aria-hidden='true']"),
     ).toHaveLength(1);

@@ -24,10 +24,28 @@ afterEach(async () => {
 });
 
 describe("home page", () => {
+  it("reveals every canonical Playable link when tabbing through a narrow centered row", async () => {
+    await page.viewport(320, 900);
+    await render(HomePage, { auth, playableGames: threePlayableGames, games: [] });
+
+    const playable = page.getByRole("region", { name: "Playable" });
+    await playable.getByRole("heading", { name: "Playable" }).click();
+    for (const name of ["Koala Rescue Club", "Qwinto", "Next Station: London"]) {
+      await userEvent.tab();
+      await expect.element(playable.getByRole("link", { name })).toHaveFocus();
+      await expect(playable).toMatchScreenshot(
+        `playable-focus-${name.toLowerCase().replace(/[: ]+/g, "-")}.png`,
+      );
+    }
+    await userEvent.tab();
+    expect(playable.element().contains(document.activeElement)).toBe(false);
+  });
+
   it("tabs through canonical links and excludes decorative duplicates", async () => {
     await render(HomePage, { auth, playableGames: [], games: fourBrowseGames });
 
     const games = page.getByRole("region", { name: "Games" });
+    await games.getByRole("heading", { name: "Games" }).click();
     const names = ["Voyages", "Death Valley", "Deep Sea Adventure", "Confusing Lands"];
     expect(games.getByRole("link").elements()).toHaveLength(names.length);
 
