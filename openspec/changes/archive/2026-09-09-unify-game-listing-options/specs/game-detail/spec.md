@@ -88,3 +88,22 @@ The system SHALL use runtime Metadata for local and provider-only detail present
 - **WHEN** a successful provider detail has no image or description
 - **THEN** the page uses its existing fallback preview and description treatment
 - **AND** available metadata is still displayed
+
+
+### Requirement: Provider-only detail pages have no local runtime identity
+A resolved provider-only detail SHALL render the existing game page with `id: null`, a decimal BGG string as `slug`, `stage: null`, `can_launch_game: false`, resolved `game` Metadata, `schema: null`, and `session: null`. Local detail IDs SHALL retain their TypeID meaning; catalog IDs SHALL retain their numeric BGG meaning. The page SHALL display metadata without a launch form, Play control, local Session, invented Game record, or replacement CTA. The replacement for Play is explicitly deferred.
+
+#### Scenario: Provider-only detail props are serialized
+- **WHEN** BGG confirms a game without a selected local detail record
+- **THEN** the response contains the numeric route slug and Metadata with null local identity, stage, schema, and Session
+- **AND** canLaunchGame is false after Inertia serialization
+
+#### Scenario: Provider-only detail is displayed
+- **WHEN** the client receives provider-only detail props
+- **THEN** metadata and description render through the existing detail layout
+- **AND** no Play, disabled Play, launch form, Lobby, or replacement action is shown
+
+#### Scenario: Provider-only detail fails to resolve
+- **WHEN** the provider omits the requested game or configuration, HTTP, transport, parse, or Metadata validation fails
+- **THEN** the context returns the error and the controller returns its existing 404 response
+- **AND** the system does not invent a successful empty detail page or persist a Game

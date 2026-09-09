@@ -244,3 +244,9 @@ For application rollback, deploy the preceding TypeID-route code while leaving t
 ## Open Questions
 
 None.
+
+## Detail routing reconciliation with issue #272
+
+The later `unify-game-listing-options` change owns provider discovery and internal metadata-only detail pages. Its synchronized game-detail requirements supersede this change's persisted-only detail interpretation: exact local slug first, then the unmatched string passed unchanged to the provider; the returned positive BGG identity supplies the decimal detail route slug. Local records retain TypeIDs, immutable stored slugs, visibility, launch eligibility, and existing Session authority. Provider-only details use null local identity and expose no Play or Session.
+
+The game-detail delta is reconciled to the combined requirement name `Game detail page resolves local and provider games` and to the same internal tile/runtime-metadata rules. The earlier registered-to-persisted rename is superseded by #272's registered-to-local-and-provider rename; #272 synchronizes that rename first. Do not restore the former persisted-only delta on later archival. Other administration, Infra, deployment, and rollback tasks retain their existing scope and status.

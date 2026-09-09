@@ -131,7 +131,11 @@ defmodule D20Web.PageControllerTest do
     Application.put_env(:ueberauth, Ueberauth.Strategy.Steam, api_key: nil)
 
     Req.default_options(plug: {Req.Test, __MODULE__})
-    Req.Test.stub(__MODULE__, fn conn -> Req.Test.text(conn, @qwinto_xml) end)
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      xml = if conn.params["id"] == "183006", do: @qwinto_xml, else: "<items />"
+      Req.Test.text(conn, xml)
+    end)
 
     on_exit(fn ->
       Req.default_options(original_req_options)
@@ -184,11 +188,10 @@ defmodule D20Web.PageControllerTest do
     props = inertia_props(conn)
     assert %{playableGames: playable_games, games: browse_games} = props
 
-    assert Enum.map(playable_games, & &1.id) ==
-             Enum.map([425_873, 183_006, 352_418, 353_545], &game_id_string/1)
+    assert Enum.map(playable_games, & &1.id) == [425_873, 183_006, 352_418, 353_545]
 
     refute Map.has_key?(props, :browseGroups)
-    assert Enum.count_until(browse_games, 16) == 15
+    assert Enum.count_until(browse_games, 20) == 19
 
     games = playable_games ++ browse_games
     ids = Enum.map(games, & &1.id)
@@ -196,21 +199,23 @@ defmodule D20Web.PageControllerTest do
     assert MapSet.new(ids) ==
              @registered_game_names
              |> Map.keys()
-             |> Enum.map(&(&1 |> String.to_integer() |> game_id_string()))
+             |> Enum.map(&String.to_integer/1)
              |> MapSet.new()
 
-    assert length(ids) == length(Enum.uniq(ids))
+    assert MapSet.subset?(MapSet.new(playable_games, & &1.id), MapSet.new(browse_games, & &1.id))
 
     for bgg_id <- Map.keys(@registered_game_names) do
       bgg_id = String.to_integer(bgg_id)
-      entry = Enum.find(games, &(&1.id == game_id_string(bgg_id)))
+      entry = Enum.find(games, &(&1.id == bgg_id))
+      assert Enum.sort(Map.keys(entry)) == [:game, :id, :slug, :stage]
+      assert entry.id > 0
       assert entry.slug == slug_by_bgg_id(bgg_id)
     end
 
-    assert %{stage: :in_development} = Enum.find(games, &(&1.id == game_id_string(360_471)))
-    assert %{stage: :released} = Enum.find(games, &(&1.id == game_id_string(425_873)))
-    assert %{stage: :in_development} = Enum.find(games, &(&1.id == game_id_string(353_545)))
-    assert %{stage: :released} = Enum.find(games, &(&1.id == game_id_string(183_006)))
+    assert %{stage: :in_development} = Enum.find(games, &(&1.id == 360_471))
+    assert %{stage: :released} = Enum.find(games, &(&1.id == 425_873))
+    assert %{stage: :in_development} = Enum.find(games, &(&1.id == 353_545))
+    assert %{stage: :released} = Enum.find(games, &(&1.id == 183_006))
 
     game = game_by_bgg_id(games, 183_006)
 
@@ -231,13 +236,13 @@ defmodule D20Web.PageControllerTest do
 
     assert %{playableGames: playable_games, games: browse_games} = inertia_props(conn)
 
-    assert Enum.map(playable_games, & &1.id) == Enum.map([425_873, 183_006], &game_id_string/1)
+    assert Enum.map(playable_games, & &1.id) == [425_873, 183_006]
 
-    assert browse_games == []
+    assert Enum.count_until(browse_games, 20) == 19
+    assert %{stage: nil, slug: "353545"} = Enum.find(browse_games, &(&1.id == 353_545))
   end
 
-  test "GET / keeps disabled released games visible but excludes unreleased games under the released-only policy",
-       %{conn: conn} do
+  test "GET / retains disabled local association in provider games", %{conn: conn} do
     Application.put_env(:d20, :visible_game_stages, [:released])
     {:ok, qwinto} = D20.Games.get(game_id(183_006))
     assert {:ok, _game} = D20.Games.update(qwinto, %{enabled: false})
@@ -245,10 +250,10 @@ defmodule D20Web.PageControllerTest do
     stub_registered_bgg_games(%{}, names)
 
     conn = get(conn, ~p"/")
-    assert %{playableGames: [playable], games: [browse]} = inertia_props(conn)
-    assert playable.id == game_id_string(425_873)
-    assert browse.id == game_id_string(183_006)
-    assert browse.stage == :released
+    assert %{playableGames: [playable], games: browse_games} = inertia_props(conn)
+    assert playable.id == 425_873
+    assert Enum.count_until(browse_games, 3) == 2
+    assert %{stage: :released, slug: "qwinto"} = Enum.find(browse_games, &(&1.id == 183_006))
   end
 
   test "GET / keeps both collections valid when no game is launchable", %{conn: conn} do
@@ -272,16 +277,16 @@ defmodule D20Web.PageControllerTest do
 
     conn = get(conn, ~p"/")
     assert %{playableGames: playable, games: browse_games} = inertia_props(conn)
-    assert Enum.map(playable, & &1.id) == Enum.map([425_873, 352_418, 353_545], &game_id_string/1)
-    assert Enum.any?(browse_games, &(&1.id == game_id_string(183_006)))
+    assert Enum.map(playable, & &1.id) == [425_873, 352_418, 353_545]
+    assert Enum.any?(browse_games, &(&1.id == 183_006))
 
     for entry <- playable do
-      assert {:ok, game} = D20.Games.get(entry.id)
+      assert {:ok, game} = D20.Games.get_by_slug(entry.slug)
       assert D20.Games.session_launch_available?(game)
     end
   end
 
-  test "GET / returns no browse games when every record is selected as playable", %{conn: conn} do
+  test "GET / retains provider games also selected as playable", %{conn: conn} do
     Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
     kept_bgg_ids = [425_873, 183_006, 352_418, 353_545]
     kept_ids = Enum.map(kept_bgg_ids, &game_id/1)
@@ -294,8 +299,9 @@ defmodule D20Web.PageControllerTest do
     stub_registered_bgg_games(%{}, names)
     conn = get(conn, ~p"/")
 
-    assert %{playableGames: playable_games, games: []} = inertia_props(conn)
-    assert Enum.map(playable_games, & &1.id) == Enum.map(kept_bgg_ids, &game_id_string/1)
+    assert %{playableGames: playable_games, games: games} = inertia_props(conn)
+    assert Enum.map(playable_games, & &1.id) == kept_bgg_ids
+    assert MapSet.new(games, & &1.id) == MapSet.new(kept_bgg_ids)
   end
 
   test "GET / caps playable games at eight and keeps later launchable games in browse", %{
@@ -325,32 +331,34 @@ defmodule D20Web.PageControllerTest do
     assert %{playableGames: playable_games, games: browse_games} = inertia_props(conn)
 
     assert Enum.map(playable_games, & &1.id) ==
-             Enum.map(Enum.take(released_games, 8), &TypeID.to_string(&1.id))
+             Enum.map(Enum.take(released_games, 8), & &1.bgg_id)
 
     browse_ids = Enum.map(browse_games, & &1.id)
-    overflow_id = released_games |> Enum.at(8) |> Map.fetch!(:id) |> TypeID.to_string()
+    overflow_id = released_games |> Enum.at(8) |> Map.fetch!(:bgg_id)
 
     assert overflow_id in browse_ids
-    assert Enum.count_until(browse_games, 12) == 11
+    assert Enum.count_until(browse_games, 20) == 19
   end
 
   test "GET / limits browse selection to 32 before metadata enrichment", %{conn: conn} do
     Application.put_env(:d20, :visible_game_stages, [:released, :in_development])
 
-    for bgg_id <- 900_001..900_050 do
-      Repo.insert!(%Game{slug: "game-#{bgg_id}", bgg_id: bgg_id})
-    end
-
     owner = self()
 
     Req.Test.stub(__MODULE__, fn conn ->
-      ids = String.split(conn.params["id"], ",")
-      send(owner, {:metadata_ids, ids})
-
       items =
-        Enum.map_join(ids, fn id ->
-          ~s(<item type="boardgame" id="#{id}"><name type="primary" value="Game #{id}" /></item>)
-        end)
+        case conn.request_path do
+          "/xmlapi2/hot" ->
+            Enum.map_join(900_001..900_050, &~s(<item id="#{&1}" rank="1" />))
+
+          "/xmlapi2/thing" ->
+            ids = String.split(conn.params["id"], ",")
+            send(owner, {:metadata_ids, ids})
+
+            Enum.map_join(ids, fn id ->
+              ~s(<item type="boardgame" id="#{id}"><name type="primary" value="Game #{id}" /></item>)
+            end)
+        end
 
       Req.Test.text(conn, "<items>#{items}</items>")
     end)
@@ -358,8 +366,7 @@ defmodule D20Web.PageControllerTest do
     conn = get(conn, ~p"/")
     assert %{playableGames: playable, games: browse_games} = inertia_props(conn)
 
-    assert Enum.map(playable, & &1.id) ==
-             Enum.map([425_873, 183_006, 352_418, 353_545], &game_id_string/1)
+    assert Enum.map(playable, & &1.id) == [425_873, 183_006, 352_418, 353_545]
 
     assert Enum.count_until(browse_games, 33) == 32
 
@@ -369,9 +376,18 @@ defmodule D20Web.PageControllerTest do
 
     assert_receive {:metadata_ids, playable_bgg_ids}
     assert playable_bgg_ids == ["425873", "183006", "352418", "353545"]
-    assert_receive {:metadata_ids, browse_bgg_ids}
-    assert Enum.count_until(browse_bgg_ids, 33) == 32
-    assert Enum.map(browse_games, & &1.game.name) == Enum.map(browse_bgg_ids, &"Game #{&1}")
+    assert_receive {:metadata_ids, batch_one}
+    assert_receive {:metadata_ids, batch_two}
+    assert Enum.sort([length(batch_one), length(batch_two)]) == [12, 20]
+
+    assert MapSet.new(batch_one ++ batch_two) ==
+             MapSet.new(browse_games, &Integer.to_string(&1.id))
+
+    assert Enum.all?(
+             browse_games,
+             &(&1.game.name == "Game #{&1.id}" and &1.slug == Integer.to_string(&1.id) and
+                 is_nil(&1.stage))
+           )
   end
 
   test "GET / renders runtime metadata when it is available", %{conn: conn} do
@@ -387,8 +403,45 @@ defmodule D20Web.PageControllerTest do
     assert game[:imageUrl] == "https://example.invalid/qwinto-image.jpg"
   end
 
-  test "GET / renders the complete fallback catalog when BGG is unavailable", %{conn: conn} do
-    Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
+  test "GET / preserves playable metadata when only Hot discovery fails", %{conn: conn} do
+    Req.Test.stub(__MODULE__, fn conn ->
+      case conn.request_path do
+        "/xmlapi2/hot" -> Plug.Conn.send_resp(conn, 503, "Unavailable")
+        "/xmlapi2/thing" -> Req.Test.text(conn, @qwinto_xml)
+      end
+    end)
+
+    capture_log(fn ->
+      conn = get(conn, ~p"/")
+      assert %{playableGames: playable, games: []} = inertia_props(conn)
+      assert Enum.count_until(playable, 5) == 4
+      assert %{name: "Qwinto"} = game_by_bgg_id(playable, 183_006)
+    end)
+  end
+
+  test "GET / retains playable fallback and empties Games when detail requests fail", %{
+    conn: conn
+  } do
+    Req.Test.stub(__MODULE__, fn conn ->
+      case conn.request_path do
+        "/xmlapi2/hot" ->
+          Req.Test.text(conn, ~s(<items><item id="183006" /><item id="900001" /></items>))
+
+        "/xmlapi2/thing" ->
+          Plug.Conn.send_resp(conn, 503, "Unavailable")
+      end
+    end)
+
+    capture_log(fn ->
+      conn = get(conn, ~p"/")
+      assert %{playableGames: playable, games: []} = inertia_props(conn)
+      assert Enum.count_until(playable, 5) == 4
+      assert %{name: nil} = game_by_bgg_id(playable, 183_006)
+    end)
+  end
+
+  test "GET / retains playable fallback and empties Games when BGG discovery fails", %{conn: conn} do
+    Req.Test.stub(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
 
     log =
       capture_log(fn ->
@@ -397,14 +450,16 @@ defmodule D20Web.PageControllerTest do
         assert html_response(conn, 200) =~ ~s(id="app")
         assert inertia_component(conn) == "home"
         games = home_games(inertia_props(conn))
-        assert length(games) == map_size(@registered_game_names)
+        assert Enum.count_until(games, 5) == 4
+        assert inertia_props(conn).games == []
         assert %{name: nil, imageUrl: nil} = game_by_bgg_id(games, 183_006)
       end)
 
     assert log =~ "Failed to enrich game metadata; using local fallback"
+    assert log =~ "Failed to discover BoardGameGeek games"
   end
 
-  test "GET / renders the complete fallback catalog without BGG credentials", %{conn: conn} do
+  test "GET / retains playable fallback without BGG credentials", %{conn: conn} do
     Application.delete_env(:d20, BoardGameGeek)
 
     capture_log(fn ->
@@ -412,10 +467,15 @@ defmodule D20Web.PageControllerTest do
 
       assert html_response(conn, 200) =~ ~s(id="app")
       games = home_games(inertia_props(conn))
-      assert length(games) == map_size(@registered_game_names)
+      assert Enum.count_until(games, 5) == 4
+      assert inertia_props(conn).games == []
 
-      assert %{stage: :released, game: %{name: nil, imageUrl: nil}} =
-               Enum.find(games, &(&1.id == game_id_string(425_873)))
+      assert %{
+               id: 425_873,
+               slug: "koala-rescue-club",
+               stage: :released,
+               game: %{name: nil, imageUrl: nil}
+             } = Enum.find(games, &(&1.id == 425_873))
     end)
   end
 
@@ -634,6 +694,102 @@ defmodule D20Web.PageControllerTest do
     assert game[:minAge] == 8
     assert game[:complexity] == 1.47
     assert game[:rating] == 7.42
+  end
+
+  test "numeric details render provider metadata without local identity or launch", %{conn: conn} do
+    before_count = D20.Repo.aggregate(D20.Games.Game, :count)
+    Application.put_env(:d20, :visible_game_stages, [])
+    stub_bgg_game(@resolved_qwinto_xml, "00183006")
+
+    response = get(conn, ~p"/games/00183006")
+
+    assert inertia_component(response) == "game"
+
+    assert %{
+             id: nil,
+             slug: "183006",
+             stage: nil,
+             canLaunchGame: false,
+             game: %{name: "Resolved Qwinto"},
+             schema: nil,
+             session: nil
+           } = inertia_props(response)
+
+    assert D20.Repo.aggregate(D20.Games.Game, :count) == before_count
+  end
+
+  test "direct provider details need no catalog row and preserve sparse metadata", %{conn: conn} do
+    D20.Repo.delete_all(D20.Games.Game)
+    stub_bgg_game(~s(<items><item type="boardgame" id="183006" /></items>))
+
+    response = get(conn, ~p"/games/183006")
+
+    assert %{
+             id: nil,
+             slug: "183006",
+             stage: nil,
+             canLaunchGame: false,
+             game: %{name: nil, imageUrl: nil, description: nil},
+             schema: nil,
+             session: nil
+           } = inertia_props(response)
+
+    assert D20.Repo.aggregate(D20.Games.Game, :count) == 0
+  end
+
+  test "numeric local slugs preserve visibility and matching session access", %{conn: conn} do
+    entry =
+      D20.Repo.insert!(%D20.Games.Game{
+        slug: "900001",
+        bgg_id: 900_002,
+        stage: :released,
+        engine: D20.Qwinto.Game
+      })
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      assert conn.params["id"] == "900002"
+      Req.Test.text(conn, game_xml("900002", "Numeric local game"))
+    end)
+
+    response = get(conn, ~p"/games/900001")
+    assert %{id: id, slug: "900001", canLaunchGame: true} = inertia_props(response)
+    assert id == TypeID.to_string(entry.id)
+
+    {:ok, session} = D20.Sessions.create(entry.id, D20.Qwinto.Game, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    Application.put_env(:d20, :visible_game_stages, [])
+    assert conn |> get(~p"/games/900001") |> html_response(404) == "Not Found"
+    response = get(conn, ~p"/games/900001?session=#{session.id}")
+    session_id = session.id
+    assert %{id: ^id, canLaunchGame: false, session: %{id: ^session_id}} = inertia_props(response)
+  end
+
+  test "provider details reject local sessions and normalize the error redirect", %{conn: conn} do
+    {:ok, session} = D20.Sessions.create(game_id(183_006), D20.Qwinto.Game, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    stub_bgg_game(@resolved_qwinto_xml, "00183006")
+
+    response = get(conn, ~p"/games/00183006?session=#{session.id}")
+    assert redirected_to(response, 303) == ~p"/games/183006"
+    assert inertia_errors(response) == %{session: "Session not found."}
+  end
+
+  test "provider-only session POST neither fetches metadata nor creates a session", %{conn: conn} do
+    Req.Test.stub(__MODULE__, fn _conn -> flunk("Unexpected provider request") end)
+    before_count = Elixir.Registry.count(D20.Registry)
+    assert conn |> post(~p"/games/183006/sessions") |> html_response(404) == "Not Found"
+    assert Elixir.Registry.count(D20.Registry) == before_count
+  end
+
+  test "provider errors and omitted games return 404", %{conn: conn} do
+    stub_bgg_game("<items />")
+    assert conn |> get(~p"/games/183006") |> html_response(404) == "Not Found"
+
+    Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 503, "Unavailable") end)
+    assert conn |> get(~p"/games/183006") |> html_response(404) == "Not Found"
+
+    Application.delete_env(:d20, BoardGameGeek)
+    assert conn |> get(~p"/games/183006") |> html_response(404) == "Not Found"
   end
 
   test "GET /games/:slug renders engine-less game metadata without an engine", %{conn: conn} do
@@ -893,8 +1049,11 @@ defmodule D20Web.PageControllerTest do
     on_exit(fn -> D20.Sessions.stop(session.id) end)
     Application.put_env(:d20, :visible_game_stages, [])
 
+    stub_registered_bgg_games()
     home = get(conn, ~p"/")
-    assert %{playableGames: [], games: []} = inertia_props(home)
+    assert %{playableGames: [], games: games} = inertia_props(home)
+    assert Enum.count_until(games, 20) == 19
+    assert Enum.all?(games, &(&1.slug == Integer.to_string(&1.id) and is_nil(&1.stage)))
 
     response = get(conn, ~p"/games/qwinto?session=#{session.id}")
     session_id = session.id
@@ -1123,24 +1282,31 @@ defmodule D20Web.PageControllerTest do
 
   defp stub_registered_bgg_games(overrides \\ %{}, names \\ @registered_game_names) do
     Req.Test.stub(__MODULE__, fn conn ->
-      assert %{"id" => ids, "type" => "boardgame", "stats" => "1"} = conn.params
-
-      requested_ids = String.split(ids, ",")
-
-      # Metadata is batched per catalog query, so each request carries one
-      # non-overlapping subset of the registered catalog.
-      assert requested_ids != []
-      assert MapSet.subset?(MapSet.new(requested_ids), MapSet.new(Map.keys(names)))
-
       items =
-        Enum.map_join(requested_ids, fn id ->
-          id
-          |> then(&Map.get(overrides, &1, game_xml(&1, Map.fetch!(names, &1))))
-          |> extract_item()
-        end)
+        if conn.request_path == "/xmlapi2/hot" do
+          assert conn.params == %{"type" => "boardgame"}
+          Enum.map_join(Map.keys(names), &~s(<item id="#{&1}" rank="1" />))
+        else
+          assert %{"id" => ids, "type" => "boardgame", "stats" => "1"} = conn.params
+
+          requested_ids = String.split(ids, ",")
+
+          # Metadata is batched per catalog query, so each request carries one
+          # non-overlapping subset of the registered catalog.
+          assert requested_ids != []
+          assert MapSet.subset?(MapSet.new(requested_ids), MapSet.new(Map.keys(names)))
+
+          Enum.map_join(requested_ids, &registered_item_xml(&1, names, overrides))
+        end
 
       Req.Test.text(conn, "<items>#{items}</items>")
     end)
+  end
+
+  defp registered_item_xml(id, names, overrides) do
+    overrides
+    |> Map.get(id, game_xml(id, Map.fetch!(names, id)))
+    |> extract_item()
   end
 
   defp game_xml("183006", "Qwinto"), do: @qwinto_xml
@@ -1167,11 +1333,9 @@ defmodule D20Web.PageControllerTest do
 
   defp game_by_bgg_id(games, bgg_id) do
     games
-    |> Enum.find(&(&1.id == game_id_string(bgg_id)))
+    |> Enum.find(&(&1.id == bgg_id))
     |> Map.fetch!(:game)
   end
-
-  defp game_id_string(bgg_id), do: bgg_id |> game_id() |> TypeID.to_string()
 
   defp slug_by_bgg_id(360_471), do: "aquamarine"
   defp slug_by_bgg_id(342_200), do: "confusing-lands"

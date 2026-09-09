@@ -114,7 +114,7 @@
                       "game-card": true,
                       "game-card--hero": true,
                       "game-card--released": entry.stage === "released",
-                      "game-card--muted": entry.stage !== "released",
+                      "game-card--muted": entry.stage === "in_development",
                       "game-card--in-development": entry.stage === "in_development",
                     }}
                     {href}
@@ -173,7 +173,7 @@
                     class={{
                       "game-card": true,
                       "game-card--released": entry.stage === "released",
-                      "game-card--muted": entry.stage !== "released",
+                      "game-card--muted": entry.stage === "in_development",
                       "game-card--in-development": entry.stage === "in_development",
                     }}
                   >

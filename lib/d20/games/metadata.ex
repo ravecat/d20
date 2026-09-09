@@ -1,9 +1,9 @@
 defmodule D20.Games.Metadata do
   @moduledoc """
-  Runtime-only BoardGameGeek presentation metadata for a persisted game.
+  Runtime-only BoardGameGeek presentation metadata for a game.
 
   This embedded schema is never persisted to the `games` table. It is built at
-  runtime from the row's current `bgg_id` binding so provider names, images,
+  runtime from provider attributes, with or without a local game record, so names, images,
   descriptions, player counts, and ratings remain non-authoritative.
   """
 

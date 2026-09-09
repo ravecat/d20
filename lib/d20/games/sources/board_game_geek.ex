@@ -27,35 +27,76 @@ defmodule D20.Games.Sources.BoardGameGeek do
           optional(:rating) => float()
         }
 
-  @spec fetch_game_details(integer()) :: {:ok, game()} | {:error, term()}
-  def fetch_game_details(bgg_id) when is_integer(bgg_id) and bgg_id > 0 do
-    with {:ok, games} <- fetch_games_details([bgg_id]),
-         {:ok, attrs} <- Map.fetch(Map.new(games, &{&1.bgg_id, &1}), bgg_id) do
-      {:ok, attrs}
-    else
-      :error -> {:error, :game_not_found}
+  @spec fetch_hot_games() :: {:ok, [game()]} | {:error, term()}
+  @spec fetch_hot_games(limit: term()) :: {:ok, [game()]} | {:error, term()}
+  def fetch_hot_games(options \\ []) do
+    limit =
+      case Keyword.get(options, :limit, 32) do
+        value when is_integer(value) and value > 0 -> min(value, 100)
+        _value -> 32
+      end
+
+    with {:ok, api_key} <- fetch_api_key(),
+         {:ok, body} <- request("hot", [type: "boardgame"], api_key),
+         {:ok, ids} <- __MODULE__.Parser.parse_hot_games(body),
+         ids = Enum.take_random(ids, limit),
+         {:ok, games} <- fetch_games(ids) do
+      games = Map.new(games, &{&1.bgg_id, &1})
+
+      {:ok, Enum.map(ids, &Map.get(games, &1, %{bgg_id: &1}))}
+    end
+  end
+
+  @doc """
+  Fetches one game using the supplied value and requires exactly one parsed result.
+  Values use the same Enum.join serialization as fetch_games/1.
+  """
+  @spec fetch_game(term()) :: {:ok, game()} | {:error, term()}
+  def fetch_game(id) do
+    case fetch_games([id]) do
+      {:ok, [attrs]} -> {:ok, attrs}
+      {:ok, _games} -> {:error, :game_not_found}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  @spec fetch_games_details([integer()]) :: {:ok, [game()]} | {:error, term()}
-  def fetch_games_details([]), do: {:ok, []}
+  @doc """
+  Fetches supplied values without ID validation, serialized by Enum.join.
+  Exact duplicate request values are removed. Parsed games retain provider
+  response order within each batch and request order across batches.
+  """
+  @spec fetch_games(term()) :: {:ok, [game()]} | {:error, term()}
+  def fetch_games([]), do: {:ok, []}
 
-  def fetch_games_details(bgg_ids) when is_list(bgg_ids) do
-    if Enum.all?(bgg_ids, &(is_integer(&1) and &1 > 0)) do
-      with {:ok, api_key} <- fetch_api_key(),
-           {:ok, body} <- request_game_details(bgg_ids, api_key) do
-        __MODULE__.Parser.parse_game_details(body)
-      end
-    else
-      {:error, :invalid_bgg_ids}
+  def fetch_games(ids) when is_list(ids) do
+    with {:ok, api_key} <- fetch_api_key() do
+      fetch_batches(Enum.uniq(ids), api_key)
     end
   end
 
-  defp request_game_details(bgg_ids, api_key) do
-    case Req.get("https://boardgamegeek.com/xmlapi2/thing",
+  def fetch_games(id), do: fetch_games([id])
+
+  defp fetch_batches(ids, api_key) do
+    ids
+    |> Enum.chunk_every(20)
+    |> Task.async_stream(
+      fn ids ->
+        with {:ok, body} <-
+               request("thing", [id: Enum.join(ids, ","), type: "boardgame", stats: 1], api_key) do
+          __MODULE__.Parser.parse_game_details(body)
+        end
+      end, max_concurrency: 2, ordered: true, timeout: 15_000, on_timeout: :kill_task)
+    |> Enum.reduce_while({:ok, []}, fn
+      {:ok, {:ok, games}}, {:ok, batches} -> {:cont, {:ok, batches ++ games}}
+      {:ok, {:error, reason}}, _acc -> {:halt, {:error, reason}}
+      {:exit, reason}, _acc -> {:halt, {:error, reason}}
+    end)
+  end
+
+  defp request(endpoint, params, api_key) do
+    case Req.get("https://boardgamegeek.com/xmlapi2/#{endpoint}",
            headers: [{"authorization", "Bearer #{api_key}"}, {"accept", "application/xml"}],
-           params: [id: Enum.join(bgg_ids, ","), type: "boardgame", stats: 1],
+           params: params,
            retry: false,
            receive_timeout: 10_000
          ) do
@@ -97,6 +138,7 @@ defmodule D20.Games.Sources.BoardGameGeek do
         xml
         |> SweetXml.parse(dtd: :none)
         |> xpath(~x"/items/item"el)
+        |> Enum.filter(fn item -> is_integer(parse_positive_id(xpath(item, ~x"./@id"s))) end)
         |> Enum.map(&parse_item_attrs/1)
 
       {:ok, attrs}
@@ -104,6 +146,35 @@ defmodule D20.Games.Sources.BoardGameGeek do
       exception -> {:error, exception}
     catch
       :exit, reason -> {:error, reason}
+    end
+
+    @spec parse_hot_games(binary()) :: {:ok, [pos_integer()]} | {:error, term()}
+    def parse_hot_games(xml) when is_binary(xml) do
+      case xml |> SweetXml.parse(dtd: :none) |> xpath(~x"/items"el) do
+        [items] ->
+          ids =
+            items
+            |> xpath(~x"./item/@id"sl)
+            |> Enum.map(&parse_positive_id/1)
+            |> Enum.filter(&is_integer/1)
+            |> Enum.uniq()
+
+          {:ok, ids}
+
+        _invalid ->
+          {:error, :invalid_hot_response}
+      end
+    rescue
+      exception -> {:error, exception}
+    catch
+      :exit, reason -> {:error, reason}
+    end
+
+    defp parse_positive_id(value) do
+      case Integer.parse(value) do
+        {id, ""} when id > 0 -> id
+        _invalid -> nil
+      end
     end
 
     defp parse_item_attrs(item) do

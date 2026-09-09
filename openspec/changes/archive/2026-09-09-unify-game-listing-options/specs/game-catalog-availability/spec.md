@@ -1,40 +1,4 @@
-# game-catalog-availability Specification
-
-## Purpose
-Define persisted game release stages, launch enablement, catalog ordering, home-card treatment, and detail discoverability.
-## Requirements
-### Requirement: Persisted records represent release stage and enablement
-Every game SHALL have stage `in_development` or `released` and a separate boolean `enabled`. New records SHALL default to in-development. Only released rows MUST have a valid engine; in-development rows MAY omit an engine. Enabled SHALL control new-Session launch independently of stage and SHALL NOT hide an otherwise environment-visible detail page. Existing planned rows SHALL migrate to in-development without changing local ids, BGG ids, enabled state, or timestamps. Every engine binding SHALL be preserved. The stage migration SHALL NOT identify or special-case any game or engine.
-
-#### Scenario: A game record is created
-- **WHEN** a record is created with a valid BGG id and slug and no stage or engine
-- **THEN** it is valid with stage `in_development` and engine null
-
-#### Scenario: A game is released
-- **WHEN** a game is assigned stage `released` without an engine
-- **THEN** changeset validation and the database constraint reject it
-
-#### Scenario: Planned is submitted after migration
-- **WHEN** a write supplies the removed `planned` stage
-- **THEN** changeset validation and the database domain reject it
-
-#### Scenario: Existing catalog rows are migrated
-- **WHEN** the two-stage migration runs
-- **THEN** all former planned records become in-development with their existing identities
-- **AND** every existing engine binding retains its permanent engine id regardless of stage
-
-#### Scenario: Migration is rolled back
-- **WHEN** the previous three-stage database constraints are restored
-- **THEN** engine-less in-development rows are mapped to planned and the old default is restored
-- **AND** the old planned distinction for engine-bound rows is not reconstructed, and all engine bindings are preserved
-
-### Requirement: Persisted catalog contains the migrated games
-The catalog SHALL contain Fliptown, Koala Rescue Club, Next Station: London, Qwinto, Flip 7, Railroad Ink: Deep Blue Edition, Confusing Lands, Trails of Tucana, Shifting Stones, Trailblazers, Death Valley, Voyages, Sky Team, Qwixx, Nimalia, Lost Cities, Deep Sea Adventure, Waypoints, and Aquamarine with generated `game` TypeIDs and their former BGG bindings.
-
-#### Scenario: Persisted catalog is loaded
-- **WHEN** the application resolves persisted catalog records
-- **THEN** all nineteen migrated games are included
-- **AND** none depends on a checked-in game registry entry
+## MODIFIED Requirements
 
 ### Requirement: Catalog entries expose release stage and default order
 `D20.Games.list/1` SHALL include the positive BGG ID as `id`, non-null internal route `slug` and nullable local `stage`, and resolved display metadata, without local `Game.id` in the catalog envelope. Selected local rows SHALL retain their persisted stage and slug; null stage and a decimal BGG route slug SHALL allow a runtime catalog entry without a visible local association. A slug SHALL describe an internal detail route and SHALL NOT imply a local record, implemented engine, or launch availability. Default listing SHALL NOT filter by launchability or impose lifecycle or id ordering. Native Ecto ordering SHALL be applied only when explicitly supplied. Home SHALL explicitly order its playable selection by released then in-development stage and local id.
@@ -143,14 +107,3 @@ The system SHALL render metadata details for persisted games whose stages belong
 - **THEN** Playable returns no records and ordinary local detail requests return 404
 - **AND** successful provider discovery retains Games entries with null local stage and decimal BGG route slugs
 - **AND** `Games.list/1` still applies only its explicit caller filters
-
-### Requirement: Game visibility is explicit application configuration
-The application SHALL configure `:visible_game_stages` as `[:released]` in `config/config.exs` and override it with `[:released, :in_development]` in `config/dev.exs`. Visibility query construction, detail access, and new-Session authorization SHALL read this key directly through `Application.fetch_env!/2`. `Games.list/1` SHALL remain policy-neutral and apply only caller-supplied filters. The application SHALL NOT retain `:d20, :env`, `Games.visible_stages/0`, or compile-time environment flags for this policy.
-
-#### Scenario: Default configuration is resolved
-- **WHEN** test or production configuration is loaded without an explicit stage-policy override
-- **THEN** the permitted stage list is `[:released]`
-
-#### Scenario: Development configuration is resolved
-- **WHEN** development configuration is loaded
-- **THEN** the permitted stage list is `[:released, :in_development]`

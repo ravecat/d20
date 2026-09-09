@@ -1,6 +1,8 @@
 defmodule D20Web.PageController do
   use D20Web, :controller
 
+  require Logger
+
   alias D20.Games
   alias D20.Sessions
   alias D20Web.SessionChannel
@@ -11,21 +13,33 @@ defmodule D20Web.PageController do
 
   @spec home(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def home(conn, _params) do
-    {:ok, playable_games} = Games.list_playable(@playable_limit)
-    playable_ids = Enum.map(playable_games, & &1.id)
-    {:ok, browse_games} = Games.list_browsable(playable_ids)
+    {:ok, playable_games} =
+      Games.list_playable(limit: @playable_limit, order_by: [desc: :stage, asc: :id])
+
+    browse_games =
+      case Games.list_by_provider() do
+        {:ok, games} ->
+          games
+
+        {:error, _reason} ->
+          Logger.warning(
+            "Failed to discover BoardGameGeek games; showing an empty Games collection"
+          )
+
+          []
+      end
 
     conn
     |> assign_prop(
       :playable_games,
       Enum.map(playable_games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
-        %{id: TypeID.to_string(id), slug: slug, stage: stage, game: Map.from_struct(game)}
+        %{id: id, slug: slug, stage: stage, game: Map.from_struct(game)}
       end)
     )
     |> assign_prop(
       :games,
       Enum.map(browse_games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
-        %{id: TypeID.to_string(id), slug: slug, stage: stage, game: Map.from_struct(game)}
+        %{id: id, slug: slug, stage: stage, game: Map.from_struct(game)}
       end)
     )
     |> render_inertia("home")
@@ -58,8 +72,30 @@ defmodule D20Web.PageController do
 
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def game(conn, %{"slug" => slug} = params) do
-    with {:ok, {game, metadata}} <- Games.fetch_by_slug(slug),
-         {:ok, session} <- resolve_game_session(game, params["session"]),
+    case Games.fetch_by_slug(slug) do
+      {:ok, detail} -> render_game_detail(conn, detail, params["session"])
+      {:error, _reason} -> send_not_found(conn)
+    end
+  end
+
+  defp render_game_detail(conn, %{entry: nil, slug: slug, metadata: metadata}, nil) do
+    conn
+    |> assign_prop(:id, nil)
+    |> assign_prop(:slug, slug)
+    |> assign_prop(:stage, nil)
+    |> assign_prop(:can_launch_game, false)
+    |> assign_prop(:game, Map.from_struct(metadata))
+    |> assign_prop(:schema, nil)
+    |> assign_prop(:session, nil)
+    |> render_inertia("game")
+  end
+
+  defp render_game_detail(conn, %{entry: nil, slug: slug}, _session_id) do
+    redirect_to_game_with_error(conn, slug, "Session not found.")
+  end
+
+  defp render_game_detail(conn, %{entry: game, metadata: metadata}, session_id) do
+    with {:ok, session} <- resolve_game_session(game, session_id),
          true <-
            game.stage in Application.fetch_env!(:d20, :visible_game_stages) or not is_nil(session) do
       render_game(conn, game, metadata, session)
@@ -67,14 +103,8 @@ defmodule D20Web.PageController do
       false ->
         send_not_found(conn)
 
-      {:error, :session_not_found} ->
-        redirect_to_game_with_error(conn, slug, "Session not found.")
-
-      {:error, :session_game_mismatch} ->
-        redirect_to_game_with_error(conn, slug, "Session not found.")
-
-      {:error, :game_not_found} ->
-        send_not_found(conn)
+      {:error, reason} when reason in [:session_not_found, :session_game_mismatch] ->
+        redirect_to_game_with_error(conn, game.slug, "Session not found.")
 
       {:error, _reason} ->
         send_not_found(conn)

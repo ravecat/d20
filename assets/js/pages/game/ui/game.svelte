@@ -12,9 +12,9 @@
   import LaunchForm from "./launch_form.svelte";
 
   type Props = InertiaProps<{
-    id: string;
+    id: string | null;
     slug: string;
-    stage: GameStage;
+    stage: GameStage | null;
     canLaunchGame: boolean;
     game: GameMetadata;
     schema: Schema | null;

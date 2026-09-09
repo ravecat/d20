@@ -4,10 +4,10 @@ import { HomePage } from "~/pages/home";
 import type { GameCatalogEntry, GameMetadata, GameStage } from "~/shared/types/game";
 import inertiaMock from "../../../mocks/inertia";
 
-const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
-const voyagesId = "game_01h45ybmy7fj7b4r9vvp74ms6k";
-const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
-const deepSeaId = "game_01h45ybrowsedeepsea00000";
+const qwintoId = 183006;
+const voyagesId = 350736;
+const koalaId = 425873;
+const deepSeaId = 169654;
 
 const auth = {
   authenticated: false,
@@ -35,12 +35,7 @@ describe("home page", () => {
       ],
       games: [
         gameEntry(voyagesId, "voyages", "Voyages", "released"),
-        gameEntry(
-          "game_01h45y849qfqvbeayxmwkxg5x9",
-          "next-station-london",
-          "Next Station",
-          "in_development",
-        ),
+        gameEntry(353545, "next-station-london", "Next Station", "in_development"),
         gameEntry(deepSeaId, "deep-sea-adventure", "Deep Sea Adventure", "released"),
       ],
     });
@@ -64,7 +59,7 @@ describe("home page", () => {
         .map((link) => link.getAttribute("href")),
     ).toEqual(["/games/voyages", "/games/next-station-london", "/games/deep-sea-adventure"]);
 
-    // Exactly one accessible link per delivered game across every collection;
+    // Exactly one accessible link per delivered game in each collection;
     // duplicated loop tracks and the decorative compact strip stay hidden.
     expect(screen.getAllByRole("link")).toHaveLength(5);
     expect(screen.getByRole("link", { name: "Qwinto" }).getAttribute("href")).toBe("/games/qwinto");
@@ -91,6 +86,29 @@ describe("home page", () => {
     expect(
       within(screen.getByRole("link", { name: "Voyages" })).queryByText("In development"),
     ).toBeNull();
+  });
+
+  it("keeps overlapping games accessible once per section with distinct labels", () => {
+    const entry = gameEntry(qwintoId, "qwinto", "Qwinto", "released");
+    const { container } = render(HomePage, {
+      auth,
+      playableGames: [entry],
+      games: [entry],
+    });
+
+    const labels = ["Playable", "Games"].map((name) => {
+      const section = screen.getByRole("region", { name });
+      const links = within(section).getAllByRole("link", { name: "Qwinto" });
+      expect(links).toHaveLength(1);
+      expect(links[0].getAttribute("href")).toBe("/games/qwinto");
+      return links[0].getAttribute("aria-labelledby");
+    });
+
+    expect(labels[0]).toBeTruthy();
+    expect(labels[1]).toBeTruthy();
+    expect(labels[0]).not.toBe(labels[1]);
+    const ids = Array.from(container.querySelectorAll("[id]"), (element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("renders one browse game without duplicates or controls", () => {
@@ -165,18 +183,27 @@ describe("home page", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
+  it("keeps numeric internal fallback cards accessible without local fields", () => {
+    render(HomePage, {
+      auth,
+      playableGames: [],
+      games: [gameEntry(voyagesId, String(voyagesId), null, null)],
+    });
+
+    const link = screen.getByRole("link", { name: "Open game" });
+    expect(link.getAttribute("href")).toBe(`/games/${voyagesId}`);
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.queryByText("In development")).toBeNull();
+    expect(inertiaMock.inertia).toHaveBeenCalledWith(link, { href: `/games/${voyagesId}` });
+  });
+
   it("introduces no scripted navigation and performs no request during presentation", () => {
     render(HomePage, {
       auth,
       playableGames: [gameEntry(qwintoId, "qwinto", "Qwinto", "released")],
       games: [
         ...Array.from({ length: 16 }, (_, index) =>
-          gameEntry(
-            `game_first_${index}`,
-            `first-${index}`,
-            `First ${index + 1}`,
-            "in_development",
-          ),
+          gameEntry(1000 + index, `first-${index}`, `First ${index + 1}`, "in_development"),
         ),
       ],
     });
@@ -188,10 +215,10 @@ describe("home page", () => {
 });
 
 function gameEntry(
-  id: string,
+  id: number,
   slug: string,
   name: string | null,
-  stage: GameStage,
+  stage: GameStage | null,
   metadata: Partial<GameMetadata> = {},
 ): GameCatalogEntry {
   return {

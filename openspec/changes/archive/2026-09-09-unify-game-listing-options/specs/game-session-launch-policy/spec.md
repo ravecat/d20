@@ -1,8 +1,5 @@
-# game-session-launch-policy Specification
+## MODIFIED Requirements
 
-## Purpose
-Define authoritative new-Session launch eligibility across persisted stage, environment, enabled state, engine availability, UI, and server boundaries.
-## Requirements
 ### Requirement: Session launch follows stage, environment, and enabled state
 The system SHALL allow new Session launch only when enabled is true, the persisted stage belongs to `:visible_game_stages`, and the game has a supported engine. The checked-in default SHALL permit released games only; development configuration SHALL permit released and in-development games. The predicate SHALL read configured stages at runtime without inspecting environment identity. It SHALL deny every disabled game, every game without a supported engine, every game whose stage is absent from the configured list, and every provider-only detail without a persisted local game. A route slug, including a numeric BGG slug, SHALL NOT establish launch eligibility.
 

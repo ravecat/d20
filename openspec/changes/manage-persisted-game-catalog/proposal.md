@@ -33,7 +33,7 @@ Owning issue: [#223 - Operators Can Manage Game Catalog Records](https://github.
 - `game-catalog-availability`: Replace optional status with implementation stage and preserve the migrated catalog and ordering.
 - `runtime-game-metadata`: Resolve presentation metadata by persisted `bgg_id` without deriving or owning the persisted slug.
 - `game-metadata-fallback`: Keep slug-based catalog and detail access independent of runtime metadata availability.
-- `game-detail`: Resolve persisted details by required game slug.
+- `game-detail`: Preserve persisted slug and TypeID detail behavior within the later #272 contract, which also permits provider-only numeric route slugs after a local-slug miss.
 - `game-detail-activation-layout`: Preserve slug-based detail and Session-creation URLs while using persisted launch policy.
 - `game-session-launch-policy`: Combine implementation-stage policy with the independent enabled gate at both HTTP creation boundaries.
 - `game-session-creation-attrs`: Submit creation attributes and redirect lobby navigation through slug-based routes while creating Sessions under the resolved TypeID.

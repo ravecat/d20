@@ -18,9 +18,9 @@ export interface GameMetadata {
 }
 
 export interface GameCatalogEntry {
-  id: string;
+  id: number;
   slug: string;
-  stage: GameStage;
+  stage: GameStage | null;
   game: GameMetadata;
 }
 

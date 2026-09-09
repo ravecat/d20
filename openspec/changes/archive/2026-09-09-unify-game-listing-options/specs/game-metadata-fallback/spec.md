@@ -1,46 +1,4 @@
-# game-metadata-fallback Specification
-
-## Purpose
-Define how persisted games and their user-facing surfaces remain available when BoardGameGeek enrichment is unavailable.
-## Requirements
-### Requirement: BGG metadata is optional enrichment
-The system SHALL use successfully resolved BGG metadata as a persisted game's display metadata. Failure to resolve BGG metadata MUST NOT change whether the local game exists or whether its persisted launch policy is available.
-
-#### Scenario: BGG metadata is available
-- **WHEN** BGG returns valid metadata for a persisted game
-- **THEN** the system returns the BGG display fields without deriving a public game slug
-- **AND** local id, implementation stage, enabled state, engine, and Session behavior remain locally defined
-
-#### Scenario: BGG metadata request fails
-- **WHEN** BGG returns an HTTP error, times out, or cannot be reached
-- **THEN** the system returns the persisted game with empty fallback metadata
-
-#### Scenario: BGG metadata cannot be parsed
-- **WHEN** BGG returns a response that cannot be parsed
-- **THEN** the system returns the persisted game with empty fallback metadata
-- **AND** the provider failure does not become a game-not-found result
-
-#### Scenario: BGG omits one game from a batch
-- **WHEN** a batch response resolves some persisted games but omits another
-- **THEN** resolved metadata is preserved for present games
-- **AND** each omitted game receives empty fallback metadata
-
-### Requirement: Missing BGG credentials are supported outside production
-The application SHALL start and serve persisted games outside production when `BGG_API_KEY` is absent or empty. Production startup MUST fail when usable BGG credentials are absent. The BGG source adapter SHALL return an explicit configuration error without sending an external request when usable credentials are absent at runtime.
-
-#### Scenario: Development application starts without a BGG key
-- **WHEN** the application starts outside production without `BGG_API_KEY`
-- **THEN** startup succeeds
-- **AND** BGG-backed enrichment operates in degraded mode
-
-#### Scenario: Production application starts without a BGG key
-- **WHEN** the application starts in production without a non-empty `BGG_API_KEY`
-- **THEN** startup fails with a configuration error
-
-#### Scenario: Metadata is requested without a BGG key outside production
-- **WHEN** metadata enrichment is requested outside production while `BGG_API_KEY` is absent or empty
-- **THEN** no request is sent to BGG
-- **AND** persisted games are resolved with empty fallback metadata
+## MODIFIED Requirements
 
 ### Requirement: Catalog remains complete during metadata degradation
 Local listings SHALL retain every selected valid row within their database result limit when BGG enrichment is wholly or partially unavailable, preserving BGG identity, local fields, order, and launch policy. Provider Hot or detail-operation failures SHALL propagate to the controller, which SHALL log the failure and render empty Games while preserving Playable. Successful detail operations with missing items or invalid individual metadata SHALL retain selected identities and order with empty metadata where needed. The provider SHALL NOT replace a failed detail operation with an ok result or emit a separate detail-fallback warning. Local listing fallback retains its existing scope warning. Successful metadata SHALL remain available when the operation succeeds but omits or invalidates individual items. No fallback SHALL expose credentials, invent local records, or alter the canonical-link rule within each owning section.
@@ -83,40 +41,6 @@ Local listings SHALL retain every selected valid row within their database resul
 - **THEN** exactly one canonical link is accessible in its owning section
 - **AND** the same game may independently have one canonical link in the other section
 
-### Requirement: Registered detail pages remain available during metadata degradation
-The system SHALL render the detail page for every persisted local game id even when BGG enrichment is unavailable. Session creation and existing-session connection SHALL depend on persisted game bindings and Session runtime, not on external display metadata.
-
-#### Scenario: Released game detail loads without BGG credentials
-- **WHEN** a user requests Koala Rescue Club's `/games/:slug` route without configured BGG credentials
-- **THEN** the response renders the persisted Koala Rescue Club detail successfully
-- **AND** retains its launch controls when enabled and otherwise launchable
-
-#### Scenario: Persisted detail loads during an upstream failure
-- **WHEN** a user requests a persisted game detail and BGG enrichment fails
-- **THEN** `/games/:slug` renders optional-field fallback states without a display name
-- **AND** the response is not `404 Not Found`
-
-#### Scenario: Existing session reconnects without BGG metadata
-- **WHEN** a user requests a persisted game detail with a valid matching Session while BGG is unavailable
-- **THEN** the page receives the existing Session data
-- **AND** the Session remains usable
-
-#### Scenario: Unknown valid game id is requested
-- **WHEN** a user requests a well-formed `game` TypeID absent from persistence
-- **THEN** the system returns `404 Not Found`
-
-#### Scenario: Malformed or wrong-prefix game id is requested
-- **WHEN** a user requests a malformed TypeID or a valid TypeID whose prefix is not `game`
-- **THEN** TypeID/Ecto casting and Phoenix.Ecto exception mapping return `400 Bad Request`
-- **AND** the system does not attempt runtime metadata enrichment
-
-### Requirement: Metadata degradation is observable without exposing credentials
-The system SHALL record metadata enrichment failures with enough provider and reason context for diagnosis. Logs and client props MUST NOT contain the BGG API key or authorization header.
-
-#### Scenario: BGG enrichment fails
-- **WHEN** a persisted game falls back because BGG enrichment failed
-- **THEN** the server records the provider failure reason
-- **AND** neither logs nor rendered props expose BGG credentials
 
 ### Requirement: Provider-only details require a successful provider record
 The context SHALL distinguish local metadata enrichment from provider-only detail existence. A persisted local detail SHALL retain existing Metadata.empty fallback and visibility/Session rules when provider enrichment fails. A provider-only detail SHALL require fetch_game to return one parsed provider game with a positive identity and Metadata construction to succeed; operation errors or missing identities SHALL remain errors with the existing controller 404 mapping. Successfully omitted optional display fields SHALL use normal detail presentation fallbacks without a required name. No failure SHALL create a persisted or synthetic Game.

@@ -87,3 +87,9 @@
 - [x] 12.2 Review the final diff against issue #223 and every delta requirement, confirming required immutable slug, environment-local TypeID runtime identity, no persisted BGG presentation data, no dynamic engine loading, and no backend-driven Infra query entered current scope.
 - [ ] 12.3 Reconcile issue acceptance criteria, OpenSpec tasks, external Infra evidence, and rollback notes; then archive `manage-persisted-game-catalog` only after all required implementation and verification work is complete.
 - [ ] 12.4 Run strict OpenSpec validation after archive and confirm the change no longer appears in `openspec list --json` before reporting issue #223 complete.
+
+## Detail contract reconciliation with #272 (2026-09-09)
+
+The game-detail delta now preserves the later internal provider fallback and context-supplied string route slugs from `unify-game-listing-options`, including its combined local/provider requirement name. #272 owns that rename, implementation, and validation. Historical tasks 4.2 and 6.2 describe the earlier persisted-only state; their detail-routing and catalog-envelope assumptions are superseded by #272 while local TypeID/Session authority remains unchanged. This reconciliation does not complete or change the pending Infra, rollback, and archival tasks above.
+
+The #272 raw-string continuation inlines context fallback and delegates unmatched string values to the provider without input regex/parsing; returned BGG identity determines the detail slug. The shared game-detail delta follows this refinement.

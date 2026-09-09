@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/svelte";
+import { fireEvent, render, screen } from "@testing-library/svelte";
 import { flushSync } from "svelte";
 import { writable, type Writable } from "svelte/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -463,6 +463,26 @@ describe("game detail page", () => {
         expect.any(Object),
       );
     });
+  });
+
+  it("renders provider-only details without launch or session controls", () => {
+    render(GamePage, {
+      auth,
+      id: null,
+      slug: "350736",
+      stage: null,
+      canLaunchGame: false,
+      schema: null,
+      session: null,
+      game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
+    });
+
+    expect(screen.getByRole("heading", { name: "Voyages", level: 1 })).toBeTruthy();
+    expect(screen.getByText("Chart a course.")).toBeTruthy();
+    expect(screen.getByLabelText("Players").textContent).toContain("2-6");
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(sessionMock.createSession).not.toHaveBeenCalled();
+    expect(inertiaMock.router.post).not.toHaveBeenCalled();
   });
 
   it("keeps game details visible without session controls when launch is unavailable", () => {
