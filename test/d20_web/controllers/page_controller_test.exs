@@ -709,7 +709,7 @@ defmodule D20Web.PageControllerTest do
              id: nil,
              slug: "183006",
              stage: nil,
-             canLaunchGame: false,
+             playable: false,
              game: %{name: "Resolved Qwinto"},
              schema: nil,
              session: nil
@@ -728,7 +728,7 @@ defmodule D20Web.PageControllerTest do
              id: nil,
              slug: "183006",
              stage: nil,
-             canLaunchGame: false,
+             playable: false,
              game: %{name: nil, imageUrl: nil, description: nil},
              schema: nil,
              session: nil
@@ -752,7 +752,7 @@ defmodule D20Web.PageControllerTest do
     end)
 
     response = get(conn, ~p"/games/900001")
-    assert %{id: id, slug: "900001", canLaunchGame: true} = inertia_props(response)
+    assert %{id: id, slug: "900001", playable: true} = inertia_props(response)
     assert id == TypeID.to_string(entry.id)
 
     {:ok, session} = D20.Sessions.create(entry.id, D20.Qwinto.Game, "owner")
@@ -761,7 +761,7 @@ defmodule D20Web.PageControllerTest do
     assert conn |> get(~p"/games/900001") |> html_response(404) == "Not Found"
     response = get(conn, ~p"/games/900001?session=#{session.id}")
     session_id = session.id
-    assert %{id: ^id, canLaunchGame: false, session: %{id: ^session_id}} = inertia_props(response)
+    assert %{id: ^id, playable: false, session: %{id: ^session_id}} = inertia_props(response)
   end
 
   test "provider details reject local sessions and normalize the error redirect", %{conn: conn} do
@@ -803,7 +803,7 @@ defmodule D20Web.PageControllerTest do
              id: id,
              slug: "voyages",
              stage: :in_development,
-             canLaunchGame: false,
+             playable: false,
              schema: nil,
              game: %{name: "Voyages", description: "Draw maps and chart a course."}
            } = inertia_props(conn)
@@ -819,7 +819,7 @@ defmodule D20Web.PageControllerTest do
 
     conn = get(conn, ~p"/games/koala-rescue-club")
 
-    assert %{stage: :released, canLaunchGame: true} = inertia_props(conn)
+    assert %{stage: :released, playable: true} = inertia_props(conn)
   end
 
   test "GET /games/:slug allows Next Station launch when both stages are configured", %{
@@ -832,7 +832,7 @@ defmodule D20Web.PageControllerTest do
 
     assert %{
              stage: :in_development,
-             canLaunchGame: true,
+             playable: true,
              schema: %{
                "type" => "object",
                "properties" => %{
@@ -887,7 +887,7 @@ defmodule D20Web.PageControllerTest do
                id: id,
                slug: "koala-rescue-club",
                stage: :released,
-               canLaunchGame: true,
+               playable: true,
                game: %{name: nil, imageUrl: nil},
                schema: %{
                  "type" => "object",
@@ -1037,7 +1037,7 @@ defmodule D20Web.PageControllerTest do
 
     conn = get(conn, ~p"/games/qwinto?session=#{session.id}")
     session_id = session.id
-    assert %{canLaunchGame: false, session: %{id: ^session_id}} = inertia_props(conn)
+    assert %{playable: false, session: %{id: ^session_id}} = inertia_props(conn)
 
     assert conn |> recycle() |> get(~p"/games/qwinto") |> html_response(404) == "Not Found"
   end
@@ -1057,7 +1057,7 @@ defmodule D20Web.PageControllerTest do
 
     response = get(conn, ~p"/games/qwinto?session=#{session.id}")
     session_id = session.id
-    assert %{canLaunchGame: false, session: %{id: ^session_id}} = inertia_props(response)
+    assert %{playable: false, session: %{id: ^session_id}} = inertia_props(response)
     assert conn |> get(~p"/games/qwinto") |> html_response(404) == "Not Found"
 
     before_count = Elixir.Registry.count(D20.Registry)

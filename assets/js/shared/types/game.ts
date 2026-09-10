@@ -53,3 +53,9 @@ export interface Session<TGame = unknown> {
   permissions?: SessionPermissions;
   game: TGame;
 }
+
+export interface GameInterest {
+  action: string;
+  requested: boolean;
+  count: number;
+}

@@ -180,17 +180,30 @@ defmodule D20.Games do
   to a decimal string, and provider or Metadata errors are preserved.
   """
   @spec fetch_by_slug(String.t()) ::
-          {:ok, %{entry: Game.t() | nil, slug: String.t(), metadata: Metadata.t()}}
+          {:ok,
+           %{
+             entry: Game.t() | nil,
+             slug: String.t(),
+             bgg_id: pos_integer(),
+             metadata: Metadata.t()
+           }}
           | {:error, term()}
   def fetch_by_slug(slug) when is_binary(slug) do
     case Repo.get_by(Game, slug: slug) do
       %Game{} = game ->
-        {:ok, %{entry: game, slug: game.slug, metadata: fetch_game_metadata(game)}}
+        {:ok,
+         %{entry: game, slug: game.slug, bgg_id: game.bgg_id, metadata: fetch_game_metadata(game)}}
 
       nil ->
         with {:ok, attrs} <- BoardGameGeek.fetch_game(slug),
              {:ok, metadata} <- Metadata.new(attrs) do
-          {:ok, %{entry: nil, slug: Integer.to_string(attrs.bgg_id), metadata: metadata}}
+          {:ok,
+           %{
+             entry: nil,
+             slug: Integer.to_string(attrs.bgg_id),
+             bgg_id: attrs.bgg_id,
+             metadata: metadata
+           }}
         end
     end
   end
@@ -207,13 +220,18 @@ defmodule D20.Games do
     end
   end
 
+  @doc "Returns whether the game's stage is visible under the configured stage policy."
+  @spec visible?(Game.t()) :: boolean()
+  def visible?(%Game{stage: stage}) do
+    stage in Application.fetch_env!(:d20, :visible_game_stages)
+  end
+
   @doc """
   Returns whether a new Session may be created for the persisted game.
   """
   @spec session_launch_available?(Game.t()) :: boolean()
   def session_launch_available?(%Game{enabled: true} = game) do
-    game.stage in Application.fetch_env!(:d20, :visible_game_stages) and
-      match?({:ok, _engine}, engine(game))
+    visible?(game) and match?({:ok, _engine}, engine(game))
   end
 
   def session_launch_available?(%Game{}), do: false

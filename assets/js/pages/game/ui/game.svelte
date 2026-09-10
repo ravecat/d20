@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { usePage } from "@inertiajs/svelte";
   import type { Schema } from "@sjsf/form";
   import {
     AgeLabel,
@@ -8,20 +9,28 @@
     PlayTimeLabel,
     PlayerCountLabel,
   } from "~/shared/components";
-  import type { GameMetadata, GameStage, SessionDescriptor } from "~/shared/types/game";
-  import LaunchForm from "./launch_form.svelte";
+  import type {
+    GameInterest,
+    GameMetadata,
+    GameStage,
+    SessionDescriptor,
+  } from "~/shared/types/game";
+  import InterestForm from "./interest_form.svelte";
+  import SessionForm from "./session_form.svelte";
 
   type Props = InertiaProps<{
     id: string | null;
     slug: string;
     stage: GameStage | null;
-    canLaunchGame: boolean;
+    playable: boolean;
+    interest: GameInterest;
     game: GameMetadata;
     schema: Schema | null;
     session?: SessionDescriptor | null;
   }>;
 
-  const { slug, canLaunchGame = false, game, schema, session = null }: Props = $props();
+  const { slug, playable, interest, game, schema, session = null }: Props = $props();
+  const page = usePage();
 </script>
 
 <div class="game-detail-page">
@@ -88,8 +97,13 @@
               {#key session.id}
                 <Lobby {session} />
               {/key}
-            {:else if canLaunchGame && schema}
-              <LaunchForm {slug} {schema} />
+            {:else if playable && schema}
+              <SessionForm {slug} {schema} />
+              {#if page.props.errors.interest?.message}
+                <p role="status">{page.props.errors.interest.message}</p>
+              {/if}
+            {:else if !playable}
+              <InterestForm {interest} />
             {/if}
           </div>
         </aside>

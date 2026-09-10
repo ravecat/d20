@@ -67,6 +67,12 @@ defmodule D20Web.Router do
     post "/games/:slug/sessions", PageController, :create_game_session
   end
 
+  scope "/", D20Web do
+    pipe_through [:inertia, :require_authenticated_user]
+
+    post "/games/:slug/interest", GameInterestController, :create
+  end
+
   scope "/developers/specs" do
     get "/:slug/raw", D20Web.Plugs.AsyncApi, :raw
     get "/:slug", D20Web.Plugs.AsyncApi, :reference

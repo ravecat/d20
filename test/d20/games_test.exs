@@ -129,6 +129,7 @@ defmodule D20.GamesTest do
     assert {:ok,
             %{
               entry: %Game{id: ^qwinto_id, slug: "qwinto"},
+              bgg_id: 183_006,
               slug: "qwinto",
               metadata: %Metadata{} = metadata
             }} = Games.fetch_by_slug("qwinto")
@@ -142,7 +143,8 @@ defmodule D20.GamesTest do
     for slug <- ["183006", "00183006", "provider-alias"] do
       stub_bgg_game(@qwinto_xml, slug)
 
-      assert {:ok, %{entry: nil, slug: "183006", metadata: %Metadata{name: "Qwinto"}}} =
+      assert {:ok,
+              %{entry: nil, bgg_id: 183_006, slug: "183006", metadata: %Metadata{name: "Qwinto"}}} =
                Games.fetch_by_slug(slug)
     end
 
@@ -158,7 +160,7 @@ defmodule D20.GamesTest do
       Req.Test.text(conn, ~s(<items><item type="boardgame" id="900002" /></items>))
     end)
 
-    assert {:ok, %{entry: ^entry, slug: "900001", metadata: %Metadata{}}} =
+    assert {:ok, %{entry: ^entry, bgg_id: 900_002, slug: "900001", metadata: %Metadata{}}} =
              Games.fetch_by_slug("900001")
   end
 
@@ -187,7 +189,7 @@ defmodule D20.GamesTest do
     Repo.delete_all(Game)
     stub_bgg_game(~s(<items><item type="boardgame" id="183006" /></items>))
 
-    assert {:ok, %{entry: nil, slug: "183006", metadata: metadata}} =
+    assert {:ok, %{entry: nil, bgg_id: 183_006, slug: "183006", metadata: metadata}} =
              Games.fetch_by_slug("183006")
 
     assert metadata == Metadata.empty()
@@ -682,6 +684,15 @@ defmodule D20.GamesTest do
     assert log =~ "Failed to enrich game metadata; using local fallback"
   end
 
+  test "local detail retains authoritative BGG identity during metadata failure" do
+    Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 503, "Unavailable") end)
+
+    capture_log(fn ->
+      assert {:ok, %{bgg_id: 183_006, metadata: metadata}} = Games.fetch_by_slug("qwinto")
+      assert metadata == Metadata.empty()
+    end)
+  end
+
   test "uses TypeID primary-key casting for local ids" do
     stub_bgg_game(@qwinto_xml)
     qwinto_id = game_id(183_006)
@@ -699,6 +710,27 @@ defmodule D20.GamesTest do
   test "slug lookup never treats a TypeID as a persisted slug" do
     assert {:error, :game_not_found} = Games.get_by_slug(TypeID.to_string(game_id(183_006)))
     assert {:error, :game_not_found} = Games.get_by_slug("not-a-typeid")
+  end
+
+  test "visibility follows configured stages independently of enabled state and engine" do
+    released = %Game{stage: :released, enabled: true, engine: D20.Qwinto.Game}
+    disabled = %{released | enabled: false}
+    engine_less = %{released | engine: nil}
+    in_development = %{released | stage: :in_development}
+    Application.put_env(:d20, :visible_game_stages, [:released])
+
+    for game <- [released, disabled, engine_less], do: assert(Games.visible?(game))
+    refute Games.visible?(in_development)
+    assert Games.session_launch_available?(released)
+    refute Games.session_launch_available?(disabled)
+    refute Games.session_launch_available?(engine_less)
+
+    Application.put_env(:d20, :visible_game_stages, [:in_development])
+    assert Games.visible?(in_development)
+    for game <- [released, disabled, engine_less], do: refute(Games.visible?(game))
+
+    Application.put_env(:d20, :visible_game_stages, [])
+    refute Games.visible?(in_development)
   end
 
   test "allows released and in-development launch when both stages are configured" do

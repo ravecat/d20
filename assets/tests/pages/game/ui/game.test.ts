@@ -82,6 +82,7 @@ describe("game detail page", () => {
   it("renders runtime title, preview image, and description", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
@@ -92,7 +93,7 @@ describe("game detail page", () => {
         imageUrl: "https://example.invalid/qwinto.jpg",
         description: "Resolved details.",
       }),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -115,6 +116,7 @@ describe("game detail page", () => {
   it("renders provider metadata labels in the activation panel", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
@@ -128,7 +130,7 @@ describe("game detail page", () => {
         complexity: 2.14,
         rating: 7.42,
       }),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -146,6 +148,7 @@ describe("game detail page", () => {
   it("renders single metadata values without fake ranges", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
@@ -156,7 +159,7 @@ describe("game detail page", () => {
         minPlayTime: 15,
         maxPlayTime: 15,
       }),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -168,6 +171,7 @@ describe("game detail page", () => {
   it("renders minimum-only play time as an open-ended value", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
@@ -176,7 +180,7 @@ describe("game detail page", () => {
         minPlayTime: 20,
         maxPlayTime: null,
       }),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -188,6 +192,7 @@ describe("game detail page", () => {
   it("omits missing provider metadata labels", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
@@ -205,7 +210,7 @@ describe("game detail page", () => {
         complexity: null,
         rating: null,
       }),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -224,6 +229,7 @@ describe("game detail page", () => {
   it("keeps available metadata while omitting missing metadata labels", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
@@ -237,7 +243,7 @@ describe("game detail page", () => {
         complexity: null,
         rating: null,
       }),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -252,11 +258,12 @@ describe("game detail page", () => {
   it("posts session creation to the slug-based route", async () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
       game: gameMetadata(),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -283,11 +290,12 @@ describe("game detail page", () => {
 
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
       game: gameMetadata(),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
       session,
     });
@@ -308,11 +316,12 @@ describe("game detail page", () => {
 
     const { unmount } = render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
       game: gameMetadata(),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
       session,
     });
@@ -340,11 +349,12 @@ describe("game detail page", () => {
   it("detaches a waiting session when the caller leaves before Start", () => {
     const { unmount } = render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
       game: gameMetadata(),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
       session: {
         id: "session-a",
@@ -362,12 +372,13 @@ describe("game detail page", () => {
   it("posts a selected enum value from the creation form schema", async () => {
     const { getByRole } = render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: koalaId,
       slug: "koala-rescue-club",
       stage: "released",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       schema: koalaSchema,
-      canLaunchGame: true,
+      playable: true,
     });
 
     const defaultSheet = getByRole("radio", { name: "dharug" }) as HTMLInputElement;
@@ -391,12 +402,13 @@ describe("game detail page", () => {
   it("shows an Inertia field error on the SJSF control", async () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: koalaId,
       slug: "koala-rescue-club",
       stage: "released",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       schema: koalaSchema,
-      canLaunchGame: true,
+      playable: true,
     });
 
     document.querySelector("button")?.click();
@@ -424,11 +436,12 @@ describe("game detail page", () => {
 
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: qwintoId,
       slug: "qwinto",
       stage: "released",
       game: gameMetadata(),
-      canLaunchGame: true,
+      playable: true,
       schema: emptySchema,
     });
 
@@ -438,12 +451,13 @@ describe("game detail page", () => {
   it("renders boolean schema properties as checkboxes and posts typed values", async () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
       id: nextStationId,
       slug: "next-station-london",
       stage: "in_development",
       game: gameMetadata({ name: "Next Station London" }),
       schema: nextStationSchema,
-      canLaunchGame: true,
+      playable: true,
     });
 
     const objectives = inputByLabel("objectives");
@@ -465,13 +479,30 @@ describe("game detail page", () => {
     });
   });
 
-  it("renders provider-only details without launch or session controls", () => {
+  it("does not infer interest eligibility from a missing playable schema", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      id: qwintoId,
+      slug: "qwinto",
+      stage: "released",
+      playable: true,
+      schema: null,
+      game: gameMetadata(),
+    });
+
+    expect(screen.queryByRole("button", { name: "I want this game!" })).toBeNull();
+    expect(document.querySelector("form")).toBeNull();
+  });
+
+  it("renders the interest form for provider-only details", () => {
+    render(GamePage, {
+      auth,
+      interest: { action: "/games/350736/interest", requested: false, count: 0 },
       id: null,
       slug: "350736",
       stage: null,
-      canLaunchGame: false,
+      playable: false,
       schema: null,
       session: null,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
@@ -480,26 +511,27 @@ describe("game detail page", () => {
     expect(screen.getByRole("heading", { name: "Voyages", level: 1 })).toBeTruthy();
     expect(screen.getByText("Chart a course.")).toBeTruthy();
     expect(screen.getByLabelText("Players").textContent).toContain("2-6");
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByRole("button", { name: "I want this game!" })).toBeTruthy();
     expect(sessionMock.createSession).not.toHaveBeenCalled();
-    expect(inertiaMock.router.post).not.toHaveBeenCalled();
+    expect(inertiaMock.formSubmit).not.toHaveBeenCalled();
   });
 
-  it("keeps game details visible without session controls when launch is unavailable", () => {
+  it("keeps game details visible with the interest form when play is unavailable", () => {
     render(GamePage, {
       auth,
+      interest: { action: "/games/voyages/interest", requested: false, count: 0 },
       id: voyagesId,
       slug: "voyages",
       stage: "in_development",
-      canLaunchGame: false,
+      playable: false,
       schema: null,
       game: gameMetadata({ name: "Voyages", description: "Chart a course." }),
     });
 
     expect(document.body.textContent).toContain("Voyages");
     expect(document.body.textContent).toContain("Chart a course.");
-    expect(document.querySelector("form")).toBeNull();
-    expect(document.querySelector("button")).toBeNull();
+    expect(screen.getByRole("button", { name: "I want this game!" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
   });
 });
 

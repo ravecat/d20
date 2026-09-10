@@ -4,6 +4,7 @@ defmodule D20Web.PageController do
   require Logger
 
   alias D20.Games
+  alias D20.Games.Interests
   alias D20.Sessions
   alias D20Web.SessionChannel
 
@@ -73,8 +74,17 @@ defmodule D20Web.PageController do
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def game(conn, %{"slug" => slug} = params) do
     case Games.fetch_by_slug(slug) do
-      {:ok, detail} -> render_game_detail(conn, detail, params["session"])
-      {:error, _reason} -> send_not_found(conn)
+      {:ok, detail} ->
+        conn
+        |> assign_prop(:interest, %{
+          action: ~p"/games/#{slug}/interest",
+          requested: Interests.requested?(conn.assigns.current_user, detail.bgg_id),
+          count: Interests.count(detail.bgg_id)
+        })
+        |> render_game_detail(detail, params["session"])
+
+      {:error, _reason} ->
+        send_not_found(conn)
     end
   end
 
@@ -83,7 +93,7 @@ defmodule D20Web.PageController do
     |> assign_prop(:id, nil)
     |> assign_prop(:slug, slug)
     |> assign_prop(:stage, nil)
-    |> assign_prop(:can_launch_game, false)
+    |> assign_prop(:playable, false)
     |> assign_prop(:game, Map.from_struct(metadata))
     |> assign_prop(:schema, nil)
     |> assign_prop(:session, nil)
@@ -96,9 +106,25 @@ defmodule D20Web.PageController do
 
   defp render_game_detail(conn, %{entry: game, metadata: metadata}, session_id) do
     with {:ok, session} <- resolve_game_session(game, session_id),
-         true <-
-           game.stage in Application.fetch_env!(:d20, :visible_game_stages) or not is_nil(session) do
-      render_game(conn, game, metadata, session)
+         true <- Games.visible?(game) or not is_nil(session) do
+      playable = Games.session_launch_available?(game)
+
+      schema =
+        if playable and not is_nil(game.engine) do
+          game.engine |> D20.Game.changeset() |> to_schema()
+        else
+          nil
+        end
+
+      conn
+      |> assign_prop(:id, TypeID.to_string(game.id))
+      |> assign_prop(:slug, game.slug)
+      |> assign_prop(:stage, game.stage)
+      |> assign_prop(:playable, playable)
+      |> assign_prop(:game, Map.from_struct(metadata))
+      |> assign_prop(:schema, schema)
+      |> assign_prop(:session, session)
+      |> render_inertia("game")
     else
       false ->
         send_not_found(conn)
@@ -153,27 +179,6 @@ defmodule D20Web.PageController do
     |> assign_errors(changeset)
     |> put_status(303)
     |> redirect(to: ~p"/games/#{slug}")
-  end
-
-  defp render_game(conn, game, metadata, session) do
-    can_launch_game = Games.session_launch_available?(game)
-
-    schema =
-      if can_launch_game and not is_nil(game.engine) do
-        game.engine |> D20.Game.changeset() |> to_schema()
-      else
-        nil
-      end
-
-    conn
-    |> assign_prop(:id, TypeID.to_string(game.id))
-    |> assign_prop(:slug, game.slug)
-    |> assign_prop(:stage, game.stage)
-    |> assign_prop(:can_launch_game, can_launch_game)
-    |> assign_prop(:game, Map.from_struct(metadata))
-    |> assign_prop(:schema, schema)
-    |> assign_prop(:session, session)
-    |> render_inertia("game")
   end
 
   defp authorize_session_launch(game) do
