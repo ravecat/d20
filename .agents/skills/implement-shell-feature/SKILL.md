@@ -51,9 +51,23 @@ Pass this gate only after verifying valid creation and its generated prefix, inv
 - Update affected public payloads, projections, permissions, errors, and the matching `priv/specs/` contract together with their boundary tests. Keep supported client workflows complete without leaking private data.
 - For shell UI changes, account for the relevant loading, empty, error, success, disabled, and pending states. Preserve accessibility and use `$devtools-validations` to verify changed behavior in the browser.
 
-## 5. Verify and reconcile delivery
+## 5. Gate: Storybook scenarios and reviewed screenshots
 
-- Run focused tests at changed boundaries: domain and persistence, authorization, controller/channel/projection, and frontend as applicable. Include rejection paths and observable behavior from the acceptance criteria.
-- Format touched files and run applicable native checks from the manifests: targeted `mix test`, frontend tests, `mix assets.lint`, `mix typecheck`, or build checks. Broaden to `just check` for cross-stack or release-relevant changes. Documentation-only work needs documentation validation rather than runtime tests.
+Apply this gate to new or changed shell screens and visual states. Use `$storybook` and `$web-testing`, and read `assets/stories/README.md` before authoring coverage.
+
+- Prepare deterministic stories using production components and existing shell decorators/styles. Cover the relevant states from the acceptance criteria with isolated dependencies and stable fixtures.
+- Put interaction scenarios and semantic assertions in `play` using `storybook/test` and accessible queries. Keep complex UI sequences in `play`, organized into steps. Complexity alone is not a reason to move UI coverage into a separate test file.
+- Center UI tests on stories, which already run through `@storybook/addon-vitest`. Do not duplicate their scenarios in standalone Vitest UI tests. Add separate Vitest tests only for complex logic or boundaries that stories cannot adequately exercise; record the reason and distinct verification signal in the owning change. Preserve required backend and distinct lower-layer or cross-process tests.
+- Run affected stories from `assets/` with `bun run test:visual -- <story-path>`, using the existing desktop, tablet, and mobile projects in `assets/vite.config.mjs`. The shared `assets/.storybook/vitest.setup.ts` hook supplies full-document screenshot comparisons after render and `play`; `play` assertions alone do not compare pixels. Reuse this infrastructure.
+- Give each required before, intermediate, and after visual state screenshot coverage. If `play` leaves a required state before the shared hook runs, add a deterministic story that finishes in that state so it receives its own comparison.
+- Open baseline, actual, and available diff images with image or browser tools for every affected state and viewport. Inspect the rendered result and resolve unintended differences. A passing build or `play`, screenshot file existence, or diff statistics cannot replace image inspection.
+- For new UI without a baseline, inspect the candidate against the intended design before accepting its reference, then rerun normal comparison. For intentional visual changes, update only reviewed affected references with a narrowly scoped `--update`, inspect the resulting images, and rerun without update mode. Never use blanket baseline updates to clear failures.
+
+Pass this gate only when the required stories and screenshot comparisons pass and their images have been reviewed. Use `$devtools-validations` for browser investigation and the supported integrated workflow as needed.
+
+## 6. Verify and reconcile delivery
+
+- Run focused tests at changed domain and persistence, authorization, and controller/channel/projection boundaries. Include rejection paths and observable acceptance criteria. Allocate frontend coverage through the Storybook gate above, retaining tests for distinct behavior it cannot verify.
+- Format touched files and run applicable native checks from the manifests: targeted `mix test`, the affected story and justified separate test suites, `mix assets.lint`, `mix typecheck`, or build checks. Broaden to `just check` for cross-stack or release-relevant changes. Documentation-only work needs documentation validation rather than runtime tests or screenshots.
 - Reconcile every affected task, specification, contract, and durable artifact with verified behavior. Once all recorded delivery work passes, use `$openspec-archive-change`, run `openspec validate --all --strict --no-interactive`, and verify the change is absent from `openspec list --json`.
-- Follow the repository completion and commit policy. Report delivered behavior, whether the persistence gate applied and its evidence, changed contracts, checks run, and remaining risks. Required stale or uncommitted delivery artifacts prevent a completion claim.
+- Follow the repository completion and commit policy. Report delivered behavior, applicable persistence evidence, changed contracts, checks run, and remaining risks. For UI work, include story coverage, reviewed screenshot states/viewports, and intentional baseline changes. Required stale or uncommitted delivery artifacts prevent a completion claim.
