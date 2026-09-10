@@ -15,11 +15,11 @@ The development toolchain SHALL generate one repository-local skill named `phoen
 - **THEN** packages outside `:phoenix` and `~r/^phoenix_/` do not contribute rules to `phoenix-framework`
 
 ### Requirement: Manual guidance ownership
-The development toolchain SHALL preserve root `AGENTS.md` and `.agents/skills/implement-playable-game/` as manually owned guidance.
+The development toolchain SHALL preserve root `AGENTS.md`, `.agents/skills/implement-playable-game/`, and `.agents/skills/implement-shell-feature/` as manually owned guidance.
 
 #### Scenario: Synchronize dependency-managed skills
 - **WHEN** the agent skill synchronization command runs
-- **THEN** it writes the configured `phoenix-framework` skill without adding a generated UsageRules section to `AGENTS.md` or changing the playable-game skill
+- **THEN** it writes the configured `phoenix-framework` skill without adding a generated UsageRules section to `AGENTS.md` or changing either manually owned implementation skill
 
 ### Requirement: Generated skill drift detection
 The repository SHALL provide a read-only check that fails when committed dependency-managed skill content differs from the configured locked dependency rules.

@@ -61,6 +61,7 @@
 
 ## Task Routing
 
+- For adding or extending shell functionality, use [`.agents/skills/implement-shell-feature/SKILL.md`](.agents/skills/implement-shell-feature/SKILL.md).
 - For setup, startup, or local services, read [`README.md`](README.md), [`justfile`](justfile), and the relevant files under `config/`.
 - For the game catalog, read [`config/config.exs`](config/config.exs), [`lib/d20/games/`](lib/d20/games/), and [`test/d20/games/`](test/d20/games/).
 - For session lifecycle, read [`lib/d20/sessions.ex`](lib/d20/sessions.ex), [`lib/d20/sessions/session.ex`](lib/d20/sessions/session.ex), and their tests.
@@ -141,7 +142,7 @@
 ## Contracts and Generated Files
 
 - Skills containing `metadata.managed-by: usage-rules` are generated from locked Mix dependency rules configured in `mix.exs`; update the configuration or dependency and run `mix usage_rules.sync --yes` instead of editing managed sections.
-- Keep `.agents/skills/implement-playable-game/` manually owned and unchanged when synchronizing dependency-managed skills.
+- Keep `.agents/skills/implement-playable-game/` and `.agents/skills/implement-shell-feature/` manually owned and unchanged when synchronizing dependency-managed skills.
 - Review dependency-authored skill diffs after affected dependency updates; root repository guidance remains authoritative when generic package rules conflict with D20 architecture.
 - Update the matching file under [`priv/specs/`](priv/specs/) when channel events, payloads, projections, permissions, or error reasons change.
 - Update channel and projection tests together with public protocol changes.

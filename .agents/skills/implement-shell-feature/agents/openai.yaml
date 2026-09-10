@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement D20 Shell Feature"
+  short_description: "Build D20 shell features with persistence gates"
+  default_prompt: "Use $implement-shell-feature to implement a D20 shell feature and verify its ownership, persistence, and supported workflow."
