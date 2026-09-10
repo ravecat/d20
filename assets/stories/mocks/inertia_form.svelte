@@ -12,6 +12,8 @@
   type Props = {
     action?: FormComponentProps["action"];
     method?: FormComponentProps["method"];
+    errorBag?: FormComponentProps["errorBag"];
+    onBefore?: () => boolean | void;
     disableWhileProcessing?: boolean;
     class?: string;
     children?: Snippet<[SlotProps]>;
@@ -22,6 +24,8 @@
   const {
     action = "",
     method = "get",
+    errorBag: _errorBag,
+    onBefore,
     disableWhileProcessing: _disableWhileProcessing = false,
     children,
     ...rest
@@ -68,7 +72,10 @@
 <form
   action={actionUrl(action)}
   method={htmlFormMethod(action, method)}
-  onsubmit={(event) => event.preventDefault()}
+  onsubmit={(event) => {
+    event.preventDefault();
+    onBefore?.();
+  }}
   {...rest}
 >
   {#if children}

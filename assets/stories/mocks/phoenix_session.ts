@@ -1,4 +1,5 @@
 import { writable, type Readable } from "svelte/store";
+import type { Session } from "~/shared/types/game";
 import type { Workspace, WorkspaceState } from "~/widgets/workspace/model/workspace";
 
 type StorySessionState<T> = {
@@ -16,6 +17,7 @@ type StoryCall = <Response = unknown, Error = unknown>(
 ) => Promise<Response | { error: Error } | undefined>;
 
 type StorySessionController<T> = Readable<StorySessionState<T>> & {
+  detach(): void;
   extend<Extension extends object>(
     factory: (helpers: { call: StoryCall }) => Extension,
   ): StorySessionController<T> & Extension;
@@ -31,7 +33,7 @@ const state = writable<StorySessionState<unknown>>({
 });
 const call: StoryCall = async () => undefined;
 
-export function set(value: Workspace) {
+export function set(value: Workspace | Session) {
   state.set({
     value,
     status: "ready",
@@ -59,6 +61,7 @@ export function clear() {
 
 export function session<T>(): StorySessionController<T> {
   const controller: StorySessionController<T> = {
+    detach: () => undefined,
     subscribe: state.subscribe as Readable<StorySessionState<T>>["subscribe"],
     extend<Extension extends object>(factory: (helpers: { call: StoryCall }) => Extension) {
       return { ...controller, ...factory({ call }) };

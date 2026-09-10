@@ -16,6 +16,7 @@
     method?: FormComponentProps["method"];
     errorBag?: FormComponentProps["errorBag"];
     disableWhileProcessing?: boolean;
+    onBefore?: () => boolean | void;
     onError?: FormComponentProps["onError"];
     onSuccess?: FormComponentProps["onSuccess"];
     class?: string;
@@ -29,6 +30,7 @@
     method = "get",
     errorBag = null,
     disableWhileProcessing: _disableWhileProcessing = false,
+    onBefore,
     onError,
     onSuccess,
     children,
@@ -78,6 +80,10 @@
   });
 
   function submit() {
+    wasSuccessful = false;
+    if (onBefore?.() === false) return;
+    processing = true;
+
     inertiaMock.submitForm(responder, {
       action: actionUrl(action),
       method: formMethod(action, method),
@@ -88,8 +94,6 @@
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
-    processing = true;
-    wasSuccessful = false;
     submit();
   }
 
