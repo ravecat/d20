@@ -120,7 +120,9 @@ Add `assets/stories/pages/public/game.stories.ts` under the existing route-label
 
 Cover playable detail without a Session (`Play`), a waiting Session (`Lobby` and its players/start action), unavailable detail without a Session (`I want this game!`), and authenticated saved interest (disabled `Requested` without a separate success message). Missing Session alone must not imply interest eligibility. Reuse realistic metadata and the existing deterministic transport mocks; extend only the mock lifecycle/state boundary needed by Lobby and reset state between stories. Do not call live Session or interest endpoints. Alias the socket module at the Storybook boundary; exclude the SJSF form/theme packages from dependency prebundling and include their CommonJS jsonpointer dependency, matching the established browser-test package treatment.
 
-Validate activation selection through accessible story assertions, existing page-layout tests, reviewed desktop/tablet/mobile screenshot references and a normal comparison run, frontend lint/type checks, and a Storybook build. Use the existing Storybook browser tab for manual verification. This extends issue #275 and does not resolve its previously recorded delivery blockers.
+Validate activation selection through accessible story assertions, existing page-layout tests, reviewed desktop/tablet/mobile screenshot references and a normal comparison run, frontend lint/type checks, and a Storybook build. Use the existing Storybook browser tab for manual verification.
+
+The separate InterestForm browser tests verify its Inertia transport boundary in Chromium and Firefox: exact original-route submission, before-submit cancellation, pending callbacks, scoped server errors, and membership supplied by refreshed props. Storybook uses a non-submitting Form mock and cannot verify these transport assertions. Retain the existing page contract tests for the larger prop-selection matrix and the layout tests for story metadata; the four production page stories own reviewed visual coverage.
 
 ## Risks / Trade-offs
 
