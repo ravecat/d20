@@ -7,6 +7,7 @@ import authenticatedHome from "~stories/pages/authenticated/home.stories";
 import publicAuthConfirmation, {
   Login as confirmation,
 } from "~stories/pages/public/auth_confirmation.stories";
+import game, * as gameStories from "~stories/pages/public/game.stories";
 import publicHome from "~stories/pages/public/home.stories";
 import about from "~stories/pages/public/about.stories";
 import registrationCompletion, * as registrationCompletionStories from "~stories/pages/public/registration_completion.stories";
@@ -17,6 +18,24 @@ import footer, * as footerStories from "~stories/widgets/footer.stories";
 vi.mock("svelte/reactivity/window", () => ({ scrollY: { current: 0 } }));
 
 describe("Storybook page layout", () => {
+  it("renders game detail states with their route and wide production layout", () => {
+    expect(game.title).toBe("Pages/Public/∕games∕:slug");
+    expect(game.id).toBe("pages-game");
+    for (const { story, url } of [
+      { story: gameStories.WithoutSession, url: "/games/qwinto" },
+      { story: gameStories.WithSession, url: "/games/qwinto?session=session-qwinto" },
+      { story: gameStories.UnavailableGame, url: "/games/183006" },
+      { story: gameStories.Requested, url: "/games/183006" },
+    ]) {
+      const args = { ...game.args, ...story.args };
+      const result = game.decorators[0](undefined, { args });
+      expect(result.Component).toBe(Layout);
+      expect(result.props.variant).toBe("wide");
+      expect(usePage().url).toBe(url);
+      expect(usePage().props.auth).toEqual(args.auth);
+    }
+  });
+
   it("registers the public About page with the shared layout", () => {
     const result = about.decorators[0](undefined);
     expect(result.Component).toBe(Layout);

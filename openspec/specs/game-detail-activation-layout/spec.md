@@ -156,3 +156,12 @@ The system SHALL preserve existing route, session, module, and `SessionPanel` co
 #### Scenario: SessionPanel public props are unchanged
 - **WHEN** the game page renders `SessionPanel`
 - **THEN** it passes only the existing `module` and `connection` props
+
+### Requirement: Game-detail activation states are reviewable in Storybook
+Storybook SHALL expose the production game detail page under a route-like `/games/:slug` group using its production wide layout and deterministic mocked transport state. It SHALL include playable detail without a Session, an existing waiting Session, unavailable detail without a Session, and authenticated saved interest. Stories SHALL verify the visible activation state and SHALL NOT open live Session channels or submit real interest requests.
+
+#### Scenario: Detail activation variants are inspected
+- **WHEN** a developer opens the game-detail stories
+- **THEN** the no-Session playable story shows Play, the waiting-Session story shows Lobby, the unavailable story shows I want this game!, and the saved-interest story shows disabled Requested without a separate success message below the button
+- **AND** each story renders game metadata and description inside the production page layout
+- **AND** the stories have reviewed desktop, tablet, and mobile screenshot references
