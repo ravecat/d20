@@ -369,7 +369,8 @@
     /* Reveal canonical links even when autoplay moved them before the scroll origin.
      * Pointer focus must keep the clicked card still until navigation completes.
      * Keep the CSS clocks paused; clipping clears scroll when keyboard focus leaves. */
-    transform: none !important;
+    /* Keep the CSS compiler from merging away the independent translate reset. */
+    transform: initial !important;
     translate: none !important;
     inset-inline-start: 0 !important;
   }

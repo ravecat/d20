@@ -38,7 +38,8 @@
     gap: 0.4rem;
     border: var(--border) solid var(--inline-notification-accent);
     border-radius: var(--radius-field);
-    background: color-mix(in oklab, var(--inline-notification-accent) 10%, var(--color-base-200));
+    /* Direct theme tokens let forced-dark extensions identify surface colors. */
+    background: color-mix(in oklab, var(--color-info) 10%, var(--color-base-200));
     padding: 0.8rem 0.6rem;
     color: var(--color-base-content);
     font-size: 0.85rem;
@@ -47,10 +48,14 @@
 
   .inline-notification--warning {
     --inline-notification-accent: var(--color-warning);
+
+    background: color-mix(in oklab, var(--color-warning) 10%, var(--color-base-200));
   }
 
   .inline-notification--error {
     --inline-notification-accent: var(--color-error);
+
+    background: color-mix(in oklab, var(--color-error) 10%, var(--color-base-200));
   }
 
   .inline-notification__content {

@@ -4,7 +4,9 @@ import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { playwright } from "@vitest/browser-playwright";
+import browserslist from "browserslist";
 import browserslistToEsbuild from "browserslist-to-esbuild";
+import { browserslistToTargets, Features } from "lightningcss";
 import { phoenixVitePlugin } from "phoenix_vite";
 import { defineConfig } from "vite";
 
@@ -16,6 +18,13 @@ const isVitest = process.env.VITEST === "true";
 
 export default defineConfig({
   root: assetsDir,
+  css: {
+    transformer: "lightningcss",
+    lightningcss: {
+      targets: browserslistToTargets(browserslist(undefined, { path: assetsDir })),
+      include: Features.Nesting,
+    },
+  },
   server: {
     host: true,
     port: staticPort,

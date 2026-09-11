@@ -10,6 +10,7 @@
     <.inertia_title>{assigns[:page_title] || "D20"}</.inertia_title>
     <.inertia_head content={assigns[:inertia_head]} />
     <PhoenixVite.Components.assets
+      crossorigin="anonymous"
       names={["js/app.js", "css/app.css"]}
       manifest={{:d20, "priv/static/.vite/manifest.json"}}
       dev_server={PhoenixVite.Components.has_vite_watcher?(D20Web.Endpoint)}

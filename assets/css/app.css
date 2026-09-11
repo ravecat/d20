@@ -130,9 +130,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-a[href]:hover,
-a[href]:focus-visible,
-a[href][aria-current="page"] {
+:where(a[href]):hover,
+:where(a[href]):focus-visible,
+:where(a[href])[aria-current="page"] {
   color: color-mix(in oklab, var(--color-base-content) 72%, black);
 }
 
