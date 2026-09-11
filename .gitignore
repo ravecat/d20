@@ -60,6 +60,7 @@ coverage/
 .vitest-attachments/
 **/.vitest-attachments/
 /assets/.vitest/
+/assets/tests/**/__screenshots__/
 tmp/
 **/tmp/
 temp/

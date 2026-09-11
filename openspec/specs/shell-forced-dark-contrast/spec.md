@@ -77,7 +77,7 @@ The correction SHALL preserve the selected native light or dark theme, existing 
 
 ### Requirement: Verification covers native themes and the reproduced external transformation
 
-The delivery SHALL verify the forced-dark reproduction in the selected existing development browser and SHALL review representative affected native light/dark Storybook states at desktop, tablet, and mobile sizes. A native dark theme or dark media-query emulation alone MUST NOT be presented as verification of external dynamic recoloring.
+The delivery SHALL verify the forced-dark reproduction in the selected existing development browser and SHALL review representative affected native light/dark Storybook states through generated light/dark by desktop/tablet/mobile screenshot projects. A native dark theme or dark media-query emulation alone MUST NOT be presented as verification of external dynamic recoloring.
 
 #### Scenario: Forced-dark behavior is verified
 - **WHEN** the fix is checked in the existing development browser
@@ -86,7 +86,8 @@ The delivery SHALL verify the forced-dark reproduction in the selected existing 
 - **AND** prepared browser route, viewport, and theme state are restored after inspection
 
 #### Scenario: Native visual references are reviewed
-- **WHEN** representative native light/dark Storybook cases run at desktop, tablet, and mobile sizes
-- **THEN** production components render deterministic native-theme scenarios without live submissions or transports
+- **WHEN** Storybook cases run in each combination of native light/dark theme and desktop/tablet/mobile size
+- **THEN** production components render the same deterministic scenarios in both native themes without theme-only story exports, live submissions, or transports
+- **AND** the project sets its theme and viewport before rendering and interaction execution
 - **AND** affected baseline, actual, and available diff images are inspected before intentional reference updates are accepted
 - **AND** normal screenshot comparisons pass against the reviewed references together with the relevant existing behavior checks

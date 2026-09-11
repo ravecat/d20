@@ -133,11 +133,6 @@ export const EightPlayable: Story = {
   },
 };
 
-export const Dark: Story = {
-  ...Index,
-  globals: { theme: "dark" },
-};
-
 export const NoPlayableGames: Story = {
   args: {
     playableGames: [],

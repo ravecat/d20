@@ -113,6 +113,13 @@ just assets test:visual
 just assets test:visual --update
 ```
 
+The visual config generates six `visual-<theme>-<viewport>` projects from light/dark and desktop/tablet/mobile. Projects run in parallel, with files and stories sequential within each project. References use `assets/__screenshots__/<story-path>/<theme>/<viewport>/chromium/<scenario>-1.png`. Select a subset with native Vitest filters:
+
+```sh
+just assets test --project 'visual-dark-*'
+just assets test --project 'visual-*-mobile'
+```
+
 Storybook runs independently from the routed application workflow. Start `just up` and `just storybook` in separate terminals when both are needed.
 
 ## Local Module Development

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/svelte-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import type { SessionDescriptor } from "~/shared/types/game";
 import { GamePage } from "~/pages/game";
 import { auth } from "~/shared/stores";
@@ -161,5 +161,12 @@ export const Requested: Story = {
     await expect(
       canvas.queryByRole("button", { name: "I want this game!" }),
     ).not.toBeInTheDocument();
+  },
+};
+
+export const HeaderFocused: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.tab();
+    await expect(within(canvasElement).getByRole("link", { name: "D20" })).toHaveFocus();
   },
 };

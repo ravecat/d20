@@ -1,5 +1,5 @@
 @import "@fontsource-variable/noto-sans-mono/wght.css";
-@import "@fontsource/noto-sans-symbols-2/math-400.css";
+@import "@fontsource/noto-sans-math/latin-400.css";
 
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
@@ -122,7 +122,7 @@
 
 html,
 body {
-  font-family: "Noto Sans Mono Variable", "Noto Sans Symbols 2", monospace;
+  font-family: "Noto Sans Mono Variable", "Noto Sans Math", monospace;
   font-size: clamp(1rem, 1vw, 1.75rem);
   font-synthesis: none;
   text-rendering: optimizeLegibility;

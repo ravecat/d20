@@ -12,13 +12,13 @@
     "test": "vitest run",
     "test:browser": "vitest run --project browser",
     "test:unit": "vitest run --project unit",
-    "test:visual": "vitest run --project desktop --project tablet --project mobile",
+    "test:visual": "vitest run --project 'visual-*'",
     "typecheck": "tsc --noEmit -p tsconfig.json && svelte-check --tsconfig tsconfig.json",
     "vitest": "vitest"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-mono": "5.3.0",
-    "@fontsource/noto-sans-symbols-2": "5.3.0",
+    "@fontsource/noto-sans-math": "5.3.0",
     "@inertiajs/svelte": "3.6.0",
     "@rvct/d20sdk": "1.2.0",
     "@sjsf/ajv8-validator": "3.8.0",
