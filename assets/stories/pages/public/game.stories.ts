@@ -4,7 +4,8 @@ import type { SessionDescriptor } from "~/shared/types/game";
 import { GamePage } from "~/pages/game";
 import { auth } from "~/shared/stores";
 import { withLayout } from "~stories/decorators/layout";
-import { reset } from "~stories/mocks/inertia_svelte";
+import { providerOnlyGames } from "~stories/fixtures/home";
+import { reset, setFormHandler } from "~stories/mocks/inertia_svelte";
 import { clear, set } from "~stories/mocks/phoenix_session";
 
 const meta = {
@@ -15,7 +16,11 @@ const meta = {
     (
       story: unknown,
       context: {
-        args: { slug?: string; auth?: InertiaProps["auth"]; session?: SessionDescriptor | null };
+        args: {
+          slug?: string;
+          auth?: InertiaProps["auth"];
+          session?: SessionDescriptor | null;
+        };
       },
     ) =>
       withLayout({
@@ -28,10 +33,12 @@ const meta = {
     auth.trigger.reset();
     clear();
     reset();
+    setFormHandler();
     return () => {
       auth.trigger.reset();
       clear();
       reset();
+      setFormHandler();
     };
   },
   args: {
@@ -52,6 +59,12 @@ const meta = {
     stage: "released",
     playable: true,
     interest: { action: "/games/qwinto/interest", requested: false, count: 12 },
+    favorite: {
+      bggId: 183006,
+      action: "/favorites/183006",
+      slug: "qwinto",
+    },
+    favorites: [],
     game: {
       name: "Qwinto",
       alternateNames: [],
@@ -81,6 +94,10 @@ export const WithoutSession: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Qwinto", level: 1 })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Play" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Add Qwinto to favorites" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect(canvas.queryByRole("list", { name: "Joined players" })).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "I want this game!" }),
@@ -117,6 +134,10 @@ export const WithSession: Story = {
     await expect(players.getByText("Alex")).toBeVisible();
     await expect(players.getByText("Sam")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Start" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Add Qwinto to favorites" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect(canvas.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "I want this game!" }),
@@ -132,10 +153,15 @@ export const UnavailableGame: Story = {
     playable: false,
     schema: null,
     interest: { action: "/games/183006/interest", requested: false, count: 12 },
+    favorite: { ...meta.args.favorite, slug: "183006" },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("button", { name: "I want this game!" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Add Qwinto to favorites" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect(
       canvas.getByRole("button", { name: "I want this game!" }),
     ).toHaveAccessibleDescription("12 players have requested this game.");
@@ -153,6 +179,10 @@ export const Requested: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("button", { name: "Requested" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Add Qwinto to favorites" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect(canvas.getByRole("button", { name: "Requested" })).toHaveAccessibleDescription(
       "13 players have requested this game.",
     );
@@ -168,5 +198,111 @@ export const HeaderFocused: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.tab();
     await expect(within(canvasElement).getByRole("link", { name: "D20" })).toHaveFocus();
+  },
+};
+
+const providerDetail = {
+  auth: { ...meta.args.auth, authenticated: true },
+  id: null,
+  slug: "350736",
+  stage: null,
+  session: null,
+  playable: false,
+  schema: null,
+  interest: { action: "/games/350736/interest", requested: false, count: 12 },
+  game: {
+    ...providerOnlyGames[0].game,
+    categories: ["Exploration", "Nautical"],
+    description: "Chart a route across the open sea and discover distant islands.",
+  },
+  favorite: providerOnlyGames[0].favorite,
+  favorites: [providerOnlyGames[0].id],
+} satisfies Story["args"];
+
+export const FavoriteSaved: Story = {
+  args: providerDetail,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Remove Voyages from favorites" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(canvas.getByRole("heading", { name: "Voyages" })).toBeVisible();
+  },
+};
+
+export const FavoritePending: Story = {
+  args: { ...providerDetail, favorites: [] },
+  beforeEach: () => {
+    setFormHandler(() => new Promise(() => undefined));
+    return () => setFormHandler();
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Add Voyages to favorites" }));
+    await expect(
+      await canvas.findByRole("button", { name: "Add Voyages to favorites" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await expect(canvas.getByRole("button", { name: "Add Voyages to favorites" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Add Voyages to favorites" }).textContent?.trim(),
+    ).toBe("");
+  },
+};
+
+export const FavoriteError: Story = {
+  args: providerDetail,
+  beforeEach: () => {
+    setFormHandler(async () => ({
+      errors: {
+        favorite: "Could not remove this game from favorites. Please retry.",
+      },
+    }));
+    return () => setFormHandler();
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Remove Voyages from favorites" }));
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("status")).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Remove Voyages from favorites" }),
+    ).toHaveAttribute("aria-disabled", "false");
+    await expect(
+      canvas.getByRole("button", { name: "Remove Voyages from favorites" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  },
+};
+
+export const LongTitleFallback: Story = {
+  args: {
+    ...providerDetail,
+    game: {
+      ...providerDetail.game,
+      name: "The Extraordinary Journey Across the Uncharted Northern Archipelago",
+      imageUrl: null,
+      thumbnailUrl: null,
+    },
+    favorites: [],
+  },
+};
+
+export const UntitledFallback: Story = {
+  args: {
+    ...providerDetail,
+    game: {
+      ...providerOnlyGames[0].game,
+      name: null,
+      imageUrl: null,
+      thumbnailUrl: null,
+    },
+    favorites: [],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", { name: "Add to favorites" }),
+    ).toBeVisible();
   },
 };

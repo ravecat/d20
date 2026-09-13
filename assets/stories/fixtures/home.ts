@@ -89,5 +89,15 @@ function game(
     imageUrl: null,
   };
 
-  return { id, slug, stage, game: metadata };
+  return {
+    id,
+    slug,
+    stage,
+    game: metadata,
+    favorite: {
+      bggId: id,
+      action: `/favorites/${id}`,
+      slug,
+    },
+  };
 }

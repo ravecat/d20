@@ -207,7 +207,7 @@ defmodule D20Web.PageControllerTest do
     for bgg_id <- Map.keys(@registered_game_names) do
       bgg_id = String.to_integer(bgg_id)
       entry = Enum.find(games, &(&1.id == bgg_id))
-      assert Enum.sort(Map.keys(entry)) == [:game, :id, :slug, :stage]
+      assert Enum.sort(Map.keys(entry)) == [:favorite, :game, :id, :slug, :stage]
       assert entry.id > 0
       assert entry.slug == slug_by_bgg_id(bgg_id)
     end
@@ -374,8 +374,7 @@ defmodule D20Web.PageControllerTest do
     refute Enum.any?(browse_games, &(&1.id in playable_ids))
     assert Enum.uniq_by(browse_games, & &1.id) == browse_games
 
-    assert_receive {:metadata_ids, playable_bgg_ids}
-    assert playable_bgg_ids == ["425873", "183006", "352418", "353545"]
+    assert_receive {:metadata_ids, ["425873", "183006", "352418", "353545"]}
     assert_receive {:metadata_ids, batch_one}
     assert_receive {:metadata_ids, batch_two}
     assert Enum.sort([length(batch_one), length(batch_two)]) == [12, 20]
@@ -1278,6 +1277,209 @@ defmodule D20Web.PageControllerTest do
 
       Req.Test.text(conn, xml)
     end)
+  end
+
+  test "favorites are private and home reads combined membership once", %{conn: conn} do
+    user = D20.AccountsFixtures.user_fixture()
+    Repo.insert!(%D20.Games.Favorite{user_id: user.id, bgg_id: 183_006})
+    stub_registered_bgg_games()
+    parent = self()
+    handler = "favorite-query-#{System.unique_integer([:positive])}"
+
+    :telemetry.attach(
+      handler,
+      [:d20, :repo, :query],
+      fn _event, _measurements, metadata, owner ->
+        if metadata.source == "game_favorites", do: send(owner, :favorite_query)
+      end,
+      parent
+    )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    response = conn |> log_in_user(user) |> get(~p"/")
+    props = inertia_props(response)
+    assert props.favorites == [183_006]
+    assert_receive :favorite_query
+    refute_receive :favorite_query
+
+    for entry <- props.playableGames ++ props.games do
+      assert entry.favorite == %{
+               bggId: entry.id,
+               action: "/favorites/#{entry.id}",
+               slug: entry.slug
+             }
+    end
+
+    guest = conn |> get(~p"/") |> inertia_props()
+    assert guest.favorites == []
+    refute_receive :favorite_query
+    other = D20.AccountsFixtures.user_fixture()
+    detail = conn |> log_in_user(other) |> get(~p"/games/qwinto") |> inertia_props()
+    assert detail.favorites == []
+  end
+
+  test "provider favorite actions retain the requested slug when normalization would collide", %{
+    conn: conn
+  } do
+    Repo.insert!(%Game{slug: "183006", bgg_id: 900_001, stage: :in_development})
+    stub_bgg_game(@qwinto_xml, "00183006")
+    response = get(conn, ~p"/games/00183006")
+
+    assert inertia_props(response).favorite == %{
+             bggId: 183_006,
+             action: "/favorites/183006",
+             slug: "00183006"
+           }
+  end
+
+  test "favorite descriptor is independent of the validated page Session", %{conn: conn} do
+    user = D20.AccountsFixtures.user_fixture()
+    Repo.insert!(%D20.Games.Favorite{user_id: user.id, bgg_id: 183_006})
+    {:ok, session} = D20.Sessions.create(game_id(183_006), D20.Qwinto.Game, "owner")
+    on_exit(fn -> D20.Sessions.stop(session.id) end)
+    Application.put_env(:d20, :visible_game_stages, [])
+    response = conn |> log_in_user(user) |> get(~p"/games/qwinto?session=#{session.id}")
+
+    assert inertia_props(response).favorites == [183_006]
+    assert inertia_props(response).session.id == session.id
+
+    assert inertia_props(response).favorite == %{
+             bggId: 183_006,
+             action: "/favorites/183006",
+             slug: "qwinto"
+           }
+  end
+
+  test "detail keeps interest and favorite state independent", %{conn: conn} do
+    user = D20.AccountsFixtures.user_fixture()
+    other = D20.AccountsFixtures.user_fixture()
+    assert :ok = D20.Games.Interests.request(user, "voyages")
+    Repo.insert!(%D20.Games.Favorite{user_id: user.id, bgg_id: 350_736})
+
+    page = conn |> log_in_user(user) |> get(~p"/games/voyages") |> inertia_props()
+
+    assert page.playable == false
+    assert page.favorites == [350_736]
+
+    assert page.favorite == %{bggId: 350_736, action: "/favorites/350736", slug: "voyages"}
+
+    assert page.interest == %{action: "/games/voyages/interest", requested: true, count: 1}
+
+    assert :ok = D20.Games.Favorites.delete(user, 350_736)
+    page = conn |> log_in_user(user) |> get(~p"/games/voyages") |> inertia_props()
+    assert page.favorites == []
+    assert page.interest == %{action: "/games/voyages/interest", requested: true, count: 1}
+
+    page = conn |> log_in_user(other) |> get(~p"/games/voyages") |> inertia_props()
+    assert page.favorites == []
+    assert page.interest == %{action: "/games/voyages/interest", requested: false, count: 1}
+  end
+
+  test "membership read failures reach the server error boundary", %{conn: conn} do
+    conn = log_in_user(conn, D20.AccountsFixtures.user_fixture())
+    Repo.query!("ALTER TABLE game_favorites RENAME TO unavailable_game_favorites")
+    assert_raise Postgrex.Error, fn -> get(conn, ~p"/games/qwinto") end
+  end
+
+  test "home favorites partial reloads return private membership and omit catalog props", %{
+    conn: conn
+  } do
+    user = D20.AccountsFixtures.user_fixture()
+    other = D20.AccountsFixtures.user_fixture()
+    Repo.insert!(%D20.Games.Favorite{user_id: user.id, bgg_id: 900_001})
+    Repo.insert!(%D20.Games.Favorite{user_id: other.id, bgg_id: 900_002})
+    conn = log_in_user(conn, user)
+
+    response = conn |> favorites_partial("home") |> get(~p"/")
+    assert json_response(response, 200)["component"] == "home"
+    props = inertia_props(response)
+    assert props.favorites == [900_001]
+    assert props.auth.authenticated
+    refute Map.has_key?(props, :games)
+    refute Map.has_key?(props, :playableGames)
+  end
+
+  test "detail partial reloads resolve metadata and return only requested props", %{conn: conn} do
+    user = D20.AccountsFixtures.user_fixture()
+    Repo.insert!(%D20.Games.Favorite{user_id: user.id, bgg_id: 183_006})
+
+    Req.Test.expect(__MODULE__, fn request ->
+      assert request.params["id"] == "183006"
+      Req.Test.text(request, @qwinto_xml)
+    end)
+
+    response = conn |> log_in_user(user) |> favorites_partial("game") |> get(~p"/games/qwinto")
+    assert json_response(response, 200)["component"] == "game"
+    props = inertia_props(response)
+    assert props.favorites == [183_006]
+    assert props.auth.authenticated
+    refute Map.has_key?(props, :game)
+    refute Map.has_key?(props, :favorite)
+    refute Map.has_key?(props, :schema)
+    refute Map.has_key?(props, :session)
+  end
+
+  test "detail partial reloads preserve missing and hidden game responses", %{conn: conn} do
+    response = conn |> favorites_partial("game") |> get(~p"/games/unavailable")
+    assert html_response(response, 404) == "Not Found"
+
+    Application.put_env(:d20, :visible_game_stages, [])
+    response = conn |> favorites_partial("game") |> get(~p"/games/qwinto")
+    assert html_response(response, 404) == "Not Found"
+  end
+
+  test "detail partial reloads validate Session context before filtering props", %{conn: conn} do
+    {:ok, session} = D20.Sessions.create(game_id(183_006), D20.Qwinto.Game, "owner")
+    {:ok, other} = D20.Sessions.create(game_id(425_873), D20.Qwinto.Game, "owner")
+
+    on_exit(fn ->
+      D20.Sessions.stop(session.id)
+      D20.Sessions.stop(other.id)
+    end)
+
+    Application.put_env(:d20, :visible_game_stages, [])
+
+    for session_id <- ["missing", other.id] do
+      response = conn |> favorites_partial("game") |> get(~p"/games/qwinto?session=#{session_id}")
+      assert redirected_to(response, 303) == ~p"/games/qwinto"
+      assert inertia_errors(response) == %{session: "Session not found."}
+    end
+
+    response = conn |> favorites_partial("game") |> get(~p"/games/qwinto?session=#{session.id}")
+    assert json_response(response, 200)["component"] == "game"
+    assert inertia_props(response).favorites == []
+  end
+
+  test "partial membership failures do not fabricate empty favorites", %{conn: conn} do
+    conn = log_in_user(conn, D20.AccountsFixtures.user_fixture())
+    Repo.query!("ALTER TABLE game_favorites RENAME TO unavailable_game_favorites")
+
+    for {path, component} <- [{"/", "home"}, {"/games/qwinto", "game"}] do
+      assert_raise Postgrex.Error, fn -> conn |> favorites_partial(component) |> get(path) end
+    end
+  end
+
+  test "guest partial returns empty membership without querying storage", %{conn: conn} do
+    Repo.query!("ALTER TABLE game_favorites RENAME TO unavailable_game_favorites")
+    response = conn |> favorites_partial("game") |> get(~p"/games/qwinto")
+    assert inertia_props(response).favorites == []
+    refute inertia_props(response).auth.authenticated
+  end
+
+  defp favorites_partial(conn, component) do
+    version =
+      conn
+      |> delete_req_header("x-inertia")
+      |> get(~p"/about")
+      |> Map.fetch!(:private)
+      |> Map.fetch!(:inertia_version)
+
+    conn
+    |> put_req_header("x-inertia-version", version)
+    |> put_req_header("x-inertia", "true")
+    |> put_req_header("x-inertia-partial-component", component)
+    |> put_req_header("x-inertia-partial-data", "favorites,auth,errors")
   end
 
   defp stub_registered_bgg_games(overrides \\ %{}, names \\ @registered_game_names) do

@@ -5,6 +5,7 @@ import type {
   Page,
   PageProps,
   Router,
+  VisitOptions,
 } from "@inertiajs/core";
 import type { InertiaForm, InertiaFormProps } from "@inertiajs/svelte";
 import { vi } from "vitest";
@@ -20,8 +21,11 @@ export type FormSubmission = {
   method: string;
   data: Record<string, FormDataConvertible | FormDataConvertible[]>;
   errorBag?: string;
+  options?: VisitOptions;
 };
 type FormResponder = {
+  cancel: () => void;
+  networkError: () => void;
   error: (errors: Record<string, string>) => void;
   success: () => void;
 };
@@ -79,6 +83,7 @@ const defaultPage = (): Page<PageProps> => ({
       },
     },
     errors: {},
+    favorites: [],
   },
   rescuedProps: [],
   rememberedState: {},
@@ -134,7 +139,10 @@ const inertiaMock = {
     return () => {
       formResponders.delete(responder);
 
-      if (pendingFormResponder === responder) pendingFormResponder = undefined;
+      if (pendingFormResponder === responder) {
+        responder.cancel();
+        pendingFormResponder = undefined;
+      }
     };
   },
   submitForm(responder: FormResponder, submission: FormSubmission) {
@@ -145,6 +153,9 @@ const inertiaMock = {
   },
   respondWithErrors(errors: Record<string, string>) {
     takePendingFormResponder().error(errors);
+  },
+  respondWithNetworkError() {
+    takePendingFormResponder().networkError();
   },
   respondWithSuccess() {
     takePendingFormResponder().success();

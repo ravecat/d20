@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     type FormComponentProps,
+    type VisitOptions,
     type FormComponentSlotProps,
     type FormDataConvertible,
     formDataToObject,
@@ -16,7 +17,10 @@
     method?: FormComponentProps["method"];
     errorBag?: FormComponentProps["errorBag"];
     disableWhileProcessing?: boolean;
-    onBefore?: () => boolean | void;
+    options?: VisitOptions;
+    onBefore?: FormComponentProps["onBefore"];
+    onStart?: FormComponentProps["onStart"];
+    onFinish?: FormComponentProps["onFinish"];
     onError?: FormComponentProps["onError"];
     onSuccess?: FormComponentProps["onSuccess"];
     class?: string;
@@ -30,7 +34,10 @@
     method = "get",
     errorBag = null,
     disableWhileProcessing: _disableWhileProcessing = false,
+    options,
     onBefore,
+    onStart,
+    onFinish,
     onError,
     onSuccess,
     children,
@@ -42,16 +49,27 @@
   let processing = $state(false);
   let wasSuccessful = $state(false);
   const responder = {
+    cancel() {
+      processing = false;
+      onFinish?.({} as never);
+    },
+    networkError() {
+      options?.onNetworkError?.(new Error("Connection lost"));
+      processing = false;
+      onFinish?.({} as never);
+    },
     error(nextErrors: Record<string, string>) {
       errors = nextErrors;
       processing = false;
       onError?.(nextErrors);
+      onFinish?.({} as never);
     },
     success() {
       errors = {};
       processing = false;
       wasSuccessful = true;
       onSuccess?.(inertiaMock.page);
+      onFinish?.({} as never);
     },
   };
   const slotProps = $derived<SlotProps>({
@@ -80,15 +98,16 @@
   });
 
   function submit() {
-    wasSuccessful = false;
-    if (onBefore?.() === false) return;
+    if (onBefore?.({} as never) === false) return;
     processing = true;
-
+    wasSuccessful = false;
+    onStart?.({} as never);
     inertiaMock.submitForm(responder, {
       action: actionUrl(action),
       method: formMethod(action, method),
       data: getData(),
       ...(errorBag ? { errorBag } : {}),
+      ...(options ? { options } : {}),
     });
   }
 

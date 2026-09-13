@@ -1,5 +1,6 @@
 <script lang="ts">
   import { usePage } from "@inertiajs/svelte";
+  import { FavoriteButton } from "~/features/favorite-game";
   import type { Schema } from "@sjsf/form";
   import {
     AgeLabel,
@@ -11,6 +12,7 @@
   } from "~/shared/components";
   import type {
     GameInterest,
+    FavoriteDescriptor,
     GameMetadata,
     GameStage,
     SessionDescriptor,
@@ -25,11 +27,22 @@
     playable: boolean;
     interest: GameInterest;
     game: GameMetadata;
+    favorite: FavoriteDescriptor;
+    favorites?: number[];
     schema: Schema | null;
     session?: SessionDescriptor | null;
   }>;
 
-  const { slug, playable, interest, game, schema, session = null }: Props = $props();
+  const {
+    slug,
+    playable,
+    interest,
+    game,
+    favorite,
+    favorites = [],
+    schema,
+    session = null,
+  }: Props = $props();
   const page = usePage();
 </script>
 
@@ -53,6 +66,20 @@
         {/if}
 
         <div class="game-detail-preview__shade" aria-hidden="true"></div>
+        <div class="game-detail-heading">
+          {#if game.name}
+            <div class="game-detail-chip">
+              <h1 class="game-detail-chip__title">{game.name}</h1>
+            </div>
+          {/if}
+          <div class="game-detail-favorite">
+            <FavoriteButton
+              saved={favorites.includes(favorite.bggId)}
+              {favorite}
+              title={game.name}
+            />
+          </div>
+        </div>
         {#if game.mechanics.length > 0 || game.categories.length > 0}
           <div class="game-detail-metadata">
             {#if game.categories.length > 0}
@@ -73,11 +100,6 @@
                 {/each}
               </div>
             {/if}
-          </div>
-        {/if}
-        {#if game.name}
-          <div class="game-detail-chip">
-            <h1 class="game-detail-chip__title">{game.name}</h1>
           </div>
         {/if}
       </div>
@@ -149,7 +171,11 @@
 
   .game-detail-preview {
     position: relative;
-    display: block;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
     aspect-ratio: 3.9 / 1;
     inline-size: 100%;
     min-block-size: 11.5rem;
@@ -196,13 +222,23 @@
     pointer-events: none;
   }
 
-  .game-detail-chip {
-    position: absolute;
-    inset-inline-start: 1rem;
-    inset-block-start: 1rem;
+  .game-detail-heading {
+    position: relative;
     z-index: 2;
-    max-inline-size: calc(100% - 2rem);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem;
+  }
+
+  .game-detail-chip {
+    min-inline-size: 0;
     color: white;
+  }
+
+  .game-detail-favorite {
+    grid-column: 2;
+    justify-self: end;
   }
 
   .game-detail-chip__title {
@@ -241,9 +277,7 @@
   }
 
   .game-detail-metadata {
-    position: absolute;
-    inset-inline: 1rem 1rem;
-    inset-block-end: 1rem;
+    position: relative;
     z-index: 2;
     display: flex;
     flex-direction: column;
@@ -357,12 +391,21 @@
       min-block-size: 13rem;
     }
 
+    .game-detail-preview {
+      padding: 0.75rem;
+    }
+
+    .game-detail-heading {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .game-detail-favorite {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
     .game-detail-chip {
-      inset-inline-start: 0.75rem;
-      inset-inline-end: auto;
-      inset-block-start: 0.75rem;
-      inset-block-end: auto;
-      max-inline-size: calc(100% - 1.5rem);
+      grid-row: 2;
     }
   }
 </style>

@@ -7,6 +7,7 @@ import { GamePage } from "~/pages/game";
 import type { SessionState, SessionStore } from "~/shared/stores";
 import type { GameMetadata, Session } from "~/shared/types/game";
 import inertiaMock from "../../../mocks/inertia";
+import { auth as authStore } from "~/shared/stores/auth";
 
 const qwintoId = "game_01h45yhtgqfhxbcrsfbhxdsdvy";
 const koalaId = "game_01h45y0sxkfmntta78gqs1vsw6";
@@ -76,15 +77,183 @@ const nextStationSchema: Schema = {
 
 afterEach(() => {
   sessionMock.createSession.mockClear();
+  authStore.trigger.reset();
+  vi.unstubAllGlobals();
 });
 
 describe("game detail page", () => {
+  it("submits the hero through Inertia and reads saved state from server props", async () => {
+    const props = {
+      auth: { ...auth, authenticated: true },
+      id: null,
+      slug: "350736",
+      stage: null,
+      favorite: {
+        bggId: 350736,
+        action: "/favorites/350736",
+        slug: "350736",
+      },
+      favorites: [] as number[],
+      playable: false,
+      interest: {
+        action: "/games/350736/interest",
+        requested: false,
+        count: 0,
+      },
+      schema: null,
+      session: null,
+      game: gameMetadata({ name: "Voyages" }),
+    };
+    inertiaMock.setPage({
+      url: "/games/350736?session=table",
+      props: { ...inertiaMock.page.props, auth: props.auth },
+    });
+    const { rerender } = render(GamePage, props);
+    const favoriteButton = screen.getByRole("button", {
+      name: "Add Voyages to favorites",
+    });
+    expect(favoriteButton.textContent?.trim()).toBe("");
+    await fireEvent.click(favoriteButton);
+    expect(favoriteButton.textContent?.trim()).toBe("");
+    expect(favoriteButton.getAttribute("aria-busy")).toBe("true");
+    expect(favoriteButton.getAttribute("aria-disabled")).toBe("true");
+    await fireEvent.click(favoriteButton);
+    expect(inertiaMock.formSubmit).toHaveBeenCalledTimes(1);
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith({
+      action: "/favorites/350736",
+      method: "put",
+      data: { slug: "350736", response_to: "/games/350736?session=table" },
+      options: expect.objectContaining({
+        only: ["favorites", "auth", "errors"],
+        preserveState: true,
+        preserveScroll: true,
+      }),
+    });
+    expect(
+      screen.getByRole("button", { name: "Add Voyages to favorites" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+    inertiaMock.setPage({
+      props: { ...inertiaMock.page.props, favorites: [350736] },
+    });
+    await rerender({ ...props, favorites: [350736] });
+    inertiaMock.respondWithSuccess();
+    flushSync();
+    expect(favoriteButton.textContent?.trim()).toBe("");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: "Remove Voyages from favorites" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    await fireEvent.click(screen.getByRole("button", { name: "Remove Voyages from favorites" }));
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: "/favorites/350736",
+        method: "delete",
+        data: { response_to: "/games/350736?session=table" },
+      }),
+    );
+    expect(favoriteButton.textContent?.trim()).toBe("");
+    expect(favoriteButton.getAttribute("aria-busy")).toBe("true");
+    expect(favoriteButton.getAttribute("aria-disabled")).toBe("true");
+    expect(favoriteButton.getAttribute("aria-label")).toBe("Remove Voyages from favorites");
+    inertiaMock.respondWithNetworkError();
+    flushSync();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: "Remove Voyages from favorites" })
+        .getAttribute("aria-disabled"),
+    ).toBe("false");
+    expect(
+      screen
+        .getByRole("button", { name: "Remove Voyages from favorites" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(sessionMock.createSession).not.toHaveBeenCalled();
+  });
+
+  it("uses fresh account props and prompts guests or expired sessions without replay", async () => {
+    const props = {
+      auth,
+      id: null,
+      slug: "350736",
+      stage: null,
+      favorite: {
+        bggId: 350736,
+        action: "/favorites/350736",
+        slug: "350736",
+      },
+      favorites: [] as number[],
+      playable: false,
+      interest: {
+        action: "/games/350736/interest",
+        requested: false,
+        count: 0,
+      },
+      schema: null,
+      session: null,
+      game: gameMetadata({ name: "Voyages" }),
+    };
+    inertiaMock.setPage({ props: { ...inertiaMock.page.props, auth } });
+    const { rerender } = render(GamePage, props);
+    await fireEvent.click(screen.getByRole("button", { name: "Add Voyages to favorites" }));
+    expect(authStore.getSnapshot().context.open).toBe(true);
+    expect(inertiaMock.formSubmit).not.toHaveBeenCalled();
+    authStore.trigger.close();
+    inertiaMock.setPage({
+      props: { ...inertiaMock.page.props, auth: { ...auth, authenticated: true } },
+    });
+    expect(inertiaMock.formSubmit).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole("button", { name: "Add Voyages to favorites" }));
+    expect(inertiaMock.formSubmit).toHaveBeenCalledTimes(1);
+    inertiaMock.respondWithSuccess();
+    flushSync();
+    inertiaMock.setPage({ props: { ...inertiaMock.page.props, auth } });
+    await fireEvent.click(screen.getByRole("button", { name: "Add Voyages to favorites" }));
+    expect(authStore.getSnapshot().context.open).toBe(true);
+    expect(inertiaMock.formSubmit).toHaveBeenCalledTimes(1);
+    authStore.trigger.close();
+    inertiaMock.setPage({
+      props: { ...inertiaMock.page.props, auth: { ...auth, authenticated: true } },
+    });
+    await rerender({ ...props, favorites: [350736] });
+    expect(
+      screen
+        .getByRole("button", { name: "Remove Voyages from favorites" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(inertiaMock.formSubmit).toHaveBeenCalledTimes(1);
+    await fireEvent.click(screen.getByRole("button", { name: "Remove Voyages from favorites" }));
+    inertiaMock.respondWithErrors({
+      authentication: "Sign in to save favorites.",
+    });
+    inertiaMock.setPage({ props: { ...inertiaMock.page.props, auth } });
+    await rerender(props);
+    expect(authStore.getSnapshot().context.open).toBe(true);
+    expect(inertiaMock.formSubmit).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("button", { name: "Add Voyages to favorites" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
   it("renders runtime title, preview image, and description", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata({
         name: "Resolved Qwinto",
@@ -116,9 +285,18 @@ describe("game detail page", () => {
   it("renders provider metadata labels in the activation panel", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata({
         minPlayers: 2,
@@ -148,9 +326,18 @@ describe("game detail page", () => {
   it("renders single metadata values without fake ranges", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata({
         minPlayers: 1,
@@ -171,9 +358,18 @@ describe("game detail page", () => {
   it("renders minimum-only play time as an open-ended value", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata({
         playingTime: null,
@@ -192,9 +388,18 @@ describe("game detail page", () => {
   it("omits missing provider metadata labels", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata({
         name: null,
@@ -229,9 +434,18 @@ describe("game detail page", () => {
   it("keeps available metadata while omitting missing metadata labels", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata({
         minPlayers: 2,
@@ -258,18 +472,27 @@ describe("game detail page", () => {
   it("posts session creation to the slug-based route", async () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata(),
       playable: true,
       schema: emptySchema,
     });
 
-    expect(document.querySelector("button")?.textContent).toContain("Play");
+    expect(screen.getByRole("button", { name: "Play" }).textContent).toContain("Play");
 
-    document.querySelector("button")?.click();
+    screen.getByRole("button", { name: "Play" }).click();
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledWith(
@@ -280,7 +503,11 @@ describe("game detail page", () => {
     });
   });
 
-  it("keeps a query session in the lobby until it starts", () => {
+  it("saves only game data while retaining the query session and active lobby", async () => {
+    inertiaMock.setPage({
+      url: "/games/qwinto?session=session-a",
+      props: { ...inertiaMock.page.props, auth: { ...auth, authenticated: true } },
+    });
     const session = {
       id: "session-a",
       gameId: qwintoId,
@@ -289,10 +516,19 @@ describe("game detail page", () => {
     };
 
     render(GamePage, {
-      auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      auth: { ...auth, authenticated: true },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata(),
       playable: true,
@@ -304,6 +540,20 @@ describe("game detail page", () => {
     expect(document.body.textContent).toContain("Start");
     expect(document.body.textContent).toContain("Ada");
     expect(document.body.textContent).not.toContain("Play");
+    await fireEvent.click(screen.getByRole("button", { name: "Add Qwinto to favorites" }));
+    expect(inertiaMock.formSubmit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: "/favorites/183006",
+        method: "put",
+        data: {
+          slug: "qwinto",
+          response_to: "/games/qwinto?session=session-a",
+        },
+      }),
+    );
+    expect(waitingDetach).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Start" })).toBeTruthy();
+    expect(screen.getByText("Ada")).toBeTruthy();
   });
 
   it("requests a page refresh without detaching the active lobby", async () => {
@@ -316,9 +566,18 @@ describe("game detail page", () => {
 
     const { unmount } = render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata(),
       playable: true,
@@ -349,9 +608,18 @@ describe("game detail page", () => {
   it("detaches a waiting session when the caller leaves before Start", () => {
     const { unmount } = render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata(),
       playable: true,
@@ -372,23 +640,36 @@ describe("game detail page", () => {
   it("posts a selected enum value from the creation form schema", async () => {
     const { getByRole } = render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: koalaId,
       slug: "koala-rescue-club",
+      favorite: {
+        bggId: 360471,
+        action: "/favorites/360471",
+        slug: "koala-rescue-club",
+      },
       stage: "released",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       schema: koalaSchema,
       playable: true,
     });
 
-    const defaultSheet = getByRole("radio", { name: "dharug" }) as HTMLInputElement;
-    const selectedSheet = getByRole("radio", { name: "yugambeh" }) as HTMLInputElement;
+    const defaultSheet = getByRole("radio", {
+      name: "dharug",
+    }) as HTMLInputElement;
+    const selectedSheet = getByRole("radio", {
+      name: "yugambeh",
+    }) as HTMLInputElement;
 
     expect(defaultSheet.checked).toBe(true);
     expect(selectedSheet.checked).toBe(false);
 
     await fireEvent.click(selectedSheet);
-    document.querySelector("button")?.click();
+    screen.getByRole("button", { name: "Play" }).click();
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledWith(
@@ -402,16 +683,25 @@ describe("game detail page", () => {
   it("shows an Inertia field error on the SJSF control", async () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: koalaId,
       slug: "koala-rescue-club",
+      favorite: {
+        bggId: 360471,
+        action: "/favorites/360471",
+        slug: "koala-rescue-club",
+      },
       stage: "released",
       game: gameMetadata({ name: "Koala Rescue Club" }),
       schema: koalaSchema,
       playable: true,
     });
 
-    document.querySelector("button")?.click();
+    screen.getByRole("button", { name: "Play" }).click();
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledOnce();
@@ -436,9 +726,18 @@ describe("game detail page", () => {
 
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       game: gameMetadata(),
       playable: true,
@@ -451,9 +750,18 @@ describe("game detail page", () => {
   it("renders boolean schema properties as checkboxes and posts typed values", async () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: nextStationId,
       slug: "next-station-london",
+      favorite: {
+        bggId: 353545,
+        action: "/favorites/353545",
+        slug: "next-station-london",
+      },
       stage: "in_development",
       game: gameMetadata({ name: "Next Station London" }),
       schema: nextStationSchema,
@@ -468,7 +776,7 @@ describe("game detail page", () => {
     expect(objectives.checked).toBe(false);
     expect(powers.checked).toBe(false);
     powers.click();
-    document.querySelector("button")?.click();
+    screen.getByRole("button", { name: "Play" }).click();
 
     await vi.waitFor(() => {
       expect(inertiaMock.router.post).toHaveBeenCalledWith(
@@ -482,9 +790,18 @@ describe("game detail page", () => {
   it("does not infer interest eligibility from a missing playable schema", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/qwinto/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/qwinto/interest",
+        requested: false,
+        count: 0,
+      },
       id: qwintoId,
       slug: "qwinto",
+      favorite: {
+        bggId: 183006,
+        action: "/favorites/183006",
+        slug: "qwinto",
+      },
       stage: "released",
       playable: true,
       schema: null,
@@ -492,15 +809,25 @@ describe("game detail page", () => {
     });
 
     expect(screen.queryByRole("button", { name: "I want this game!" })).toBeNull();
-    expect(document.querySelector("form")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add Qwinto to favorites" })).toBeTruthy();
   });
 
   it("renders the interest form for provider-only details", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/350736/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/350736/interest",
+        requested: false,
+        count: 0,
+      },
       id: null,
       slug: "350736",
+      favorite: {
+        bggId: 350736,
+        action: "/favorites/350736",
+        slug: "350736",
+      },
       stage: null,
       playable: false,
       schema: null,
@@ -512,6 +839,8 @@ describe("game detail page", () => {
     expect(screen.getByText("Chart a course.")).toBeTruthy();
     expect(screen.getByLabelText("Players").textContent).toContain("2-6");
     expect(screen.getByRole("button", { name: "I want this game!" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add Voyages to favorites" })).toBeTruthy();
     expect(sessionMock.createSession).not.toHaveBeenCalled();
     expect(inertiaMock.formSubmit).not.toHaveBeenCalled();
   });
@@ -519,9 +848,18 @@ describe("game detail page", () => {
   it("keeps game details visible with the interest form when play is unavailable", () => {
     render(GamePage, {
       auth,
-      interest: { action: "/games/voyages/interest", requested: false, count: 0 },
+      interest: {
+        action: "/games/voyages/interest",
+        requested: false,
+        count: 0,
+      },
       id: voyagesId,
       slug: "voyages",
+      favorite: {
+        bggId: 350736,
+        action: "/favorites/350736",
+        slug: "voyages",
+      },
       stage: "in_development",
       playable: false,
       schema: null,
@@ -532,6 +870,7 @@ describe("game detail page", () => {
     expect(document.body.textContent).toContain("Chart a course.");
     expect(screen.getByRole("button", { name: "I want this game!" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add Voyages to favorites" })).toBeTruthy();
   });
 });
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formDataToObject } from "@inertiajs/core";
+  import { submitForm } from "./inertia_svelte";
   import type {
     FormComponentProps,
     FormComponentSlotProps,
@@ -13,8 +15,12 @@
     action?: FormComponentProps["action"];
     method?: FormComponentProps["method"];
     errorBag?: FormComponentProps["errorBag"];
-    onBefore?: () => boolean | void;
     disableWhileProcessing?: boolean;
+    options?: FormComponentProps["options"];
+    onBefore?: FormComponentProps["onBefore"];
+    onStart?: FormComponentProps["onStart"];
+    onFinish?: FormComponentProps["onFinish"];
+    onError?: FormComponentProps["onError"];
     class?: string;
     children?: Snippet<[SlotProps]>;
   };
@@ -25,16 +31,23 @@
     action = "",
     method = "get",
     errorBag: _errorBag,
-    onBefore,
     disableWhileProcessing: _disableWhileProcessing = false,
     children,
+    options: _options,
+    onBefore,
+    onStart,
+    onFinish,
+    onError,
     ...rest
   }: Props = $props();
 
-  const slotProps: SlotProps = {
-    errors: {},
-    hasErrors: false,
-    processing: false,
+  let formElement: HTMLFormElement;
+  let processing = $state(false);
+  let errors = $state<Record<string, string>>({});
+  const slotProps = $derived<SlotProps>({
+    errors,
+    hasErrors: Object.keys(errors).length > 0,
+    processing,
     progress: null,
     wasSuccessful: false,
     recentlySuccessful: false,
@@ -54,7 +67,29 @@
     touch: () => undefined,
     touched: () => false,
     validator: () => ({}) as ReturnType<SlotProps["validator"]>,
-  };
+  });
+
+  async function handleSubmit(event: SubmitEvent) {
+    event.preventDefault();
+    if (onBefore?.({} as never) === false) return;
+    processing = true;
+    errors = {};
+    onStart?.({} as never);
+    try {
+      const response = await submitForm({
+        action: actionUrl(action),
+        method: (typeof action === "string" ? method : action?.method) ?? "get",
+        data: formDataToObject(new FormData(formElement)),
+      });
+      if (response?.errors) {
+        errors = response.errors;
+        onError?.(errors);
+      }
+    } finally {
+      processing = false;
+      onFinish?.({} as never);
+    }
+  }
 
   function actionUrl(value: FormComponentProps["action"]) {
     return typeof value === "string" ? value : (value?.url ?? "");
@@ -70,12 +105,10 @@
 </script>
 
 <form
+  bind:this={formElement}
   action={actionUrl(action)}
   method={htmlFormMethod(action, method)}
-  onsubmit={(event) => {
-    event.preventDefault();
-    onBefore?.();
-  }}
+  onsubmit={handleSubmit}
   {...rest}
 >
   {#if children}

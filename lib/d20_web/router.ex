@@ -65,6 +65,9 @@ defmodule D20Web.Router do
     get "/games", PageController, :games
     get "/games/:slug", PageController, :game
     post "/games/:slug/sessions", PageController, :create_game_session
+
+    put "/favorites/:bgg_id", GameFavoriteController, :update
+    delete "/favorites/:bgg_id", GameFavoriteController, :delete
   end
 
   scope "/", D20Web do

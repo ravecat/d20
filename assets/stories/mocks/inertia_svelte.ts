@@ -40,6 +40,7 @@ export function reset() {
 const preventVisit = () => undefined;
 
 export const router = {
+  on: () => () => undefined,
   get: preventVisit,
   post: preventVisit,
 };
@@ -53,4 +54,23 @@ export function inertia(node: HTMLElement) {
   return {
     destroy: () => node.removeEventListener("click", preventNavigation),
   };
+}
+
+export type StoryFormSubmission = {
+  action: string;
+  method: string;
+  data: Record<string, unknown>;
+};
+export type StoryFormResponse = { errors?: Record<string, string> };
+let formHandler: ((submission: StoryFormSubmission) => Promise<StoryFormResponse>) | undefined;
+export const formRequests: StoryFormSubmission[] = [];
+
+export function setFormHandler(handler?: typeof formHandler) {
+  formHandler = handler;
+  formRequests.length = 0;
+}
+
+export function submitForm(submission: StoryFormSubmission) {
+  formRequests.push(submission);
+  return formHandler?.(submission);
 }

@@ -17,11 +17,18 @@ export interface GameMetadata {
   rating?: number | null;
 }
 
+export interface FavoriteDescriptor {
+  bggId: number;
+  action: string;
+  slug: string;
+}
+
 export interface GameCatalogEntry {
   id: number;
   slug: string;
   stage: GameStage | null;
   game: GameMetadata;
+  favorite: FavoriteDescriptor;
 }
 
 export type GameStage = "in_development" | "released";

@@ -15,6 +15,7 @@ defmodule D20.Games do
   alias D20.Games.Metadata
   alias D20.Games.Sources.BoardGameGeek
   alias D20.Repo
+  alias D20.Sessions
 
   import Ecto.Query, warn: false
 
@@ -207,6 +208,31 @@ defmodule D20.Games do
         end
     end
   end
+
+  @doc "Resolves the Session and visibility of a fetched game."
+  @spec resolve_session(map(), term()) :: {:ok, map() | nil} | {:error, term()}
+  def resolve_session(%{entry: nil}, nil), do: {:ok, nil}
+  def resolve_session(%{entry: nil}, _session_id), do: {:error, :session_not_found}
+
+  def resolve_session(%{entry: game}, nil) do
+    if visible?(game), do: {:ok, nil}, else: {:error, :game_not_found}
+  end
+
+  def resolve_session(%{entry: %{id: game_id, slug: slug}}, session_id)
+      when is_binary(session_id) do
+    case Sessions.get(session_id) do
+      {:ok, {_session, ^game_id}} ->
+        {:ok, %{id: session_id, game_id: TypeID.to_string(game_id), slug: slug}}
+
+      {:ok, {_session, _other_game_id}} ->
+        {:error, :session_game_mismatch}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def resolve_session(%{entry: _game}, _session_id), do: {:error, :session_not_found}
 
   @doc """
   Loads one persisted catalog game by required external slug without enriching

@@ -4,6 +4,7 @@ defmodule D20Web.PageController do
   require Logger
 
   alias D20.Games
+  alias D20.Games.Favorites
   alias D20.Games.Interests
   alias D20.Sessions
   alias D20Web.SessionChannel
@@ -14,13 +15,20 @@ defmodule D20Web.PageController do
 
   @spec home(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def home(conn, _params) do
-    {:ok, playable_games} =
-      Games.list_playable(limit: @playable_limit, order_by: [desc: :stage, asc: :id])
+    conn
+    |> assign_prop(:favorites, fn ->
+      Enum.map(Favorites.list(conn.assigns.current_user), & &1.bgg_id)
+    end)
+    |> assign_prop(:playable_games, fn ->
+      {:ok, games} =
+        Games.list_playable(limit: @playable_limit, order_by: [desc: :stage, asc: :id])
 
-    browse_games =
+      Enum.map(games, &catalog_entry/1)
+    end)
+    |> assign_prop(:games, fn ->
       case Games.list_by_provider() do
         {:ok, games} ->
-          games
+          Enum.map(games, &catalog_entry/1)
 
         {:error, _reason} ->
           Logger.warning(
@@ -29,21 +37,12 @@ defmodule D20Web.PageController do
 
           []
       end
-
-    conn
-    |> assign_prop(
-      :playable_games,
-      Enum.map(playable_games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
-        %{id: id, slug: slug, stage: stage, game: Map.from_struct(game)}
-      end)
-    )
-    |> assign_prop(
-      :games,
-      Enum.map(browse_games, fn %{id: id, slug: slug, stage: stage, metadata: game} ->
-        %{id: id, slug: slug, stage: stage, game: Map.from_struct(game)}
-      end)
-    )
+    end)
     |> render_inertia("home")
+  end
+
+  defp catalog_entry(%{id: id, slug: slug, stage: stage, metadata: game}) do
+    %{id: id, slug: slug, stage: stage, game: Map.from_struct(game), favorite: favorite(id, slug)}
   end
 
   @spec about(Plug.Conn.t(), params()) :: Plug.Conn.t()
@@ -73,6 +72,11 @@ defmodule D20Web.PageController do
 
   @spec game(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def game(conn, %{"slug" => slug} = params) do
+    conn =
+      assign_prop(conn, :favorites, fn ->
+        Enum.map(Favorites.list(conn.assigns.current_user), & &1.bgg_id)
+      end)
+
     case Games.fetch_by_slug(slug) do
       {:ok, detail} ->
         conn
@@ -81,14 +85,29 @@ defmodule D20Web.PageController do
           requested: Interests.requested?(conn.assigns.current_user, detail.bgg_id),
           count: Interests.count(detail.bgg_id)
         })
-        |> render_game_detail(detail, params["session"])
+        |> render_game_detail(detail, slug, params["session"])
 
       {:error, _reason} ->
         send_not_found(conn)
     end
   end
 
-  defp render_game_detail(conn, %{entry: nil, slug: slug, metadata: metadata}, nil) do
+  defp render_game_detail(conn, detail, requested_slug, session_id) do
+    case Games.resolve_session(detail, session_id) do
+      {:ok, session} ->
+        conn = assign_prop(conn, :favorite, favorite(detail.bgg_id, requested_slug))
+
+        render_resolved_game(conn, detail, session)
+
+      {:error, reason} when reason in [:session_not_found, :session_game_mismatch] ->
+        redirect_to_game_with_error(conn, detail.slug, "Session not found.")
+
+      {:error, _reason} ->
+        send_not_found(conn)
+    end
+  end
+
+  defp render_resolved_game(conn, %{entry: nil, slug: slug, metadata: metadata}, nil) do
     conn
     |> assign_prop(:id, nil)
     |> assign_prop(:slug, slug)
@@ -100,42 +119,8 @@ defmodule D20Web.PageController do
     |> render_inertia("game")
   end
 
-  defp render_game_detail(conn, %{entry: nil, slug: slug}, _session_id) do
-    redirect_to_game_with_error(conn, slug, "Session not found.")
-  end
-
-  defp render_game_detail(conn, %{entry: game, metadata: metadata}, session_id) do
-    with {:ok, session} <- resolve_game_session(game, session_id),
-         true <- Games.visible?(game) or not is_nil(session) do
-      playable = Games.session_launch_available?(game)
-
-      schema =
-        if playable and not is_nil(game.engine) do
-          game.engine |> D20.Game.changeset() |> to_schema()
-        else
-          nil
-        end
-
-      conn
-      |> assign_prop(:id, TypeID.to_string(game.id))
-      |> assign_prop(:slug, game.slug)
-      |> assign_prop(:stage, game.stage)
-      |> assign_prop(:playable, playable)
-      |> assign_prop(:game, Map.from_struct(metadata))
-      |> assign_prop(:schema, schema)
-      |> assign_prop(:session, session)
-      |> render_inertia("game")
-    else
-      false ->
-        send_not_found(conn)
-
-      {:error, reason} when reason in [:session_not_found, :session_game_mismatch] ->
-        redirect_to_game_with_error(conn, game.slug, "Session not found.")
-
-      {:error, _reason} ->
-        send_not_found(conn)
-    end
-  end
+  defp render_resolved_game(conn, %{entry: game, metadata: metadata}, session),
+    do: render_game(conn, game, metadata, session)
 
   @spec create_game_session(Plug.Conn.t(), params()) :: Plug.Conn.t()
   def create_game_session(conn, %{"slug" => slug} = params) do
@@ -181,6 +166,27 @@ defmodule D20Web.PageController do
     |> redirect(to: ~p"/games/#{slug}")
   end
 
+  defp render_game(conn, game, metadata, session) do
+    playable = Games.session_launch_available?(game)
+
+    conn
+    |> assign_prop(:id, TypeID.to_string(game.id))
+    |> assign_prop(:slug, game.slug)
+    |> assign_prop(:stage, game.stage)
+    |> assign_prop(:playable, playable)
+    |> assign_prop(:game, Map.from_struct(metadata))
+    |> assign_prop(:schema, fn ->
+      if playable and not is_nil(game.engine) do
+        game.engine |> D20.Game.changeset() |> to_schema()
+      end
+    end)
+    |> assign_prop(
+      :session,
+      if(session, do: Map.put(session, :topic, SessionChannel.topic(session.id)))
+    )
+    |> render_inertia("game")
+  end
+
   defp authorize_session_launch(game) do
     if Games.session_launch_available?(game),
       do: :ok,
@@ -195,25 +201,8 @@ defmodule D20Web.PageController do
     |> Map.put("default", defaults)
   end
 
-  defp resolve_game_session(_game, nil), do: {:ok, nil}
-
-  defp resolve_game_session(%{id: game_id, slug: slug}, session_id) do
-    case Sessions.get(session_id) do
-      {:ok, {_session, ^game_id}} ->
-        {:ok,
-         %{
-           id: session_id,
-           game_id: TypeID.to_string(game_id),
-           slug: slug,
-           topic: SessionChannel.topic(session_id)
-         }}
-
-      {:ok, {_session, _other_game_id}} ->
-        {:error, :session_game_mismatch}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+  defp favorite(bgg_id, slug) do
+    %{bgg_id: bgg_id, action: ~p"/favorites/#{bgg_id}", slug: slug}
   end
 
   @spec send_not_found(Plug.Conn.t()) :: Plug.Conn.t()
