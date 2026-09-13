@@ -567,3 +567,20 @@ Fresh evidence under `/tmp/d20-favorite-delivery`:
 The prior Storybook/screenshot/rendered-review waiver remains in effect; no fresh visual or motion pass is claimed. Tasks 4.3/4.4/4.5/4.7/5.1/6.3/7.2/8.2 remain open, including incomplete full cross-stack acceptance and unauthorized target rollout. Task 20.2 transfer is pending. Task 20.3 cannot safely complete while the pre-existing PostgreSQL process uses the worktree's `.pg_data` and editor/services remain active; retain the source worktree and local branch without force deletion. No commit, transfer or cleanup is claimed by this preparation record.
 
 Strict validation after authoritative synchronization passed all 88 items with zero failures (`openspec-sync.log`). Task 20.1 is verified; current progress is 48/58, with the eight wider gates and pending transfer/retirement tasks still open. All required planning artifacts report done; implementation was not started by this specification-only reconciliation.
+
+
+## Verified local master transfer - 2026-09-13
+
+Committed the owning implementation, migration, tests, fixtures, prior scoped reference changes and synchronized specifications as `fbda52cf14eabcc2bbaa2658b6e68e26a3ba666e` (`feat(games): add private account favorites`). Pinned master was `31a50f2334b53ad04a66be83f0cadeb4ce7a5f99`. Rebase was a no-op on that exact base; the committed candidate passed 140 focused domain/controller tests and 16 semantic browser checks before the clean local master was fast-forwarded. Candidate ancestry and clean target state were verified. No remote publication or deployment occurred.
+
+Post-transfer validation ran from `/home/max/apps/d20` and its `assets/` directory:
+
+- `CI=true MIX_ENV=test MIX_TEST_PARTITION=_favorites_delivery nix develop --command mix test test/d20/games/favorites_test.exs test/d20/games_test.exs test/d20_web/controllers/game_favorite_controller_test.exs test/d20_web/controllers/page_controller_test.exs`: 140 passed.
+- `bun run format.check`, `bun run lint`, and `bun run typecheck`: passed; zero Svelte errors/warnings.
+- `bun run test:unit`: 81 passed across 12 files.
+- `bun run test:browser -- tests/pages/home/ui/home.browser.test.ts tests/pages/home/ui/game-collection.browser.test.ts tests/shared/components/favorite_button.browser.test.ts -t 'attributes Hot|delivers pointer|keeps .*playable games|keeps processing local|keeps confirmed' --browser.screenshotFailures=false`: 16 passed, 12 filtered out across Chromium/Firefox.
+- `CI=true MIX_ENV=test MIX_TEST_PARTITION=_favorites_delivery nix develop --command mix openspec.check`: passed for 10 active changes. Synced strict OpenSpec validation passed all 88 items.
+
+Logs are `/tmp/d20-favorite-delivery/candidate-*.log` and `master-*.log`. All 414 screenshot reference paths/content hashes matched the task-start baseline before commit. Existing visual waiver and the three pre-existing Koala Credo findings remain explicit limitations; no full CI or fresh visual pass is claimed.
+
+Task 20.2 is verified and reconciled with issue #123. This record is a separate documentation finalization commit because post-transfer results followed the semantic implementation commit. Progress is 49/58. The eight wider acceptance/rollout/archive gates remain open. Task 20.3 remains open: the pre-existing PostgreSQL process uses `.worktrees/game-favorites/.pg_data`, with active user editor/services in the worktree. Preserve the clean worktree and local branch; do not stop user runtime, remove its data or force retirement. The feature issue remains In Progress and this change remains active pending its wider gates.
