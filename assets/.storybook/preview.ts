@@ -1,7 +1,6 @@
 import type { Preview } from "@storybook/svelte-vite";
 import { withThemeByDataAttribute } from "@storybook/addon-themes";
 import "../css/app.css";
-import "./preview.css";
 
 const preview: Preview = {
   decorators: [

@@ -149,10 +149,6 @@ export const AutoSelection: Story = {
         name: "Compact Game session session-b",
       }),
     ).toBeVisible();
-
-    for (const animation of document.getAnimations()) {
-      animation.cancel();
-    }
   },
 };
 
@@ -229,10 +225,6 @@ export const ConnectionStatuses: Story = {
       await expect(status).toBeVisible();
     }
     await expect(canvas.getByText("Finished", { exact: true })).toBeVisible();
-
-    for (const animation of document.getAnimations()) {
-      animation.cancel();
-    }
   },
 };
 
@@ -270,10 +262,6 @@ export const Reconnecting: Story = {
     );
     await expect(canvas.getByText("Reconnecting", { exact: true })).toBeVisible();
     await expect(canvas.getByText("Session reconnecting", { exact: true })).toBeVisible();
-
-    for (const animation of document.getAnimations()) {
-      animation.cancel();
-    }
   },
 };
 
@@ -309,9 +297,5 @@ export const Failed: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Compact Game session failed" }));
     await expect(canvas.getByText("Failed", { exact: true })).toBeVisible();
     await expect(canvas.getByText("Session failed", { exact: true })).toBeVisible();
-
-    for (const animation of document.getAnimations()) {
-      animation.cancel();
-    }
   },
 };
