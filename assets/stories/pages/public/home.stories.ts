@@ -14,8 +14,12 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
-  beforeEach: () => {
+  beforeEach: async () => {
     auth.trigger.reset();
+    if (import.meta.env.VITEST === "true") {
+      const { userEvent: browserUserEvent } = await import("vitest/browser");
+      await browserUserEvent.unhover(document.body, { position: { x: 0, y: 0 } });
+    }
     return () => auth.trigger.reset();
   },
   args: {
@@ -44,7 +48,7 @@ async function expectCollections(
   { playableGames, games }: { playableGames: GameCatalogEntry[]; games: GameCatalogEntry[] },
 ) {
   const main = within(within(canvasElement).getByRole("main"));
-  await expect(main.getByRole("heading", { name: "Hot (by BGG)", level: 1 })).toBeInTheDocument();
+  await expect(main.getByRole("heading", { name: "Games", level: 1 })).toBeInTheDocument();
   await expect(
     main.queryAllByRole("heading", { level: 2 }).map((heading) => heading.textContent?.trim()),
   ).toEqual([
@@ -54,7 +58,7 @@ async function expectCollections(
   await expect(main.queryAllByRole("button", { name: /favorites/ })).toHaveLength(
     playableGames.length + games.length,
   );
-  await expect(main.getByRole("status").textContent?.trim()).toBe("");
+  await expect(main.queryByRole("status")).not.toBeInTheDocument();
 
   for (const [name, entries] of [
     ["Playable", playableGames],

@@ -14,8 +14,12 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
-  beforeEach: () => {
+  beforeEach: async () => {
     auth.trigger.reset();
+    if (import.meta.env.VITEST === "true") {
+      const { userEvent: browserUserEvent } = await import("vitest/browser");
+      await browserUserEvent.unhover(document.body, { position: { x: 0, y: 0 } });
+    }
     return () => auth.trigger.reset();
   },
   args: {

@@ -95,23 +95,31 @@ describe("home page", () => {
   it("tabs through both canonical lanes and excludes loop copies", async () => {
     await page.viewport(320, 900);
     await render(HomePage, { auth, playableGames: [], games: fourBrowseGames });
+    const afterGames = document.createElement("button");
+    afterGames.textContent = "After games";
+    document.body.append(afterGames);
 
-    const games = page.getByRole("region", { name: "Hot (by BGG)" });
-    games.getByRole("link", { name: "by BGG" }).element().focus();
-    const names = ["Voyages", "Death Valley", "Deep Sea Adventure", "Confusing Lands"];
-    expect(games.getByRole("link").elements()).toHaveLength(names.length + 1);
+    try {
+      const games = page.getByRole("region", { name: "Hot (by BGG)" });
+      games.getByRole("link", { name: "by BGG" }).element().focus();
+      const names = ["Voyages", "Death Valley", "Deep Sea Adventure", "Confusing Lands"];
+      expect(games.getByRole("link").elements()).toHaveLength(names.length + 1);
 
-    for (const name of names) {
+      for (const name of names) {
+        await userEvent.tab();
+        await expect.element(games.getByRole("link", { name })).toHaveFocus();
+        await expect(games).toMatchScreenshot(`focus-${name.toLowerCase().replace(/ /g, "-")}.png`);
+        await userEvent.tab();
+        await expect
+          .element(games.getByRole("button", { name: `Add ${name} to favorites` }))
+          .toHaveFocus();
+      }
       await userEvent.tab();
-      await expect.element(games.getByRole("link", { name })).toHaveFocus();
-      await expect(games).toMatchScreenshot(`focus-${name.toLowerCase().replace(/ /g, "-")}.png`);
-      await userEvent.tab();
-      await expect
-        .element(games.getByRole("button", { name: `Add ${name} to favorites` }))
-        .toHaveFocus();
+      await expect.element(page.getByRole("button", { name: "After games" })).toHaveFocus();
+      expect(games.element().contains(document.activeElement)).toBe(false);
+    } finally {
+      afterGames.remove();
     }
-    await userEvent.tab();
-    expect(games.element().contains(document.activeElement)).toBe(false);
   });
 
   for (const reducedMotion of [false, true]) {
