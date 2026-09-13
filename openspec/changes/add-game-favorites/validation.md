@@ -584,3 +584,12 @@ Post-transfer validation ran from `/home/max/apps/d20` and its `assets/` directo
 Logs are `/tmp/d20-favorite-delivery/candidate-*.log` and `master-*.log`. All 414 screenshot reference paths/content hashes matched the task-start baseline before commit. Existing visual waiver and the three pre-existing Koala Credo findings remain explicit limitations; no full CI or fresh visual pass is claimed.
 
 Task 20.2 is verified and reconciled with issue #123. This record is a separate documentation finalization commit because post-transfer results followed the semantic implementation commit. Progress is 49/58. The eight wider acceptance/rollout/archive gates remain open. Task 20.3 remains open: the pre-existing PostgreSQL process uses `.worktrees/game-favorites/.pg_data`, with active user editor/services in the worktree. Preserve the clean worktree and local branch; do not stop user runtime, remove its data or force retirement. The feature issue remains In Progress and this change remains active pending its wider gates.
+
+
+## Source worktree retired - 2026-09-13
+
+The user explicitly requested removal after the verified master transfer. Both the source worktree and master were clean at `a5f57bfdefafb266a72c1a9bd6af5f6fb9c08d56`; source ancestry in master was verified. No Phoenix, Vite or Storybook runtime was active. PostgreSQL had no client connections and was stopped normally with PostgreSQL 17 `pg_ctl stop -m fast -w`.
+
+Preserved its data directory at `/home/max/.local/state/d20/retired-worktrees/game-favorites-20260913/postgres`. Normal `git worktree remove` removed registration but reported a nonempty residual directory containing image artifacts. Preserved that remaining directory at `/home/max/.local/state/d20/retired-worktrees/game-favorites-20260913/remaining-files`, then deleted the fully integrated local branch with `git branch -d worktree/game-favorites`. No force removal, force branch deletion, data reset or editor shutdown was used.
+
+Verified that the original worktree path, Git worktree registration and local candidate branch are absent. User editor/tool processes were preserved. Task 20.3 is complete; progress is 50/58, with the eight broader acceptance/rollout/archive gates still open. This lifecycle closeout record is committed in the surviving primary checkout after retirement; no replacement worktree or product changes are required. Issue #123 remains In Progress.
