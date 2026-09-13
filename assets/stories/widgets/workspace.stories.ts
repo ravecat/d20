@@ -100,7 +100,9 @@ export const AutoSelection: Story = {
     });
     await expect(
       within(
-        canvas.getByRole("group", { name: "Game session session-a window controls" }),
+        canvas.getByRole("group", {
+          name: "Game session session-a window controls",
+        }),
       ).getAllByRole("button"),
     ).toEqual([closeFirst, enterFullscreen, compactRestored]);
 
@@ -117,10 +119,19 @@ export const AutoSelection: Story = {
     restoreWithKeyboard.focus();
     await userEvent.keyboard(" ");
     await expect(
-      await canvas.findByRole("button", { name: "Compact Game session session-a" }),
+      await canvas.findByRole("button", {
+        name: "Compact Game session session-a",
+      }),
     ).toBeVisible();
 
-    await userEvent.click(enterFullscreen);
+    // Fullscreen requires trusted user activation in browser tests.
+    if (import.meta.env.VITEST === "true") {
+      const { userEvent: browserUserEvent } = await import("vitest/browser");
+      await browserUserEvent.click(enterFullscreen);
+      await browserUserEvent.unhover(enterFullscreen);
+    } else {
+      await userEvent.click(enterFullscreen);
+    }
     const exitFullscreen = await canvas.findByRole("button", {
       name: "Exit Game session session-a fullscreen",
     });
@@ -134,7 +145,9 @@ export const AutoSelection: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Compact Game session session-a" }));
     await userEvent.click(canvas.getByRole("button", { name: "Expand Game session session-b" }));
     await expect(
-      await canvas.findByRole("button", { name: "Compact Game session session-b" }),
+      await canvas.findByRole("button", {
+        name: "Compact Game session session-b",
+      }),
     ).toBeVisible();
 
     for (const animation of document.getAnimations()) {

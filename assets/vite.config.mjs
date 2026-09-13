@@ -42,6 +42,7 @@ const visualProjects = themes.flatMap((theme) =>
         },
       ],
       test: {
+        env: { VITEST: "true" },
         fileParallelism: false,
         setupFiles: [path.join(storybookDir, "vitest.setup.ts")],
         browser: {

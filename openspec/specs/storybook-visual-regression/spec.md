@@ -193,3 +193,15 @@ The Storybook catalog SHALL declare each meaningful scenario once and SHALL obta
 - **AND** obsolete viewport-first Storybook references and theme-only alias references are removed
 - **AND** standalone browser test references remain unchanged
 - **AND** normal comparison passes after explicit native reference generation and review
+
+### Requirement: Fullscreen interaction validation uses trusted browser input
+
+The Workspace interaction story SHALL validate actual fullscreen entry and exit without depending on trace recording to produce incidental user activation.
+
+#### Scenario: Run the fullscreen story through the native test command
+
+- **WHEN** AutoSelection runs in the Vitest visual project
+- **THEN** the visual project's documented environment marker selects the public Vitest Browser native click API for fullscreen entry, independently of `--mode`
+- **AND** the existing enter/exit, keyboard, focus and semantic assertions remain unchanged
+- **AND** the test does not mock fullscreen or bypass browser activation requirements
+- **AND** ordinary Storybook development and production builds retain their portable interaction path without requiring the Vitest browser runtime
