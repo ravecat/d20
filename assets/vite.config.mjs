@@ -16,91 +16,6 @@ const browserTargets = browserslistToEsbuild(undefined, { path: assetsDir });
 const staticPort = Number(process.env.STATIC_PORT || "5174");
 const isVitest = process.env.VITEST === "true";
 
-const themes = ["light", "dark"];
-const viewports = ["desktop", "tablet", "mobile"];
-const visualProjects = themes.flatMap((theme) =>
-  viewports.map((viewport) => {
-    const name = `visual-${theme}-${viewport}`;
-
-    return {
-      extends: true,
-      optimizeDeps: {
-        exclude: ["@storybook/svelte"],
-      },
-      plugins: [
-        storybookTest({
-          configDir: storybookDir,
-          initialGlobals: {
-            theme,
-            viewport: { value: viewport },
-          },
-        }),
-        {
-          name: "visual-project-cache",
-          enforce: "post",
-          config: () => ({ cacheDir: path.join(assetsDir, ".vitest/cache", name) }),
-        },
-      ],
-      test: {
-        env: { VITEST: "true" },
-        fileParallelism: false,
-        setupFiles: [path.join(storybookDir, "vitest.setup.ts")],
-        browser: {
-          enabled: true,
-          headless: true,
-          instances: [{ browser: "chromium", name }],
-          trace: {
-            mode: "retain-on-failure",
-            tracesDir: path.join(assetsDir, ".vitest/traces", name),
-          },
-          expect: {
-            toMatchScreenshot: {
-              resolveDiffPath: ({
-                arg,
-                attachmentsDir,
-                browserName,
-                ext,
-                root: projectRoot,
-                testFileDirectory,
-                testFileName,
-              }) =>
-                path.join(
-                  projectRoot,
-                  attachmentsDir,
-                  testFileDirectory,
-                  testFileName,
-                  theme,
-                  viewport,
-                  browserName,
-                  `${arg}${ext}`,
-                ),
-              resolveScreenshotPath: ({
-                arg,
-                browserName,
-                ext,
-                root: projectRoot,
-                screenshotDirectory,
-                testFileDirectory,
-                testFileName,
-              }) =>
-                path.join(
-                  projectRoot,
-                  screenshotDirectory,
-                  testFileDirectory,
-                  testFileName,
-                  theme,
-                  viewport,
-                  browserName,
-                  `${arg}${ext}`,
-                ),
-            },
-          },
-        },
-      },
-    };
-  }),
-);
-
 export default defineConfig({
   root: assetsDir,
   css: {
@@ -213,7 +128,101 @@ export default defineConfig({
           },
         },
       },
-      ...visualProjects,
+      {
+        extends: true,
+        optimizeDeps: {
+          exclude: ["@storybook/svelte"],
+        },
+        plugins: [
+          storybookTest({ configDir: storybookDir }),
+          {
+            name: "visual-project-cache",
+            enforce: "post",
+            config: () => ({
+              cacheDir: path.join(assetsDir, ".vitest/cache", "visual"),
+            }),
+          },
+        ],
+        test: {
+          name: "visual",
+          env: { VITEST: "true" },
+          fileParallelism: true,
+          maxWorkers: 2,
+          sequence: { groupOrder: 1 },
+          setupFiles: [path.join(storybookDir, "vitest.setup.ts")],
+          browser: {
+            enabled: true,
+            headless: true,
+            instances: ["light", "dark"].flatMap((theme) =>
+              ["desktop", "tablet", "mobile"].map((viewport) => ({
+                browser: "chromium",
+                name: `visual-${theme}-${viewport}`,
+                provide: {
+                  visualGlobals: { theme, viewport: { value: viewport } },
+                },
+              })),
+            ),
+            trace: {
+              mode: "off",
+              tracesDir: path.join(assetsDir, ".vitest/traces"),
+            },
+            expect: {
+              toMatchScreenshot: {
+                resolveDiffPath: ({
+                  project,
+                  arg,
+                  attachmentsDir,
+                  browserName,
+                  ext,
+                  root: projectRoot,
+                  testFileDirectory,
+                  testFileName,
+                }) => {
+                  const {
+                    theme,
+                    viewport: { value: viewport },
+                  } = project.getProvidedContext().visualGlobals;
+                  return path.join(
+                    projectRoot,
+                    attachmentsDir,
+                    testFileDirectory,
+                    testFileName,
+                    theme,
+                    viewport,
+                    browserName,
+                    `${arg}${ext}`,
+                  );
+                },
+                resolveScreenshotPath: ({
+                  project,
+                  arg,
+                  browserName,
+                  ext,
+                  root: projectRoot,
+                  screenshotDirectory,
+                  testFileDirectory,
+                  testFileName,
+                }) => {
+                  const {
+                    theme,
+                    viewport: { value: viewport },
+                  } = project.getProvidedContext().visualGlobals;
+                  return path.join(
+                    projectRoot,
+                    screenshotDirectory,
+                    testFileDirectory,
+                    testFileName,
+                    theme,
+                    viewport,
+                    browserName,
+                    `${arg}${ext}`,
+                  );
+                },
+              },
+            },
+          },
+        },
+      },
     ],
   },
 });

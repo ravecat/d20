@@ -25,6 +25,13 @@ Frontend acceleration evaluation SHALL measure complete command wall time on a n
 
 Execution optimizations SHALL retain the existing machine and OS by default, the relevant unit responsibilities, Chromium and Firefox behavior checks, every light/dark by desktop/tablet/mobile visual cell, and the accepted semantic, interaction, accessibility, and screenshot contracts.
 
+#### Scenario: Select an implementation mechanism
+
+- **WHEN** an optimization candidate is proposed or evaluated
+- **THEN** its changes use documented configuration, native CLI flags, or public APIs of the tools
+- **AND** dependency patches, forks, monkey-patching, and private internal APIs are excluded, even when the patch distribution mechanism is documented
+- **AND** an internal defect without an eligible public mechanism or verified supported release fix is deferred rather than modified locally
+
 #### Scenario: A candidate appears faster by doing less verification
 
 - **WHEN** a candidate skips a browser, matrix cell, meaningful assertion, story interaction, or accessibility check, clips captured content, or weakens screenshot acceptance or timeout budgets
@@ -101,7 +108,7 @@ Isolation or visual-project consolidation candidates SHALL preserve per-test ind
 - **THEN** each discovered story still executes once in every required theme and viewport cell
 - **AND** supported APIs establish instance-specific globals before render and play
 - **AND** references and generated evidence retain correct paths without collisions
-- **AND** dependence on a private Storybook injection key is recorded as an unresolved support decision rather than accepted silently
+- **AND** a candidate depending on a private Storybook injection key is rejected under the public-interface constraint
 
 ### Requirement: Scheduling and preparation savings preserve deterministic work
 
@@ -136,7 +143,7 @@ A reduced development policy SHALL NOT be treated as sufficient delivery validat
 
 ### Requirement: Candidate adoption follows specification and authorization gates
 
-This change SHALL remain a strategy-only delivery until a separate request authorizes experiments or implementation. Each candidate SHALL be recorded as measured and adopted, rejected, or deferred with its evidence and tradeoffs, and only selected candidates SHALL alter their owning runtime contracts.
+Specification preparation SHALL remain a strategy-only delivery until a separate request authorizes experiments or implementation. Each candidate SHALL be recorded as measured and adopted, rejected, or deferred with its evidence and tradeoffs, and only selected candidates SHALL alter their owning runtime contracts.
 
 #### Scenario: Complete specification preparation
 
@@ -152,3 +159,14 @@ This change SHALL remain a strategy-only delivery until a separate request autho
 - **AND** the selected combination is measured rather than adding unrelated candidate savings
 - **AND** the relevant native tests, lint/type checks, Storybook build, and broader validation pass according to touched scope
 - **AND** rollback restores the prior candidate configuration or supported dependency state without changing unrelated work or accepting new reference pixels
+
+#### Scenario: Evaluate candidates sequentially after authorization
+
+- **WHEN** the user authorizes the first screenshot shutdown cleanup experiment
+- **THEN** only that candidate and its baseline and regression validation are performed, preserving default tracing, selected test identities, references, and screenshot timeout budgets
+- **AND** any correction uses an eligible documented setting, public API, or verified supported upstream release; the rejected internal patch remains evidence only and is removed from the runtime and package manifests
+- **AND** if an eligible cleanup is adopted, successful capture and early failure release the unused timer while stalled capture preserves its effective timeout and abort behavior; rejected or deferred cleanup retains the original runtime and reports the remaining shutdown delay
+- **AND** repeated before/after results and any full-suite validation limitations are presented for user review
+- **AND** research iterations use a small representative file/project scope, with identical selected cases before and after; broad validation is deferred to the selected combination before final delivery
+- **AND** a subsequent explicit request may authorize a complete sequential sweep without per-candidate approval, while retaining the same public-interface, measurement, and coverage constraints
+- **AND** when the user requests an uncommitted review state, the combined implementation and evidence remain in the owning worktree without a commit or integration until a later explicit request authorizes delivery

@@ -1,9 +1,5 @@
-# storybook-visual-regression Specification
+## MODIFIED Requirements
 
-## Purpose
-
-Define deterministic light/dark by desktop/tablet/mobile visual comparison of Storybook-rendered D20 states through the existing Vitest Browser toolchain, including native review evidence, explicit reference acceptance, and preservation of existing non-visual coverage.
-## Requirements
 ### Requirement: Every discovered story has responsive image references
 
 The frontend package SHALL transform every story discovered by Storybook into a Chromium Vitest Browser Mode test and SHALL compare its complete rendered document against committed light and dark image references at desktop, tablet, and mobile sizes.
@@ -66,24 +62,6 @@ The frontend package SHALL keep reviewed screenshot references under version con
 - **THEN** Vitest creates the candidate reference and fails the comparison
 - **AND** a contributor must review the candidate and run a normal comparison before the reference is accepted as passing
 
-### Requirement: Reference updates require explicit acceptance
-
-The visual workflow SHALL separate ordinary comparison from intentional reference updates and SHALL require no external visual-testing service.
-
-#### Scenario: Accept an intentional visual change
-
-- **WHEN** a contributor confirms that a rendered change is intentional
-- **THEN** the contributor regenerates affected references through Vitest's explicit `--update` mode
-- **AND** reviews added, changed, and removed images in Git
-- **AND** removes stale references left by renamed or deleted stories
-- **AND** reruns normal comparison successfully against the reviewed references
-
-#### Scenario: Use visual regression without a cloud account
-
-- **WHEN** a contributor runs, reviews, reports, or updates visual comparisons
-- **THEN** no external account, project token, hosted snapshot service, or remote baseline store is required
-- **AND** references remain repository files
-
 ### Requirement: One Vitest command surface preserves existing coverage
 
 The frontend test command SHALL run existing unit and cross-browser behavior tests together with Storybook visual projects without replacing their established environments, browsers, or responsibilities.
@@ -124,79 +102,7 @@ The frontend test command SHALL run existing unit and cross-browser behavior tes
 - **AND** any file concurrency or browser isolation setting is adopted only after equivalent repeated runs and changed-order independence checks
 - **AND** native instance names and artifact directories distinguish all matrix cells without collisions
 
-### Requirement: Repository validation and documentation include visual regression
-
-The repository SHALL include Storybook visual comparison in its established frontend test validation and SHALL document the essential reference lifecycle without duplicating upstream tool documentation.
-
-#### Scenario: Run aggregate repository checks
-
-- **WHEN** a contributor runs `just check`
-- **THEN** the existing `mix assets.test` boundary runs the Storybook theme and viewport projects and their screenshot comparisons in addition to existing frontend tests
-- **AND** missing or changed visual references cause aggregate validation to fail
-- **AND** the static Storybook build remains a separate required check
-
-#### Scenario: Discover the visual workflow
-
-- **WHEN** a contributor reads the repository Storybook and story-convention documentation
-- **THEN** they can identify the pinned Chromium setup, normal comparison, and explicit update commands
-- **AND** the tracked reference hierarchy, two native themes, six project names, and three named viewport dimensions
-- **AND** the requirement that stories remain deterministic and isolated from live application boundaries
-
-### Requirement: Storybook interactions use deterministic component state
-
-Storybook stories that own user interaction behavior SHALL express that behavior through a `play` function, SHALL remain isolated from live application transports, and SHALL run in the generated Chromium visual theme and viewport projects before screenshot comparison.
-
-#### Scenario: Workspace interaction stories use deterministic state
-
-- **WHEN** a Workspace interaction story is prepared
-- **THEN** a Storybook-only `phoenix-session` fixture supplies its complete deterministic session value through `set`
-- **AND** shared transport states use a direct reactive status control
-- **AND** initial, ready, and cleared state values remain inline and create fresh nested records
-- **AND** the story returns `clear` as its cleanup
-- **AND** the production Workspace state and runtime session implementation remain unchanged
-- **AND** production component changes remain limited to compact-status presentation
-
-#### Scenario: Workspace interaction behavior runs in the visual matrix
-
-- **WHEN** the frontend test workflow runs
-- **THEN** the Auto selection story verifies initial selection, Compact restoration, selection switching, keyboard activation, focus order, and fullscreen controls through accessible queries
-- **AND** one ready connection-status story renders three sessions, including two Live sessions, one Finished session, and a long-identifier case
-- **AND** dedicated Reconnecting and Failed stories present their shared Workspace transport overlays directly
-- **AND** accessibility remains a cross-cutting addon check instead of receiving a dedicated Workspace story
-- **AND** the generated light/dark by desktop/tablet/mobile Chromium Storybook projects execute each retained story before visual comparison
-
-#### Scenario: Ready compact statuses share stable typography
-
-- **WHEN** Live and Finished sessions render together in the ready connection-status story
-- **THEN** each compact status dot and label group remains centered in its fixed-width control
-- **AND** Live and Finished use the same reduced font size without state-specific typography overrides
-- **AND** both native themes at desktop, tablet, and mobile sizes preserve the reviewed Chromium presentation
-
-#### Scenario: Superseded browser harness is removed
-
-- **WHEN** the retained Storybook stories and lower-layer Workspace tests cover the former browser harness responsibilities
-- **THEN** the manual Workspace browser harness is removed
-- **AND** lower-layer model and presentation tests retain authoritative snapshot, Phoenix-session, SDK and frame lifecycle, subscription cleanup, and model-contract responsibilities
-- **AND** Storybook does not duplicate those lower-layer implementation assertions as separate catalog stories
-
-### Requirement: Stories represent scenarios independently of visual theme
-
-The Storybook catalog SHALL declare each meaningful scenario once and SHALL obtain native light/dark visual coverage from the generated project matrix. Theme-only Dark exports and theme overrides that defeat matrix selection MUST be removed while meaningful fixtures and interactions remain available.
-
-#### Scenario: A contributor selects a scenario in Storybook
-
-- **WHEN** a contributor opens a retained story such as Requested or HeaderFocused
-- **THEN** the catalog has no duplicate entry whose only distinction is a dark theme
-- **AND** the existing theme toolbar can switch that scenario between native light and dark
-- **AND** the existing default light theme and available-canvas viewport behavior remain intact
-
-#### Scenario: Existing Storybook references migrate to the matrix
-
-- **WHEN** the visual matrix replaces the previous viewport-only projects
-- **THEN** each retained story has a reviewed native reference in every theme and viewport combination
-- **AND** obsolete viewport-first Storybook references and theme-only alias references are removed
-- **AND** standalone browser test references remain unchanged
-- **AND** normal comparison passes after explicit native reference generation and review
+## ADDED Requirements
 
 ### Requirement: Fullscreen interaction validation uses trusted browser input
 

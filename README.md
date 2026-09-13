@@ -113,7 +113,7 @@ just assets test:visual
 just assets test:visual --update
 ```
 
-The visual config generates six `visual-<theme>-<viewport>` projects from light/dark and desktop/tablet/mobile. Projects run in parallel, with files and stories sequential within each project. References use `assets/__screenshots__/<story-path>/<theme>/<viewport>/chromium/<scenario>-1.png`. Select a subset with native Vitest filters:
+Visual tests cover light and dark themes at desktop, tablet, and mobile sizes. References use `assets/__screenshots__/<story-path>/<theme>/<viewport>/chromium/<scenario>-1.png`. Select a subset with native Vitest filters:
 
 ```sh
 just assets test --project 'visual-dark-*'
