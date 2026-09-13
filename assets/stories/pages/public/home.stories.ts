@@ -3,7 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import type { GameCatalogEntry } from "~/shared/types/game";
 import { HomePage } from "~/pages/home";
 import { auth } from "~/shared/stores";
-import { fourBrowseGames, threePlayableGames } from "~stories/fixtures/home";
+import { homeBrowseGames, threePlayableGames } from "~stories/fixtures/home";
 import { withLayout } from "~stories/decorators/layout";
 
 const meta = {
@@ -36,7 +36,7 @@ const meta = {
       },
     },
     playableGames: threePlayableGames,
-    games: fourBrowseGames,
+    games: homeBrowseGames,
   },
 } satisfies Meta<typeof HomePage>;
 

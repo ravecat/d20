@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/svelte-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { HomePage } from "~/pages/home";
 import { auth } from "~/shared/stores";
-import { fourBrowseGames, homeBrowseGames, threePlayableGames } from "~stories/fixtures/home";
+import { homeBrowseGames, threePlayableGames } from "~stories/fixtures/home";
 import { formRequests, setFormHandler } from "~stories/mocks/inertia_svelte";
 import { withLayout } from "~stories/decorators/layout";
 
@@ -44,7 +44,7 @@ const meta = {
     },
     favorites: [],
     playableGames: threePlayableGames,
-    games: fourBrowseGames,
+    games: homeBrowseGames,
   },
 } satisfies Meta<typeof HomePage>;
 
