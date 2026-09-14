@@ -305,10 +305,13 @@ defmodule D20.NextStationLondon.Rules do
     tourist_score = Ruleset.tourist_score(tourist_marks)
     interchange_counts = interchange_counts(player)
 
-    interchange_score =
-      Enum.reduce(interchange_counts, 0, fn {line_count, count}, total ->
-        total + count * Ruleset.interchange_score(line_count)
+    interchange_points =
+      Map.new(2..4, fn line_count ->
+        {line_count,
+         Map.get(interchange_counts, line_count, 0) * Ruleset.interchange_score(line_count)}
       end)
+
+    interchange_score = interchange_points |> Map.values() |> Enum.sum()
 
     achieved_objectives = achieved_objectives(game.objectives || [], player)
     objective_score = length(achieved_objectives) * Ruleset.objective_score()
@@ -319,6 +322,7 @@ defmodule D20.NextStationLondon.Rules do
       tourist_marks: tourist_marks,
       tourist_score: tourist_score,
       interchange_counts: interchange_counts,
+      interchange_points: interchange_points,
       interchange_score: interchange_score,
       achieved_objectives: achieved_objectives,
       objective_score: objective_score,

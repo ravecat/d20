@@ -490,7 +490,8 @@ defmodule D20Web.SessionChannelTest do
           phase: :turn,
           round: 1,
           reveals: [_first_reveal],
-          players: %{^actor_id => %{current_color: current_color, status: :pending}}
+          players: %{^actor_id => %{current_color: current_color, status: :pending}},
+          scores: %{^actor_id => %{interchange_points: %{2 => 0, 3 => 0, 4 => 0}}}
         }
       }
 
@@ -523,10 +524,12 @@ defmodule D20Web.SessionChannelTest do
                 self: spectator_id,
                 permissions: %{can_draw: false, can_pass: false},
                 options: %{sections: [], power: nil},
-                game: %{players: %{^actor_id => _owner_player}}
+                game: %{players: %{^actor_id => _owner_player}, scores: scores}
               }, _spectator_socket} = join_session_channel(session.id, spectator)
 
       assert spectator_id == spectator.id
+      encoded_scores = scores |> Jason.encode!() |> Jason.decode!()
+      assert encoded_scores[actor_id]["interchange_points"] == %{"2" => 0, "3" => 0, "4" => 0}
 
       assert {:ok, %{self: ^actor_id, options: %{sections: reconnect_sections}}, _socket} =
                join_session_channel(session.id, actor)

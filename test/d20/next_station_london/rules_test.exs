@@ -280,6 +280,30 @@ defmodule D20.NextStationLondon.RulesTest do
              }
     end
 
+    test "includes zero points for every absent interchange category" do
+      player = Game.initial_player()
+      score = Rules.score_player(%Game{}, player)
+
+      assert score.interchange_points == %{2 => 0, 3 => 0, 4 => 0}
+      assert score.interchange_score == 0
+    end
+
+    test "scores mixed interchange categories and sums their points" do
+      player =
+        Game.initial_player()
+        |> put_in([:lines, :green, :edges], ["r0c0-r0c1", "r0c1-r0c2", "r0c2-r0c4"])
+        |> put_in([:lines, :blue, :edges], ["r0c0-r0c1", "r0c1-r0c2", "r0c2-r0c4"])
+        |> put_in([:lines, :pink, :edges], ["r0c1-r0c2", "r0c2-r0c4"])
+        |> put_in([:lines, :purple, :edges], ["r0c2-r0c4"])
+
+      score = Rules.score_player(%Game{}, player)
+
+      assert score.interchange_counts == %{2 => 1, 3 => 1, 4 => 2}
+      assert score.interchange_points == %{2 => 2, 3 => 5, 4 => 18}
+      assert score.interchange_score == 25
+      assert score.total == score.line_total + score.tourist_score + 25
+    end
+
     test "caps tourist marks, scores interchanges, objectives, and solo penalties" do
       tourist_edges =
         Enum.map(Ruleset.tourist_station_ids(), fn station_id ->

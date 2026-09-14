@@ -25,7 +25,9 @@ defmodule D20.NextStationLondon.ProjectionTest do
                current_instruction: %{destination: :square},
                reveals: [%{cards: ["street_square"]}],
                players: %{"owner" => owner, "p2" => _other},
-               scores: %{"owner" => %{total: _total}},
+               scores: %{
+                 "owner" => %{total: _total, interchange_points: %{2 => 0, 3 => 0, 4 => 0}}
+               },
                outcome: nil
              }
            } = projection
@@ -130,6 +132,13 @@ defmodule D20.NextStationLondon.ProjectionTest do
 
     assert %{mode: :multiplayer, winners: winners} = projection.game.outcome
     assert winners != []
+
+    for score <- Map.values(projection.game.scores) do
+      assert score.interchange_points == %{2 => 0, 3 => 0, 4 => 0}
+      assert score.interchange_score == 0
+    end
+
+    assert projection.game.scores == Projection.render(scope("owner"), session).game.scores
     assert projection.options == empty_options()
     refute Map.has_key?(projection.game, :remaining_deck)
   end

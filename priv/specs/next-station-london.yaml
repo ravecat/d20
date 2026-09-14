@@ -775,6 +775,7 @@ components:
         - tourist_marks
         - tourist_score
         - interchange_counts
+        - interchange_points
         - interchange_score
         - achieved_objectives
         - objective_score
@@ -800,6 +801,21 @@ components:
           additionalProperties:
             type: integer
             minimum: 0
+        interchange_points:
+          type: object
+          description: Authoritative point subtotals for each interchange category, including zero values.
+          required: ["2", "3", "4"]
+          properties:
+            "2":
+              type: integer
+              minimum: 0
+            "3":
+              type: integer
+              minimum: 0
+            "4":
+              type: integer
+              minimum: 0
+          additionalProperties: false
         interchange_score:
           type: integer
           minimum: 0
