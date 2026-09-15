@@ -349,13 +349,13 @@
   .workspace__window-control {
     box-sizing: border-box;
     display: grid;
-    inline-size: 1.875rem;
-    block-size: 1.875rem;
+    inline-size: clamp(1.25rem, 0.9375rem + 1.25vw, 1.875rem);
+    block-size: clamp(1.25rem, 0.9375rem + 1.25vw, 1.875rem);
     place-items: center;
     border: 1px solid rgb(255 255 255 / 0.32);
     border-radius: var(--radius-sm);
     background: rgb(0 0 0 / 0.76);
-    padding: 0.25rem;
+    padding: clamp(0.125rem, 0.0625rem + 0.25vw, 0.25rem);
     color: white;
     cursor: pointer;
   }
@@ -385,8 +385,8 @@
   }
 
   .workspace__window-control svg {
-    inline-size: 0.9375rem;
-    block-size: 0.9375rem;
+    inline-size: clamp(0.75rem, 0.65625rem + 0.375vw, 0.9375rem);
+    block-size: clamp(0.75rem, 0.65625rem + 0.375vw, 0.9375rem);
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;

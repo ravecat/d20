@@ -152,6 +152,57 @@ export const AutoSelection: Story = {
   },
 };
 
+export const Fullscreen: Story = {
+  beforeEach: () => {
+    set({
+      sessions: [
+        {
+          id: "fullscreen",
+          game_id: "game_01h45yhtgqfhxbcrsfbhxdsdvy",
+          phase: "in_progress",
+          module: {
+            embed_url: "about:blank",
+            allowed_origins: ["null"],
+            sandbox: [],
+          },
+          connection: {
+            endpoint: "wss://module.example.test/socket",
+            topic: "session:fullscreen",
+            token: "token-fullscreen",
+          },
+        },
+      ],
+    });
+
+    return clear;
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const enterFullscreen = await canvas.findByRole("button", {
+      name: "Enter Game session fullscreen fullscreen",
+    });
+
+    // Fullscreen requires trusted user activation in browser tests.
+    if (import.meta.env.VITEST === "true") {
+      const { userEvent: browserUserEvent } = await import("vitest/browser");
+      await browserUserEvent.click(enterFullscreen);
+      await browserUserEvent.unhover(enterFullscreen);
+    } else {
+      await userEvent.click(enterFullscreen);
+    }
+
+    await expect(
+      await canvas.findByRole("button", { name: "Exit Game session fullscreen fullscreen" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Close Game session fullscreen" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Compact Game session fullscreen" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
 export const ConnectionStatuses: Story = {
   beforeEach: () => {
     set({
